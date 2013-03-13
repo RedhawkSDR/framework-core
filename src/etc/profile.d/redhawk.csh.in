@@ -1,0 +1,27 @@
+setenv OSSIEHOME @prefix@
+
+if ($?PATH) then
+    setenv PATH @bindir@:${PATH}
+else
+    setenv PATH @bindir@
+endif
+
+if ($?LD_LIBRARY_PATH) then
+    setenv LD_LIBRARY_PATH @libdir@:${LD_LIBRARY_PATH}
+else
+    setenv LD_LIBRARY_PATH @libdir@
+endif
+
+
+if ($?PYTHONPATH) then
+    setenv PYTHONPATH $OSSIEHOME/lib64/python:$OSSIEHOME/lib/python:${PYTHONPATH}
+else
+    setenv PYTHONPATH $OSSIEHOME/lib64/python:$OSSIEHOME/lib/python
+endif
+
+if ($?CLASSPATH) then
+    setenv CLASSPATH $OSSIEHOME/lib:${CLASSPATH}
+else
+    setenv CLASSPATH $OSSIEHOME/lib
+endif
+

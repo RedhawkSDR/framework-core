@@ -1,0 +1,78 @@
+This file is protected by Copyright. Please refer to the COPYRIGHT file 
+distributed with this source distribution.
+
+This file is part of REDHAWK core.
+
+REDHAWK core is free software: you can redistribute it and/or modify it under 
+the terms of the GNU Lesser General Public License as published by the Free 
+Software Foundation, either version 3 of the License, or (at your option) any 
+later version.
+
+REDHAWK core is distributed in the hope that it will be useful, but WITHOUT ANY 
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR 
+A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more 
+details.
+
+You should have received a copy of the GNU Lesser General Public License along 
+with this program.  If not, see http://www.gnu.org/licenses/.
+
+units = 0         M$UNITS_NAME = 'None (U)'
+        1         M$UNITS_NAME = 'Time (sec)'
+        2         M$UNITS_NAME = 'Delay (sec)'
+        3         M$UNITS_NAME = 'Frequency (Hz)'
+        4         M$UNITS_NAME = 'Time code format'
+        5         M$UNITS_NAME = 'Distance (m)'
+        6         M$UNITS_NAME = 'Speed (m/sec)'
+        7         M$UNITS_NAME = 'Acceleration (m/sec^2)'
+        8         M$UNITS_NAME = 'Jerk (m/sec^3)'
+        9         M$UNITS_NAME = 'Doppler (Hz)'
+        10        M$UNITS_NAME = 'Doppler rate (Hz/sec)'
+        11        M$UNITS_NAME = 'Energy (J)'
+        12        M$UNITS_NAME = 'Power (W)'
+        13        M$UNITS_NAME = 'Mass (g)'
+        14        M$UNITS_NAME = 'Volume (l)'
+        15        M$UNITS_NAME = 'Angular power density (W/ster)'
+        16        M$UNITS_NAME = 'Integrated power density (W/rad)'
+        17        M$UNITS_NAME = 'Spatial power density (W/m^2)'
+        18        M$UNITS_NAME = 'Integrated power density (W/m)'
+        19        M$UNITS_NAME = 'Spectral power density (W/MHz)'
+        20        M$UNITS_NAME = 'Amplitude (U)'
+        21        M$UNITS_NAME = 'Real (U)'
+        22        M$UNITS_NAME = 'Imaginary (U)'
+        23        M$UNITS_NAME = 'Phase (rad)'
+        24        M$UNITS_NAME = 'Phase (deg)'
+        25        M$UNITS_NAME = 'Phase (cycles)'
+        26        M$UNITS_NAME = '10*Log (U)'
+        27        M$UNITS_NAME = '20*Log (U)'
+        28        M$UNITS_NAME = 'Magnitude (U)'
+        29-30     M$UNITS_NAME = 'Unknown'
+        31        M$UNITS_NAME = 'General dimensionless'
+        32        M$UNITS_NAME = 'Counts'
+        33        M$UNITS_NAME = 'Angle (rad)'
+        34        M$UNITS_NAME = 'Angle (deg)'
+        35        M$UNITS_NAME = 'Relative power (dB)'
+        36        M$UNITS_NAME = 'Relative power (dBm)'
+        37        M$UNITS_NAME = 'Relative power (dBW)'
+        38        M$UNITS_NAME = 'Solid angle (ster)'
+        40        M$UNITS_NAME = 'Distance (ft)'
+        41        M$UNITS_NAME = 'Distance (nmi)'
+        42        M$UNITS_NAME = 'Speed (ft/sec)'
+        43        M$UNITS_NAME = 'Speed (nmi/sec)'
+        44        M$UNITS_NAME = 'Speed (knots=nmi/hr)'
+        45        M$UNITS_NAME = 'Acceleration (ft/sec^2)'
+        46        M$UNITS_NAME = 'Acceleration (nmi/sec^2)'
+        47        M$UNITS_NAME = 'Acceleration (knots/sec)'
+        48        M$UNITS_NAME = 'Acceleration (G)'
+        49        M$UNITS_NAME = 'Jerk (G/sec)'
+        50        M$UNITS_NAME = 'Rotation (rps)'
+        51        M$UNITS_NAME = 'Rotation (rpm)'
+        52        M$UNITS_NAME = 'Angular velocity (rad/sec)'
+        53        M$UNITS_NAME = 'Angular velocity (deg/sec)'
+        54        M$UNITS_NAME = 'Angular acceleration (rad/sec^2)'
+        55        M$UNITS_NAME = 'Angular acceleration (deg/sec^2)'
+        60        M$UNITS_NAME = 'Latitude (deg)'
+        61        M$UNITS_NAME = 'Longitude (deg)'
+        62        M$UNITS_NAME = 'Altitude (ft)'
+        63        M$UNITS_NAME = 'Altitude (m)'
+
+        64-100    M$UNITS_NAME = 'Unknown (U)'

@@ -1,0 +1,84 @@
+#!/usr/bin/env python
+#
+# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# distributed with this source distribution.
+# 
+# This file is part of REDHAWK core.
+# 
+# REDHAWK core is free software: you can redistribute it and/or modify it under 
+# the terms of the GNU Lesser General Public License as published by the Free 
+# Software Foundation, either version 3 of the License, or (at your option) any 
+# later version.
+# 
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+# FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# details.
+# 
+# You should have received a copy of the GNU Lesser General Public License 
+# along with this program.  If not, see http://www.gnu.org/licenses/.
+#
+
+
+USAGE="""\
+usage: %prog <domainname> <channelname>
+"""
+
+from omniORB import any
+from ossie.utils import redhawk
+from ossie.cf import CF
+import os
+
+try:
+    import CosEventComm,CosEventComm__POA
+    hasEvents = True
+except:
+    hasEvents = False
+
+# create a class for consuming events
+class Consumer_i(CosEventComm__POA.PushConsumer):
+    def __init__(self):
+        pass
+   
+    def push(self, data):
+        event = any.from_any(data)
+        print event
+    
+    def disconnect_push_consumer (self):
+        pass
+
+if __name__ == '__main__':
+    # Grab command line arguments and options
+    if not hasEvents:
+        parser.error("Events not installed")
+    import sys
+    from optparse import OptionParser
+
+    parser = OptionParser(usage=USAGE)
+
+    options, args = parser.parse_args()
+
+    try:
+        domainname = args[0]
+    except IndexError:
+        parser.error("no domain name provided")
+
+    try:
+        channelname = args[1]
+    except IndexError:
+        parser.error("no channel name provided")
+    
+    try:
+        dom = redhawk.attach(domainname)
+    except:
+        parser.error(domainname+" domain not found")
+    
+    _consumer = Consumer_i()
+    try:
+        dom.registerWithEventChannel(_consumer._this(), os.environ['USER']+str(os.getpid()), channelname)
+    except CF.DomainManager.InvalidEventChannelName:
+        parser.error(channelname+" is an invalid channel name")
+    
+    raw_input("Receiving events. Press 'enter' key to exit\n")
+
+    dom.unregisterFromEventChannel(os.environ['USER']+str(os.getpid()), channelname)
