@@ -20,7 +20,7 @@
 
 
 AM_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS)
-AM_LDFLAGS = $(BOOST_LDFLAGS) $(OMNIORB_LIBS) $(LOG4CXX_LIBS)
+AM_LDFLAGS = $(BOOST_LDFLAGS) $(BOOST_SYSTEM_LIB) $(OMNIORB_LIBS) $(OMNICOS_LIBS) $(LOG4CXX_LIBS)
 INCLUDES = -I../../../../../base/include -I../../../../../base/parser
 
 ossieName = ExecutableDevice

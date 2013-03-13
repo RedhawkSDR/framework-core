@@ -21,7 +21,7 @@
  
 #AM_CXXFLAGS = -Wall $(OMNIORB_CFLAGS) $(OMNITHREAD_CFLAGS) $(OMNIDYNAMIC_CFLAGS)
 #AM_LDFLAGS = -Wall $(OMNIORB_LIBS) $(OMNITHREAD_LIBS) $(OMNIDYNAMIC_LIBS)
-AM_LDFLAGS =  -no-install
+AM_LDFLAGS =  -no-install $(OMNIORB_LIBS) $(OMNITHREAD_LIBS) $(OMNIDYNAMIC_LIBS)
 INCLUDES = -I../../../../../../base/include -I../../../../../../base/parser
 
 noinst_PROGRAMS = SimpleComponent_cpp_impl1

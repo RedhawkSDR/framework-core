@@ -18,7 +18,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-AM_LDFLAGS =  -no-install
+AM_LDFLAGS =  -no-install $(OMNIORB_LIBS) $(OMNITHREAD_LIBS) $(OMNIDYNAMIC_LIBS) $(BOOST_SYSTEM_LIB)
 INCLUDES = -I../../../../../base/include -I../../../../../base/parser -I../linkedLibraryTest
 
 noinst_PROGRAMS = TestCppsoftpkgDeps

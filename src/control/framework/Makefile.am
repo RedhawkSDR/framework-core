@@ -38,12 +38,12 @@ libossiecf_la_SOURCES += EventChannelSupport.cpp
 endif
 
 libossiecf_la_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(OMNICOS_CFLAGS) $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS) $(PERSISTENCE_CFLAGS)
-libossiecf_la_LIBADD = $(BOOST_LDFLAGS) $(BOOST_FILESYSTEM_LIB) $(BOOST_SERIALIZATION_LIB) $(BOOST_REGEX_LIB) $(BOOST_LIBS) $(OMNICOS_LIBS) $(OMNIORB_LIBS) $(LOG4CXX_LIBS) $(PERSISTENCE_LIBS)
+libossiecf_la_LIBADD = $(BOOST_LDFLAGS) $(BOOST_SYSTEM_LIB) $(BOOST_FILESYSTEM_LIB) $(BOOST_SERIALIZATION_LIB) $(BOOST_REGEX_LIB) $(BOOST_LIBS) $(OMNICOS_LIBS) $(OMNIORB_LIBS) $(LOG4CXX_LIBS) $(PERSISTENCE_LIBS)
 libossiecf_la_LDFLAGS = -Wall
 
 bin_PROGRAMS = nodeBooter
 nodeBooter_SOURCES = nodebooter.cpp
-nodeBooter_LDADD = $(BOOST_FILESYSTEM_LIB) ../parser/libossieparser.la ./libossiecf.la idl/libossieidl.la
+nodeBooter_LDADD = $(BOOST_SYSTEM_LIB) $(BOOST_FILESYSTEM_LIB) ../parser/libossieparser.la ./libossiecf.la idl/libossieidl.la
 nodeBooter_LDFLAGS = -static
 bin_SCRIPTS = nodeCleanup.py
 
