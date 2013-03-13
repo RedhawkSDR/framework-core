@@ -58,6 +58,12 @@ class ConsoleAppender(logging.StreamHandler,object):
   # Supported log4j Options
   Target = property(fget=getTarget, fset=setTarget)
   def activateOptions(self):
+    if sys.hexversion >= 0x020700F0:
+      # strm was changed to stream
+      if self.log4pyProps.has_key("strm"):
+        # Don't override stream if it already exists
+        self.log4pyProps.setdefault("stream", self.log4pyProps["strm"])
+        del self.log4pyProps["strm"]
     logging.StreamHandler.__init__(self, **self.log4pyProps)
     self.setLevel(self.threshold)
 
