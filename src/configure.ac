@@ -191,6 +191,10 @@ AM_CONDITIONAL(INSTALL_PYTHON_BACKPORTS, test "$PYTHON_VERSION" = "2.3")
 AC_CHECK_PYMODULE(logging ,[], [AC_MSG_ERROR([the python logging module is required])])
 AC_CHECK_PYMODULE(subprocess, [], [AC_MSG_ERROR([the python subprocess module is required])])
 AC_CHECK_PYMODULE(omniORB, [], [AC_MSG_ERROR([the python omniORB module is required])])
+if test -d /usr/lib/omniidl; then # for debian-based systems
+  export PYTHONPATH=${PYTHONPATH}:/usr/lib/omniidl
+fi
+AC_CHECK_PYMODULE(omniidl, [], [AC_MSG_ERROR([the python omniidl module is required])])
 
 AC_LANG_POP
 AC_HEADER_SYS_WAIT

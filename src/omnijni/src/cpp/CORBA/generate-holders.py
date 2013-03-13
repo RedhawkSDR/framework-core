@@ -20,6 +20,61 @@
 #
 
 import sys
+import os, os.path
+
+# Copy of path-building logic from omniidl
+pylibdir   = archlibdir = None
+binarchdir = os.path.abspath(os.path.dirname(sys.argv[0]))
+
+# Try a path based on the installation prefix, customised for Debian
+sppath = "/usr/lib/omniidl"
+
+if os.path.isdir(sppath):
+    sys.path.append(sppath)
+
+# Paths in a traditional omni tree
+if binarchdir != "":
+    sys.path.insert(0, binarchdir)
+    bindir, archname = os.path.split(binarchdir)
+    treedir, bin     = os.path.split(bindir)
+    if bin == "bin":
+        pylibdir    = os.path.join(treedir, "lib", "python")
+        vpylibdir   = pylibdir + sys.version[:3] + "/site-packages"
+        vpylib64dir = (os.path.join(treedir, "lib64", "python") +
+                       sys.version[:3] + "/site-packages")
+        archlibdir  = os.path.join(treedir, "lib", archname)
+
+        if os.path.isdir(pylibdir):
+            sys.path.insert(0, pylibdir)
+
+        if os.path.isdir(vpylib64dir):
+            sys.path.insert(0, vpylib64dir)
+
+        if os.path.isdir(vpylibdir):
+            sys.path.insert(0, vpylibdir)
+
+        if os.path.isdir(archlibdir):
+            sys.path.insert(0, archlibdir)
+
+    elif archname == "bin":
+        pylibdir    = os.path.join(bindir, "lib", "python")
+        vpylibdir   = pylibdir + sys.version[:3] + "/site-packages"
+        vpylib64dir = (os.path.join(bindir, "lib64", "python") +
+                       sys.version[:3] + "/site-packages")
+        archlibdir  = os.path.join(bindir, "lib")
+
+        if os.path.isdir(pylibdir):
+            sys.path.insert(0, pylibdir)
+
+        if os.path.isdir(vpylib64dir):
+            sys.path.insert(0, vpylib64dir)
+
+        if os.path.isdir(vpylibdir):
+            sys.path.insert(0, vpylibdir)
+
+        if os.path.isdir(archlibdir):
+            sys.path.insert(0, archlibdir)
+
 from omniidl import idlast, idltype
 from omnijni import cppcode
 from omnijni import idljni

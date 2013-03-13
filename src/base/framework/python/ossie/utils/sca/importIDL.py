@@ -18,9 +18,11 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
+from ossie.utils.idl import omniidl
 from omniidl import idlast, idlvisitor, idlutil, main, idltype
+from ossie.utils.idl import omniidl_be
 from omniidl_be.cxx import types
-import _omniidl
+from ossie.utils.idl import _omniidl
 import os
 try:
     from omniORB import URI, any, CORBA
