@@ -43,3 +43,8 @@ REDHAWK framework.
 2. Comment out the line "DefaultInitRef = corbaloc::"
 3. Add the line "InitRef = NameService=corbaname::localhost"
 4. Add the line "EventService=corbaloc::localhost:11169/omniEvents"
+
+## Known Issues
+
+1. The omnievent server has a bug in it that causes it to crash while running the
+associated unittests (i.e. test_08_*).
