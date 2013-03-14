@@ -229,6 +229,7 @@ if test "$HAVE_JAVASUPPORT" = yes; then
   # Install omnijni's Python files per the install scheme (it does not use a setup.py).
   if test "$PYTHON_INSTALL_SCHEME" = "home"; then
     pythondir='${prefix}/lib/python'
+    pkgpythondir='${prefix}/lib/python/ossie'
   fi
 
   # Set flags and variables for building with omnijni
