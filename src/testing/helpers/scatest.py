@@ -143,43 +143,42 @@ GDB_CMD_FILE=None
 def spawnNodeBooter(dmdFile=None, dcdFile=None, debug=0, domainname=None, loggingURI=None, endpoint=None, dbURI=None, execparams=""):
     args = []
     if dmdFile != None:
-        args.append("-D %s" % dmdFile)
+        args.extend(["-D", dmdFile])
     if dcdFile != None:
-        args.append("-d %s" % dcdFile)
+        args.extend(["-d", dcdFile])
     if domainname == None:
         # Always use the --domainname argument because
         # we don't want to have to read the DCD files or regnerate them
-        args.append("--domainname %s" % getTestDomainName())
+        args.extend(["--domainname", getTestDomainName()])
     else:
-        args.append("--domainname %s" % domainname)
+        args.extend(["--domainname", domainname])
 
     if endpoint == None:
-        args.append("--nopersist ")
+        args.append("--nopersist")
     else:
-        args.append("-ORBendPoint %s" % endpoint)
+        args.extend(["-ORBendPoint", endpoint])
 
     if dbURI:
-        args.append("-dburl %s" % dbURI)
+        args.extend(["-dburl", dbURI])
 
-    args.append("-debug %d" % debug)
+    args.extend(["-debug", str(debug)])
     if loggingURI is not None:
         if loggingURI:
-            args.append("-log4cxx %s" % loggingURI)
+            args.extend(["-log4cxx", loggingURI])
     else:
         logconfig = getLogConfig()
         if os.path.exists(logconfig):
-            args.append("-log4cxx %s" % logconfig)
+            args.extend(["-log4cxx", logconfig])
         else:
             print "Could not find Log Conf file <" + logconfig + '>'
             print "Not using a log configuration file"
-    argstr = " ".join(args)
-    argstr = '%s %s' % (argstr, execparams)
-    
+    args.extend(execparams.split(" "))
+    args.insert(0, "../../control/framework/nodeBooter")
 
     print '\n-------------------------------------------------------------------'
-    print 'Launching nodeBooter', argstr
+    print 'Launching nodeBooter', " ".join(args)
     print '-------------------------------------------------------------------'
-    nb = ossie.utils.Popen("../../control/framework/nodeBooter %s" % (argstr), cwd=getSdrPath(), shell=True)
+    nb = ossie.utils.Popen(args, cwd=getSdrPath(), shell=False, preexec_fn=os.setpgrp)
     if DEBUG_NODEBOOTER:
         absNodeBooterPath = os.path.abspath("../control/framework/nodeBooter")
         if GDB_CMD_FILE != None:
