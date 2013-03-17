@@ -188,7 +188,7 @@ public:
 
     virtual void setValue (const CORBA::Any& newValue)
     {
-        if (fromAny(newValue, value_)) {
+        if (this->fromAny(newValue, value_)) {
             isNil_ = false;
         } else {
             isNil_ = enableNil_;
@@ -216,7 +216,7 @@ public:
         }
 
         value_type tmp;
-        if (fromAny(a, tmp)) {
+        if (this->fromAny(a, tmp)) {
             if (tmp != this->value_) {
                 return 1;
             }
@@ -331,7 +331,7 @@ public:
         }
 
         value_type tmp;
-        if (fromAny(a, tmp)) {
+        if (this->fromAny(a, tmp)) {
             if (tmp < super::value_) {
                 return -1;
             }
@@ -348,7 +348,7 @@ public:
     {
         if (!super::isNil_) {
             value_type tmp;
-            if (fromAny(a, tmp)) {
+            if (this->fromAny(a, tmp)) {
                 super::value_ += tmp;
             }
         }
@@ -358,7 +358,7 @@ public:
     {
         if (!super::isNil_) {
             value_type tmp;
-            if (fromAny(a, tmp)) {
+            if (this->fromAny(a, tmp)) {
                 super::value_ -= tmp;
             }
         }
@@ -416,7 +416,7 @@ public:
 
     virtual void setValue (const CORBA::Any& newValue)
     {
-        fromAny(newValue, value_);
+        this->fromAny(newValue, value_);
     }
 
     virtual void isNil (bool nil)
@@ -445,7 +445,7 @@ public:
         }
 
         value_type tmp;
-        if (fromAny(a, tmp)) {
+        if (this->fromAny(a, tmp)) {
             if (tmp.size() != this->value_.size()) {
                 return 1;
             }
@@ -608,7 +608,7 @@ public:
         }
 
         value_type tmp;
-        if (fromAny(a, tmp)) {
+        if (this->fromAny(a, tmp)) {
             if (tmp != super::value_) {
                 return 1;
             }
@@ -652,7 +652,7 @@ public:
 
     virtual void setValue (const CORBA::Any& newValue)
     {
-        fromAny(newValue, value_);
+        this->fromAny(newValue, value_);
     }
 
     virtual const value_type& getValue (void)
