@@ -1,5 +1,36 @@
 # REDHAWK Core Framework Ubuntu Instructions
 
+## Are you sure you want to build from source?
+
+If you just want to use REDHAWK, it is far easier to use the REDHAWK PPA.
+
+https://launchpad.net/~axios/+archive/redhawk
+
+For Ubuntu 12.04 and 12.10 you can get started with the following steps:
+    
+    sudo add-apt-repository ppa:axios/redhawk
+    sudo apt-get update
+    sudo apt-get install redhawk \
+                         redhawk-sdrroot-dom-mgr \
+                         redhawk-sdrroot-dev-mgr \
+                         redhawk-sdrroot-dom-profile \
+                         redhawk-bulkiointerfaces \
+                         redhawk-device-gpp
+
+If you plan on doing building REDHAWK components or devices, you will want to
+prepare your system with the proper build tools and libraries:
+
+    sudo apt-get install build-essential \
+                         libboost-dev \
+                         libboost-system-dev \
+                         libboost-filesystem-dev \
+                         libboost-regex-dev \
+                         libboost-thread-dev \
+                         libcos4-dev \
+                         libomnievents-dev \
+                         libomniorb4-dev \
+                         liblog4cxx10-dev
+
 ## Install Dependencies
 
     sudo apt-get install build-essential \
