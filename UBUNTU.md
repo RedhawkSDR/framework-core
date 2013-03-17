@@ -5,17 +5,24 @@
     sudo apt-get install build-essential \
                          openjdk-6-jdk \
                          python-omniorb \
-                         libboost1.46-dev \
+                         libboost-dev \
+                         libboost-system-dev \
+                         libboost-filesystem-dev \
+                         libboost-regex-dev \
+                         libboost-thread-dev \
                          omnievents \
                          omniidl \
                          omniidl-python \
                          omniorb \
                          omniorb-idl \
                          omniorb-nameserver \
+                         libcos4-dev \
                          libomnievents-dev \
                          libomniorb4-dev \
                          xsdcxx \
                          python-numpy \
+                         python-omniorb \
+                         omniidl-python \
                          liblog4cxx10-dev
                          
 ## Setup JAVA_HOME
@@ -40,7 +47,7 @@ Use the build_src.sh script or within the src folder execute:
 The default Ubuntu configuration needs modifications to work with the baseline
 REDHAWK framework.
 
-1. Increase the giopMaxMessageSize to 10485760 (i.e. 10MB)
+1. Increase the giopMaxMsgSize to 10485760 (i.e. 10MB)
 2. Comment out the line "DefaultInitRef = corbaloc::"
 3. Add the line "InitRef = NameService=corbaname::localhost"
 4. Add the line "EventService=corbaloc::localhost:11169/omniEvents"
