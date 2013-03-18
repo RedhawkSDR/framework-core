@@ -17,6 +17,23 @@ For Ubuntu 12.04 and 12.10 you can get started with the following steps:
                          redhawk-bulkiointerfaces \
                          redhawk-device-gpp
 
+Per REDHAWK conventions certian environment variables need to be defined.  When
+you install REDHAWK it creates scripts that will set these up for you, but by default
+gnome-terminal sessions will not correctly source them.
+
+To have gnome-terminal start bash as a login shell do the following:
+
+1. start a gnome-terminal.
+2. go to Edit -> Profile Preferences -> Title and Command
+3. enable "Run Command as a login shell".
+4. restart the gnome-terminal.
+
+Bash should now start as a login shell and thus will read /etc/profile.d.
+Alternatively, you can add the following lines to your ~/.bashrc
+
+    . /etc/profile.d/redhawk.sh
+    . /etc/profile.d/redhawk-sdrroot.sh
+
 If you plan on doing building REDHAWK components or devices, you will want to
 prepare your system with the proper build tools and libraries:
 
