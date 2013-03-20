@@ -146,3 +146,26 @@ Follow the tutorial to configure a DeviceManager node that contains a GPP device
 
 1. The omnievent server has a bug in it that causes it to crash while running the
 associated unittests (i.e. test_08_*).
+
+2. Ubuntu uses 'dash' for /bin/sh while many of the REDHAWK build scripts expect /bin/sh to
+be 'bash'.  You have two choices:
+
+   sudo dpkg-reconfigure dash # Answer no
+
+This will make bash your /bin/sh shell; this may make your system boot ever so slightly slower.
+
+The other alternative is to install a code-generator patch following the directions here
+https://github.com/Axios-Engineering/redhawk-ide-patch-updatesite
+
+3. Ubuntu places the omniidl library outside of the Python Path.  When using the IDE code
+generators this must be importable.  You have a a few choices to fix this issue:
+
+The best option is to install the patches from https://github.com/Axios-Engineering/redhawk-ide-patch-updatesite.
+
+Alternativly, you can symlink omniidl into the dist-packages folder:
+
+   sudo ln -s /usr/lib/omniidl/omniidl /usr/lib/python2.7/dist-packages/omniidl
+
+Finally, you can manually add /usr/lib/omniidl/omniidl to your PyDev interpreter configuration.
+
+ 
