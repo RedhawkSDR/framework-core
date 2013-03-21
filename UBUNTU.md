@@ -1,9 +1,9 @@
 # REDHAWK Core Framework Ubuntu Instructions
 
-## Are you sure you want to build from source?
+## Installing REDHAWK
 
-If you just want to use REDHAWK, it is far easier to use the REDHAWK PPA.
-
+If you just want to use REDHAWK, it is far easier to use the REDHAWK PPA than
+to build from source.  The PPA is located here:
 https://launchpad.net/~axios/+archive/redhawk
 
 For Ubuntu 12.04 and 12.10 you can get started with the following steps:
@@ -16,6 +16,8 @@ For Ubuntu 12.04 and 12.10 you can get started with the following steps:
                          redhawk-sdrroot-dom-profile \
                          redhawk-bulkiointerfaces \
                          redhawk-device-gpp
+
+## Configuring your terminal to load the REDHAWK environment
 
 Per REDHAWK conventions certian environment variables need to be defined.  When
 you install REDHAWK it creates scripts that will set these up for you, but by default
@@ -34,6 +36,28 @@ Alternatively, you can add the following lines to your ~/.bashrc
     . /etc/profile.d/redhawk.sh
     . /etc/profile.d/redhawk-sdrroot.sh
 
+## Setting up /etc/omniORB.cfg
+
+The default Ubuntu configuration needs modifications to work with the baseline
+REDHAWK framework.
+
+1. Increase the giopMaxMsgSize to 10485760 (i.e. 10MB)
+2. Comment out the line "DefaultInitRef = corbaloc::"
+3. Add the line "InitRef = NameService=corbaname::localhost"
+4. Add the line "EventService=corbaloc::localhost:11169/omniEvents"
+
+## Setup JAVA_HOME
+
+The REDHAWK runtime and build process expect the JAVA_HOME environment variable
+to be set.  Set this to a JDK installed in /usr/lib/jvm. For example:
+
+    export JAVA_HOME /usr/lib/jvm/java-6-openjdk-amd64
+
+You may prefer to set this in your ~/.bashrc or equivalent.
+
+
+## Configuring your system to support building components/devices
+
 If you plan on doing building REDHAWK components or devices, you will want to
 prepare your system with the proper build tools and libraries:
 
@@ -47,100 +71,6 @@ prepare your system with the proper build tools and libraries:
                          libomnievents-dev \
                          libomniorb4-dev \
                          liblog4cxx10-dev
-
-## Install Dependencies
-
-    sudo apt-get install build-essential \
-                         openjdk-6-jdk \
-                         python-omniorb \
-                         libboost-dev \
-                         libboost-system-dev \
-                         libboost-filesystem-dev \
-                         libboost-regex-dev \
-                         libboost-thread-dev \
-                         omnievents \
-                         omniidl \
-                         omniidl-python \
-                         omniorb \
-                         omniorb-idl \
-                         omniorb-nameserver \
-                         libcos4-dev \
-                         libomnievents-dev \
-                         libomniorb4-dev \
-                         xsdcxx \
-                         python-numpy \
-                         python-omniorb \
-                         omniidl-python \
-                         liblog4cxx10-dev
-                         
-## Setup JAVA_HOME
-
-The REDHAWK runtime and build process expect the JAVA_HOME environment variable
-to be set.  Set this to a JDK installed in /usr/lib/jvm. For example:
-
-    export JAVA_HOME /usr/lib/jvm/java-6-openjdk-amd64
-
-You may prefer to set this in your ~/.bashrc or equivalent.
-
-## Running the build
-
-Use the build_src.sh script or within the src folder execute:
-
-    ./reconf
-    ./configure --with-ossie=/usr/local/redhawk/core --with-sdr=/var/redhawk/sdr
-    make
-
-## Setting up /etc/omniORB.cfg
-
-The default Ubuntu configuration needs modifications to work with the baseline
-REDHAWK framework.
-
-1. Increase the giopMaxMsgSize to 10485760 (i.e. 10MB)
-2. Comment out the line "DefaultInitRef = corbaloc::"
-3. Add the line "InitRef = NameService=corbaname::localhost"
-4. Add the line "EventService=corbaloc::localhost:11169/omniEvents"
-
-## Installation
-
-Installation can be performed by running:
-
-    sudo make install
-
-However, you may prefer to use the checkinstall tool so that you can easily uninstall.
-
-    sudo checkinstall --provides=redhawk --pkgversion=1.8.3 --pkgname=redhawk make install
-
-Before running REDHAWK you will need to set the OSSIEHOME and SDRROOT environment
-variables.  This can be done in your ~/.bashrc.
-
-    export OSSIEHOME=/usr/local/redhawk/core
-    export SDRROOT=/var/redhawk/sdr
-    export PYTHONPATH=${OSSIEHOME}/lib/python
-
-## BULKIO and GPP
-
-The bulkioInterfaces project requires minor patches (available on the
-AxiosEngineering/framework-bulkioInterface repo) because of the way that Python
-2.7 distutils interacts with the Makefile.  You can follow the same
-"checkinstall" technique used for the core framework for both of these
-packages.
-
-    sudo checkinstall --provides=redhawk-bulkio --pkgversion=1.8.3 --pkgname=redhawk-bulkio make install
-
-The GPP project works as-is (if you use ./reconf; ./configure; make), installing it is simple:
-
-    sudo checkinstall --provides=redhawk-gpp --pkgversion=1.8.3 --pkgname=redhawk-gpp make install
-
-## Configuring a domain
-
-Unlike the RPM (and soon to be .DEB) you need to manually configure a domain.
-The simply approach is: 
-
-    sudo cp /var/redhawk/sdr/dom/domain/DomainManager.dmd.xml.template /var/redhawk/sdr/dom/domain/DomainManager.dmd.xml
-
-Then replace @UUID@, @NAME@, and @DESCRIPTION@. 
-
-Follow the tutorial to configure a DeviceManager node that contains a GPP device.
 
 ## Known Issues
 
@@ -168,4 +98,76 @@ Alternativly, you can symlink omniidl into the dist-packages folder:
 
 Finally, you can manually add /usr/lib/omniidl/omniidl to your PyDev interpreter configuration.
 
- 
+## Building from source
+
+If you really, really, really want to build from source, you can
+replace the PPA install steps with the following:
+
+    git clone git@github.com:Axios-Engineering/framework-core.git
+    git checkout -b ubuntu origin/ubuntu
+
+    sudo apt-get install build-essential \
+                         openjdk-6-jdk \
+                         python-omniorb \
+                         libboost-dev \
+                         libboost-system-dev \
+                         libboost-filesystem-dev \
+                         libboost-regex-dev \
+                         libboost-thread-dev \
+                         omnievents \
+                         omniidl \
+                         omniidl-python \
+                         omniorb \
+                         omniorb-idl \
+                         omniorb-nameserver \
+                         libcos4-dev \
+                         libomnievents-dev \
+                         libomniorb4-dev \
+                         xsdcxx \
+                         python-numpy \
+                         python-omniorb \
+                         omniidl-python \
+                         liblog4cxx10-dev
+    
+    cd src                     
+    ./reconf
+    ./configure --with-ossie=/usr/local/redhawk/core --with-sdr=/var/redhawk/sdr
+    make
+
+Installation can be performed by running:
+
+    sudo make install
+
+However, you may prefer to use the checkinstall tool so that you can easily uninstall.
+
+    sudo checkinstall --provides=redhawk --pkgversion=1.8.3 --pkgname=redhawk make install
+
+Before running REDHAWK you will need to set the OSSIEHOME and SDRROOT environment
+variables.  This can be done in your ~/.bashrc.
+
+    export OSSIEHOME=/usr/local/redhawk/core
+    export SDRROOT=/var/redhawk/sdr
+    export PYTHONPATH=${OSSIEHOME}/lib/python
+
+The bulkioInterfaces project requires minor patches (available on the
+AxiosEngineering/framework-bulkioInterface repo) because of the way that Python
+2.7 distutils interacts with the Makefile.  You can follow the same
+"checkinstall" technique used for the core framework for both of these
+packages.
+
+    sudo checkinstall --provides=redhawk-bulkio --pkgversion=1.8.3 --pkgname=redhawk-bulkio make install
+
+The GPP project works as-is (if you use ./reconf; ./configure; make), installing it is simple:
+
+    sudo checkinstall --provides=redhawk-gpp --pkgversion=1.8.3 --pkgname=redhawk-gpp make install
+
+## Configuring a domain
+
+Unlike the RPM (and soon to be .DEB) you need to manually configure a domain.
+The simply approach is: 
+
+    sudo cp /var/redhawk/sdr/dom/domain/DomainManager.dmd.xml.template /var/redhawk/sdr/dom/domain/DomainManager.dmd.xml
+
+Then replace @UUID@, @NAME@, and @DESCRIPTION@. 
+
+Follow the tutorial to configure a DeviceManager node that contains a GPP device.
