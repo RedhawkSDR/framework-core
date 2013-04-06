@@ -26,6 +26,7 @@
 
 #include <fnmatch.h>
 
+#include <boost/filesystem.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/exception.hpp>
@@ -56,8 +57,10 @@ FileSystem_impl::FileSystem_impl ()
     bool fsOpSuccess = false;
     while (!fsOpSuccess) {
         try {
+#if BOOST_FILESYSTEM_VERSION < 3
             if (fs::path::default_name_check_writable())
                 { fs::path::default_name_check(fs::portable_posix_name); }
+#endif
 
             root = fs::initial_path();
             fsOpSuccess = true;
@@ -288,7 +291,7 @@ CF::FileSystem::FileInformationSequence* FileSystem_impl::list (const char* patt
     if ((filePath.filename() == ".") && (fs::is_directory(filePath))) {
         searchPattern = "*";
     } else {
-        searchPattern = filePath.filename();
+        searchPattern = filePath.filename().string();
     }
 
     LOG_TRACE(FileSystem_impl, "[FileSystem::list] using searchPattern " << searchPattern << " in " << filePath.parent_path());
@@ -303,12 +306,12 @@ CF::FileSystem::FileInformationSequence* FileSystem_impl::list (const char* patt
     while (!fsOpSuccess) {
         try {
             for (fs::directory_iterator itr(dirPath); itr != end_itr; ++itr) {
-                if (fnmatch(searchPattern.c_str(), itr->filename().c_str(), 0) == 0) {
-                    if ((itr->filename().length() > 0) && (itr->filename()[0] == '.') && (itr->filename() != searchPattern)) {
-                        LOG_TRACE(FileSystem_impl, "[FileSystem::list] found hidden match and ignoring " << itr->filename());
+                if (fnmatch(searchPattern.c_str(), itr->path().filename().c_str(), 0) == 0) {
+                    if ((!itr->path().empty()) && (itr->path().filename().string()[0] == '.') && (itr->path().filename() != searchPattern)) {
+                        LOG_TRACE(FileSystem_impl, "[FileSystem::list] found hidden match and ignoring " << itr->path().filename());
                         continue;
                     }
-                    LOG_TRACE(FileSystem_impl, "[FileSystem::list] match in list with " << itr->filename());
+                    LOG_TRACE(FileSystem_impl, "[FileSystem::list] match in list with " << itr->path().filename());
                     CORBA::ULong index = result->length();
                     result->length(index + 1);
                    
@@ -316,7 +319,7 @@ CF::FileSystem::FileInformationSequence* FileSystem_impl::list (const char* patt
                     if (strlen(pattern) == 0) {
                         result[index].name = CORBA::string_dup("/");
                     } else {
-                        result[index].name = CORBA::string_dup(itr->filename().c_str());
+                        result[index].name = CORBA::string_dup(itr->path().filename().c_str());
                     }
                     bool readonly = (access(itr->path().string().c_str(), W_OK));
                     if (fs::is_directory(*itr)) {
@@ -329,7 +332,7 @@ CF::FileSystem::FileInformationSequence* FileSystem_impl::list (const char* patt
                         } catch ( ... ) {
                             // this file is not good (i.e.: bad link)
                             result->length(index);
-                            LOG_WARN(FileSystem_impl, "[FileSystem::list] found a file that cannot be evaluated: " << itr->filename() << ". Not listing it.");
+                            LOG_WARN(FileSystem_impl, "[FileSystem::list] found a file that cannot be evaluated: " << itr->path().filename() << ". Not listing it.");
                             continue;
                         }
                     }
@@ -345,7 +348,7 @@ CF::FileSystem::FileInformationSequence* FileSystem_impl::list (const char* patt
                     prop[3].id = CORBA::string_dup("READ_ONLY");
                     prop[3].value <<= CORBA::Any::from_boolean(readonly);
                     prop[4].id = CORBA::string_dup("IOR_AVAILABLE");
-                    std::string localFilename = itr->string();
+                    std::string localFilename = itr->path().string();
                     prop[4].value = ossie::strings_to_any(getFileIOR(localFilename), CORBA::tk_string);
                     result[index].fileProperties = prop;
                 }

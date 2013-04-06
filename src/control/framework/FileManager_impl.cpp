@@ -23,6 +23,7 @@
 #include <string>
 #include <algorithm>
 
+#include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/exception.hpp>
 
@@ -37,6 +38,10 @@
 #endif
 
 namespace fs = boost::filesystem;
+
+#if BOOST_FILESYSTEM_VERSION >= 3
+#include <boost/filesystem/operations.hpp>
+#endif
 
 #include "ossie/FileManager_impl.h"
 #include "ossie/debug.h"
@@ -57,9 +62,10 @@ FileManager_impl::FileManager_impl (const char* _fsroot): FileSystem_impl (_fsro
     bool fsOpSuccess = false;
     while (!fsOpSuccess) {
         try {
+#if BOOST_FILESYSTEM_VERSION < 3
             if (fs::path::default_name_check_writable())
                 { fs::path::default_name_check(boost::filesystem::portable_posix_name); }
-
+#endif
             numMounts = 0;
             mount_table = new CF::FileManager::MountSequence(5);
             fsOpSuccess = true;

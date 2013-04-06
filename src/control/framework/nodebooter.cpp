@@ -704,13 +704,13 @@ int main(int argc, char* argv[])
         // Loops to find the sdr root from given path
         for (bool foundSdr = false ; !foundSdr; ){
             if (fs::exists(path)){
-                if (path.filename().compare(SDR_FOLDER) == 0){
+                if (path.filename().string().compare(SDR_FOLDER) == 0){
                     sdrRootPath = path.string();
                     foundSdr = true;
-                } else if (path.filename().compare(DOM_FOLDER) == 0){
+                } else if (path.filename().string().compare(DOM_FOLDER) == 0){
                     dmdPath = "/" + DOM_FOLDER + temp;
                 }
-                temp = "/" + path.filename() + temp;
+                temp = "/" + path.filename().string() + temp;
                 path = path.parent_path();
             } else {
                 std::cerr << "[nodeBooter] ERROR: can't find relative dmd.xml path" << std::endl;
@@ -736,14 +736,14 @@ int main(int argc, char* argv[])
         // Loops to find the sdr root from given path
         for (bool foundSdr = false; !foundSdr; ){
             if (fs::exists(path)){
-                if (path.filename().compare(SDR_FOLDER) == 0){
+                if (path.filename().string().compare(SDR_FOLDER) == 0){
                     sdrRootPath = path.string();
                     foundSdr = true;
-                } else if (path.filename().compare(NODE_FOLDER) == 0){
+                } else if (path.filename().string().compare(NODE_FOLDER) == 0){
                     dcdPath = "/" + NODE_FOLDER + temp;
                 }
 
-                temp = "/" + path.filename() + temp;
+                temp = "/" + path.filename().string() + temp;
                 path = path.parent_path();
             } else {
                 std::cerr << "[nodeBooter] ERROR: can't find relative dcd.xml path" << std::endl;
