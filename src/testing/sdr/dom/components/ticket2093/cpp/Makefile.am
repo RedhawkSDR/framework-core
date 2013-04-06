@@ -37,5 +37,5 @@ noinst_PROGRAMS = ticket2093
 # to manually control these options.
 #include $(srcdir)/Makefile.am.ide
 ticket2093_SOURCES = main.cpp  port_impl.cpp  ticket2093_base.cpp  ticket2093.cpp port_impl.h  struct_props.h  ticket2093_base.h  ticket2093.h
-ticket2093_LDADD = $(BOOST_LIBS) ../../../../../../base/framework/libossiecf.la ../../../../../../base/parser/libossieparser.la ../../../../../../base/framework/idl/libossieidl.la $(BOOST_FILESYSTEM_LIB) $(BOOST_REGEX_LIB) $(BOOST_THREAD_LIB) -lboost_serialization
+ticket2093_LDADD = $(BOOST_LDFLAGS) $(BOOST_LIBS) ../../../../../../base/framework/libossiecf.la ../../../../../../base/parser/libossieparser.la ../../../../../../base/framework/idl/libossieidl.la $(BOOST_FILESYSTEM_LIB) $(BOOST_REGEX_LIB) $(BOOST_THREAD_LIB) $(BOOST_SYSTEM_LIB) -lboost_serialization
 #ticket2093_LDFLAGS = $(redhawk_LDFLAGS_auto)

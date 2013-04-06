@@ -42,6 +42,7 @@ libossiecf_la_LIBADD = $(BOOST_LDFLAGS) $(BOOST_SYSTEM_LIB) $(BOOST_FILESYSTEM_L
 libossiecf_la_LDFLAGS = -Wall
 
 bin_PROGRAMS = nodeBooter
+nodeBooter_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(OMNICOS_CFLAGS) $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS) $(PERSISTENCE_CFLAGS)
 nodeBooter_SOURCES = nodebooter.cpp
 nodeBooter_LDADD = $(BOOST_SYSTEM_LIB) $(BOOST_FILESYSTEM_LIB) ../parser/libossieparser.la ./libossiecf.la idl/libossieidl.la
 nodeBooter_LDFLAGS = -static
