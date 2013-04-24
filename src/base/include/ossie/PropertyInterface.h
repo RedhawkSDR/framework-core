@@ -331,7 +331,7 @@ public:
         }
 
         value_type tmp;
-        if (fromAny(a, tmp)) {
+        if (this->fromAny(a, tmp)) {
             if (tmp < super::value_) {
                 return -1;
             }
@@ -348,7 +348,7 @@ public:
     {
         if (!super::isNil_) {
             value_type tmp;
-            if (fromAny(a, tmp)) {
+            if (this->fromAny(a, tmp)) {
                 super::value_ += tmp;
             }
         }
@@ -358,7 +358,7 @@ public:
     {
         if (!super::isNil_) {
             value_type tmp;
-            if (fromAny(a, tmp)) {
+            if (this->fromAny(a, tmp)) {
                 super::value_ -= tmp;
             }
         }
