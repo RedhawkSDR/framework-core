@@ -25,6 +25,7 @@ from omniORB import CORBA, any
 import os
 from ossie.utils import sb
 from ossie.utils import type_helpers
+globalsdrRoot = os.environ['SDRROOT']
 
 class SBTestTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -38,9 +39,11 @@ class SBTestTest(scatest.CorbaTestCase):
     def tearDown(self):
         sb.domainless._cleanUpLaunchedComponents()
         sb.setDEBUG(False)
+        os.environ['SDRROOT'] = globalsdrRoot
 
     def test_catalog(self):
         # Store orig sdrroot
+        sb.domainless._currentState['SDRROOT'] = None
         sdrRoot = os.environ.pop('SDRROOT')
         
         # No SDRROOT env

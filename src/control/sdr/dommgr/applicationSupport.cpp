@@ -856,7 +856,7 @@ ComponentInfo::ComponentInfo() :
 
 ComponentInfo::~ComponentInfo ()
 {
-    for (std::vector<ImplementationInfo*>::iterator ii = implementations.begin(); ii != implementations.end(); ++ii) {
+    for ( ImplementationInfo::List::iterator ii = implementations.begin(); ii != implementations.end(); ++ii) {
         delete *ii;
     }
 }
@@ -1048,9 +1048,9 @@ const ImplementationInfo* ComponentInfo::getSelectedImplementation() const
     return selectedImplementation;
 }
 
-const std::vector<ImplementationInfo*>& ComponentInfo::getImplementations() const
+void ComponentInfo::getImplementations( ImplementationInfo::List &res)
 {
-    return implementations;
+    std::copy( implementations.begin(), implementations.end(), std::back_inserter(res) );
 }
 
 const char* ComponentInfo::getImplPRFFile()

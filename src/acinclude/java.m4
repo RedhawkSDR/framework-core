@@ -18,17 +18,39 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-dnl AC_PROG_JAVA([min-version], [vendor])
-AC_DEFUN([AC_PROG_JAVA],
+dnl AC_JAVA_HOME
+AC_DEFUN([RH_JAVA_HOME],
 [
-  AC_PATH_PROG([JAVA], [java], [no])
+  AC_ARG_VAR([JAVA_HOME], [Java Development Kit (JDK) location])
+  test -r /usr/share/java-utils/java-functions && \
+    . /usr/share/java-utils/java-functions && \
+    set_jvm
+  AC_MSG_CHECKING([for a valid JAVA_HOME])
+  if test -n "$JAVA_HOME" -a -d "$JAVA_HOME"; then
+    AC_MSG_RESULT([$JAVA_HOME])
+  else
+    AC_MSG_RESULT([no])
+    AC_MSG_WARN([try setting the JAVA_HOME variable to the base of a valid Java install])
+    AC_SUBST([JAVA_HOME], [no])
+  fi
 ])
 
-dnl AC_PROG_JAVAC([compliance, [vendor]])
-AC_DEFUN([AC_PROG_JAVAC],
+dnl RH_PROG_JAVA
+AC_DEFUN([RH_PROG_JAVA],
 [
-  AC_PATH_PROG([JAVAC], [javac], [no])
-  if test x"$1" != "x" -a x"$JAVAC" != "x"; then
+  AC_REQUIRE([RH_JAVA_HOME])
+  java_test_paths=$JAVA_HOME/jre/sh$PATH_SEPARATOR$JAVA_HOME/bin
+  AC_PATH_PROG([JAVA], [java], [no], [$java_test_paths])
+])
+
+dnl RH_PROG_JAVAC(targetVersion)
+dnl targetVersion is optional
+AC_DEFUN([RH_PROG_JAVAC],
+[
+  AC_REQUIRE([RH_JAVA_HOME])
+  java_test_paths=$JAVA_HOME/jre/sh$PATH_SEPARATOR$JAVA_HOME/bin
+  AC_PATH_PROG([JAVAC], [javac], [no], [$java_test_paths])
+  if test -n "$1" -a "$JAVAC" != "no"; then
     AC_MSG_CHECKING([javac version $1 compliance])
     cat << EOF > Test.java
       import java.util.Properties;
@@ -42,55 +64,83 @@ EOF
       AC_MSG_RESULT([yes])
     else
       AC_MSG_RESULT([no])
-      JAVAC=no
+      AC_SUBST([JAVAC], [no])
     fi 
     rm -f Test.java Test.class
   fi
 ])
 
-AC_DEFUN([AC_PROG_JAR],
+dnl RH_PROG_JAR
+AC_DEFUN([RH_PROG_JAR],
 [
-  AC_PATH_PROG([JAR], [jar], [no])
+  AC_REQUIRE([RH_JAVA_HOME])
+  java_test_paths=$JAVA_HOME/jre/sh$PATH_SEPARATOR$JAVA_HOME/bin
+  AC_PATH_PROG([JAR], [jar], [no], [$java_test_paths])
 ])
 
-AC_DEFUN([AC_PROG_IDLJ],
+dnl RH_PROG_IDLJ
+AC_DEFUN([RH_PROG_IDLJ],
 [
-  AC_REQUIRE([AC_PROG_JAVAC])
-  AC_PATH_PROG(BASENAME, basename)
-  AC_PATH_PROG(READLINK, readlink)
-  AS_IF([test "x$JAVAC" != "xno"], [
-    AS_IF([test "x$BASENAME" != "x"], [
-      AS_IF([test "x$READLINK" != "x"], [
-        javac_abs_path=`$READLINK -f $JAVAC`
-        appendpath=`dirname $javac_abs_path`
-      ])
-    ])
-  ])
-  
-  AC_PATH_PROG([IDLJ], [idlj], [no], ${PATH}${PATH_SEPARATOR}${appendpath})
+  AC_REQUIRE([RH_JAVA_HOME])
+  java_test_paths=$JAVA_HOME/jre/sh$PATH_SEPARATOR$JAVA_HOME/bin
+  AC_PATH_PROG([IDLJ], [idlj], [no], [$java_test_paths])
 ])
 
 dnl Check the value of a java property
-dnl GET_JAVA_PROPERTY( VARIABLE, PROPNAME)
-AC_DEFUN([GET_JAVA_PROPERTY],
+dnl RH_GET_JAVA_PROPERTY(variable, propname)
+AC_DEFUN([RH_GET_JAVA_PROPERTY],
 [
-AC_REQUIRE([AC_PROG_JAVA])
-AC_REQUIRE([AC_PROG_JAVAC])
-AC_CACHE_CHECK([for java property $2],
-$1,
-[
-  cat << EOF > Test.java
-    import java.util.Properties;
-    public class Test {
-      public static void main(String[[]] args) {
-       Properties props = System.getProperties();
-       System.out.println(props.getProperty("$2"));
-      }
-    }
+  AC_REQUIRE([RH_PROG_JAVA])
+  AC_REQUIRE([RH_PROG_JAVAC])
+  AC_CACHE_CHECK([for java property $2], [$1],
+  [
+    cat << EOF > Test.java
+
+import java.util.Properties;
+public class Test {
+  public static void main(String[[]] args) {
+    Properties props = System.getProperties();
+    System.out.println(props.getProperty("$2"));
+  }
+}
+
 EOF
-  $JAVAC Test.java &> /dev/null
-  $1=`$JAVA -cp . Test`
-  rm -f Test.java Test.class
+    $JAVAC Test.java &> /dev/null
+    $1=`$JAVA -cp . Test`
+    rm -f Test.java Test.class
+  ])
+  AC_DEFINE($1, cv_java_prop_$1)
 ])
-AC_DEFINE($1, cv_java_prop_$1)
+
+dnl RH_JAVA_JNI_H
+AC_DEFUN([RH_HAVA_JNI_H],
+[
+  AC_REQUIRE([RH_JAVA_HOME])
+
+  # Verify that we can include the JNI header; the platform-specific location is
+  # assumed to be Linux.
+  saved_CPPFLAGS="$CPPFLAGS"
+  JNI_CPPFLAGS="-I$JAVA_HOME/include -I$JAVA_HOME/include/linux"
+  CPPFLAGS="$JNI_CPPFLAGS"
+  AC_CHECK_HEADER([jni.h],
+  [
+    HAVE_JNI_H="yes"
+    AC_SUBST([JNI_CPPFLAGS], [$JNI_CPPFLAGS])
+  ])
+  CPPFLAGS="$saved_CPPFLAGS"
 ])
+
+dnl RH_JAVA_VENDOR
+AC_DEFUN([RH_JAVA_VENDOR],
+[
+  RH_GET_JAVA_PROPERTY([_cv_JAVA_VENDOR], [java.vendor])
+  AC_MSG_CHECKING([for an acceptable Java vendor])
+  if ((test "$_cv_JAVA_VENDOR" != "Sun Microsystems Inc.") && (test "$_cv_JAVA_VENDOR" != "Oracle Corporation")); then
+    AC_MSG_RESULT([no])
+    JAVA_VENDOR="no"
+  else
+    AC_MSG_RESULT([yes])
+    JAVA_VENDOR="yes"
+  fi
+])
+

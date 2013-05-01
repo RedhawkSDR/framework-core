@@ -19,7 +19,7 @@
 #
 
 dnl Update this version number immedately after a release
-AC_INIT([ossie],[1.8.3])
+AC_INIT([ossie],[1.8.4])
 #AM_INIT_AUTOMAKE(nostdinc)
 # allows filenames over 99 characters long during dist
 AM_INIT_AUTOMAKE([1.9 tar-pax])
@@ -103,6 +103,10 @@ AC_CHECK_HEADER([xsd/cxx/config.hxx], [], [AC_MSG_ERROR([missing XSD headers])])
 AC_CHECK_PROG([XMLCATALOG], [xmlcatalog], [xmlcatalog], [no])
 AM_CONDITIONAL(HAVE_XMLCATALOG, test $XMLCATALOG != "no")
 
+# Find a Posix-compliant sed
+# We attempt to use AC_PROG_SED, but it's only available in autoconf >= 2.59b
+# Otherwise, settle for finding it by executable name
+ifdef([AC_PROG_SED], [AC_PROG_SED], [AC_CHECK_PROGS(SED, [gsed sed])])
 
 OSSIE_PYTHON_INSTALL_SCHEME
 OSSIE_ENABLE_LOG4CXX
@@ -128,51 +132,35 @@ AC_ARG_ENABLE([java], AS_HELP_STRING([--disable-java], [Disable framework java s
 
 HAVE_JAVASUPPORT=no
 if test "x$enable_java" != "xno"; then
-  # Depend on JAVA_HOME being set to locate the JNI headers.
-  AC_ARG_VAR([JAVA_HOME], [Java Development Kit (JDK) location])
-  AC_MSG_CHECKING([for JAVA_HOME])
-  if test -z "$JAVA_HOME"; then
-    AC_MSG_RESULT([no])
-  else
-    AC_MSG_RESULT([$JAVA_HOME])
-    # Put JAVA_HOME at the front of the path to locate Java tools
-    export PATH="${JAVA_HOME}/bin:${PATH}"
-  fi
-  AC_SUBST(JAVA_HOME)
+  # configure was run with java enabled
 
-  AC_PROG_JAVA
-  AC_PROG_JAVAC([1.5])
-  AC_PROG_JAR
-  AC_PROG_IDLJ
+  # Ensure JAVA_HOME is set
+  RH_JAVA_HOME
 
-  if test "$IDLJ" = no -o "$JAVAC" = no -o "$JAR" = no -o "$JAVA" = no; then
-    AC_MSG_WARN([Java support won't be built due to missing dependencies])
-  else
-    dnl Make a bad assumption that the java vendor is the same as the javac vendor
-    dnl this is necessary because I cannot figure out how to determine the javac
-    dnl vendor reliably
-    GET_JAVA_PROPERTY([_cv_JAVA_VENDOR], [java.vendor])
-    if ((test "$_cv_JAVA_VENDOR" != "Sun Microsystems Inc.") && (test "$_cv_JAVA_VENDOR" != "Oracle Corporation")); then
-      AC_MSG_WARN([Java support won't be built because JVM must be the Sun/Oracle JVM])
-    else
-      # Verify that we can include the JNI header; the platform-specific location is
-      # assumed to be Linux.
-      saved_CPPFLAGS="$CPPFLAGS"
-      CPPFLAGS="-I$JAVA_HOME/include -I$JAVA_HOME/include/linux"
-      AC_CHECK_HEADER([jni.h], [HAVE_JNI_H="yes"])
-      CPPFLAGS="$saved_CPPFLAGS"
-    fi
-  fi
+  # Locate tools we need based on JAVA_HOME
+  RH_PROG_JAVAC([1.6])
+  RH_PROG_JAR
+  RH_PROG_IDLJ
 
-  if test "$HAVE_JNI_H" = "yes"; then
+  # Check vendor
+  RH_JAVA_VENDOR
+
+  # Locate headers we need
+  RH_HAVA_JNI_H
+
+  if test "$JAVA_HOME" != "no" -a \
+          "$JAVAC" != "no" -a \
+          "$JAR" != "no" -a \
+          "$IDLJ" != "no" -a \
+          "$JAVA_VENDOR" == "yes" -a \
+          "$HAVE_JNI_H" == "yes"; then
     HAVE_JAVASUPPORT="yes"
-    AC_SUBST(JNI_CFLAGS, '-I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux')
     AC_SUBST(javadir, '${prefix}/lib')
+  else
+    AC_MSG_WARN([Java support was enabled, but Java requirements were not met])
   fi
 fi
 
-AC_MSG_CHECKING([for framework java support])
-AC_MSG_RESULT($HAVE_JAVASUPPORT)
 AC_SUBST([HAVE_JAVASUPPORT], $HAVE_JAVASUPPORT)
 AM_CONDITIONAL(HAVE_JAVASUPPORT, test $HAVE_JAVASUPPORT = yes)
 
@@ -226,7 +214,7 @@ if test "$HAVE_JAVASUPPORT" = yes; then
   fi
 
   # Set flags and variables for building with omnijni
-  AC_SUBST(OMNIJNI_CFLAGS, '$(JNI_CFLAGS) -I$(omnijni_srcdir)/include -I$(omnijni_builddir)/src/cpp/CORBA')
+  AC_SUBST(OMNIJNI_CPPFLAGS, '$(JNI_CPPFLAGS) -I$(omnijni_srcdir)/include -I$(omnijni_builddir)/src/cpp/CORBA')
   AC_SUBST(OMNIJNI_LIBS, '$(omnijni_builddir)/src/cpp/libomnijni.la')
   AC_SUBST(OMNIJNI_PYTHONDIR, '$(omnijni_srcdir)/src/python')
   AC_SUBST(OMNIJNI_IDLJNI, '$(IDL) -p $(OMNIJNI_PYTHONDIR) -b omnijni.idljni')

@@ -51,7 +51,7 @@ void AggregateDevice_impl::removeDevice(CF::Device_ptr associatedDevice)
 
     for (unsigned int i = 0; i < devSeqLength; i++) {
         if (!strcmp(associatedDevice->identifier(), (*_devices)[i]->identifier())) {
-            for (unsigned int j = i + 1; j < devSeqLength; i++) {
+            for (unsigned int j = i + 1; j < devSeqLength; j++) {
                 (*_devices)[j-1] = (*_devices)[j];
             }
             _devices->length(devSeqLength - 1);

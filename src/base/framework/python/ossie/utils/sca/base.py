@@ -22,7 +22,7 @@ import commands
 import os
 import xml.dom.minidom
 from ossie.cf import CF, CF__POA
-import CORBA
+from omniORB import CORBA
 import CosNaming
 import sys
 import time

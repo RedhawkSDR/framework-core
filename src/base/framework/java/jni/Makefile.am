@@ -32,7 +32,7 @@ nodist_libossiecfjni_la_SOURCES = ossie/CF/jni_cf.cpp \
 				  ossie/CF/jni_PortTypes.cpp \
 				  ossie/CF/jni_ExtendedEvent.cpp \
 				  ossie/CF/jni_sandbox.cpp
-libossiecfjni_la_CPPFLAGS = $(OMNIJNI_CFLAGS) $(OSSIE_CFLAGS)
+libossiecfjni_la_CPPFLAGS = $(OMNIJNI_CPPFLAGS) $(OSSIE_CFLAGS)
 
 nobase_nodist_include_HEADERS = ossie/CF/jni_cf.h \
 				ossie/CF/jni_AggregateDevices.h \

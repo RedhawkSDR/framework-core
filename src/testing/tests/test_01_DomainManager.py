@@ -23,7 +23,17 @@ import scatest
 from xml.dom import minidom
 from ossie.cf import CF
 import time
-from omniORB import any
+from omniORB import URI, any
+import CosNaming
+import time
+try:
+    import CosEventComm,CosEventComm__POA
+    import CosEventChannelAdmin, CosEventChannelAdmin__POA
+    from ossie.cf import StandardEvent
+    from ossie.events import ChannelManager
+    hasEvents = True
+except:
+    hasEvents = False
 
 def getChildren(parentPid): 
     process_listing = commands.getoutput('ls /proc').split('\n') 
@@ -58,6 +68,19 @@ def killChildProcesses(parentPid):
             os.waitpid(pid, 0)
         except OSError:
             pass
+
+# create a class for consuming events
+class Consumer_i(CosEventComm__POA.PushConsumer):
+    def __init__(self, parent):
+        #self.event = threading.Event()
+        self.parent = parent
+   
+    def push(self, data_obj):
+        data = data_obj.value()
+        self.parent.eventReceived(data_obj)
+    
+    def disconnect_push_consumer (self):
+        pass
       
 class DomainManagerTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -66,6 +89,9 @@ class DomainManagerTest(scatest.CorbaTestCase):
     def tearDown(self):
         scatest.CorbaTestCase.tearDown(self)
         killChildProcesses(os.getpid())
+    
+    def eventReceived(self, data):
+            self.gotData = True
 
     def test_DeviceFailure(self):
         self.assertNotEqual(self._domMgr, None)
@@ -189,9 +215,29 @@ class DomainManagerTest(scatest.CorbaTestCase):
             
             # making sure the domain manager still alive
             self.assertEqual(len(self._domMgr._get_deviceManagers()), 1)
-            
-        
-        
+
+    def test_registerWithEventChannel_creation(self):
+        # launch DomainManager
+        nodebooter, self._domMgr = self.launchDomainManager(debug=9)
+        self.assertNotEqual(self._domMgr, None)
+        self.gotData = False
+        # set up consumer
+        _consumer = Consumer_i(self)
+        channelName = 'testChannel'
+        self._domMgr.registerWithEventChannel(_consumer._this(), 'some_id', channelName)
+        domainName = scatest.getTestDomainName()
+        eventChannelURI = URI.stringToName("%s/%s" % (domainName, channelName))
+        channel = self._root.resolve(eventChannelURI)._narrow(CosEventChannelAdmin.EventChannel)
+        supplier_admin = channel.for_suppliers()
+        proxy_consumer = supplier_admin.obtain_push_consumer()
+        proxy_consumer.connect_push_supplier(None)
+        proxy_consumer.push(any.to_any(True))
+        begin_time = time.time()
+        timeout = 5 # maximum of 5 seconds
+        while ((time.time() - begin_time) < timeout) and not self.gotData:
+            time.sleep(0.1)
+        self.assertEqual(self.gotData, True)
+        self._domMgr.unregisterFromEventChannel('some_id', channelName)
 
 if __name__ == "__main__":
   # Run the unittests

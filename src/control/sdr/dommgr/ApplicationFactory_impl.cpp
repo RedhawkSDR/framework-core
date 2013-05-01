@@ -23,6 +23,10 @@
 #include <iomanip>
 #include <sstream>
 #include <memory>
+#include <algorithm>
+#include <functional>
+#include <set>
+#include <list>
 #include <unistd.h>
 
 #include <boost/filesystem/path.hpp>
@@ -127,7 +131,22 @@ ApplicationFactory_impl::ApplicationFactory_impl (
 
     _name = _sadParser.getName();
     _identifier = _sadParser.getID();
+}
+
+struct DeviceInfoToStr: public std::unary_function< ossie::DeviceNode, std::string > {
+    result_type operator()( argument_type d ) const {
+            return d.identifier;
     }
+};
+
+
+struct DeviceAssignmentMatchComponent:  public std::binary_function< ossie::DeviceAssignmentInfo, std::string, bool > {
+    bool operator()( ossie::DeviceAssignmentInfo dev, std::string comp_id ) const {
+        std::string cid;
+        cid = dev.deviceAssignment.componentId;
+        return (cid == comp_id);
+    }
+};
 
 void createHelper::_cleanupApplicationCreateFailed()
 {
@@ -203,15 +222,67 @@ void createHelper::_deleteRequiredComponents()
     _requiredComponents.resize(0);
 }
 
+
+
+/**
+ * _cleanupCollocation
+ * For a list of ComponentInfo objects, try to deallocate any capacities that were assigned during the create process
+ * by the ApplicationFactory.  This method is usually called when an host collocation requests failed to allocate all the
+ * components in the request due to capacity failures  It could be possible the failure occurred before all the components
+ * were allocated against any devices thus the allocPropTable might not have an entry for the component in the placedComponents
+ * list.
+ *
+ * @param  placedComponents the list of ComponentInfo objects for a host collocation request in a SAD.xml file
+ */
+void createHelper::_cleanupCollocation(  CapacityAllocationTable &collocCapacities, DeviceAssignmentList &collocAssignedDevs )
+{
+
+    TRACE_ENTER(ApplicationFactory_impl);
+
+    //
+    // deallocate all items in the capacity table
+    //
+    LOG_TRACE(ApplicationFactory_impl, "   CAPACITY TABLE SIZE: " << collocCapacities.size());
+    CapacityAllocationTable::iterator comp_alloc = collocCapacities.begin();
+    for( ; comp_alloc != collocCapacities.end(); ) {
+        LOG_TRACE(ApplicationFactory_impl, "   DEALLOCATE: COMP INST_ID : " << comp_alloc->first << " -- START -- ");
+        if ( comp_alloc->second.size() > 0) {
+            _undoCapacityAllocations(  comp_alloc->second );
+        }
+
+         // remove all entries for the set
+         comp_alloc->second.clear();
+         LOG_TRACE(ApplicationFactory_impl, "   DEALLOCATE: COMP INST_ID : " << comp_alloc->first << " ## END ## ");
+         // remove the component's entry from the table
+         collocCapacities.erase( comp_alloc++);
+
+    }
+    // remove device associations for this component
+    try {
+        LOG_TRACE(ApplicationFactory_impl, "COLLOCATION CLEANUP ALLOCATED DEVICES SIZE: " << collocAssignedDevs.size() );
+        DeviceAssignmentList::iterator d = collocAssignedDevs.begin();
+        for ( ; d != collocAssignedDevs.end(); d++ ){
+            LOG_TRACE(ApplicationFactory_impl, "    COMP ID:" << d->deviceAssignment.componentId << " DEV ID:" <<     d->deviceAssignment.assignedDeviceId );
+        }
+        collocAssignedDevs.clear();
+        LOG_TRACE(ApplicationFactory_impl, "FINSHED_CLEANUP: ALLOCATED DEVICES SIZE: " << collocAssignedDevs.size() );
+    }
+    catch(...) {
+
+    }
+
+    LOG_TRACE(ApplicationFactory_impl, "FINSHED COLLOCATION CLEANUP ");
+}
+
 void createHelper::_cleanupAllocateDevices()
 {
     TRACE_ENTER(ApplicationFactory_impl);
 
     alreadyCleaned = true;
-    for (unsigned int devAssignIndex = 0; devAssignIndex < _usedDevs.size(); devAssignIndex++) {
+    for (unsigned int devAssignIndex = 0; devAssignIndex < _appUsedDevs.size(); devAssignIndex++) {
         int component_found = 0;
         CORBA::Object_var _devObj = CORBA::Object::_nil ();
-        std::string assignedDeviceId = ossie::corba::returnString(_usedDevs[devAssignIndex].deviceAssignment.assignedDeviceId);
+        std::string assignedDeviceId = ossie::corba::returnString(_appUsedDevs[devAssignIndex].deviceAssignment.assignedDeviceId);
         for (DeviceList::iterator device = _registeredDevices.begin(); device != _registeredDevices.end(); ++device) {
             if (device->identifier == assignedDeviceId) {
                 _devObj = CF::Device::_duplicate(device->device);
@@ -224,17 +295,17 @@ void createHelper::_cleanupAllocateDevices()
             } else {
                 component_found = 1;
             }
-            std::string id(_usedDevs[devAssignIndex].deviceAssignment.componentId);
+            std::string id(_appUsedDevs[devAssignIndex].deviceAssignment.componentId);
             try {
-                LOG_TRACE(ApplicationFactory_impl, "Entering deallocation function")
-                if (_allocPropsTable.count(id) > 0) {
-                    for (unsigned int devCount = 0; devCount < _allocPropsTable[id].size(); devCount++) {
-                        if (_allocPropsTable[id][devCount].properties.length() > 0) {
-                            LOG_TRACE(ApplicationFactory_impl, "deallocating")
-                            _allocPropsTable[id][devCount].device->deallocateCapacity(_allocPropsTable[id][devCount].properties);
-                            LOG_TRACE(ApplicationFactory_impl, "Finished deallocating")
+                LOG_TRACE(ApplicationFactory_impl, "Entering deallocation function");
+                if (_appCapacityTable.count(id) > 0) {
+                    for (unsigned int devCount = 0; devCount < _appCapacityTable[id].size(); devCount++) {
+                        if (_appCapacityTable[id][devCount].properties.length() > 0) {
+                            LOG_TRACE(ApplicationFactory_impl, "deallocating");
+                            _appCapacityTable[id][devCount].device->deallocateCapacity(_appCapacityTable[id][devCount].properties);
+                            LOG_TRACE(ApplicationFactory_impl, "Finished deallocating");
                         } else {
-                            LOG_TRACE(ApplicationFactory_impl, "No capacity to deallocate")
+                            LOG_TRACE(ApplicationFactory_impl, "No capacity to deallocate");
                         }
                     }
                 }
@@ -249,10 +320,16 @@ void createHelper::_cleanupAllocateDevices()
     _cleanupNewContext();
 }
 
-void createHelper::_undoAllocateUsesDevices(std::vector< ossie::AllocPropsInfo >& propSet)
+void createHelper::_undoCapacityAllocations( CapacityAllocationList & alloc_set)
 {
-    for (unsigned int i = 0; i < propSet.size(); i++) {
-        propSet[i].device->deallocateCapacity(propSet[i].properties);
+    for (unsigned int i = 0; i < alloc_set.size(); i++) {
+        LOG_TRACE(ApplicationFactory_impl, "_undoCapacityAllocations: deallocating")
+        if ( alloc_set[i].device )
+            alloc_set[i].device->deallocateCapacity(alloc_set[i].properties);
+        else {
+            LOG_TRACE(ApplicationFactory_impl, "_undoCapacityAllocations: Device Object INVALID");
+        }
+        LOG_TRACE(ApplicationFactory_impl, "_undoCapacityAllocations: Finished deallocating")
     }
 }
 
@@ -412,11 +489,11 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
 
 
 CF::Application_ptr createHelper::create (const char* name,
-        const CF::Properties& initConfiguration,
-        const CF::DeviceAssignmentSequence& deviceAssignments)
-    throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
-           CF::ApplicationFactory::CreateApplicationRequestError,
-           CF::ApplicationFactory::InvalidInitConfiguration)
+                                          const CF::Properties& initConfiguration,
+                                          const CF::DeviceAssignmentSequence& deviceAssignments)
+throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
+       CF::ApplicationFactory::CreateApplicationRequestError,
+       CF::ApplicationFactory::InvalidInitConfiguration)
 {
     TRACE_ENTER(ApplicationFactory_impl);
 
@@ -442,6 +519,11 @@ CF::Application_ptr createHelper::create (const char* name,
                 throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL, eout.str().c_str());
             }
 
+            // create list of device IDs for allocation collocations
+            DeviceIDList  _regDeviceIDs;
+            std::transform( _registeredDevices.begin(), _registeredDevices.end(), std::back_inserter< DeviceIDList >(_regDeviceIDs), DeviceInfoToStr() );
+            _regDeviceIDs.sort();
+
             //////////////////////////////////////////////////
             // Load the components to instantiate from the SAD
             if (_requiredComponents.size() != 0)
@@ -455,15 +537,25 @@ CF::Application_ptr createHelper::create (const char* name,
 
             ////////////////////////////////////////////////
             // Assign components to devices
-            _usedDevs.resize(0);
+            ////////////////////////////////////////////////
+
+            //
+            // _appUsedDevs and appCapacityTable represent all the allocations and assigned made during applicaiton deployment
+            // it provides the "context" for the deployment.  This context pattern will be applied again when collocation
+            // requests are fullfilled.  There 2 container are used to deploy the waveform, and also to "cleanup" if deployment
+            // fails
+            //
+
+            // reset list of devices that were used during component allocation/placement process for an application
+            _appUsedDevs.resize(0);
 
             // Start with a empty set of allocation properties, used to keep track of device capacity
             // allocations. If this is not cleared each time, deallocation may start occuring multiple
             // times, resulting in incorrect capacities.
-            _allocPropsTable.clear();
+            _appCapacityTable.clear();
 
             //
-            // First, assign components to devices based on the DAS.
+            // First, assign components to devices based on the caller supplied DAS.
             //
             LOG_TRACE(ApplicationFactory_impl, "Assigning " << deviceAssignments.length() << " components based on DeviceAssignmentSequence");
             for (unsigned int ii = 0; ii < deviceAssignments.length(); ++ii) {
@@ -472,37 +564,37 @@ CF::Application_ptr createHelper::create (const char* name,
                 ossie::ComponentInfo* component = findComponentByInstantiationId(componentId);
                 if (!component) {
                     LOG_ERROR(ApplicationFactory_impl, "Failed to create application; "
-                                    << "unknown component " << componentId << " in user assignment (DAS)");
+                              << "unknown component " << componentId << " in user assignment (DAS)");
                     CF::DeviceAssignmentSequence badDAS;
                     badDAS.length(1);
                     badDAS[0].componentId = CORBA::string_dup(deviceAssignments[ii].componentId);
                     badDAS[0].assignedDeviceId = CORBA::string_dup(deviceAssignments[ii].assignedDeviceId);
                     throw CF::ApplicationFactory::CreateApplicationRequestError(badDAS);
                 }
-                allocateComponent(component, deviceAssignments);
+                allocateComponent(component, deviceAssignments, _appCapacityTable, _appUsedDevs );
             }
 
             //
-            // Second, attempt to honor host collocation.
+            // Second, attempt to honor host collocation., the host collocation in itself is just a "waveform" inside of
+            // a waveform, so we need create a context for each collocation and if that is successfull add it to
+            // the applications alloction context
             //
             const std::vector<SoftwareAssembly::HostCollocation>& hostCollocations = _appFact._sadParser.getHostCollocations();
             LOG_TRACE(ApplicationFactory_impl, "Assigning " << hostCollocations.size() << " collocated groups of components");
             for (unsigned int ii = 0; ii < hostCollocations.size(); ++ii) {
                 SoftwareAssembly::HostCollocation collocation = hostCollocations[ii];
-                LOG_TRACE(ApplicationFactory_impl, "Host collocation " << collocation.getName() << " " << collocation.getID());
+                LOG_TRACE(ApplicationFactory_impl, "-- Begin placment for Collocation " << collocation.getName() << " " << collocation.getID());
 
                 // Some components may have been placed by a user DAS; keep a list of those that still need to be
                 // assigned to a device.
-                std::vector<ossie::ComponentInfo*> placingComponents;
+                PlacementList placingComponents;
 
                 // Keep track of devices to which some of the components have been assigned.
-                std::vector<std::string> assignedDevices;
+                DeviceIDList assignedDevices;
 
                 const std::vector<ComponentPlacement>& collocatedComponents = collocation.getComponents();
-                for (std::vector<ComponentPlacement>::const_iterator placement = collocatedComponents.begin();
-                    placement != collocatedComponents.end(); 
-                    ++placement) {
-
+                std::vector<ComponentPlacement>::const_iterator placement = collocatedComponents.begin();
+                for (; placement != collocatedComponents.end(); ++placement) {
                     ComponentInstantiation instantiation = (placement->getInstantiations()).at(0);
                     ossie::ComponentInfo* component = findComponentByInstantiationId(instantiation.getID());
                     if (!component) {
@@ -516,7 +608,7 @@ CF::Application_ptr createHelper::create (const char* name,
                         // This component is already assigned to a device; for collocating other components, the
                         // pre-assigned devices are used in the order they are encountered.
                         LOG_TRACE(ApplicationFactory_impl, "Already assigned to device " << component->getAssignedDeviceId());
-                        assignedDevices.push_back(component->getAssignedDeviceId());
+                        assignedDevices.push_back( component->getAssignedDeviceId() );
                     } else {
                         // This component needs to be assigned to a device.
                         placingComponents.push_back(component);
@@ -528,8 +620,107 @@ CF::Application_ptr createHelper::create (const char* name,
                     LOG_WARN(ApplicationFactory_impl, "Collocated components assigned to different devices in DAS");
                 }
 
-                placeComponents(placingComponents, assignedDevices, deviceAssignments);
+#ifdef DEBUG
+                LOG_TRACE(ApplicationFactory_impl, "PLACING: " << placingComponents.size() << " components");
+                for ( uint jj = 0; jj < placingComponents.size(); ++jj) {
+                    ossie::ComponentInfo* component = placingComponents[jj];
+                    std::string c_id = component->getInstantiationIdentifier();
+                    LOG_TRACE(ApplicationFactory_impl, "       COLLCATION ID:" << collocation.id << " COMP INST_ID:" << c_id);
+                }
+#endif
 
+                // Create list of devices that are available to use for placement, registeredDevices minus assignedDevices
+                assignedDevices.sort();
+                DeviceIDList  _availableDevices;
+                std::set_difference( _regDeviceIDs.begin(), _regDeviceIDs.end(), assignedDevices.begin(), assignedDevices.end(), std::back_inserter< DeviceIDList  >(_availableDevices) );
+
+#ifdef DEBUG
+                LOG_TRACE(ApplicationFactory_impl, "AVAILABLE DEVICES:");
+                DeviceIDList::iterator _did = _availableDevices.begin();
+                for ( ; _did != _availableDevices.end(); _did++) {
+                    LOG_TRACE(ApplicationFactory_impl, "  DEVICE ID: " << *_did);
+                }
+#endif
+
+                // Iterate through each of the available devices
+                DeviceIDList::iterator devId = _availableDevices.begin();
+                bool placement_complete = false;
+                for( ; devId != _availableDevices.end() && !placement_complete; devId++ ){
+
+                    //
+                    // create list of device ids to be used when generating a DAS when placing this component
+                    //  the list of devices are any caller supplied DAS and the current available device we are looking at
+                    DeviceIDList  devList;
+                    devList = assignedDevices;
+                    devList.push_back( *devId );
+                    LOG_TRACE(ApplicationFactory_impl, "ALLOCATING ON DEVICE: " << *devId);
+
+                    //
+                    // use collocCapacities and collocAssignedDevs to track the collocation context...
+                    //
+                    std::string               c_id;
+                    CapacityAllocationTable   collocCapacities;
+                    DeviceAssignmentList      collocAssignedDevs;
+                    try {
+
+                        // iterate through eahc component of teh collocation request and try to assign to a device
+                        for (unsigned int jj = 0; jj < placingComponents.size(); ++jj) {
+
+                            ossie::ComponentInfo* component = placingComponents[jj];
+                            c_id = component->getInstantiationIdentifier();
+
+                            LOG_TRACE(ApplicationFactory_impl, "  COLLOCATION ID:" << collocation.id << " PLACING COMP INST_ID:" << c_id);
+                            CF::DeviceAssignmentSequence componentDAS;
+                            componentDAS.length(1);
+                            componentDAS[0].componentId = CORBA::string_dup(c_id.c_str());
+                            DeviceIDList::iterator dev_id = devList.begin();
+                            bool c_placed = false;
+                            for ( ; dev_id  != devList.end() && !c_placed ; dev_id++ ) {
+                                componentDAS[0].assignedDeviceId = CORBA::string_dup( dev_id->c_str() );
+                                LOG_TRACE(ApplicationFactory_impl, "  TRYING TO ALLOCATE ON DEVICE: " << *dev_id);
+                                try {
+                                    // try and place the component... if it does not work we clean up after we try all the different available devices
+                                    allocateComponent(component, componentDAS, collocCapacities, collocAssignedDevs, false );
+                                    c_placed = true;
+                                    LOG_TRACE(ApplicationFactory_impl, "    **ALLOCATION SUCCESS**  COMP_INST_ID: " << c_id << " DEVICE: " << *dev_id);
+                                } catch (...) {
+                                    // Individual allocation failures are non-fatal; check for failure after all possible
+                                    // devices have been exhausted.
+                                    LOG_TRACE(ApplicationFactory_impl, "    **ALLOCATION FAILURE**  COMP_INST_ID: " << c_id << " DEVICE: " << *dev_id);
+                                }
+                            }
+
+                            if ( !component->isAssignedToDevice() ){
+                                throw 0;
+                            }
+
+                        }
+
+                        // we placed everything.... so set loop termination and add the collocation's allocations and
+                        // assigned devices to the application's context
+                        LOG_TRACE(ApplicationFactory_impl, " COLLOCATION **PASSED** Collocation ID:" << collocation.id);
+                        LOG_TRACE(ApplicationFactory_impl, "    PRE TABLE:" <<  _appCapacityTable.size() << " DEV:" << _appUsedDevs.size() );
+                        placement_complete = true;
+                        _appCapacityTable.insert(collocCapacities.begin(), collocCapacities.end());
+                        _appUsedDevs.insert( _appUsedDevs.end(), collocAssignedDevs.begin(), collocAssignedDevs.end());
+                        LOG_TRACE(ApplicationFactory_impl, "    POST TABLE:" <<  _appCapacityTable.size() << " DEV:" << _appUsedDevs.size() );
+                    }
+                    catch(...) {
+                        LOG_TRACE(ApplicationFactory_impl, "COLLOCATION FAILED: BEGIN CLEANUP: Collocation ID:" << collocation.id << " TRYING TO PLACE COMP INST_ID:" << c_id);
+                        // need to clean up allocation for the collocation request
+                        _cleanupCollocation( collocCapacities, collocAssignedDevs );
+                    }
+
+                }
+
+                if ( placement_complete == false ) {
+                    std::ostringstream eout;
+                    eout << "Could not collocate components for collocation NAME: " << collocation.getName() << "  ID:" << collocation.id;
+                    LOG_ERROR(ApplicationFactory_impl, eout.str());
+                    throw CF::ApplicationFactory::CreateApplicationRequestError();
+                }
+
+                LOG_TRACE(ApplicationFactory_impl, "-- Completed placement for Collocation ID:" << collocation.id << " Components Placed: " << collocatedComponents.size());
             }
 
             //
@@ -539,7 +730,7 @@ CF::Application_ptr createHelper::create (const char* name,
                 ossie::ComponentInfo* component = _requiredComponents[rc_idx];
 
                 if (!component->isAssignedToDevice()) {
-                        allocateComponent(component, deviceAssignments);
+                    allocateComponent(component, deviceAssignments, _appCapacityTable, _appUsedDevs );
                 }
             }
 
@@ -554,10 +745,10 @@ CF::Application_ptr createHelper::create (const char* name,
                 }
             } catch (CF::ApplicationFactory::CreateApplicationError& ex) {
                 throw;
-            } CATCH_THROW_LOG_TRACE(ApplicationFactory_impl, 
+            } CATCH_THROW_LOG_TRACE(ApplicationFactory_impl,
                 "Load-and-execute of component failed (unclear which component/device is the problem)",
-                CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL, "Load-and-execute of component failed (unclear which component/device is the problem)"))
-            
+                CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL, "Load-and-execute of component failed (unclear which component/device is the problem)"));
+
 
             CF::Resource_var assemblyController = CF::Resource::_nil();
 
@@ -567,10 +758,10 @@ CF::Application_ptr createHelper::create (const char* name,
                 initializeComponents(assemblyController, _waveformContext);
             } catch (CF::ApplicationFactory::CreateApplicationError& ex) {
                 throw;
-            } CATCH_THROW_LOG_TRACE(ApplicationFactory_impl, 
+            } CATCH_THROW_LOG_TRACE(ApplicationFactory_impl,
                 "Initialize of component failed (unclear which component/device is the problem)",
-                CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL,"Initialize of component failed (unclear which component/device is the problem)"))
-            
+                CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL,"Initialize of component failed (unclear which component/device is the problem)"));
+
             ////////////////////////////////////////////////
             // Connect the components
             std::vector<ConnectionNode> connections;
@@ -578,10 +769,10 @@ CF::Application_ptr createHelper::create (const char* name,
                 connectComponents(connections, _baseNamingContext);
             } catch (CF::ApplicationFactory::CreateApplicationError& ex) {
                 throw;
-            } CATCH_THROW_LOG_TRACE(ApplicationFactory_impl, 
+            } CATCH_THROW_LOG_TRACE(ApplicationFactory_impl,
                 "Connecting components failed (unclear where this occurred)",
-                CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL, "Connecting components failed (unclear where this occurred)"))
-           
+                CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL, "Connecting components failed (unclear where this occurred)"));
+
             ////////////////////////////////////////////////
             // Configure the components
             try{
@@ -661,14 +852,14 @@ CF::Application_ptr createHelper::create (const char* name,
             // NB: Ownership of the ConnectionManager is passed to the application.
             application->populateApplication(
                 assemblyController,
-                _usedDevs, 
+                _appUsedDevs, 
                 &_implSeq, 
                 _startSeq, 
                 &_namingCtxSeq, 
                 &_pidSeq,
                 connections, 
                 _fileTable, 
-                _allocPropsTable);
+                _appCapacityTable);
 
             // Activate the new Application servant, and let the POA manage its deletion. The
             // DomainManager POA must exist, but the Applications POA might not have been created yet.
@@ -685,21 +876,21 @@ CF::Application_ptr createHelper::create (const char* name,
             addComponentsToApplication(app_servant);
 
             try {
-                    _appFact._domainManager->addApplication(app_servant);
+                _appFact._domainManager->addApplication(app_servant);
             } catch (CF::DomainManager::ApplicationInstallationError& ex) {
-                    // something bad happened - clean up
-                    LOG_ERROR(ApplicationFactory_impl, ex.msg);
-                    poa->deactivate_object(oid);
-                    throw CF::ApplicationFactory::CreateApplicationError(ex.errorNumber, ex.msg);
+                // something bad happened - clean up
+                LOG_ERROR(ApplicationFactory_impl, ex.msg);
+                poa->deactivate_object(oid);
+                throw CF::ApplicationFactory::CreateApplicationError(ex.errorNumber, ex.msg);
             }
 
             LOG_TRACE(ApplicationFactory_impl, "Cleaning up");
             _deleteRequiredComponents();
 
-    #if ENABLE_EVENTS
+#if ENABLE_EVENTS
             ossie::sendObjectAddedEvent(ApplicationFactory_impl::__logger, _appFact._identifier.c_str(), appIdentifier.c_str(), name,
-                            appObj, StandardEvent::APPLICATION, _appFact._domainManager->proxy_consumer);
-    #endif
+                                        appObj, StandardEvent::APPLICATION, _appFact._domainManager->proxy_consumer);
+#endif
 
             LOG_INFO(ApplicationFactory_impl, "Done creating application " << appIdentifier << " " << name);
             return appObj._retn();
@@ -708,11 +899,11 @@ CF::Application_ptr createHelper::create (const char* name,
             throw;
         }
     } catch (CF::ApplicationFactory::CreateApplicationError& ex) {
-            LOG_ERROR(ApplicationFactory_impl, "Error in application creation; " << ex.msg);
-            throw;
+        LOG_ERROR(ApplicationFactory_impl, "Error in application creation; " << ex.msg);
+        throw;
     } catch (CF::ApplicationFactory::CreateApplicationRequestError) {
-            LOG_ERROR(ApplicationFactory_impl, "Error in application creation")
-            throw;
+        LOG_ERROR(ApplicationFactory_impl, "Error in application creation")
+        throw;
     } catch ( std::exception& ex ) {
         ostringstream eout;
         eout << "The following standard exception occurred: "<<ex.what()<<" while creating the application";
@@ -787,69 +978,14 @@ void createHelper::overrideProperties(
     }
 }
 
-/**
- * Attempt to place all unallocated components.
- */
-void createHelper::placeComponents(
-        std::vector<ossie::ComponentInfo*>& placingComponents,
-        std::vector<std::string>&           assignedDevices,
-        const CF::DeviceAssignmentSequence& deviceAssignments) {
-
-    LOG_TRACE(ApplicationFactory_impl, "Placing " << placingComponents.size() << " components");
-
-    for (unsigned int jj = 0; jj < placingComponents.size(); ++jj) {
-        ossie::ComponentInfo* component = placingComponents[jj];
-        LOG_TRACE(ApplicationFactory_impl, "Placing component " << component->getIdentifier());
-        if (assignedDevices.empty()) {
-            // No components were placed by the DAS, so try to place all collocated components on the first
-            // device on which we can place the first component.
-            LOG_TRACE(ApplicationFactory_impl, "Finding first available device");
-            allocateComponent(component, deviceAssignments);
-            assignedDevices.push_back(component->getAssignedDeviceId());
-        } else {
-            // Create a DAS for this component to try to manually place it on the selected device.
-            // There may be more than one possible device if the host collocation was split by a user-given DAS.
-            CF::DeviceAssignmentSequence componentDAS;
-            componentDAS.length(1);
-            componentDAS[0].componentId = component->getInstantiationIdentifier();
-            for (std::vector<std::string>::iterator deviceID = assignedDevices.begin();
-                 deviceID != assignedDevices.end(); 
-                 ++deviceID) {
-
-                componentDAS[0].assignedDeviceId = deviceID->c_str();
-                LOG_TRACE(ApplicationFactory_impl, "Trying to allocate on device " << *deviceID);
-                try {
-                    allocateComponent(component, componentDAS);
-                    break;
-                } catch (...) {
-                    // Individual allocation failures are non-fatal; check for failure after all possible
-                    // devices have been exhausted.
-                    LOG_TRACE(ApplicationFactory_impl, "Unable to allocate on device; searching for other device " << *deviceID);
-                }
-            }
-
-            // If the component could not be assigned to one of the devices used by the other collocated
-            // components, simply fail.
-            ///\todo If possible, backtrack and try another device for the first component.
-            if (!component->isAssignedToDevice()) {
-                std::ostringstream eout;
-                eout << "Could not collocate component:{name='";
-                eout << component->getName() << "',id='" << component->getIdentifier() << "'}";
-                LOG_ERROR(ApplicationFactory_impl, eout.str());
-                throw CF::ApplicationFactory::CreateApplicationRequestError();
-            }
-        }
-    }
-}
-
-
 
 /** Allocate capacity on devices from the 'usesdevice' dependencies
  *  - Find a device that meets the property dependencies for the 'usesdevice'
  *  - Try to allocate capacity on that device
  */
 CF::Device_ptr createHelper::allocateUsesDeviceProperties(ossie::ComponentImplementationInfo* component_impl,
-        unsigned int usesDevIdx, CF::Properties* _allocProps, const CF::Properties& configureProperties)
+                                                          unsigned int usesDevIdx, CF::Properties & allocatedProps,
+                                                          const CF::Properties& configureProperties)
 {
     CF::Device_ptr device = CF::Device::_nil();
     CF::Properties allocProps;
@@ -939,16 +1075,15 @@ CF::Device_ptr createHelper::allocateUsesDeviceProperties(ossie::ComponentImplem
                         continue;
                     }
 
-                    _allocProps->length(allocProps.length());
-                    for (unsigned int jj = 0; jj < allocProps.length(); ++jj) {
-                        (*_allocProps)[jj] = allocProps[jj];
-                    }
+                    // return allocated CF::Property objects to the caller
+                    allocatedProps = allocProps;
+
                     LOG_TRACE(ApplicationFactory_impl, "The outgoing allocProps length is " << allocProps.length());
                 } else {
                     LOG_TRACE(ApplicationFactory_impl, "component 'usesdevice' requires no capacity from device " << label)
                 }
-                                device = node->device;
-                                break;
+                device = node->device;
+                break;
             } catch (CF::Device::InvalidCapacity e) {
                 LOG_TRACE(ApplicationFactory_impl, "Device " << identifier << " " << label << " lacks sufficient capacity to satisfy 'usesdevice'")
                 continue;
@@ -969,25 +1104,34 @@ CF::Device_ptr createHelper::allocateUsesDeviceProperties(ossie::ComponentImplem
  *  - Allocate capacity on usesdevice(s)
  *  - Find and implementation that has it's implementation-specific usesdevice dependencies satisfied
  *  - Allocate the component to a particular device
- */
-void createHelper::allocateComponent(
-        ossie::ComponentInfo*               component,
-        const CF::DeviceAssignmentSequence& deviceAssignments)
-{
-    CF::Properties allocProps;
-    CF::Properties allocUsesProps;
-  
-    // get the implementations from the component
-    std::vector<ossie::ImplementationInfo*> implementations = component->getImplementations();
 
-    std::vector<ossie::AllocPropsInfo> PropTable;
-    PropTable.resize(0);
+ TODO: Current implementation takes advantage of single failure then clean up everything..... To support collocation
+ allocation failover for mulitple devices, then we need to clean up only the allocations that we made during a failed
+ collocation request.  This requires that we know and cleanup only those allocations that we made..
+ appCapacityTable holds all the applications that were made during the entire application deployment process.
+
+ I think for each try of a collocation request... we need to swap out the current appCapacityTable for a
+ temporary table, to assist with the allocation and clean up
+
+ */
+void createHelper::allocateComponent(ossie::ComponentInfo*  component,
+                                     const CF::DeviceAssignmentSequence& deviceAssignments,
+                                     CapacityAllocationTable  &appCapacities,
+                                     DeviceAssignmentList     &appAssignedDevs,
+                                     bool cleanup)
+{
+    // get the implementations from the component
+    ossie::ImplementationInfo::List  implementations;
+    component->getImplementations(implementations);
+
+    CapacityAllocationList usesDevicesCapacities(0);
 
     // Find the devices that allocate the SPD's minimum required usesdevices properties
-    vector<ossie::UsesDeviceInfo*> usesDevVec = component->getUsesDevices();
+    const UsesDeviceInfo::List &usesDevVec = component->getUsesDevices();
     LOG_TRACE(ApplicationFactory_impl, "Looking for Uses Allocation " << usesDevVec.size());
     for (unsigned int uC = 0; uC < usesDevVec.size(); uC++) {
-        CF::Device_ptr usesDevice = allocateUsesDeviceProperties(component, uC, &allocUsesProps, component->getConfigureProperties());
+        CF::Properties allocUsesProps;
+        CF::Device_ptr usesDevice = allocateUsesDeviceProperties(component, uC, allocUsesProps, component->getConfigureProperties());
         if (CORBA::is_nil(usesDevice)) {
             ostringstream eout;
             eout << "Failed to satisfy 'usesdevice' dependency of component: '";
@@ -995,14 +1139,26 @@ void createHelper::allocateComponent(
             eout << "Failed to satisfy 'usesdevice' dependency with usesdevice.id: '";
             eout << component->getUsesDevices()[uC]->getId() << "'";
             LOG_ERROR(ApplicationFactory_impl, eout.str());
-            LOG_TRACE(ApplicationFactory_impl, "Calling cleanupAllocateDevices (1)");
-            _cleanupAllocateDevices();
-            throw CF::ApplicationFactory::CreateApplicationError(CF::CF_ENOSPC, eout.str().c_str());
+            LOG_DEBUG(ApplicationFactory_impl, "Calling cleanupAllocateDevices (1)");
+            if ( cleanup ) _cleanupAllocateDevices();
+                throw CF::ApplicationFactory::CreateApplicationError(CF::CF_ENOSPC, eout.str().c_str());
         }
-        LOG_TRACE(ApplicationFactory_impl, "Allocated " << allocUsesProps.length());
-        PropTable.push_back(ossie::AllocPropsInfo(usesDevice, allocUsesProps));
+        LOG_DEBUG(ApplicationFactory_impl, "Allocated " << allocUsesProps.length());
+        usesDevicesCapacities.push_back( CapacityAllocation(usesDevice, allocUsesProps));
 
         usesDevVec[uC]->setAssignedDeviceId(ossie::corba::returnString(usesDevice->identifier()));
+    }
+
+    //
+    // add any usesDevices' allocations  to current application context's capcacity table
+    // if we fail to assigned that way it will get clean up properly
+    //
+    try {
+       for ( uint i = 0; i < usesDevicesCapacities.size(); i++) {
+           appCapacities[component->getIdentifier()].push_back(usesDevicesCapacities[i]);
+       }
+    }
+    catch(...){
     }
 
     // now attempt to find an implementation that can have it's allocation requirements met
@@ -1012,94 +1168,124 @@ void createHelper::allocateComponent(
         ossie::ImplementationInfo* impl = implementations[implCount];
 
         // deal with 'usesdevice' dependencies for the particular implementation
-        std::vector< ossie::AllocPropsInfo > implPropTable;
-        const vector<ossie::UsesDeviceInfo*>& usesDevVec = impl->getUsesDevices();
+        CapacityAllocationList   implCapacityList;
+        const UsesDeviceInfo::List &implUsesDevVec = impl->getUsesDevices();
         bool usesDeviceSetComplete = true;
         CF::Device_ptr usesDevice = CF::Device::_nil();
-        LOG_TRACE(ApplicationFactory_impl, "Uses Impl Vec of length " << usesDevVec.size());
-        for (unsigned int uC = 0; uC < usesDevVec.size(); uC++) {
-            usesDevice = allocateUsesDeviceProperties(impl, uC, &allocUsesProps, component->getConfigureProperties());
+        LOG_DEBUG(ApplicationFactory_impl, "UsesDevice Impl Vec of length " << implUsesDevVec.size());
+
+        for ( uint uC = 0; uC < implUsesDevVec.size(); uC++) {
+            CF::Properties allocUsesProps;
+            usesDevice = allocateUsesDeviceProperties(impl, uC, allocUsesProps, component->getConfigureProperties());
             if (CORBA::is_nil(usesDevice)) {
-                _undoAllocateUsesDevices(implPropTable);
+                // undo allocation,  we do not need to clean up totally at this point
+                _undoCapacityAllocations(implCapacityList);
                 usesDeviceSetComplete = false;
                 break;
             }
-            implPropTable.push_back(AllocPropsInfo(usesDevice, allocUsesProps));
+            implCapacityList.push_back( CapacityAllocation(usesDevice, allocUsesProps));
 
-            usesDevVec[uC]->setAssignedDeviceId(ossie::corba::returnString(usesDevice->identifier()));
-        }
-        if (!usesDeviceSetComplete) {
-            // if this implementation's 'usesdevice' dependencies can't be met, try the next one
-            continue;
+            implUsesDevVec[uC]->setAssignedDeviceId(ossie::corba::returnString(usesDevice->identifier()));
         }
 
-        // Found an implementation which has it's 'usesdevice' dependencies satisfied
-        // Now perform assignment/allocation of component to device
-        implUsesDeviceDepsMet = true;
-        LOG_TRACE(ApplicationFactory_impl, "Trying to find the device");
-        CF::Device_var device = CF::Device::_nil();
-        try {
-            device = allocateComponentToDevice(component, impl, deviceAssignments, &allocProps);
-        } catch ( ... ) {
-            continue;
-        }
-        if (!CORBA::is_nil(device)) {
+        CapacityAllocation  devCapacityAlloc;
+        bool foundSoftpkgDependencies = false;
+        try  {
+
+            if (!usesDeviceSetComplete) throw -1;  // if this implementation's 'usesdevice' dependencies can't be met, try the next one
+
+            // Found an implementation which has it's 'usesdevice' dependencies satisfied
+            // Now perform assignment/allocation of component to device
+            implUsesDeviceDepsMet = true;
+
+            LOG_DEBUG(ApplicationFactory_impl, "Trying to find the device");
+            allocateComponentToDevice(component, impl, deviceAssignments, devCapacityAlloc );
+
+            if (CORBA::is_nil( devCapacityAlloc.device ))  {
+               LOG_DEBUG(ApplicationFactory_impl, "Device Allocation Failed.. need to clean up");
+               throw -1;
+            }
+
+            foundSoftpkgDependencies = resolveSoftpkgDependencies(impl, devCapacityAlloc.device);
+
+            if (!foundSoftpkgDependencies) {
+                LOG_DEBUG(ApplicationFactory_impl, "Softpackage dependency failed.need to clean up");
+                throw -1;
+            }
+
             // allocation to a device succeeded
-            CORBA::String_var deviceId = device->identifier();
-            LOG_TRACE(ApplicationFactory_impl, "Assigned component " << component->getInstantiationIdentifier() << " to " << deviceId);
+            CORBA::String_var deviceId =  devCapacityAlloc.device->identifier();
+            LOG_DEBUG(ApplicationFactory_impl, "Assigned component " << component->getInstantiationIdentifier() << " to " << deviceId);
             component->setAssignedDeviceId(deviceId);
 
             CF::DeviceAssignmentType dat;
-            dat.componentId = component->getIdentifier();
+            dat.componentId = CORBA::string_dup(component->getIdentifier());
             dat.assignedDeviceId = CORBA::string_dup(deviceId);
             ossie::DeviceAssignmentInfo dai;
             dai.deviceAssignment = dat;
-            dai.device = device;
-            _usedDevs.push_back(dai);
+            dai.device =  CF::Device::_duplicate(devCapacityAlloc.device);
+            appAssignedDevs.push_back(dai);
+
             // Add the 'usesdevice' to the device assignment sequence
             if (!CORBA::is_nil(usesDevice)) {
                 ossie::DeviceAssignmentInfo dai_uses;
                 CF::DeviceAssignmentType dat_uses;
-                dat_uses.componentId = component->getIdentifier();
+                dat_uses.componentId = CORBA::string_dup(component->getIdentifier());
                 CORBA::String_var usesDeviceId = usesDevice->identifier();
                 dat_uses.assignedDeviceId = CORBA::string_dup(usesDeviceId);
                 dai_uses.deviceAssignment = dat_uses;
                 dai_uses.device = CF::Device::_duplicate(usesDevice);
-                _usedDevs.push_back(dai_uses);
+                appAssignedDevs.push_back(dai_uses);
             }
 
-            _allocPropsTable[component->getIdentifier()].push_back(AllocPropsInfo(device, allocProps));
-            for (unsigned propCount = 0; propCount < implPropTable.size(); propCount++) {
-                _allocPropsTable[component->getIdentifier()].push_back(implPropTable[propCount]);
+            // add device allocations to current application context's capcacity table
+            appCapacities[component->getIdentifier()].push_back( devCapacityAlloc );
+
+            // add any implementation's allocations  to current application context's capcacity table
+            for (unsigned propCount = 0; propCount < implCapacityList.size(); propCount++) {
+                appCapacities[component->getIdentifier()].push_back(implCapacityList[propCount]);
             }
-            for (unsigned propCount = 0; propCount < PropTable.size(); propCount++) {
-                _allocPropsTable[component->getIdentifier()].push_back(PropTable[propCount]);
-            }
-            bool foundSoftpkgDependencies = false;
-            try {
-                foundSoftpkgDependencies = resolveSoftpkgDependencies(impl, device);
-            } catch ( ... ) {
-                LOG_DEBUG(ApplicationFactory_impl, "Unable to find software package dependencies for implementation "<<impl->getId()<<"of "<<component->getInstantiationIdentifier()<<". Undoing allocate devices");
-                _undoAllocateUsesDevices(implPropTable);
-                continue;
-            }
-            if (!foundSoftpkgDependencies) {
-                LOG_DEBUG(ApplicationFactory_impl, "Unable to find software package dependencies for implementation "<<impl->getId()<<"of "<<component->getInstantiationIdentifier()<<". Undoing allocate devices");
-                _undoAllocateUsesDevices(implPropTable);
-                continue;
-            }
+
             component->setSelectedImplementation(impl);
+
+            LOG_DEBUG(ApplicationFactory_impl, "**PASSED** COMP INST_ID:" <<component->getInstantiationIdentifier() << " IMPL:" <<impl->getId() );
             // we're done
             return;
-        } else {
-            LOG_TRACE(ApplicationFactory_impl, "Undoing allocate devices");
-            _undoAllocateUsesDevices(implPropTable);
-            // try the next implementation
-            continue;
+
+        } catch ( ... ) {
+
+            // unwind all the allocates and settings..
+            LOG_DEBUG(ApplicationFactory_impl, "--FAILED-- Allocation of component's implementation " <<impl->getId() << " of "
+                      <<component->getInstantiationIdentifier()<<". Undoing allocate devices");
+            _undoCapacityAllocations(implCapacityList);
+
+                // check if we allocated against a device....
+            if( !CORBA::is_nil(devCapacityAlloc.device)) {
+                LOG_DEBUG(ApplicationFactory_impl, "Deallocate capacities for Device: "<< devCapacityAlloc.device->identifier() );
+                CapacityAllocationList  _dealloc;
+                _dealloc.push_back( devCapacityAlloc );
+            }
+
+            std::string no_dev_id("");
+            for ( uint i = 0; i < implUsesDevVec.size(); i++) {
+                implUsesDevVec[i]->setAssignedDeviceId(no_dev_id);
+            }
         }
     }
 
+    LOG_DEBUG(ApplicationFactory_impl, "NO Allocation met for COMP: "<< component->getIdentifier() );
     if (implementations.size() != 0) {
+
+         LOG_DEBUG(ApplicationFactory_impl, "Testing implUsesDeviceDepMet: "<< implUsesDeviceDepsMet);
+
+        // reset uses relationship if everything fails.... Capacity should be cleaned up during _cleanupAllocationDevices or by collocation setup
+        //
+        if ( usesDevicesCapacities.size() > 0 ) {
+            std::string no_dev_id("");
+            for ( uint i = 0; i < usesDevVec.size(); i++) {
+                usesDevVec[i]->setAssignedDeviceId(no_dev_id);
+            }
+        }
 
         if (!implUsesDeviceDepsMet){
             ostringstream eout;
@@ -1107,7 +1293,7 @@ void createHelper::allocateComponent(
             eout << "Failed satisfy 'usesdevice' dependencies for any implementation of component: '";
             eout << component->getName() << "' with component id: '" << component->getIdentifier() << "'";
             LOG_ERROR(ApplicationFactory_impl, eout.str());
-            _cleanupAllocateDevices();
+            if (cleanup) _cleanupAllocateDevices();
             throw CF::ApplicationFactory::CreateApplicationError(CF::CF_ENOSPC, eout.str().c_str());
         } else {
             ostringstream eout;
@@ -1115,13 +1301,15 @@ void createHelper::allocateComponent(
             eout << "Failed to satisfy device dependencies for component: '";
             eout << component->getName() << "' with component id: '" << component->getIdentifier() << "'";
             LOG_ERROR(ApplicationFactory_impl, eout.str());
-            _cleanupAllocateDevices();
+            if (cleanup) _cleanupAllocateDevices();
             throw CF::ApplicationFactory::CreateApplicationError(CF::CF_ENOSPC, eout.str().c_str());
         }
 
-        LOG_TRACE(ApplicationFactory_impl, "Calling cleanupAllocateDevices (2)");
-        _cleanupAllocateDevices(); // TO DO: this function seems to leak memory/corrupt the 'component' variable
+        LOG_DEBUG(ApplicationFactory_impl, "Calling cleanupAllocateDevices (2)");
+        if ( cleanup) _cleanupAllocateDevices(); // TO DO: this function seems to leak memory/corrupt the 'component' variable
     }
+
+    LOG_DEBUG(ApplicationFactory_impl, "End of AllocateComponent: "<< component->getIdentifier());
 }
 
 /** Perform allocation/assignment of a particular component to the device.
@@ -1129,29 +1317,32 @@ void createHelper::allocateComponent(
  *  - If not specified in DAS, then iterate through devices looking for a device that satisfies
  *    the allocation properties
  */
-CF::Device_ptr createHelper::allocateComponentToDevice(
-        ossie::ComponentInfo*               component, 
-        ossie::ImplementationInfo*          implementation,
-        const CF::DeviceAssignmentSequence& deviceAssignments, 
-        CF::Properties*                     allocProps)
+void createHelper::allocateComponentToDevice( ossie::ComponentInfo* component,
+                                              ossie::ImplementationInfo* implementation,
+                                              const CF::DeviceAssignmentSequence& deviceAssignments,
+                                              CapacityAllocation &deviceCapacityAlloc )
 {
     ossie::DeviceNode deviceNode;
     CF::Properties tmpProps;
+    CF::Properties allocatedCapacity;
     std::vector<std::string> tmpSoftpkgDeps;
     std::vector<std::string> _localSoftpkgDependencies;
 
     // First check to see if the component was assigned in the user provided DAS
     // See if a device was assigned in the DAS
     for (unsigned int j = 0; j < deviceAssignments.length (); j++) {
-        LOG_TRACE(ApplicationFactory_impl, "DAS Component - " << deviceAssignments[j].componentId << "   This Component - " \
-                << component->getInstantiationIdentifier())
+        LOG_TRACE(ApplicationFactory_impl, "DAS Component - " << deviceAssignments[j].componentId <<
+                  "   This Component - " << component->getInstantiationIdentifier());
 
         if (strcmp (deviceAssignments[j].componentId, component->getInstantiationIdentifier()) == 0) {
-            LOG_TRACE(ApplicationFactory_impl, "User-provided DAS: Component: '" << component->getName() << "'  Assigned device: '" << deviceAssignments[j].assignedDeviceId << "'")
+            LOG_TRACE(ApplicationFactory_impl, "User-provided DAS: Component: '" << component->getName() <<
+                      "'  Assigned device: '" << deviceAssignments[j].assignedDeviceId << "'");
             try {
                 deviceNode = find_device_node_from_id(deviceAssignments[j].assignedDeviceId);
-            } catch ( ... ) {
+            }
+            catch ( ... ) {
                 // Don't segfault when the DAS specifies an invalid device, also comply with SR:196
+
                 // since deviceNode isn't assigned at this point, we must create our own error message
                 ostringstream eout;
                 eout << "Unsuccessful allocation of component:{name='";
@@ -1169,7 +1360,7 @@ CF::Device_ptr createHelper::allocateComponentToDevice(
 
             // Check that the device meet's the needs of this component
             if ((implementation->getCodeType() == CF::LoadableDevice::EXECUTABLE) ||
-                (implementation->getCodeType() == CF::LoadableDevice::SHARED_LIBRARY)) {
+                    (implementation->getCodeType() == CF::LoadableDevice::SHARED_LIBRARY)) {
                 // Does this device provide LoadableDevice?
                 CF::LoadableDevice_var loaddev;
                 loaddev = ossie::corba::_narrowSafe<CF::LoadableDevice> (deviceNode.device);
@@ -1184,7 +1375,7 @@ CF::Device_ptr createHelper::allocateComponentToDevice(
                     throw CF::ApplicationFactory::CreateApplicationRequestError(badDAS);
                 }
 
-                if (implementation->getEntryPoint().size() != 0){
+                if (implementation->getEntryPoint().size() != 0) {
                     // Does this device provide ExecutableDevice?
                     CF::ExecutableDevice_var execdev;
                     execdev = ossie::corba::_narrowSafe<CF::ExecutableDevice> (deviceNode.device);
@@ -1201,12 +1392,12 @@ CF::Device_ptr createHelper::allocateComponentToDevice(
                 }
             }
 
-            LOG_TRACE(ApplicationFactory_impl, "Allocating capacity for " << component->getIdentifier() << " using manually assigned device")
+            LOG_TRACE(ApplicationFactory_impl, "Allocating capacity for " << component->getIdentifier() << " using manually assigned device");
             // If a device was manually assigned a component, and there was not enough
             // capacity, then we will fail
             try {
                 std::vector<std::string> _tmpSoftpkgDependencies;
-                *allocProps = allocateCapacity(component, implementation, deviceNode);
+                allocatedCapacity = allocateCapacity(component, implementation, deviceNode);
             } catch (CF::ApplicationFactory::CreateApplicationError& e) {
                 ostringstream eout;
                 std::string eMsg = "User-provided assignment (DAS) could not be completed; " + ossie::corba::returnString(e.msg);
@@ -1219,7 +1410,9 @@ CF::Device_ptr createHelper::allocateComponentToDevice(
                 throw CF::ApplicationFactory::CreateApplicationRequestError(badDAS);
             }
 
-            return deviceNode.device._retn();
+            deviceCapacityAlloc = AllocPropsInfo( deviceNode.device, allocatedCapacity );
+            return;
+            //return deviceNode.device._retn();
         }
     }
 
@@ -1228,13 +1421,13 @@ CF::Device_ptr createHelper::allocateComponentToDevice(
     // Ideally we will try IDLE devices first
     bool foundDevice = false;
     DeviceList::iterator deviceNodeIter;
-    LOG_TRACE(ApplicationFactory_impl, "Searching for a place to deploy component amongst " << _registeredDevices.size() << " devices")
+    LOG_TRACE(ApplicationFactory_impl, "Searching for a place to deploy component amongst " << _registeredDevices.size() << " devices");
     for (deviceNodeIter = _registeredDevices.begin(); deviceNodeIter != _registeredDevices.end(); deviceNodeIter++) {
         foundDevice = false; // make sure this is false
         if (!ossie::corba::objectExists(deviceNodeIter->device)) {
-            LOG_WARN(ApplicationFactory_impl, 
-                    "Not using device for component allocation " << deviceNodeIter->identifier
-                    << " because it no longer exists");
+            LOG_WARN(ApplicationFactory_impl,
+                     "Not using device for component allocation " << deviceNodeIter->identifier
+                     << " because it no longer exists");
             continue;
         }
         //
@@ -1242,30 +1435,31 @@ CF::Device_ptr createHelper::allocateComponentToDevice(
         //  - Validate the type of device meets the requirements in the 'code' section of the implementation
         //
         LOG_TRACE(ApplicationFactory_impl, "Checking Device " << deviceNodeIter->identifier);
-        if (deviceNodeIter->device->usageState() == CF::Device::BUSY) {
+        if (deviceNodeIter->device->usageState() == CF::Device::BUSY)
+        {
             LOG_TRACE(ApplicationFactory_impl, "Ignoring Device " <<deviceNodeIter->label << " is BUSY");
             continue;
         }
-    
+
         if ((implementation->getCodeType() == CF::LoadableDevice::EXECUTABLE) ||
                 (implementation->getCodeType() == CF::LoadableDevice::SHARED_LIBRARY)) {
             // Does this device provide LoadableDevice?
-            LOG_TRACE(ApplicationFactory_impl, "Device " << deviceNodeIter->identifier << " is loadable")
+            LOG_TRACE(ApplicationFactory_impl, "Device " << deviceNodeIter->identifier << " is loadable");
             CF::LoadableDevice_var loaddev;
             loaddev = ossie::corba::_narrowSafe<CF::LoadableDevice> (deviceNodeIter->device);
             if(CORBA::is_nil(loaddev)) {
-                LOG_TRACE(ApplicationFactory_impl, "Device " << deviceNodeIter->identifier << " is not loadable")
+                LOG_TRACE(ApplicationFactory_impl, "Device " << deviceNodeIter->identifier << " is not loadable");
                 continue;
             }
 
-            if (implementation->getEntryPoint().size() != 0){
+            if (implementation->getEntryPoint().size() != 0) {
                 // Does this device provide ExecutableDevice?
-                LOG_TRACE(ApplicationFactory_impl, "Device " << deviceNodeIter->identifier << " is executable")
+                LOG_TRACE(ApplicationFactory_impl, "Device " << deviceNodeIter->identifier << " is executable");
 
                 CF::ExecutableDevice_var execdev;
                 execdev = ossie::corba::_narrowSafe<CF::ExecutableDevice> (deviceNodeIter->device);
                 if(CORBA::is_nil(execdev)) {
-                    LOG_INFO(ApplicationFactory_impl, "Device " << deviceNodeIter->identifier << " is not executable")
+                    LOG_INFO(ApplicationFactory_impl, "Device " << deviceNodeIter->identifier << " is not executable");
                     continue;
                 }
             }
@@ -1274,16 +1468,17 @@ CF::Device_ptr createHelper::allocateComponentToDevice(
         //
         // Attempt to actually allocate capacity on the device
         //
-        LOG_TRACE(ApplicationFactory_impl, "Trying to allocate capacities for " << deviceNodeIter->identifier)
-    
+        LOG_TRACE(ApplicationFactory_impl, "Trying to allocate capacities for " << deviceNodeIter->identifier);
+
         try {
-            *allocProps = allocateCapacity(component, implementation, *deviceNodeIter);
+            allocatedCapacity = allocateCapacity(component, implementation, *deviceNodeIter);
             foundDevice = true;
+            deviceCapacityAlloc = AllocPropsInfo( deviceNodeIter->device, allocatedCapacity );
             break;
         } catch(CF::ApplicationFactory::CreateApplicationError& e) {
             std::ostringstream iout;
             errorMsgAllocate(iout, component, implementation, *deviceNodeIter, ossie::corba::returnString(e.msg));
-            LOG_INFO(ApplicationFactory_impl, iout.str())
+            LOG_DEBUG(ApplicationFactory_impl, iout.str());
             // Carry on my wayward son
         }
     }  // End iterating through the devices
@@ -1294,9 +1489,10 @@ CF::Device_ptr createHelper::allocateComponentToDevice(
     TRACE_EXIT(ApplicationFactory_impl);
     if (!foundDevice) {
         /* this isn't an error - just keep moving */
-        return CF::Device::_nil();
+        //return CF::Device::_nil();
     }
-    return CF::Device::_duplicate(deviceNodeIter->device);
+    //return CF::Device::_duplicate(deviceNodeIter->device);
+    return;
 
 }
 
@@ -1317,13 +1513,38 @@ void createHelper::errorMsgAllocate(
     }
 }
 
-/** Performs property matching and actually attempts to allocate capacity on the device
- *  - Check Processor and OS dependencies
- *  - Check matching property dependencies
- *  - Try to allocate capacity on the device
+/**
+  Performs property matching and actually attempts to allocate capacity on the device
+  if any part of the
+
+  Grab Current FileSystem
+
+  Look up devices, spd, prf files for the device...
+
+  prf = Grab Properties of Device
+
+  IF NO PRF then revert to DEPRECATED Behavior - just check if any implementation for the device EXISTS..
+
+  For the Device's Current Implementation,
+    -- Check if Device has Implementation in the PRF that matches...
+    -- if we find a match then merge into prf object from above...
+<------------ If merge errors out then THROW
+
+  Check OS/Processor Properties for Device's Prop against implementation's parameter
+<----------- If not THROW
+
+   Check if device can match the component's implementation requirements....
+<----------- If not THROW
+
+   Get set of Property objects in a Sequence that will be allocated for this component against a Device
+
+   For this Property Sequence (set) try and allocate capacities for each propery on the device.. deviceNode.device->allocateCapacity(allocProps)
+<----------- If Allocation FAILS... THROW
+
  */
 CF::Properties createHelper::allocateCapacity(ossie::ComponentInfo* component,
-        ossie::ImplementationInfo* implementation, ossie::DeviceNode deviceNode)
+                                              ossie::ImplementationInfo* implementation,
+                                              ossie::DeviceNode &deviceNode)
 throw (CF::ApplicationFactory::CreateApplicationError)
 {
     LOG_TRACE(ApplicationFactory_impl, "Device " << deviceNode.label << " software profile is " << deviceNode.softwareProfile)
@@ -1515,7 +1736,7 @@ throw (CF::ApplicationFactory::CreateApplicationError)
             LOG_ERROR(ApplicationFactory_impl, eout.str());
             throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EIO, eout.str().c_str());
         }
-
+        
         // Is there an implementation?
         const std::vector <SPD::Implementation>& spd_i = spd.getImplementations();
         unsigned int targetImplementation = 0;
@@ -1525,7 +1746,7 @@ throw (CF::ApplicationFactory::CreateApplicationError)
 
             for (unsigned int implCount = 0; implCount < spd_i.size(); implCount++) {
                 if (requestedImplementation==spd_i[implCount].implementationID) {
-                    foundImplementation = checkImplementationDependencyMatch(*implementation, spd_i[implCount]);
+                    foundImplementation = checkImplementationDependencyMatch(*implementation, spd_i[implCount], device);
                     if (foundImplementation) {
                         targetImplementation = implCount;
                     }
@@ -1539,15 +1760,17 @@ throw (CF::ApplicationFactory::CreateApplicationError)
             const std::vector <SPD::Implementation>& spd_i = spd.getImplementations();
 
             for (unsigned int implCount = 0; implCount < spd_i.size(); implCount++) {
-                foundImplementation = checkImplementationDependencyMatch(*implementation, spd_i[implCount]);
+                foundImplementation = checkImplementationDependencyMatch(*implementation, spd_i[implCount], device);
                 if (foundImplementation) {
                     targetImplementation = implCount;
+                    break;
                 }
             }
             if (!foundImplementation) {
                 return false;
             }
         }
+
         ossie::ImplementationInfo spdImplInfo(spd_i[targetImplementation]);
         CF::LoadableDevice_var loadableDevice;
         try {
@@ -1558,6 +1781,7 @@ throw (CF::ApplicationFactory::CreateApplicationError)
         if (CORBA::is_nil(loadableDevice)){
             return false;
         }
+
         try {
             CF::LoadableDevice::LoadType codeType = CF::LoadableDevice::EXECUTABLE;
             if (spd_i[targetImplementation].code.type.isSet()) {
@@ -1595,7 +1819,8 @@ throw (CF::ApplicationFactory::CreateApplicationError)
 
 bool createHelper::checkImplementationDependencyMatch(
     ossie::ImplementationInfo&       implementation_1, 
-    const ossie::ImplementationInfo& implementation_2)
+    const ossie::ImplementationInfo& implementation_2, 
+    CF::Device_ptr device)
 {
     // this just makes sure that the os and processor match
     // Regarding softpkg dependencies, a decision was reached that they are to extend only one level (no dependencies on the dependencies)
@@ -1651,7 +1876,16 @@ bool createHelper::checkImplementationDependencyMatch(
     } else if (implementation_2.getOsDeps().size() > 0) {
         return false;
     }
-    return true;
+    
+    // resolve dependencies on dependencies
+    std::vector<SPD::SoftPkgRef> tmpSoftpkg = implementation_1.getSoftPkgDependency();
+    std::vector<SPD::SoftPkgRef>::iterator iterSoftpkg = tmpSoftpkg.begin();
+    bool retval = true;
+    if (iterSoftpkg != tmpSoftpkg.end()) {
+        ossie::ImplementationInfo* tmp_impl = const_cast<ossie::ImplementationInfo*>(&implementation_2);
+        retval = (resolveSoftpkgDependencies(tmp_impl, device));
+    }
+    return retval;
 }
 
 
@@ -1674,7 +1908,7 @@ void createHelper::getRequiredComponents()
     std::vector< std::pair< int, std::string> > _startOrderPairs;
     for (unsigned int i = 0; i < componentsFromSAD.size(); i++) {
         const ComponentPlacement& component = componentsFromSAD[i];
-
+        
         // Create a list of pairs of start orders and instantiation IDs
         for (unsigned int ii = 0; ii < component.getInstantiations().size(); ii++) {
             // Only add a pair if a start order was provided, and the component is not the assembly controller
@@ -1701,7 +1935,7 @@ void createHelper::getRequiredComponents()
                     pos++;
                 }
             }
-
+            
             // Account for multiple start orders with the same value
             for (unsigned int kk = pos; kk < _startOrderIds.size(); kk++) {
                 if (strcmp(_startOrderIds[kk].c_str(),"") == 0) {
@@ -1761,7 +1995,6 @@ void createHelper::getRequiredComponents()
                 LOG_WARN(ApplicationFactory_impl, "component instantiation is sca compliant but does not provide a 'findcomponent' name...this is probably an error")
             }
         }
-    
     
         newComponent->setUsageName(instance.getUsageName());
         const std::vector<ComponentProperty*>& ins_prop = instance.getProperties();
@@ -1951,7 +2184,7 @@ void createHelper::loadAndExecuteComponents(
 
         // get the code.localfile
         fs::path codeLocalFile = fs::path(implementation->getLocalFileName());
-        LOG_TRACE(ApplicationFactory_impl, "Host is " << device->label () << " Local file name is "
+        LOG_TRACE(ApplicationFactory_impl, "Host is " << ossie::corba::returnString(device->label()) << " Local file name is "
                 << codeLocalFile);
         if (!codeLocalFile.has_root_directory()) {
             codeLocalFile = fs::path(component->spd.getSPDPath()) / codeLocalFile;
@@ -2010,7 +2243,7 @@ void createHelper::loadAndExecuteComponents(
         ostringstream load_eout; // used for any error messages dealing with load
         try {
             try {
-                LOG_TRACE(ApplicationFactory_impl, "loading " << codeLocalFile << " on device " << loadabledev->label());
+                LOG_TRACE(ApplicationFactory_impl, "loading " << codeLocalFile << " on device " << ossie::corba::returnString(loadabledev->label()));
                 loadabledev->load (fileMgr, codeLocalFile.string().c_str(), implementation->getCodeType());
             } catch( ... ) {
                 load_eout << "'load' failed for component: '";
@@ -2154,14 +2387,14 @@ void createHelper::attemptComponentExecution (
         CF::Application::ComponentProcessIdSequence*&              pid,
 		map<std::string, std::pair<std::string, unsigned long> >*& runningComponentTable) {
 
-            CF::Properties execParameters;
-            
-            // get entrypoint
-            CF::ExecutableDevice::ProcessID_Type tempPid = -1;
+    CF::Properties execParameters;
+    
+    // get entrypoint
+    CF::ExecutableDevice::ProcessID_Type tempPid = -1;
 
     // attempt to execute the component
     try {
-        LOG_TRACE(ApplicationFactory_impl, "executing " << executeName << " on device " << execdev->label())
+        LOG_TRACE(ApplicationFactory_impl, "executing " << executeName << " on device " << ossie::corba::returnString(execdev->label()));
         execParameters = component->getExecParameters();
         for (unsigned int i = 0; i < execParameters.length(); ++i) {
             LOG_TRACE(ApplicationFactory_impl, " exec param " << execParameters[i].id << " " << ossie::any_to_string(execParameters[i].value))
@@ -2378,7 +2611,7 @@ void createHelper::initializeComponents(CF::Resource_var& assemblyController,
                     currID = currID.append(":");
                     currID = currID.append(_waveformContextName);
 
-                    if (strcmp(val->identifier(), currID.c_str()) == 0) {
+                    if (strcmp(ossie::corba::returnString(val->identifier()).c_str(), currID.c_str()) == 0) {
                         break;
                     }
                     pos++;
@@ -2393,10 +2626,10 @@ void createHelper::initializeComponents(CF::Resource_var& assemblyController,
     }
 }
 
-/** Initializes the components
- *  - Make sure internal lists are up to date
- *  - Ensure components have started and are bound to Naming Service
- *  - Initialize each component
+/** Registers the components to the application object
+ *  - Invokes the registerComponent function on the application object.
+ *    If the naming service is deprecated, this function would be called
+ *    by the component instead of registering itself with the name service
  */
 void createHelper::addComponentsToApplication(Application_impl *application)
 {
@@ -2424,7 +2657,11 @@ void createHelper::configureComponents()
 {
     for (unsigned int rc_idx = 0; rc_idx < _requiredComponents.size (); rc_idx++) {
         ossie::ComponentInfo* component = _requiredComponents[rc_idx];
-
+        
+        if (component->isAssemblyController ()) {
+            continue;
+        }
+        
         // If the component is non-SCA compliant then we don't expect anything beyond this
         if (!component->isScaCompliant()) {
             LOG_TRACE(ApplicationFactory_impl, "Skipping configure; Component is non SCA-compliant, continuing to next component");
@@ -2500,6 +2737,92 @@ void createHelper::configureComponents()
                 }
             }
         }
+    }
+    
+    //  configure the assembly controller last
+    for (unsigned int rc_idx = 0; rc_idx < _requiredComponents.size (); rc_idx++) {
+        ossie::ComponentInfo* component = _requiredComponents[rc_idx];
+        
+        if (!component->isAssemblyController ()) {
+            continue;
+        }
+        
+        // If the component is non-SCA compliant then we don't expect anything beyond this
+        if (!component->isScaCompliant()) {
+            LOG_TRACE(ApplicationFactory_impl, "Skipping configure; Assembly controller is non SCA-compliant");
+            break;
+        }
+        
+        if (!component->isResource ()) {
+            LOG_TRACE(ApplicationFactory_impl, "Skipping configure; Assembly controller is not resource");
+            break;
+        }
+        
+        // Assuming 1 instantiation for each componentplacement
+        if (component->getNamingService ()) {
+            
+            CF::Resource_var _rsc = component->getResourcePtr();
+            
+            if (CORBA::is_nil(_rsc)) {
+                _cleanupResourceNotFound();
+                LOG_ERROR(ApplicationFactory_impl, "Could not get Assembly Controller reference");
+                ostringstream eout;
+                eout << "Could not get reference for Assembly Controller: '" 
+                << component->getName() << "' with component id: '" 
+                << component->getIdentifier() << " assigned to device: '"
+                << component->getAssignedDeviceId()<<"'";
+                eout << " in waveform '" << _waveformContextName<<"';";
+                eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
+                throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EIO, eout.str().c_str());
+            }
+            
+            if (component->isResource () && component->isConfigurable ()) {
+                try {
+                    // try to configure the component
+                    _rsc->configure (component->getNonNilConfigureProperties());
+                } catch(CF::PropertySet::InvalidConfiguration& e) {
+                    ostringstream eout;
+                    eout << "Failed to 'configure' Assembly Controller: '";
+                    eout << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId() << "' ";
+                    eout << " in waveform '"<< _waveformContextName<<"';";
+                    eout <<  "InvalidConfiguration with this info: <";
+                    eout << e.msg << "> for these invalid properties: ";
+                    for (unsigned int propIdx = 0; propIdx < e.invalidProperties.length(); propIdx++){
+                        eout << "(" << e.invalidProperties[propIdx].id << ",";
+                        eout << ossie::any_to_string(e.invalidProperties[propIdx].value) << ")";
+                    }
+                    eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
+                    LOG_ERROR(ApplicationFactory_impl, eout.str());
+                    _cleanupResourceConfigureFailed();
+                    throw CF::ApplicationFactory::InvalidInitConfiguration(e.invalidProperties);
+                } catch(CF::PropertySet::PartialConfiguration& e) {
+                    ostringstream eout;
+                    eout << "Failed to instantiate Assembly Controller: '";
+                    eout << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId() << "' ";
+                    eout << " in waveform '"<< _waveformContextName<<"';";
+                    eout << "Failed to 'configure' Assembly Controller; PartialConfiguration for these invalid properties: ";
+                    for (unsigned int propIdx = 0; propIdx < e.invalidProperties.length(); propIdx++){
+                        eout << "(" << e.invalidProperties[propIdx].id << ",";
+                        eout << ossie::any_to_string(e.invalidProperties[propIdx].value) << ")";
+                    }
+                    eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
+                    LOG_ERROR(ApplicationFactory_impl, eout.str());
+                    _cleanupResourceConfigureFailed();
+                    throw CF::ApplicationFactory::InvalidInitConfiguration(e.invalidProperties);
+                } catch( ... ) {
+                    ostringstream eout;
+                    eout << "Failed to instantiate Assembly Controller: '";
+                    eout << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId() << "' ";
+                    eout << " in waveform '"<< _waveformContextName<<"';";
+                    eout << "'configure' failed with Unknown Exception";
+                    eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
+                    LOG_ERROR(ApplicationFactory_impl, eout.str());
+                    _cleanupResourceConfigureFailed();
+                    throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL, eout.str().c_str());
+                }
+            }
+        }
+        break;
     }
 }
 

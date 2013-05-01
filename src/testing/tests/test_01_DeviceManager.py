@@ -20,7 +20,7 @@
 
 import unittest, os, signal, time
 import scatest
-from omniORB import URI, any
+from omniORB import URI, any, CORBA
 from ossie.cf import CF
 import commands
 import CosNaming
@@ -548,12 +548,12 @@ class DeviceManagerTest(scatest.CorbaTestCase):
 
         # testing the Octect
         octetId = 'DCE:10add64d-1160-4de0-885b-46a991f52f1d'
-        self._app.configure([CF.DataType(id=octetId, value=any.to_any("255"))])
+        self._app.configure([CF.DataType(id=octetId, value=CORBA.Any(CORBA.TC_octet, 254))])
         prop = CF.DataType(id=octetId, value=any.to_any(None))
         result = self._app.query([prop])
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, octetId)
-        self.assertEqual(result[0].value._v, 255)
+        self.assertEqual(result[0].value._v, 254)
         
                 
     def test_MultipleComponentPlacements(self):
@@ -602,15 +602,20 @@ class DeviceManagerTest(scatest.CorbaTestCase):
 
         # Check that we unregister correctly
         os.kill(devmgr_nb.pid, signal.SIGTERM)
-        time.sleep(1)
 
         svcName = URI.stringToName(scatest.getTestDomainName() + "/BasicService1")
-        # Don't use assertRaises, so we can simplify things
-        try:
-            self._root.resolve(svcName)._narrow(CF.PropertySet)
-        except CosNaming.NamingContext.NotFound:
-            pass
-        else:
+        time_begin = time.time()
+        time_end = time.time()
+        name_found = True
+        while ((time_end - time_begin) < 2) and name_found:
+            time_end = time.time()
+            # Don't use assertRaises, so we can simplify things
+            try:
+                self._root.resolve(svcName)._narrow(CF.PropertySet)
+                time.sleep(0.1)
+            except CosNaming.NamingContext.NotFound:
+                name_found = False
+        if name_found:
             self.fail("Expected service to not exist in the naming service")
 
     def test_MultipleDevicesWithSameName(self):
@@ -775,6 +780,243 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, propId)
         self.assertEqual(result[0].value._v, "not_none")
+
+    def test_ExternalServices(self):
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_MultipleService_node/DeviceManager.dcd.xml", debug=9)
+        
+        import ossie.utils.popen as _popen
+
+        serviceName = "BasicService10"
+
+        args = []
+        args.append("sdr/dev/services/BasicService/BasicService.py")
+        args.append("DEVICE_MGR_IOR")
+        args.append(self._orb.object_to_string(devMgr))
+        args.append("SERVICE_NAME")
+        args.append(serviceName)
+        args.append("LOGGING_CONFIG_URI")
+        args.append("runtest.props")
+        args.append("PARAM1")
+        args.append("ABCD")
+        args.append("PARAM2")
+        args.append("42")
+        args.append("PARAM3")
+        args.append("3.1459")
+        args.append("PARAM4")
+        args.append("False")
+        args.append("PARAM5")
+        args.append("Hello World")
+        exec_file = "sdr/dev/services/BasicService/BasicService.py"
+        external_process = _popen.Popen(args, executable=exec_file, cwd=os.getcwd(), preexec_fn=os.setpgrp)
+
+        serviceName2 = "BasicService11"
+        args[4] = serviceName2
+        exec_file = "sdr/dev/services/BasicService/BasicService.py"
+        external_process2 = _popen.Popen(args, executable=exec_file, cwd=os.getcwd(), preexec_fn=os.setpgrp)
+
+        time.sleep(1)
+
+        names = ["BasicService1", "BasicService2", "BasicService3", "BasicService4", "BasicService5", serviceName, serviceName2]   
+        
+        # Makes sure external service registered
+        for svc in devMgr._get_registeredServices():
+            self.assertNotEqual(svc, None)
+            self.assertEqual(svc.serviceName in names, True)
+            print svc.serviceName
+            names.remove(svc.serviceName)
+            obj = svc.serviceObject
+            obj = obj._narrow(CF.PropertySet)
+            self.assertNotEqual(obj, None)
+            
+            # Check the name service to ensure the service is properly bound
+            svcName = URI.stringToName(scatest.getTestDomainName() + "/" + svc.serviceName)
+            svcobj = self._root.resolve(svcName)._narrow(CF.PropertySet)
+            self.assertNotEqual(svcobj, None)
+            self.assert_(obj._is_equivalent(svcobj))
+            
+            # Check that all the parameters got set correctly
+            props = obj.query([])
+            d = dict([(p.id, any.from_any(p.value)) for p in props])
+            self.assertEqual(d["SERVICE_NAME"], svc.serviceName)
+            self.assertEqual(d["DEVICE_MGR_IOR"], self._orb.object_to_string(devMgr))
+            self.assertEqual(d["PARAM1"], "ABCD")
+            self.assertEqual(d["PARAM2"], 42)
+            self.assertEqual(d["PARAM3"], 3.1459)
+            self.assertEqual(d["PARAM4"], False)
+            self.assertEqual(d["PARAM5"], "Hello World")
+            self.assertEqual(d.has_key("PARAM6"), False)
+
+        # Make sure a component can communicate with the Service
+        self._domMgr.installApplication("/waveforms/ServiceConnection/ServiceConnection.sad.xml")
+        self.assertEquals(len(self._domMgr._get_applicationFactories()), 1)
+        factory = self._domMgr._get_applicationFactories()[0]
+        app = factory.create(factory._get_name(), [], [])
+        self.assertEquals(len(self._domMgr._get_applications()), 1)    
+              
+        # Make sure an app that uses external services can launch
+        app.start()
+        port = app._get_registeredComponents()[0].componentObject.getPort("output") 
+        app.releaseObject()
+
+        # Kill the 2 external services
+        os.kill(external_process.pid, signal.SIGINT)
+        os.kill(external_process2.pid, signal.SIGINT)
+        
+        # Give time for kill signals to be caught
+        time.sleep(1)
+        os.kill(devmgr_nb.pid, signal.SIGINT)
+                
+        # Make sure services are no longer register with the domain manager
+        names = ["BasicService1", "BasicService2", "BasicService3", "BasicService4", "BasicService5", serviceName, serviceName2]  
+        svcNames = []
+        for n in names:
+            svcNames.append(URI.stringToName(scatest.getTestDomainName() + "/" + n))
+        
+        # Needs to allow time for unregistering
+        self.assert_(self.waitTermination(devmgr_nb), "Nodebooter did not die after shutdown")
+        
+        # Don't use assertRaises, so we can simplify things
+        for name in svcNames:
+            try:
+                #print "!!!!!!!!!!!" + name
+                self._root.resolve(name)._narrow(CF.PropertySet)
+            except CosNaming.NamingContext.NotFound:
+                pass
+            else:
+                self.fail("Expected service to not exist in the naming service") 
+        
+        # Makes sure all children are cleaned
+        self.assertEquals(len(getChildren(devmgr_nb.pid)), 0)
+        
+    def test_ServiceShutdown_DomMgr(self):
+        num_services = 5
+        num_devices = 1
+        # This test makes sure that services are unregistered from the naming service upon shutdown of the DomainManager
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_MultipleService_node/DeviceManager.dcd.xml", debug=9)
+        self.assertEqual(len(devMgr._get_registeredServices()), num_services)
+        
+        # Makes sure that the correct number of processes forked 
+        self.assertEquals(len(getChildren(devmgr_nb.pid)), num_services + num_devices)
+        
+        svcName = URI.stringToName(scatest.getTestDomainName() + "/BasicService1")
+        self._root.resolve(svcName)._narrow(CF.PropertySet)
+
+        names = ["BasicService1", "BasicService2", "BasicService3", "BasicService4", "BasicService5"]
+
+        for svc in devMgr._get_registeredServices():
+            self.assertNotEqual(svc, None)
+            self.assertEqual(svc.serviceName in names, True)
+            names.remove(svc.serviceName)
+            obj = svc.serviceObject
+            obj = obj._narrow(CF.PropertySet)
+            self.assertNotEqual(obj, None)
+            
+            # Check the name service to ensure the service is properly bound
+            svcName = URI.stringToName(scatest.getTestDomainName() + "/" + svc.serviceName)
+            svcobj = self._root.resolve(svcName)._narrow(CF.PropertySet)
+            self.assertNotEqual(svcobj, None)
+            self.assert_(obj._is_equivalent(svcobj))
+
+            # Check that all the parameters got set correctly
+            props = obj.query([])
+            d = dict([(p.id, any.from_any(p.value)) for p in props])
+            self.assertEqual(d["SERVICE_NAME"], svc.serviceName)
+            self.assertEqual(d["DEVICE_MGR_IOR"], self._orb.object_to_string(devMgr))
+            self.assertEqual(d["PARAM1"], "ABCD")
+            self.assertEqual(d["PARAM2"], 42)
+            self.assertEqual(d["PARAM3"], 3.1459)
+            self.assertEqual(d["PARAM4"], False)
+            self.assertEqual(d["PARAM5"], "Hello World")
+            self.assertEqual(d.has_key("PARAM6"), False)
+
+        # Check that we unregister correctly
+        os.kill(self._domBooter.pid, signal.SIGINT)
+        
+        names = ["BasicService1", "BasicService2", "BasicService3", "BasicService4", "BasicService5"]
+        svcNames = []
+        for n in names:
+            svcNames.append(URI.stringToName(scatest.getTestDomainName() + "/" + n))
+        
+        # Needs to allow time for unregistering
+        self.assert_(self.waitTermination(self._domBooter), "Nodebooter did not die after shutdown")
+        
+        # Don't use assertRaises, so we can simplify things
+        for name in svcNames:
+            try:
+                self._root.resolve(name)._narrow(CF.PropertySet)
+            except CosNaming.NamingContext.NotFound:
+                pass
+            else:
+                self.fail("Expected service to not exist in the naming service: " + str(name))
+                
+        # Makes sure that all children are dead
+        self.assertEquals(len(getChildren(devmgr_nb.pid)), 0)
+        
+    def test_ServiceShutdown_DevMgr(self):
+        num_services = 5
+        num_devices = 1
+        
+        # This test makes sure that services are unregistered from the naming service upon shutdown of the DeviceManager
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_MultipleService_node/DeviceManager.dcd.xml", debug=9)
+        self.assertEqual(len(devMgr._get_registeredServices()), num_services)
+        
+        # Makes sure that the correct number of processes forked
+        self.assertEquals(len(getChildren(devmgr_nb.pid)), num_services + num_devices)
+    
+        svcName = URI.stringToName(scatest.getTestDomainName() + "/BasicService1")
+        self._root.resolve(svcName)._narrow(CF.PropertySet)
+        
+        names = ["BasicService1", "BasicService2", "BasicService3", "BasicService4", "BasicService5"]
+
+        for svc in devMgr._get_registeredServices():
+            self.assertNotEqual(svc, None)
+            self.assertEqual(svc.serviceName in names, True)
+            names.remove(svc.serviceName)
+            obj = svc.serviceObject
+            obj = obj._narrow(CF.PropertySet)
+            self.assertNotEqual(obj, None)
+
+            # Check the name service to ensure the service is properly bound
+            svcName = URI.stringToName(scatest.getTestDomainName() + "/" + svc.serviceName)
+            svcobj = self._root.resolve(svcName)._narrow(CF.PropertySet)
+            self.assertNotEqual(svcobj, None)
+            self.assert_(obj._is_equivalent(svcobj))
+
+            # Check that all the parameters got set correctly
+            props = obj.query([])
+            d = dict([(p.id, any.from_any(p.value)) for p in props])
+            self.assertEqual(d["SERVICE_NAME"], svc.serviceName)
+            self.assertEqual(d["DEVICE_MGR_IOR"], self._orb.object_to_string(devMgr))
+            self.assertEqual(d["PARAM1"], "ABCD")
+            self.assertEqual(d["PARAM2"], 42)
+            self.assertEqual(d["PARAM3"], 3.1459)
+            self.assertEqual(d["PARAM4"], False)
+            self.assertEqual(d["PARAM5"], "Hello World")
+            self.assertEqual(d.has_key("PARAM6"), False)
+
+        # Check that we unregister correctly
+        os.kill(devmgr_nb.pid, signal.SIGINT)
+
+        names = ["BasicService1", "BasicService2", "BasicService3", "BasicService4", "BasicService5"]
+        svcNames = []
+        for n in names:
+            svcNames.append(URI.stringToName(scatest.getTestDomainName() + "/" + n))
+        
+        # Needs to allow time for unregistering
+        self.assert_(self.waitTermination(devmgr_nb), "Nodebooter did not die after shutdown")
+
+        # Don't use assertRaises, so we can simplify things
+        for name in svcNames:
+            try:
+                self._root.resolve(name)._narrow(CF.PropertySet)
+            except CosNaming.NamingContext.NotFound:
+                pass
+            else:
+                self.fail("Expected service to not exist in the naming service: " + str(name))
+            
+        # Makes sure that all children are dead
+        self.assertEquals(len(getChildren(devmgr_nb.pid)), 0)
+
                 
 if __name__ == "__main__":
   # Run the unittests

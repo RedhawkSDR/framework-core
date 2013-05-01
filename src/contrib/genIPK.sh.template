@@ -25,14 +25,11 @@
 #
 # To use by hand:
 #   Copy to genIPK.sh one directory up
-#   Replace _VERSION_ with the release version
 #   run ./genIPK.sh from that directory
 #
 
-#Set the build version.  If env var exists, use that, else use the version auto-replaced by ant
-if [ -z "$RH_VERSION" ];then
-  RH_VERSION="__VERSION__" #ant replacement
-fi
+#Set the build version.
+RH_VERSION="1.8.4"
 
 #Set the base directory
 if [ -z "$RH_BUILD_DIR" ]; then
@@ -99,7 +96,11 @@ make install >> ${BUILD_LOG} 2>&1
 
 #edit the .pc package-config files to remove temp dir from prefix
 echo "Removing temp directory from prefix in pkg-cfg files..."
-sed -i "s_${TEMP_DIR}__" ${TEMP_DIR}/usr/local/redhawk/core/lib/pkgconfig/*.pc
+for f in ${TEMP_DIR}/usr/local/redhawk/core/lib/pkgconfig/*.pc
+do
+  sed "s_${TEMP_DIR}__" $f > $f.tmp
+  mv $f.tmp $f
+done
 
 #package framework up
 echo "Generating ${FRAMEWORK_IPK_NAME}"

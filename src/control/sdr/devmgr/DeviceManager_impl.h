@@ -40,7 +40,12 @@
 #include <ossie/Properties.h>
 #include <ossie/SoftPkg.h>
 
-class DeviceManager_impl: public virtual POA_CF::DeviceManager, public PropertySet_impl, public PortSupplier_impl
+#include <dirent.h>
+
+class DeviceManager_impl: 
+    public virtual POA_CF::DeviceManager,
+    public PropertySet_impl,
+    public PortSupplier_impl
 {
     ENABLE_LOGGING
 
@@ -108,14 +113,25 @@ private:
         pid_t pid;
     };
 
+    struct ServiceNode{
+    	std::string identifier;
+    	std::string label;
+    	std::string IOR;
+    	CORBA::Object_ptr service;
+    	pid_t pid;
+    };
+
     typedef std::vector<DeviceNode*> DeviceList;
+    typedef std::vector<ServiceNode*> ServiceList;
 
     // Devices that are registered with this DeviceManager.
     DeviceList _registeredDevices;
+    ServiceList _registeredServices;
 
     // Devices that were launched by this DeviceManager, but are either waiting for
     // registration or process termination.
     DeviceList _pendingDevices;
+    ServiceList _pendingServices;
 
     // Properties
     std::string     logging_config_uri;
@@ -138,7 +154,7 @@ private:
     CosNaming::NamingContext_var devMgrContext;
     CF::FileSystem_var _fileSys;
     CF::DeviceManager_var myObj;
-    CF::DeviceManager::ServiceSequence _registeredServices;
+    bool checkWriteAccess(std::string &path);
 
     enum DevMgrAdmnType {
         DEVMGR_REGISTERED,
@@ -200,6 +216,15 @@ private:
         const std::vector<ossie::ComponentPlacement>& componentPlacements,
         const ossie::ComponentPlacement&              componentPlacementInst);
 
+    bool loadDeviceProperties (
+        const ossie::SoftPkg& softpkg, 
+        const ossie::SPD::Implementation& deviceImpl, 
+        ossie::Properties& deviceProperties);
+
+    bool joinPRFProperties (
+        const std::string& prfFile, 
+        ossie::Properties& properties);
+    
     void getOverloadprops(
         std::map<std::string, std::string>&           overloadprops, 
         const std::vector<ossie::ComponentProperty*>& instanceprops,
@@ -273,8 +298,14 @@ private:
     // this mutex is used for synchronizing _registeredDevices, _pendingDevices, and _registeredServices
     boost::recursive_mutex registeredDevicesmutex;  
     void increment_registeredDevices(CF::Device_ptr registeringDevice);
+    void increment_registeredServices(CORBA::Object_ptr registeringService, 
+                                      const char* name);
     bool decrement_registeredDevices(CF::Device_ptr registeredDevice);
+    bool decrement_registeredServices(CORBA::Object_ptr registeringService, 
+                                      const char* name);
     void clean_registeredDevices();
+    void clean_registeredServices();
+    void clean_externalServices();
 
     const ossie::SPD::Implementation* locateMatchingDeviceImpl(
         const ossie::SoftPkg&             devSpd, 
@@ -285,7 +316,7 @@ private:
         const std::vector<const ossie::Property*>& props);
 
     void deleteFileSystems();
-    void makeDirectory(std::string path);
+    bool makeDirectory(std::string path);
     std::string getIORfromID(const char* instanceid);
     std::string deviceMgrIOR;
     std::string fileSysIOR;

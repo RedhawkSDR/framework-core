@@ -41,6 +41,7 @@ class _envContainer(object):
         self.stdout = stdout
     
     def __del__(self):
+        import os as _os
         _os.kill(self.domain,2)
         if self.stdout != None:
             self.stdout.close()

@@ -49,7 +49,7 @@ namespace ossie
      */
     class AllocPropsInfo {
     public:
-        AllocPropsInfo() {}
+        AllocPropsInfo() : device(CF::Device::_nil()) {}
 
         AllocPropsInfo(CF::Device_ptr _device, CF::Properties& _properties) {
             device = CF::Device::_duplicate(_device);
@@ -81,6 +81,8 @@ namespace ossie
     {
 
     public:
+        typedef std::vector< UsesDeviceInfo * >    List;
+
         UsesDeviceInfo(const std::string& id, const std::string& type, const std::vector<SPD::PropertyRef>& _properties);
         ~UsesDeviceInfo();
 
@@ -113,12 +115,12 @@ namespace ossie
 
         bool checkUsesDevices(ossie::Properties& _prf, CF::Properties& allocProps, unsigned int usesDevIdx, const CF::Properties& configureProperties) const;
         void addUsesDevice(UsesDeviceInfo* usesDevice);
-        const std::vector<UsesDeviceInfo*>& getUsesDevices() const;
+        const UsesDeviceInfo::List & getUsesDevices() const;
         virtual const UsesDeviceInfo* getUsesDeviceById(const std::string& id) const = 0;
 
 
     protected:
-        std::vector<UsesDeviceInfo*> usesDevices;
+        UsesDeviceInfo::List usesDevices;
     };
 
     /** Base class to contain data for implementations
@@ -129,6 +131,8 @@ namespace ossie
         ENABLE_LOGGING;
 
     public:
+        typedef std::vector< ImplementationInfo* >  List;
+
         ImplementationInfo(const SPD::Implementation& spdImpl);
         ~ImplementationInfo();
 
@@ -184,6 +188,7 @@ namespace ossie
         ENABLE_LOGGING
 
     public:
+
         ComponentInfo ();
         ~ComponentInfo ();
 
@@ -224,7 +229,7 @@ namespace ossie
         const char* getIdentifier();
         const char* getAssignedDeviceId();
         const ImplementationInfo* getSelectedImplementation() const;
-        const std::vector<ImplementationInfo*>& getImplementations() const;
+        void  getImplementations( ImplementationInfo::List &res );
         const char* getImplPRFFile();
         const bool  getNamingService();
         const char* getUsageName();
@@ -274,7 +279,7 @@ namespace ossie
         std::string assignedDeviceId;  // Device to deploy component on from DAS.
         const ImplementationInfo* selectedImplementation; // Implementation selected to run on assigned device.
 
-        std::vector<ImplementationInfo*> implementations;
+        ImplementationInfo::List  implementations;
         std::string implPRF;
         std::string usageName;
         std::string identifier;

@@ -470,7 +470,6 @@ void DeviceManager_impl::parseSpd(
     }
 }
 
-
 /**
  * Populates _domainManagerName by calling getDomainManagerReference.
  *
@@ -716,13 +715,16 @@ void DeviceManager_impl::createDeviceCacheLocation(
     std::string baseDevCache = _cacheroot + "/." + _label;
     if (instantiation.getUsageName() == 0) {
         // no usage name was given, so create one. By definition, the instantiation id must be unique
-    	usageName = instantiation.instantiationId;
+        usageName = instantiation.instantiationId;
     } else {
         usageName = instantiation.getUsageName();
     }
 
     devcache = baseDevCache + "/" + usageName;
-    this->makeDirectory(devcache);
+    bool retval = this->makeDirectory(devcache);
+    if (not retval) {
+        LOG_ERROR(DeviceManager_impl, "Unable to create the Device cache: " << devcache)
+    }
 }
 
 /**
@@ -910,21 +912,29 @@ void DeviceManager_impl::createDeviceThread(
 
     LOG_TRACE(DeviceManager_impl, "Launching " << componentType << " file " 
                                   << codeFilePath << " Usage name " 
-                                  << instantiation.getUsageName())
+                                  << instantiation.getUsageName());
 
     if ((pid = fork()) > 0) {
         // parent process: pid is the process ID of the child
         LOG_TRACE(DeviceManager_impl, "Resulting PID: " << pid);
 
-        // Add the new device to the pending list. When it registers, the remaining fields
-        // will be filled out and it will be moved to the registered list.
-
-        DeviceNode* deviceNode = new DeviceNode;
-        deviceNode->identifier = instantiation.getID();
-        deviceNode->label      = usageName;
-        deviceNode->pid        = pid;
-        boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
-        _pendingDevices.push_back(deviceNode);
+        // Add the new device/service to the pending list. When it registers, the remaining
+        // fields will be filled out and it will be moved to the registered list.
+        if (componentType == "service") {
+            ServiceNode* serviceNode = new ServiceNode;
+            serviceNode->identifier = instantiation.getID();
+            serviceNode->label = usageName;
+            serviceNode->pid = pid;
+            boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
+            _pendingServices.push_back(serviceNode);
+        } else {
+            DeviceNode* deviceNode = new DeviceNode;
+            deviceNode->identifier = instantiation.getID();
+            deviceNode->label      = usageName;
+            deviceNode->pid        = pid;
+            boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
+            _pendingDevices.push_back(deviceNode);
+        }
     }
     else if (pid == 0) {
         // Child process
@@ -1016,8 +1026,6 @@ DeviceManager_impl::DeviceManager_impl(
     gethostname(_hostname, 1024);
     std::string hostname(_hostname);
     HOSTNAME = hostname;
-
-    _registeredServices.length(0);
 }
 
 /**
@@ -1086,7 +1094,10 @@ void DeviceManager_impl::post_constructor (
     // create device manager cache location
     std::string devmgrcache(_cacheroot + "/." + _label);
     LOG_TRACE(DeviceManager_impl, "Creating DevMgr cache: " << devmgrcache)
-    this->makeDirectory(devmgrcache);
+    bool retval = this->makeDirectory(devmgrcache);
+    if (not retval) {
+        LOG_ERROR(DeviceManager_impl, "Unable to create the Device Manager cache: " << devmgrcache)
+    }
 
     //parse filesystem names
 
@@ -1146,7 +1157,8 @@ void DeviceManager_impl::post_constructor (
         // store the matchedDeviceImpl's implementation ID in a map for use with "getComponentImplementationId"
 
         ossie::Properties deviceProperties;
-        if (!joinDevicePropertiesFromPRFs (SPDParser, deviceProperties, matchedDeviceImpl)) {
+        if (!loadDeviceProperties(SPDParser, *matchedDeviceImpl, deviceProperties)) {
+            LOG_INFO(DeviceManager_impl, "Skipping instantiation of device '" << SPDParser.getSoftPkgName() << "'");
             continue;
         }
 
@@ -1155,12 +1167,12 @@ void DeviceManager_impl::post_constructor (
                               componentPlacements, 
                               *compPlaceIter);
 
-        for (unsigned int cpInstIndex = 0; 
-             cpInstIndex < compPlaceIter->getInstantiations().size(); 
-             cpInstIndex++) {
+        std::vector<ComponentInstantiation>::const_iterator cpInstIter;
+        for (cpInstIter =  compPlaceIter->getInstantiations().begin(); 
+             cpInstIter != compPlaceIter->getInstantiations().end(); 
+             cpInstIter++) {
 
-            const ComponentInstantiation instantiation = 
-                (compPlaceIter->getInstantiations())[cpInstIndex];
+            const ComponentInstantiation instantiation = *cpInstIter;
             LOG_TRACE(DeviceManager_impl, "Placing component " << instantiation.getID());
 
             recordComponentInstantiationId(instantiation, matchedDeviceImpl);
@@ -1203,7 +1215,6 @@ void DeviceManager_impl::post_constructor (
                 componentPlacements,
                 compositeDeviceIOR,
                 instanceprops);
-
         }
     }
 }
@@ -1256,6 +1267,7 @@ const SPD::Implementation* DeviceManager_impl::locateMatchingDeviceImpl(const So
     const std::vector<SPD::Implementation>& impls = devSpd.getImplementations();
     const std::vector<const Property*>& props = PRFparser.getAllocationProperties();
     // flip through all component implementations the device supports
+
     unsigned int implIndex = 0;
     while( implIndex < impls.size() ) {
         LOG_TRACE(DeviceManager_impl, 
@@ -1295,6 +1307,54 @@ bool DeviceManager_impl::checkProcessorAndOs(const SPD::Implementation& device, 
         LOG_TRACE(DeviceManager_impl, "Failed to match device os to device manager allocation properties");
     }
     return matchProcessor && matchOs;
+}
+
+bool DeviceManager_impl::loadDeviceProperties (const SoftPkg& softpkg, const SPD::Implementation& deviceImpl, ossie::Properties& properties)
+{
+    // store location of the common device PRF
+    if (softpkg.getPRFFile()) {
+        const std::string prfFile = softpkg.getPRFFile();
+        LOG_TRACE(DeviceManager_impl, "Loading device softpkg PRF file " << prfFile);
+        if (!joinPRFProperties(prfFile, properties)) {
+            return false;
+        }
+    } else {
+        LOG_TRACE(DeviceManager_impl, "Device does not provide softpkg PRF file");
+    }
+
+    // store location of implementation specific PRF file
+    if (deviceImpl.getPRFFile()) {
+        const std::string prfFile = deviceImpl.getPRFFile();
+        LOG_TRACE(DeviceManager_impl, "Joining implementation-specific PRF file " << prfFile);
+        if (!joinPRFProperties(prfFile, properties)) {
+            return false;
+        }
+    } else {
+        LOG_TRACE(DeviceManager_impl, "Device does not provide implementation-specific PRF file");
+    }
+
+    return true;
+}
+
+bool DeviceManager_impl::joinPRFProperties (const std::string& prfFile, ossie::Properties& properties)
+{
+    try {
+        // Check for the existence of the PRF file first so we can give a more meaningful error message.
+        if (!_fileSys->exists(prfFile.c_str())) {
+            LOG_ERROR(DeviceManager_impl, "PRF file " << prfFile << " does not exist");
+        } else {
+            LOG_TRACE(DeviceManager_impl, "Loading PRF file " << prfFile);
+            File_stream prfStream(_fileSys, prfFile.c_str());
+            properties.join(prfStream);
+            LOG_TRACE(DeviceManager_impl, "Loaded PRF file " << prfFile);
+            prfStream.close();
+            return true;
+        }
+    } catch (const ossie::parser_error& ex) {
+        LOG_ERROR(DeviceManager_impl, "XML parser error '" << ex.what() << "' in PRF file " << prfFile);
+    } CATCH_LOG_ERROR(DeviceManager_impl, "Failure parsing PRF file " << prfFile);
+
+    return false;
 }
 
 void
@@ -1384,7 +1444,20 @@ CF::DeviceManager::ServiceSequence *
 DeviceManager_impl::registeredServices ()throw (CORBA::SystemException)
 {
     boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
-    CF::DeviceManager::ServiceSequence_var result = new CF::DeviceManager::ServiceSequence(_registeredServices);
+
+    CF::DeviceManager::ServiceSequence_var result;
+
+    try {
+        result = new CF::DeviceManager::ServiceSequence();
+        result->length(_registeredServices.size());
+        for (CORBA::ULong ii = 0; ii < _registeredServices.size(); ++ii){
+            result[ii].serviceObject = CORBA::Object::_duplicate(_registeredServices[ii]->service);
+            result[ii].serviceName = _registeredServices[ii]->label.c_str();
+        }
+    } catch ( ... ){
+        result = new CF::DeviceManager::ServiceSequence();
+    }
+
     return result._retn();
 }
 
@@ -1622,9 +1695,9 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
 //This function returns TRUE if the input serviceName is contained in the _registeredServices list attribute
 bool DeviceManager_impl::serviceIsRegistered (const char* serviceName)
 {
-//Look for registeredService in _registeredServices
-    for (unsigned int i = 0; i < _registeredServices.length (); i++) {
-        if (strcmp (_registeredServices[i].serviceName, serviceName)  == 0) {
+    boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
+    for (ServiceList::const_iterator serviceIter = _registeredServices.begin(); serviceIter != _registeredServices.end(); ++serviceIter){
+        if (strcmp((*serviceIter)->label.c_str(), serviceName) == 0){
             return true;
         }
     }
@@ -1730,6 +1803,8 @@ throw (CORBA::SystemException)
     //Devices (DeviceManagers registeredDevices attribute).
     // releaseObject for AggregateDevices calls releaseObject on all of their child devices
     // ergo a while loop must be used vice a for loop
+    clean_registeredServices();
+    clean_externalServices();
     clean_registeredDevices();
 
     LOG_TRACE(DeviceManager_impl, "Unbinding device manager context")
@@ -1795,36 +1870,42 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
         throw (CF::InvalidObjectReference("Cannot register service, registeringService is a nil reference."));
     }
 
-//The registerService operation shall add the input registeringService to the DeviceManagers
-//registeredServices attribute when the input registeringService does not already exist in the
-//registeredServices attribute. The registeringService is ignored when duplicated.
-    if (!serviceIsRegistered (name)) {
-        _registeredServices.length (_registeredServices.length () + 1);
-        _registeredServices[_registeredServices.length () - 1].serviceObject = CORBA::Object::_duplicate(registeringService);
-        _registeredServices[_registeredServices.length () - 1].serviceName = name;
-
-        // Per the specification, service usagenames are not optional and *MUST* be 
+    // Register the service with the Device manager, unless it is already
+    // registered
+    if (!serviceIsRegistered(name)) {
+        // Per the specification, service usagenames are not optional and *MUST* be
         // unique per each service type.  Therefore, a domain cannot have two
         // services of the same usagename.
-        LOG_TRACE(DeviceManager_impl, "Binding service to name " << name)
+        LOG_TRACE(DeviceManager_impl, "Binding service to name " << name);
         CosNaming::Name_var service_name = ossie::corba::stringToName(name);
-        rootContext->rebind(service_name, registeringService);
+        try {
+             rootContext->rebind(service_name, registeringService);
+        } catch ( ... ) {
+            // there is already something bound to that name
+            // from the perspective of this framework implementation, the multiple names are not acceptable
+            // consider this a registered device
+            LOG_WARN(DeviceManager_impl, "Service is already registered")
+            return;
+        }
+
+        increment_registeredServices(registeringService, name);
+
     } else {
         LOG_WARN(DeviceManager_impl, "Service is already registered")
         return;
     }
 
-//The registerService operation shall register the registeringService with the DomainManager
-//when the DeviceManager has already registered to the DomainManager and the
-//registeringService has been successfully added to the DeviceManagers registeredServices
-//attribute.
+    //The registerService operation shall register the registeringService with the DomainManager
+    //when the DeviceManager has already registered to the DomainManager and the
+    //registeringService has been successfully added to the DeviceManagers registeredServices
+    //attribute.
     if (_adminState == DEVMGR_REGISTERED) {
         try {
             _dmnMgr->registerService(registeringService, myObj, name);
         } catch ( ... ) {
             CosNaming::Name_var service_name = ossie::corba::stringToName(name);
             rootContext->unbind(service_name);
-            _registeredServices.length (_registeredServices.length () - 1);
+            _registeredServices.pop_back();
             LOG_ERROR(DeviceManager_impl, "Failed to register service to the domain manager; unregistering the service from the device manager")
             throw;
         }
@@ -1848,39 +1929,11 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
         throw (CF::InvalidObjectReference("Cannot unregister Service. registeringService is a nil reference."));
     }
 
-//The unregisterService operation shall remove the input registeredService from the
-//DeviceManagers registeredServices attribute. The unregisterService operation shall unregister
-//the input registeredService from the DomainManager when the input registeredService is
-//registered with the DeviceManager and the DeviceManager is not in the shutting down state.
+    //Look for registeredService in _registeredServices
+    bool serviceFound = decrement_registeredServices(registeredService, name);
+    if (serviceFound)
+        return;
 
-//Look for registeredService in _registeredServices
-    for (unsigned int i = 0; i < _registeredServices.length (); i++) {
-        if (strcmp (_registeredServices[i].serviceName, name) == 0) {
-            if ((_adminState == DEVMGR_REGISTERED)) {
-                try {
-                    _dmnMgr->unregisterService(registeredService, name);
-                } CATCH_LOG_ERROR(DeviceManager_impl, "Failure unregistering service from domain manager") 
-            }
-            if (!registeredService->_is_equivalent(_registeredServices[i].serviceObject)) {
-                LOG_WARN(DeviceManager_impl, "Cowardly refusing to unregister service because" 
-                                             << " the unregistering object does not match the"
-                                             << " registered object")
-            }
-
-            for (unsigned int j = i; j < _registeredServices.length () - 1; j++) {
-                _registeredServices[j] = _registeredServices[j+1];
-            }
-            _registeredServices.length (_registeredServices.length () - 1);
-
-            // Per the specification, service usagenames are not optional and *MUST* be 
-            // unique per each service type.  Therefore, a domain cannot have two
-            // services of the same usagename.
-            LOG_TRACE(DeviceManager_impl, "Unbinding service name " << name)
-            CosNaming::Name_var service_name = ossie::corba::stringToName(name);
-            rootContext->unbind(service_name);
-            return;
-        }
-    }
 
 //If it didn't find registeredDevice, then throw an exception
     /*writeLogRecord(FAILURE_ALARM,invalid reference input parameter.);*/
@@ -1918,7 +1971,7 @@ throw (CORBA::SystemException)
 //element used to create the component.
 }
 
-void DeviceManager_impl::makeDirectory(std::string path)
+bool DeviceManager_impl::makeDirectory(std::string path)
 {
     bool done = false;
 
@@ -1938,6 +1991,8 @@ void DeviceManager_impl::makeDirectory(std::string path)
     }
     std::string::size_type begin_pos = 0;
     std::string::size_type last_slash = workingFileName.find_last_of("/");
+    
+    bool success = true;
 
     if (last_slash != std::string::npos) {
         while (!done) {
@@ -1950,11 +2005,72 @@ void DeviceManager_impl::makeDirectory(std::string path)
                 { break; }
 
             initialDir += workingFileName.substr(begin_pos, (pos - begin_pos)) + std::string("/");
-            mkdir(initialDir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-            LOG_TRACE(DeviceManager_impl, "Creating directory (from " << workingFileName << ") " << initialDir)
+            int retval = mkdir(initialDir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+            if (retval == -1) {
+                if (errno == ENOENT) {
+                    LOG_WARN(DeviceManager_impl, "Failed to create directory (from " << workingFileName << ") " << initialDir <<". Non-existent root directory.")
+                    success = false;
+                } else if (errno == EEXIST) {
+                    LOG_TRACE(DeviceManager_impl, "Directory (from " << workingFileName << ") " << initialDir <<" already exists. No need to make a new one.")
+                } else if (errno == EACCES) {
+                    LOG_WARN(DeviceManager_impl, "Failed to create directory (from " << workingFileName << ") " << initialDir <<". Please check your write permissions.")
+                    success = false;
+                } else if (errno == ENOTDIR) {
+                    LOG_WARN(DeviceManager_impl, "Failed to create directory (from " << workingFileName << ") " << initialDir <<". One of the components of the path is not a directory.")
+                    success = false;
+                } else if (errno == ELOOP) {
+                    LOG_WARN(DeviceManager_impl, "Failed to create directory (from " << workingFileName << ") " << initialDir <<". A loop exists in the symbolic links in the path.")
+                    success = false;
+                } else if (errno == EMLINK) {
+                    LOG_WARN(DeviceManager_impl, "Failed to create directory (from " << workingFileName << ") " << initialDir <<". The link count of the parent directory exceeds LINK_MAX.")
+                    success = false;
+                } else if (errno == ENAMETOOLONG) {
+                    LOG_WARN(DeviceManager_impl, "Failed to create directory (from " << workingFileName << ") " << initialDir <<". The path name is too long.")
+                    success = false;
+                } else if (errno == EROFS) {
+                    LOG_WARN(DeviceManager_impl, "Failed to create directory (from " << workingFileName << ") " << initialDir <<". This is a read-only file system.")
+                    success = false;
+                } else {
+                    LOG_WARN(DeviceManager_impl, "Attempt to create directory (from " << workingFileName << ") " << initialDir <<" failed with the following error number: " << errno)
+                    success = false;
+                }
+            } else {
+                LOG_TRACE(DeviceManager_impl, "Creating directory (from " << workingFileName << ") " << initialDir)
+            }
             begin_pos = pos + 1;
         }
     }
+    bool retval = checkWriteAccess(path);
+    if (not retval) {
+        LOG_WARN(DeviceManager_impl, "The Device Manager (or one of its children) does not have write permission to one or more files in the cache. This may lead to unexpected behavior.")
+    }
+    return success;
+}
+
+bool DeviceManager_impl::checkWriteAccess(std::string &path)
+{
+    DIR *dp;
+    struct dirent *ep;
+    dp = opendir(path.c_str());
+    while ((ep = readdir(dp)) != NULL) {
+        std::string name = ep->d_name;
+        if ((name == ".") or (name == "..")) continue;
+        std::string full_name = path + "/" + name;
+        if (access(full_name.c_str(), W_OK) == -1) {
+            LOG_WARN(DeviceManager_impl, "The file '" << full_name << "' cannot be overwritten by the Device Manager process (or one of its children).")
+            (void) closedir(dp);
+            return false;
+        }
+        if (ep->d_type == DT_DIR) {
+            bool retval = checkWriteAccess(full_name);
+            if (not retval) {
+                (void) closedir(dp);
+                return retval;
+            }
+        }
+    }
+    (void) closedir(dp);
+    return true;
 }
 
 /****************************************************************************
@@ -1963,6 +2079,72 @@ void DeviceManager_impl::makeDirectory(std::string path)
   as a couple of associated data structures (the have to be synchronized)
 
 ****************************************************************************/
+
+bool DeviceManager_impl::decrement_registeredServices(CORBA::Object_ptr registeredService, const char* name)
+{
+    bool serviceFound = false;
+
+    //The unregisterService operation shall remove the input registeredService from the
+    //DeviceManagers registeredServices attribute. The unregisterService operation shall unregister
+    //the input registeredService from the DomainManager when the input registeredService is
+    //registered with the DeviceManager and the DeviceManager is not in the shutting down state.
+
+    // Acquire the registered device mutex so that no one else can read of modify the list.
+    boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
+
+    for (ServiceList::iterator serviceIter = _registeredServices.begin(); serviceIter != _registeredServices.end(); ++serviceIter){
+        LOG_TRACE(DeviceManager_impl, "Comparing tmpServiceName to serviceName " << (*serviceIter)->label << " " << name);
+        ServiceNode* serviceNode = *serviceIter;
+        if (strcmp((*serviceIter)->label.c_str(), name) == 0){
+            LOG_TRACE(DeviceManager_impl, "Matched service name");
+            serviceFound = true;
+
+            // Unbind service from the naming service
+            std::string temp_name((*serviceIter)->label);
+            LOG_INFO(DeviceManager_impl, "Unbinding service name " << temp_name);
+            // Per the specification, service usagenames are not optional and *MUST* be
+            // unique per each service type.  Therefore, a domain cannot have two
+            // services of the same usagename.
+            CosNaming::Name_var tmpServiceName = ossie::corba::stringToName(temp_name);
+            try {
+                rootContext->unbind(tmpServiceName);
+            } catch ( ... ){
+                LOG_INFO(DeviceManager_impl, "Service " << temp_name << " was not able to unbind");
+            }
+
+            // Ddon't unregisterService from the domain manager if we are SHUTTING_DOWN
+            if (_adminState == DEVMGR_REGISTERED){
+                try {
+                    LOG_INFO(DeviceManager_impl, "Unregistering service " << name << " from domain manager");
+                    _dmnMgr->unregisterService(registeredService, name);
+                    LOG_TRACE(DeviceManager_impl, "Done unregistering service " << name << " from domain manager");
+                } CATCH_LOG_ERROR(DeviceManager_impl, "Failure unregistering service from domain manager")
+            } else {
+                LOG_TRACE(DeviceManager_impl, "Not unregistering service " << name << " from domain manager because we are shutting down");
+            }
+
+            if (!registeredService->_is_equivalent((*serviceIter)->service)) {
+                LOG_WARN(DeviceManager_impl, "Cowardly refusing to unregister service because"
+                                             << " the unregistering object does not match the"
+                                             << " registered object")
+            }
+
+            // Remove the service from the list of registered services
+            _registeredServices.erase(serviceIter);
+
+            std::string label = serviceNode->label;
+            if (serviceNode->pid != 0){
+                // The service process has not terminated, so add it back to the pending list.
+                _pendingServices.push_back(serviceNode);
+            }
+
+            break;
+        }
+    }
+
+
+    return serviceFound;
+}
 
 bool DeviceManager_impl::decrement_registeredDevices(CF::Device_ptr registeredDevice)
 {
@@ -2027,6 +2209,42 @@ bool DeviceManager_impl::decrement_registeredDevices(CF::Device_ptr registeredDe
     
     TRACE_EXIT(DeviceManager_impl);
     return deviceFound;
+}
+
+/*
+ * increment the registered services sequences along with the id and table tables
+ */
+void DeviceManager_impl::increment_registeredServices(CORBA::Object_ptr registeringService, const char* name)
+{
+    // Find the device in the pending list. If we launched the device process, it should be found here.
+    boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
+
+    ServiceNode* serviceNode = 0;
+    for (ServiceList::iterator serviceIter = _pendingServices.begin(); serviceIter != _pendingServices.end(); ++serviceIter) {
+        if (strcmp((*serviceIter)->label.c_str(), name) == 0){
+            serviceNode = *serviceIter;
+            _pendingServices.erase(serviceIter);
+            break;
+        }
+    }
+
+    if (!serviceNode){
+        // A service is registering that was not launched by this DeviceManager. Create a node
+        // to manage it, but mark the PID as 0, as there is no process to monitor.
+        LOG_WARN(DeviceManager_impl, "Registering service " << name << " was not launched by this DeviceManager");
+        serviceNode = new ServiceNode;
+        serviceNode->identifier = name;
+        serviceNode->pid = 0;
+    }
+
+    //The registerService operation shall add the input registeringService to the DeviceManagers
+    //registeredServices attribute when the input registeringService does not already exist in the
+    //registeredServices attribute. The registeringService is ignored when duplicated.
+    serviceNode->label = name;
+    serviceNode->IOR = ossie::corba::objectToString(registeringService);
+    serviceNode->service = CORBA::Object::_duplicate(registeringService);
+
+    _registeredServices.push_back(serviceNode);
 }
 
 /*
@@ -2116,6 +2334,109 @@ std::string DeviceManager_impl::getIORfromID(const char* instanceid)
     return std::string();
 }
 
+
+/* Removes any services that were registered from an external source  */
+void DeviceManager_impl::clean_externalServices(){
+    ServiceNode* serviceNode = 0;
+    {
+        boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
+
+        for (ServiceList::iterator serviceIter = _registeredServices.begin(); serviceIter != _registeredServices.end(); ++serviceIter) {
+            if ((*serviceIter)->pid == 0) {
+                serviceNode = (*serviceIter);
+                break;
+            }
+        }
+    }
+
+    if (serviceNode){
+        decrement_registeredServices(serviceNode->service, serviceNode->label.c_str());
+    }
+}
+
+void DeviceManager_impl::clean_registeredServices(){
+
+    boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
+    std::vector<unsigned int> pids;
+
+    for (ServiceList::iterator serviceIter = _registeredServices.begin(); serviceIter != _registeredServices.end(); ++serviceIter) {
+        pids.push_back((*serviceIter)->pid);
+    }
+    for (ServiceList::iterator serviceIter = _pendingServices.begin(); serviceIter != _pendingServices.end(); ++serviceIter) {
+        pids.push_back((*serviceIter)->pid);
+    }
+
+    // Clean up service processes.
+    for (ServiceList::iterator serviceIter = _pendingServices.begin(); serviceIter != _pendingServices.end(); ++serviceIter) {
+        pid_t servicePid = (*serviceIter)->pid;
+
+        // Try an orderly shutdown.
+        // NOTE: If the DeviceManager was terminated with a ^C, sending this signal may cause the
+        //       original SIGINT to be forwarded to all other children (which is harmless, but be aware).
+        LOG_TRACE(DeviceManager_impl, "Sending SIGTERM to service process " << servicePid);
+        kill(servicePid, SIGTERM);
+    }
+
+    // Send a SIGTERM to any services that haven't yet unregistered
+    for (ServiceList::iterator serviceIter = _registeredServices.begin(); serviceIter != _registeredServices.end(); ++serviceIter){
+        pid_t servicePid = (*serviceIter)->pid;
+        // Only kill services that were launched by this device manager
+        if (servicePid != 0){
+            LOG_TRACE(DeviceManager_impl, "Sending SIGTERM to a registered service process " << servicePid);
+            kill(servicePid, SIGTERM);
+        }
+    }
+
+    lock.unlock();
+
+    // Release the lock and allow time for the devices to exit.
+    if (pids.size() != 0) {
+        struct timeval tmp_time;
+        struct timezone tmp_tz;
+        gettimeofday(&tmp_time, &tmp_tz);
+        double wsec_begin = tmp_time.tv_sec;
+        double fsec_begin = tmp_time.tv_usec / 1e6;
+        double wsec_end = wsec_begin;
+        double fsec_end = fsec_begin;
+        double time_diff = (wsec_end + fsec_end)-(wsec_begin + fsec_begin);
+        bool registered_pending_pid_gone = false;
+        while ((time_diff < 0.5) and (not registered_pending_pid_gone)) {
+            registered_pending_pid_gone = true;
+            for (std::vector<unsigned int>::iterator p_pid = pids.begin(); p_pid != pids.end(); ++p_pid) {
+                if (kill(*p_pid, 0) != -1) {
+                    registered_pending_pid_gone = false;
+                    break;
+                }
+            }
+            if (not registered_pending_pid_gone) {
+                gettimeofday(&tmp_time, &tmp_tz);
+                wsec_end = tmp_time.tv_sec;
+                fsec_end = tmp_time.tv_usec / 1e6;
+                time_diff = (wsec_end + fsec_end)-(wsec_begin + fsec_begin);
+                usleep(1000);
+            }
+        }
+    }
+    lock.lock();
+
+    // Send a SIGKILL to any remaining services.
+    for (ServiceList::iterator serviceIter = _pendingServices.begin(); serviceIter != _pendingServices.end(); ++serviceIter) {
+        pid_t servicePid = (*serviceIter)->pid;
+        LOG_TRACE(DeviceManager_impl, "Sending SIGKILL to service process " << servicePid);
+        kill(servicePid, SIGKILL);
+    }
+
+    // Send a SIGKILL to any services that haven't yet unregistered
+    for (ServiceList::iterator serviceIter = _registeredServices.begin(); serviceIter != _registeredServices.end(); ++serviceIter){
+        pid_t servicePid = (*serviceIter)->pid;
+        // Only kill services that were launched by this device manager
+        if (servicePid != 0){
+            LOG_TRACE(DeviceManager_impl, "Sending SIGKILL to a registered service process " << servicePid);
+            kill(servicePid, SIGKILL);
+        }
+    }
+}
+
 void DeviceManager_impl::clean_registeredDevices()
 {
     boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
@@ -2165,6 +2486,43 @@ void DeviceManager_impl::clean_registeredDevices()
         }
     }
 
+    // Clean up device processes.
+    for (DeviceList::iterator deviceIter = _pendingDevices.begin(); deviceIter != _pendingDevices.end(); ++deviceIter) {
+        pid_t devicePid = (*deviceIter)->pid;
+
+        // Try an orderly shutdown.
+        // NOTE: If the DeviceManager was terminated with a ^C, sending this signal may cause the
+        //       original SIGINT to be forwarded to all other children (which is harmless, but be aware).
+        LOG_TRACE(DeviceManager_impl, "Sending SIGTERM to device process " << devicePid);
+        kill(devicePid, SIGTERM);
+    }
+
+    lock.unlock();
+
+    // Release the lock and allow time for the devices to exit.
+    bool registered_pending_list_empty = _pendingDevices.empty() and
+            _registeredDevices.empty();
+    if (not registered_pending_list_empty) {
+        struct timeval tmp_time;
+        struct timezone tmp_tz;
+        gettimeofday(&tmp_time, &tmp_tz);
+        double wsec_begin = tmp_time.tv_sec;
+        double fsec_begin = tmp_time.tv_usec / 1e6;
+        double wsec_end = wsec_begin;
+        double fsec_end = fsec_begin;
+        double time_diff = (wsec_end + fsec_end)-(wsec_begin + fsec_begin);
+        while ((time_diff < 0.5) and (not registered_pending_list_empty)) {
+            registered_pending_list_empty = _pendingDevices.empty() and
+                    _registeredDevices.empty();
+            gettimeofday(&tmp_time, &tmp_tz);
+            wsec_end = tmp_time.tv_sec;
+            fsec_end = tmp_time.tv_usec / 1e6;
+            time_diff = (wsec_end + fsec_end)-(wsec_begin + fsec_begin);
+            usleep(1000);
+        }
+    }
+
+    lock.lock();
     killPendingDevices();
 }
 
@@ -2206,20 +2564,67 @@ void DeviceManager_impl::childExited (pid_t pid, int status)
     DeviceNode* deviceNode = 0;
     getDeviceNode(&deviceNode, pid);
 
+    ServiceNode* serviceNode = 0;
+    {
+        boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
+
+        // Try to find a service that has already unregistered
+        for (ServiceList::iterator serviceIter = _pendingServices.begin(); serviceIter != _pendingServices.end(); ++serviceIter){
+            if ((*serviceIter)->pid == pid){
+                serviceNode = (*serviceIter);
+                _pendingServices.erase(serviceIter);
+                break;
+            }
+        }
+
+        // If there was not an unregistered device, check if a registered device terminated early.
+        if (!serviceNode) {
+            for (ServiceList::iterator serviceIter = _registeredServices.begin(); serviceIter != _registeredServices.end(); ++serviceIter) {
+                if ((*serviceIter)->pid == pid) {
+                    serviceNode = (*serviceIter);
+                    // Flag the pid as 0 so that it can be unregistered below.
+                    serviceNode->pid = 0;
+                    break;
+                }
+            }
+        }
+    }
+
     // The pid should always be found; if it is not, it must be a logic error.
-    if (!deviceNode) {
-        LOG_ERROR(DeviceManager_impl, "Process " << pid << " is not associated with a device in the DeviceManager");
+    if (!deviceNode && !serviceNode) {
+        LOG_ERROR(DeviceManager_impl, "Process " << pid << " is not associated with a registered device");
         return;
     }
 
-    const std::string label = deviceNode->label;
+    std::string label;
+    if (deviceNode){
+        label = deviceNode->label;
+    } else {
+        label = serviceNode->label;
+    }
+
     if (WIFSIGNALED(status)) {
-        LOG_ERROR(DeviceManager_impl, "Child process " << label << " (pid " << pid << ") has terminated with signal " << WTERMSIG(status));
+        if (deviceNode) {
+            LOG_WARN(DeviceManager_impl, "Child process " << label << " (pid " << pid << ") has terminated with signal " << WTERMSIG(status));
+        } else { // it's a service, so no termination through signal is the correct behavior
+            LOG_INFO(DeviceManager_impl, "Child process " << label << " (pid " << pid << ") has terminated with signal " << WTERMSIG(status));
+        }
     } else {
         LOG_INFO(DeviceManager_impl, "Child process " << label << " (pid " << pid << ") has exited with status " << WEXITSTATUS(status));
     }
 
-    delete deviceNode;
+    // If the device terminated unexpectedly, unregister it.
+    if (deviceNode && deviceNode->pid == 0) {
+        decrement_registeredDevices(deviceNode->device);
+    } else if (serviceNode && serviceNode->pid == 0){
+        decrement_registeredServices(serviceNode->service, serviceNode->label.c_str());
+    }
+
+    if (!deviceNode) {
+        delete deviceNode;
+    } else {
+        delete serviceNode;
+    }
 }
 
 bool DeviceManager_impl::allChildrenExited ()

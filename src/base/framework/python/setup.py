@@ -54,11 +54,7 @@ ossiepy = ['ossie', 'ossie/cf', \
            'ossie/parsers', 'ossie/utils/tools', 'ossie/utils/log4py', 'ossie/utils/testing',
            'redhawk']
 
-# Allow the version to be replaced by the ant build script; but, if nothing
-# replaces it (i.e. a developer does a command-line build), use 1.X.X
-version='__VERSION__'
-if version.find('__') == 0:
-    version = '1.X.X'
+version='1.8.4'
 
 setup(
         name='ossiepy',

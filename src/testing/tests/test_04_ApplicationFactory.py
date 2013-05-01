@@ -763,6 +763,43 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         domMgr.uninstallApplication(appFact._get_identifier())
 
+    def test_AC_order_test(self):
+        nodebooter, domMgr = self.launchDomainManager(debug=9)
+        self.assertNotEqual(domMgr, None)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        self.assertNotEqual(devMgr, None)
+
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        domMgr.installApplication("/waveforms/ac_prop_order_test/ac_prop_order_test.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        appFact = domMgr._get_applicationFactories()[0]
+        app = appFact.create(appFact._get_name(), [], [])
+        props = app.query([])
+        for prop in props:
+            if prop.id == 'other_component':
+                self.assertEqual(any.from_any(prop.value), 2.0)
+
+        # TODO Test the that the files actually got copied to the cache
+
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 1)
+
+        self.assertEqual(len(app._get_componentNamingContexts()), 2)
+        compName = app._get_componentNamingContexts()[0]
+        comp = self._root.resolve(URI.stringToName(compName.elementId))._narrow(CF.Resource)
+        self.assertNotEqual(comp, None)
+
+        app.stop()
+        app.releaseObject()
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        domMgr.uninstallApplication(appFact._get_identifier())
+
     def test_appFailResource(self):
         # test case where launching of an app fails (due to a failed configure call 
         # in CommandWrapperBad)
@@ -1617,13 +1654,49 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
             except OSError:
                 pass
 
-    def test_softpkgDependency(self):
+    def test_softpkgDependency_PyDev(self):
         dommgr_nb, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
         devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
 
         domMgr.installApplication("/waveforms/CommandWrapperSPDDep/CommandWrapperSPDDep.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+        appFact = domMgr._get_applicationFactories()[0]
+        app = appFact.create(appFact._get_name(), [], [])
+        self.assertEqual(len(domMgr._get_applications()), 1)
+        app.releaseObject()
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        domMgr.uninstallApplication(appFact._get_identifier())
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
+
+    def test_softpkgDependency_automatic(self):
+        dommgr_nb, domMgr = self.launchDomainManager(debug=9)
+        self.assertNotEqual(domMgr, None)
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication("/waveforms/CommandWrapperSPDDepAutomatic/CommandWrapperSPDDepAutomatic.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+        appFact = domMgr._get_applicationFactories()[0]
+        app = appFact.create(appFact._get_name(), [], [])
+        self.assertEqual(len(domMgr._get_applications()), 1)
+        app.releaseObject()
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        domMgr.uninstallApplication(appFact._get_identifier())
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
+
+    def test_nestedsoftpkgDependency(self):
+        dommgr_nb, domMgr = self.launchDomainManager(debug=9)
+        self.assertNotEqual(domMgr, None)
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication("/waveforms/CommandWrapperNestedSPDDep/CommandWrapperNestedSPDDep.sad.xml")
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
         appFact = domMgr._get_applicationFactories()[0]

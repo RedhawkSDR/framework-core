@@ -35,7 +35,6 @@ import ossie.parsers.spd as SPDParser
 import ossie.parsers.prf as PRFParser
 import ossie.parsers.scd as SCDParser
 import logging
-from ossie.utils import uuid
 from ossie.cf import CF, CF__POA
 from ossie.cf import ExtendedCF
 import copy
@@ -95,7 +94,7 @@ class ScaComponentTestCase(unittest.TestCase):
         
     def setUp(self):
         """
-        Starts the component whose uuid matches the one stored in the IMPL_ID
+        Starts the component whose id matches the one stored in the IMPL_ID
         """
         
         signal.signal(signal.SIGINT, self.tearDown)
@@ -502,8 +501,8 @@ Examples:
 
     def parseArgs(self, argv):
         try:
-            options, args = getopt.getopt(argv[1:], 'hHvq',
-                                          ['help','verbose','quiet'])
+            options, args = getopt.getopt(argv[1:], 'hHvqi:',
+                                          ['help','verbose','quiet','impl='])
             for opt, value in options:
                 if opt in ('-h','-H','--help'):
                     self.usageExit()
