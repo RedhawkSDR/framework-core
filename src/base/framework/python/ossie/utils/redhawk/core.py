@@ -59,6 +59,9 @@ __MIDAS_TYPE_MAP = {'char'  : ('/SB/8t'),
 _DEBUG = False 
 _launchedApps = []
 
+def _uuidgen():
+    return _commands.getoutput('uuidgen')
+
 def getCurrentDateTimeString():
     # return a string representing current day and time
     # format is DDD_HHMMSSmmm where DDD represents day of year (1-365) and mmm represents number of milliseconds
@@ -142,7 +145,7 @@ class _componentBase(object):
                 propSet = object.__getattribute__(self,"_propertySet")
                 if propSet != None:
                     for prop in propSet: 
-                        if name == prop.id:  
+                        if name == prop.id or name == prop.clean_name:  
                             return prop
             return object.__getattribute__(self,name)
         except AttributeError:
@@ -179,6 +182,11 @@ class Component(_componentBase):
         self._interface_list = int_list
         if domainMgr != None:
             self._fileManager = domainMgr.ref._get_fileMgr()
+
+        if refid == None:
+            self._refid = _uuidgen()
+        else:
+            self._refid = refid
 
         try:
             if componentDescriptor != None:
@@ -279,9 +287,13 @@ class Component(_componentBase):
                 if prop_id == None:
                     prop_id = prop.get_id()
                 id_clean = str(prop_id).translate(translation)
-                p.clean_name = id_clean
+                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._get_identifier())
                 self._configureTable[prop.get_id()] = p
                 propertySet.append(p)
+
+                # If property has enumerations, stores them 
+                if prop.enumerations != None:
+                    _prop_helpers._addEnumerations(prop, p.clean_name)
 
         # Simple Sequences
         for prop in self._prf.get_simplesequence():
@@ -343,15 +355,18 @@ class Component(_componentBase):
                         if prop_id == None:
                             prop_id = simple.get_id()
                         id_clean = str(prop_id).translate(translation)
+                        # Checks for enumerated properties
+                        if simple.enumerations != None:
+                            _prop_helpers._addEnumerations(simple, id_clean)
                         # Add individual property
-                        id_clean = _prop_helpers.addCleanName(id_clean, simple.get_id(), self._get_identifier())
+                        id_clean = _prop_helpers.addCleanName(id_clean, simple.get_id(), self._refid)
                         members.append((simple.get_id(), propType, defValue, id_clean))
                 p = _prop_helpers.structProperty(id=prop.get_id(), valueType=members, compRef=self, mode=prop.get_mode())
                 prop_id = prop.get_name()
                 if prop_id == None:
                     prop_id = prop.get_id()
                 id_clean = str(prop_id).translate(translation)
-                p.clean_name = id_clean
+                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
                 self._configureTable[prop.get_id()] = p
                 propertySet.append(p)
 
@@ -385,8 +400,9 @@ class Component(_componentBase):
                         if prop_id == None:
                             prop_id = simple.get_id()
                         id_clean = str(prop_id).translate(translation)
-                        members.append((simple.get_id(), propType, simpleDefValue))
-                    
+                        members.append((simple.get_id(), propType, simpleDefValue, id_clean))
+                        _prop_helpers.addCleanName(id_clean, simple.get_id(), self._refid)
+
                     structSeqDefValue = None
                     structValues = prop.get_structvalue()
                     if len(structValues) != 0:
@@ -401,7 +417,7 @@ class Component(_componentBase):
                                     _value = None
                                 else:
                                     _propType = None
-                                    for _id, pt, dv in members:
+                                    for _id, pt, dv, cv in members:
                                         if _id == str(id):
                                             _propType = pt
                                     _value = None
@@ -426,7 +442,7 @@ class Component(_componentBase):
                 if prop_id == None:
                     prop_id = prop.get_id()
                 id_clean = str(prop_id).translate(translation)
-                p.clean_name = id_clean
+                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
                 self._configureTable[prop.get_id()] = p
                 propertySet.append(p)
 
@@ -1309,7 +1325,7 @@ class App(_CF__POA.Application, object):
             for curr_comp in self.comps:
                 if curr_comp._get_identifier().find(self.assemblyController) != -1:
                     try:
-                        return curr_comp.__getattr__(name)
+                        return curr_comp.__getattribute__(name)
                     except AttributeError:
                         continue
             raise AttributeError('App object has no attribute ' + str(name))
@@ -2088,6 +2104,7 @@ class Domain(_CF__POA.DomainManager, object):
             waveform_entry = App(name=waveform_name, int_list=self._interface_list, domain=self, sad=doc_sad)
             waveform_entry.ref = app
             waveform_entry.ns_name = waveform_ns_name
+            waveform_entry.update()
     
             apps.append(waveform_entry)        
         return apps       
@@ -2362,6 +2379,7 @@ class Domain(_CF__POA.DomainManager, object):
         waveform_entry.ref = app
         waveform_entry.ns_name = waveform_ns_name
         _launchedApps.append(waveform_entry)
+        waveform_entry.update()
         
         if uninstallAppWhenDone:
             self.ref.uninstallApplication(_applicationFactories[app_factory_num]._get_identifier())

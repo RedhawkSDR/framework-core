@@ -286,7 +286,9 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dom/components/EventReceive/EventReceive_java_impl1/Makefile \
                 testing/sdr/dom/components/PropertyChangeEventsCpp/Makefile \
                 testing/sdr/dom/components/PropertyChangeEventsJava/PropertyChangeEventsJava_java_impl1/Makefile \
-                testing/sdr/dom/components/ticket2093/cpp/Makefile)
+                testing/sdr/dom/components/ticket2093/cpp/Makefile \
+                testing/sdr/dom/components/TestAllPropTypes/cpp/Makefile \
+                testing/sdr/dom/components/TestAllPropTypes/java/Makefile) 
 
 AC_OUTPUT
 

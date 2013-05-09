@@ -1633,7 +1633,6 @@ class sequenceProperty(Property, list):
                 elif self.valueType == 'char':
                     strVal = ''
                     for x in value:
-                        print type(x)
                         # Makes sure each value is only a single char
                         if type(x) != str:
                             raise TypeError, 'configureValue() must be called with type char instance as second argument (got ' + str(type(x))[7:-2] + ' instance instead)'

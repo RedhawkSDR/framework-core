@@ -32,7 +32,8 @@ SUBDIRS = sdr/dev/devices/ExecutableDevice \
           sdr/dom/components/MessageReceiverCpp \
           sdr/dom/components/MessageSenderCpp \
           sdr/dom/components/PropertyChangeEventsCpp \
-          sdr/dom/components/ticket2093/cpp
+          sdr/dom/components/ticket2093/cpp \
+          sdr/dom/components/TestAllPropTypes/cpp
 
 if HAVE_JAVASUPPORT
 SUBDIRS += sdr/dev/devices/BasicTestDevice_java/java \
@@ -43,5 +44,7 @@ SUBDIRS += sdr/dev/devices/BasicTestDevice_java/java \
            sdr/dom/components/javaDep/javaDep \
            sdr/dom/components/HardLimit/HardLimit_java_impl1 \
            sdr/dom/components/PropertyChangeEventsJava/PropertyChangeEventsJava_java_impl1 \
-           sdr/dom/components/TestJavaProps
+           sdr/dom/components/TestJavaProps \
+           sdr/dom/components/TestAllPropTypes/java
+
 endif

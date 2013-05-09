@@ -26,7 +26,7 @@
 
 Name:		redhawk
 Version:	1.8.4
-Release:	1%{?dist}
+Release:	1.2%{?dist}
 Summary:	REDHAWK is a Software Defined Radio framework
 
 Group:		Applications/Engineering
@@ -137,8 +137,6 @@ Requires:       gcc-c++
 Requires:       python-devel >= 2.4
 Requires:       java-devel >= 1.6
 
-# qtbrowse
-Requires:       PyQt
 
 %description devel
 This package ensures that all requirements for REDHAWK development are installed. It also provides a useful development utilities.

@@ -425,7 +425,104 @@ def generateSADXML(waveform_name):
         print "generateSadFileString(): returning SAD XML string " + str(sadString)
     return sadString
 
-def loadSADFile(filename):
+class overloadContainer:
+    def __init__(self, id, value=None, type=None):
+        self.id = id
+        self.value = value
+        self.type = type
+
+def overloadProperty(component, simples=None, simpleseq=None, struct=None, structseq=None):
+    if len(component._propertySet) > 0:
+        allProps = dict([(str(prop.id),prop) for prop in component._propertySet])
+        for entry in component._propertySet:
+            for overload in simples:
+                if overload.id == entry.id:
+                    allProps.pop(overload.id)
+                    if entry.valueType == 'string' or entry.valueType == 'char':
+                        setattr(component, entry.clean_name, overload.value)
+                    elif entry.valueType == 'boolean':
+                        setattr(component, entry.clean_name, bool(overload.value))
+                    elif entry.valueType == 'ulong' or entry.valueType == 'short' or entry.valueType == 'octet' or \
+                         entry.valueType == 'ushort' or entry.valueType == 'long' or entry.valueType == 'longlong' or \
+                         entry.valueType == 'ulonglong':
+                        setattr(component, entry.clean_name, int(overload.value))
+                    elif entry.valueType == 'float' or entry.valueType == 'double':
+                        setattr(component, entry.clean_name, float(overload.value))
+                    else:
+                         print "the proposed overload (id="+entry.id+") is not of a supported type ("+entry.valueType+")"
+            for overload in simpleseq:
+                if overload.id == entry.id:
+                    allProps.pop(overload.id)
+                    if entry.valueType == 'string' or entry.valueType == 'char':
+                        setattr(component, entry.clean_name, overload.value)
+                    elif entry.valueType == 'boolean':
+                        setattr(component, entry.clean_name, [bool(s) for s in overload.value])
+                    elif entry.valueType == 'ulong' or entry.valueType == 'short' or entry.valueType == 'octet' or \
+                         entry.valueType == 'ushort' or entry.valueType == 'long' or entry.valueType == 'longlong' or \
+                         entry.valueType == 'ulonglong':
+                        stuff=[int(s) for s in overload.value]
+                        setattr(component, entry.clean_name, stuff)
+                    elif entry.valueType == 'float' or entry.valueType == 'double':
+                        setattr(component, entry.clean_name, [float(s) for s in overload.value])
+                    else:
+                         print "the proposed overload (id="+entry.id+") is not of a supported type ("+entry.valueType+")"
+            for overload in struct:
+                if overload.id == entry.id:
+                    allProps.pop(overload.id)
+                    structValue = {}
+                    for simple in entry.valueType:
+                        if overload.value.has_key(str(simple[0])):
+                            if len(simple) == 3:
+                                clean_name = str(simple[0])
+                            else:
+                                clean_name = str(simple[3])
+                        if simple[1] == 'string' or simple[1] == 'char':
+                            structValue[clean_name] = overload.value[clean_name]
+                        elif simple[1] == 'boolean':
+                            structValue[clean_name] = bool(overload.value[clean_name])
+                        elif simple[1] == 'ulong' or simple[1] == 'short' or simple[1] == 'octet' or \
+                             simple[1] == 'ushort' or simple[1] == 'long' or simple[1] == 'longlong' or \
+                             simple[1] == 'ulonglong':
+                            structValue[clean_name] = int(overload.value[clean_name])
+                        elif simple[1] == 'float' or simple[1] == 'double':
+                            structValue[clean_name] = float(overload.value[clean_name])
+                        else:
+                            print "the proposed overload (id="+entry.id+") is not of a supported type ("+entry.valueType+")"
+                            
+                    setattr(component, entry.clean_name, structValue)
+            for overload in structseq:
+                if overload.id == entry.id:
+                    allProps.pop(overload.id)
+                    structSeqValue = []
+                    for overloadedValue in overload.value:
+                        structValue = {}
+                        for simple in entry.valueType:
+                            if overloadedValue.has_key(str(simple[0])):
+                                if len(simple) == 3:
+                                    clean_name = str(simple[0])
+                                else:
+                                    clean_name = str(simple[3])
+                            if simple[1] == 'string' or simple[1] == 'char':
+                                structValue[clean_name] = overloadedValue[clean_name]
+                            elif simple[1] == 'boolean':
+                                structValue[clean_name] = bool(overloadedValue[clean_name])
+                            elif simple[1] == 'ulong' or simple[1] == 'short' or simple[1] == 'octet' or \
+                                simple[1] == 'ushort' or simple[1] == 'long' or simple[1] == 'longlong' or \
+                                simple[1] == 'ulonglong':
+                                structValue[clean_name] = int(overloadedValue[clean_name])
+                            elif simple[1] == 'float' or simple[1] == 'double':
+                                structValue[clean_name] = float(overloadedValue[clean_name])
+                            else:
+                                print "the proposed overload (id="+entry.id+") is not of a supported type ("+entry.valueType+")"
+                        structSeqValue.append(structValue)
+                    setattr(component, entry.clean_name, structSeqValue)
+        for prop in allProps:
+            dV = allProps[prop].defValue
+            if dV == None:
+                continue
+            setattr(component, allProps[prop].clean_name, allProps[prop].defValue)
+
+def loadSADFile(filename, props={}):
     '''
     Load the graph/configuration described in the SAD file onto the sandbox
     '''
@@ -465,6 +562,8 @@ def loadSADFile(filename):
         componentPlacements = sad.partitioning.get_componentplacement()
         for hostCollocation in sad.get_partitioning().get_hostcollocation():
             componentPlacements.extend(hostCollocation.get_componentplacement())
+
+        configurable = {}
         for component in componentPlacements:
             if _DEBUG == True:
                 print "loadSADFile(): COMPONENT PLACEMENT component spd file id " + str(component.componentfileref.refid)
@@ -478,7 +577,43 @@ def loadSADFile(filename):
                 instanceID = component.get_componentinstantiation()[0].id_
                 if _DEBUG == True:
                     print "loadSADFile(): launching component " + str(instanceName)
-                newComponent = Component(componentName,instanceName,instanceID,launchedFromSADFile=True)
+                properties=component.get_componentinstantiation()[0].get_componentproperties()
+                #simples
+                spd = validRequestedComponents[refid]
+                parsed_spd = _SPDParser.parse(spd)
+                pathToComponentXML = _os.path.dirname(spd)
+                prfFilename = pathToComponentXML+'/'+parsed_spd.get_propertyfile().get_localfile().name
+                _prf = _PRFParser.parse(prfFilename)
+                execprops = []
+                configurable[instanceName] = []
+                for prop_check in _prf.get_simple():
+                    if prop_check.get_kind()[0].get_kindtype() == 'execparam':
+                        execprops.append(str(prop_check.get_id()))
+                    if prop_check.get_kind()[0].get_kindtype() == 'configure':
+                        if prop_check.get_mode() == 'readwrite' or prop_check.get_mode() == 'writeonly':
+                            configurable[instanceName].append(str(prop_check.get_id()))
+                for prop_check in _prf.get_simplesequence():
+                    if prop_check.get_kind()[0].get_kindtype() == 'configure':
+                        if prop_check.get_mode() == 'readwrite' or prop_check.get_mode() == 'writeonly':
+                            configurable[instanceName].append(str(prop_check.get_id()))
+                for prop_check in _prf.get_struct():
+                    if prop_check.get_mode() == 'readwrite' or prop_check.get_mode() == 'writeonly':
+                        configurable[instanceName].append(str(prop_check.get_id()))
+                for prop_check in _prf.get_structsequence():
+                    if prop_check.get_mode() == 'readwrite' or prop_check.get_mode() == 'writeonly':
+                        configurable[instanceName].append(str(prop_check.get_id()))
+                simples = properties.get_simpleref()
+                simple_exec_vals = {}
+                for simple in simples:
+                    if not (simple.refid in execprops):
+                        continue
+                    overload_value = str(simple.value)
+                    if simple.refid in props and assemblyController:
+                        overload_value = props[simple.refid]
+                        props.pop(simple.refid)
+                    container = overloadContainer(str(simple.refid),overload_value)
+                    simple_exec_vals[container.id] = container.value
+                newComponent = Component(componentName,instanceName,instanceID,launchedFromSADFile=True,execparams=simple_exec_vals)
                 if newComponent != None:
                     launchedComponents.append(newComponent)
 
@@ -557,42 +692,111 @@ def loadSADFile(filename):
         # configure properties for launched component
         for component in componentPlacements:
             refid = component.componentfileref.refid
+            assemblyController = False
+            sandboxComponent = None
             if validRequestedComponents.has_key(refid):
                 instanceID = component.get_componentinstantiation()[0].id_
-                sandboxComponent = None
                 componentProps = None
                 if len(launchedComponents) > 0:
                     for comp in launchedComponents:
                         if instanceID == comp._refid:
                             componentProps = comp._configRef
+                            if instanceID == assemblyControllerRefid:
+                                assemblyController = True
                             sandboxComponent = comp
                             break
 
             if sandboxComponent != None and \
                componentProps != None:
-                if component.get_componentinstantiation()[0].componentproperties != None:
-                    #  TODO: simple sequence, struct, and struct sequence properties specified in sad
-                    #                        for property in component.get_componentinstantiation()[0].componentproperties.get_simplesequenceref():
-                    #                        for property in component.get_componentinstantiation()[0].componentproperties.get_structref():
-                    #                        for property in component.get_componentinstantiation()[0].componentproperties.get_structsequenceref():
-                    for property in component.get_componentinstantiation()[0].componentproperties.get_simpleref():
-                        propName = property.refid
-                        propSet = sandboxComponent.query([_CF.DataType(id=str(propName),value=_any.to_any(None))])[0]
-                        if (propSet != []):
-                            if _DEBUG == True:
-                                print "loadSADFile(): overriding property refid " + str(property.refid)
-                                print "loadSADFile(): overriding property value " + str(propSet.value._v)
-                                print "loadSADFile(): overriding property type " + str(type(propSet.value._v))
-                                print "loadSADFile(): overriding property typecode " + str(propSet.value._t)
-                            for p in componentProps:
-                                if p.id == propSet.id:
-                                    pytype = type(propSet.value._v)
-                                    p.value._v = pytype(property.value)
-                                    p.value._t = propSet.value._t
-                if _DEBUG == True:
-                    print "loadSADFile(): calling configure on component " + str(sandboxComponent._instanceName)
-                sandboxComponent.configure(componentProps)
+                properties=component.get_componentinstantiation()[0].get_componentproperties()
+                #simples
+                simples = properties.get_simpleref()
+                simple_vals = []
+                for simple in simples:
+                    if not (simple.refid in configurable[sandboxComponent._instanceName]):
+                        continue
+                    overload_value = str(simple.value)
+                    if simple.refid in props and assemblyController:
+                        overload_value = props[simple.refid]
+                        props.pop(simple.refid)
+                    simple_vals.append(overloadContainer(str(simple.refid),overload_value))
+                #simple sequences
+                simpleseqs = properties.get_simplesequenceref()
+                simpleseq_vals = []
+                if simpleseqs != None:
+                    for simpleseq in simpleseqs:
+                        if not (simpleseq.refid in configurable[sandboxComponent._instanceName]):
+                            continue
+                        values_vals = [str(value) for value in simpleseq.get_values().get_value()]
+                        if simpleseq.refid in props and assemblyController:
+                            values_vals = props[simpleseq.refid]
+                            props.pop(simpleseq.refid)
+                        simpleseq_vals.append(overloadContainer(str(simpleseq.refid),values_vals))
+                #structs
+                structs = properties.get_structref()
+                struct_vals = []
+                if structs != None:
+                    for struct in structs:
+                        if not (struct.refid in configurable[sandboxComponent._instanceName]):
+                            continue
+                        simples = struct.get_simpleref()
+                        value = {}
+                        for simple in simples:
+                            value[str(simple.refid)] = str(simple.value)
+                        if struct.refid in props and assemblyController:
+                            value = props[struct.refid]
+                            props.pop(struct.refid)
+                        struct_vals.append(overloadContainer(str(struct.refid),value))
+                #struct sequences
+                structseqs = properties.get_structsequenceref()
+                structseq_vals = []
+                if structseqs != None:
+                    for structseq in structseqs:
+                        if not (structseq.refid in configurable[sandboxComponent._instanceName]):
+                            continue
+                        values_vals = []
+                        for struct_template in structseq.get_structvalue():
+                            simples = struct_template.get_simpleref()
+                            value = {}
+                            for simple in simples:
+                                value[str(simple.refid)] = str(simple.value)
+                            values_vals.append(value)
+                        if structseq.refid in props and assemblyController:
+                            values_vals = props[structseq.refid]
+                            props.pop(structseq.refid)
+                        structseq_vals.append(overloadContainer(str(structseq.refid),values_vals))
+                if len(sandboxComponent._propertySet) > 0:
+                    overloadProperty(sandboxComponent, simple_vals, simpleseq_vals, struct_vals, structseq_vals)
+            if assemblyController:
+                prop_types = {}
+                prop_types['simple'] = []
+                prop_types['simpleseq'] = []
+                prop_types['struct'] = []
+                prop_types['structseq'] = []
+                prop_set = sandboxComponent._prf.get_simple()
+                prop_types['simple'] = ([str(prop_iter.get_id()) for prop_iter in prop_set], [])
+                prop_set = sandboxComponent._prf.get_simplesequence()
+                prop_types['simpleseq'] = ([str(prop_iter.get_id()) for prop_iter in prop_set], [])
+                prop_set = sandboxComponent._prf.get_struct()
+                prop_types['struct'] = ([str(prop_iter.get_id()) for prop_iter in prop_set], [])
+                prop_set = sandboxComponent._prf.get_structsequence()
+                prop_types['structseq'] = ([str(prop_iter.get_id()) for prop_iter in prop_set], [])
+                prop_to_pop = []
+                for prop in props:
+                    for prop_check in sandboxComponent._propertySet:
+                        if prop_check.id == prop:
+                            for prop_type_check in prop_types:
+                                if prop in prop_types[prop_type_check][0]:
+                                    prop_types[prop_type_check][1].append(overloadContainer(str(prop), props[prop]))
+                                    prop_to_pop.append(str(prop))
+                for prop_to_pop_iter in prop_to_pop:
+                    props.pop(prop_to_pop_iter)
+                overloadProperty(sandboxComponent, prop_types['simple'][1], prop_types['simpleseq'][1], prop_types['struct'][1], prop_types['structseq'][1])
+            
         launchedComponents = []
+        if len(props) != 0:
+            for prop in props:
+                print "Overload property '"+prop+"' was ignored because it is not on the Assembly Controller"
         return True
     except Exception, e:
         print "loadSADFile(): ERROR - Failed to load sad file " + str(filename) + " " + str(e)
@@ -705,10 +909,11 @@ def _spdFileExists(filename, fileMgr=None):
                         print "_spdFileExists() SPD File " + str(filename) + " not found. "
                         print "_spdFileExists() WARNING - relative path for file requires SDRROOT be set to locate ... local SDRROOT can be set calling setSDRROOT() or setting environment variable SDRROOT"
                         return None 
-                if _os.path.isfile(str(_currentState['SDRROOT']) + "/dom" + str(filename)):
+                spd_path = str(_currentState['SDRROOT']) + "/dom" + str(filename)
+                if _os.path.isfile(spd_path):
                     if _DEBUG == True:
-                        print "_spdFileExists(): filename " + str(_currentState['SDRROOT']) + "/dom" + str(filename) + " does exist" 
-                    return str(_currentState['SDRROOT']) + "/dom" + str(filename)
+                        print "_spdFileExists(): filename " + spd_path + " does exist" 
+                    return spd_path
             else:
                 # If SCA file manager passed in, use that to see if file exists
                 if fileMgr != None:

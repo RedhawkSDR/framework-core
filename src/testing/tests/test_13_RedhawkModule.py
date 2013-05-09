@@ -18,11 +18,10 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-from omniORB import any
 import unittest
 import scatest
-import time
 from ossie.utils import redhawk
+from ossie.utils import type_helpers
 
 class RedhawkModuleTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -96,4 +95,247 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         app.releaseObject()
         self.assertEquals(len(self._rhDom.apps), 0)
         self.assertEquals(len(self._rhDom._get_applications()), 0)
-             
+        
+    def test_simplePropertyRange(self):
+        # Make sure setters and getters all work for simples
+        app = self._rhDom.createApplication('/waveforms/TestPythonPropsRange/TestPythonPropsRange.sad.xml')
+        
+        # Test upper range
+        app.my_octet_name = 255
+        app.my_short_name = 32767
+        app.my_ushort_name = 65535
+        app.my_long_name = 2147483647
+        app.my_ulong_name = 4294967295
+        app.my_longlong_name = 9223372036854775807
+        app.my_ulonglong_name = 18446744073709551615
+        self.assertEquals(app.my_octet_name, 255)
+        self.assertEquals(app.my_short_name, 32767)
+        self.assertEquals(app.my_ushort_name, 65535)
+        self.assertEquals(app.my_long_name, 2147483647)
+        self.assertEquals(app.my_ulong_name, 4294967295)
+        self.assertEquals(app.my_longlong_name, 9223372036854775807)
+        self.assertEquals(app.my_ulonglong_name, 18446744073709551615)
+        
+        # Test lower range
+        app.my_octet_name = 0
+        app.my_short_name = -32768
+        app.my_ushort_name = 0
+        app.my_long_name = -2147483648
+        app.my_ulong_name = 0
+        app.my_longlong_name = -9223372036854775808
+        app.my_ulonglong_name = 0
+        self.assertEquals(app.my_octet_name, 0)
+        self.assertEquals(app.my_short_name, -32768)
+        self.assertEquals(app.my_ushort_name, 0)
+        self.assertEquals(app.my_long_name, -2147483648)
+        self.assertEquals(app.my_ulong_name, 0)
+        self.assertEquals(app.my_longlong_name, -9223372036854775808)
+        self.assertEquals(app.my_ulonglong_name, 0)
+        
+        # Test one beyond upper bound
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_octet_name.configureValue, 256)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_short_name.configureValue, 32768)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_ushort_name.configureValue, 65536)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_long_name.configureValue, 2147483648)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_ulong_name.configureValue, 4294967296)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_longlong_name.configureValue, 9223372036854775808)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_ulonglong_name.configureValue, 18446744073709551616)
+        
+        # Test one beyond lower bound
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_octet_name.configureValue, -1)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_short_name.configureValue, -32769)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_ushort_name.configureValue, -1)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_long_name.configureValue, -2147483649)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_ulong_name.configureValue, -1)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_longlong_name.configureValue, -9223372036854775809)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_ulonglong_name.configureValue, -1)                
+        
+        
+    def test_structPropertyRange(self):
+        # Make sure setters and getters all work for structs
+        app = self._rhDom.createApplication('/waveforms/TestPythonPropsRange/TestPythonPropsRange.sad.xml')
+        
+        # Test upper range
+        app.my_struct_name.struct_octet_name = 255
+        app.my_struct_name.struct_short_name = 32767
+        app.my_struct_name.struct_ushort_name = 65535
+        app.my_struct_name.struct_long_name = 2147483647
+        app.my_struct_name.struct_ulong_name = 4294967295
+        app.my_struct_name.struct_longlong_name = 9223372036854775807
+        app.my_struct_name.struct_ulonglong_name = 18446744073709551615
+        self.assertEquals(app.my_struct_name.struct_octet_name, 255)
+        self.assertEquals(app.my_struct_name.struct_short_name, 32767)
+        self.assertEquals(app.my_struct_name.struct_ushort_name, 65535)
+        self.assertEquals(app.my_struct_name.struct_long_name, 2147483647)
+        self.assertEquals(app.my_struct_name.struct_ulong_name, 4294967295)
+        self.assertEquals(app.my_struct_name.struct_longlong_name, 9223372036854775807)
+        self.assertEquals(app.my_struct_name.struct_ulonglong_name, 18446744073709551615)
+        
+        # Test lower range
+        app.my_struct_name.struct_octet_name = 0
+        app.my_struct_name.struct_short_name = -32768
+        app.my_struct_name.struct_ushort_name = 0
+        app.my_struct_name.struct_long_name = -2147483648
+        app.my_struct_name.struct_ulong_name = 0
+        app.my_struct_name.struct_longlong_name = -9223372036854775808
+        app.my_struct_name.struct_ulonglong_name = 0
+        self.assertEquals(app.my_struct_name.struct_octet_name, 0)
+        self.assertEquals(app.my_struct_name.struct_short_name, -32768)
+        self.assertEquals(app.my_struct_name.struct_ushort_name, 0)
+        self.assertEquals(app.my_struct_name.struct_long_name, -2147483648)
+        self.assertEquals(app.my_struct_name.struct_ulong_name, 0)
+        self.assertEquals(app.my_struct_name.struct_longlong_name, -9223372036854775808)
+        self.assertEquals(app.my_struct_name.struct_ulonglong_name, 0)
+        
+        # Test one beyond upper bound
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_octet_name.configureValue, 256)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_short_name.configureValue, 32768)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_ushort_name.configureValue, 65536)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_long_name.configureValue, 2147483648)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_ulong_name.configureValue, 4294967296)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_longlong_name.configureValue, 9223372036854775808)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_ulonglong_name.configureValue, 18446744073709551616)
+        
+        # Test one beyond lower bound
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_octet_name.configureValue, -1)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_short_name.configureValue, -32769)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_ushort_name.configureValue, -1)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_long_name.configureValue, -2147483649)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_ulong_name.configureValue, -1)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_longlong_name.configureValue, -9223372036854775809)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_ulonglong_name.configureValue, -1)       
+        
+        # Makes sure the struct can be set without error
+        
+        app.my_struct_name = {'struct_octet_name': 100, 'struct_short_name': 101, 'struct_ushort_name': 102, 'struct_long_name': 103, 
+                                      'struct_ulong_name': 104, 'struct_longlong_name': 105, 'struct_ulonglong_name': 106}
+        
+        
+    def test_seqPropertyRange(self):
+        # Make sure setters and getters all work for sequences
+        app = self._rhDom.createApplication('/waveforms/TestPythonPropsRange/TestPythonPropsRange.sad.xml')
+        
+        # Test upper and lower bounds
+        app.seq_octet_name[0] = 0
+        app.seq_octet_name[1] = 255
+        app.seq_short_name[0] = -32768
+        app.seq_short_name[1] = 32767
+        app.seq_ushort_name[0] = 0
+        app.seq_ushort_name[1] = 65535
+        app.seq_long_name[0] = -2147483648
+        app.seq_long_name[1] = 2147483647
+        app.seq_ulong_name[0] = 0
+        app.seq_ulong_name[1] = 4294967295
+        app.seq_longlong_name[0] = -9223372036854775808
+        app.seq_longlong_name[1] = 9223372036854775807
+        app.seq_ulonglong_name[0] = 0
+        #app.seq_ulonglong_name[1] = 18446744073709551615
+        self.assertEquals(app.seq_octet_name[0], 0) 
+        self.assertEquals(app.seq_octet_name[1], 255)
+        self.assertEquals(app.seq_short_name[0], -32768)
+        self.assertEquals(app.seq_short_name[1], 32767)
+        self.assertEquals(app.seq_ushort_name[0], 0)
+        self.assertEquals(app.seq_ushort_name[1], 65535)
+        self.assertEquals(app.seq_long_name[0], -2147483648)
+        self.assertEquals(app.seq_long_name[1], 2147483647)
+        self.assertEquals(app.seq_ulong_name[0], 0)
+        self.assertEquals(app.seq_ulong_name[1], 4294967295)
+        self.assertEquals(app.seq_longlong_name[0], -9223372036854775808)
+        self.assertEquals(app.seq_longlong_name[1], 9223372036854775807)
+        self.assertEquals(app.seq_ulonglong_name[0], 0)
+        #self.assertEauals(app.seq_ulonglong_name[1], 18446744073709551615)
+
+        # Test one beyond upper bound    
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_octet.configureValue, [0, 256])
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_short.configureValue, [0, 32768])
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_ushort.configureValue, [0, 65536])
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_long.configureValue, [0, 2147483648])
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_ulong.configureValue, [0, 4294967296])
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_longlong.configureValue, [0, 9223372036854775808])
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_ulonglong.configureValue, [0, 18446744073709551616])
+        
+        # Test one beyond lower bound
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_octet.configureValue, [-1, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_short.configureValue, [-32769, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_ushort.configureValue, [-1, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_long.configureValue, [-2147483649, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_ulong.configureValue, [-1, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_longlong.configureValue, [-9223372036854775809, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.seq_ulonglong.configureValue, [-1, 0])
+        
+        # Tests char and octet sequences
+        self.assertRaises(TypeError, app.seq_char_name.configureValue, ['A','BB'])
+        self.assertRaises(TypeError, app.seq_char_name.configureValue, ['a', 1])
+        self.assertRaises(TypeError, app.seq_octet_name.configureValue, [1, 'a'])
+        
+        app.seq_char_name[0] = 'X'
+        app.seq_char_name[1] = 'Y'
+        self.assertEquals(app.seq_char_name[0], 'X')
+        self.assertEquals(app.seq_char_name[1], 'Y')
+
+        
+    def test_structSeqPropertyRange(self):
+        # Make sure setters and getters all work for struct sequences
+        app = self._rhDom.createApplication('/waveforms/TestPythonPropsRange/TestPythonPropsRange.sad.xml')
+        
+        # Test upper and lower bounds
+        app.my_structseq_name[0].ss_octet_name = 255
+        app.my_structseq_name[1].ss_octet_name = 0
+        app.my_structseq_name[0].ss_short_name = 32767
+        app.my_structseq_name[1].ss_short_name = -32768
+        app.my_structseq_name[0].ss_ushort_name = 65535
+        app.my_structseq_name[1].ss_ushort_name = 0
+        app.my_structseq_name[0].ss_long_name = 2147483647
+        app.my_structseq_name[1].ss_long_name = -2147483648
+        app.my_structseq_name[0].ss_ulong_name = 4294967295
+        app.my_structseq_name[1].ss_ulong_name = 0
+        app.my_structseq_name[0].ss_longlong_name = 9223372036854775807
+        app.my_structseq_name[1].ss_longlong_name = -9223372036854775808
+        app.my_structseq_name[0].ss_ulonglong_name = 18446744073709551615
+        app.my_structseq_name[1].ss_ulonglong_name = 0
+        self.assertEquals(app.my_structseq_name[0].ss_octet_name, 255)
+        self.assertEquals(app.my_structseq_name[1].ss_octet_name, 0)
+        self.assertEquals(app.my_structseq_name[0].ss_short_name, 32767)
+        self.assertEquals(app.my_structseq_name[1].ss_short_name, -32768)
+        self.assertEquals(app.my_structseq_name[0].ss_ushort_name, 65535)
+        self.assertEquals(app.my_structseq_name[1].ss_ushort_name, 0)
+        self.assertEquals(app.my_structseq_name[0].ss_long_name, 2147483647)
+        self.assertEquals(app.my_structseq_name[1].ss_long_name, -2147483648)
+        self.assertEquals(app.my_structseq_name[0].ss_ulong_name, 4294967295)
+        self.assertEquals(app.my_structseq_name[1].ss_ulong_name, 0)
+        self.assertEquals(app.my_structseq_name[0].ss_longlong_name, 9223372036854775807)
+        self.assertEquals(app.my_structseq_name[1].ss_longlong_name, -9223372036854775808)
+        self.assertEquals(app.my_structseq_name[0].ss_ulonglong_name, 18446744073709551615)
+        self.assertEquals(app.my_structseq_name[1].ss_ulonglong_name, 0)
+        
+        # Test one beyond upper bound
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_octet_name.configureValue, 256)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_short_name.configureValue, 32768)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_ushort_name.configureValue, 65536)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_long_name.configureValue, 2147483648)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_ulong_name.configureValue, 4294967296)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_longlong_name.configureValue, 9223372036854775808)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_ulonglong_name.configureValue, 18446744073709551616)
+        
+        # Test one beyond lower bound
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_octet_name.configureValue, -1)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_short_name.configureValue, -32769)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_ushort_name.configureValue, -1)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_long_name.configureValue, -2147483649)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_ulong_name.configureValue, -1)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_longlong_name.configureValue, -9223372036854775809)
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_ulonglong_name.configureValue, -1)
+        
+        # Make sure entire struct seq can be set without error
+        app.my_structseq_name = [{'ss_octet': 100, 'ss_short': 101, 'ss_ushort': 102, 'ss_long': 103, 
+                                      'ss_ulong': 104, 'ss_longlong': 105, 'ss_ulonglong': 106},
+                                      {'ss_octet': 107, 'ss_short': 108, 'ss_ushort': 109, 'ss_long': 110, 
+                                      'ss_ulong': 111, 'ss_longlong': 112, 'ss_ulonglong': 113}
+                                      ]
+        
+        # Make sure individual structs can be set without error
+        app.my_structseq_name[0] = {'ss_octet_name': 200, 'ss_short_name': 201, 'ss_ushort_name': 202, 'ss_long_name': 203, 
+                                      'ss_ulong_name': 204, 'ss_longlong_name': 205, 'ss_ulonglong_name': 206}
+        app.my_structseq_name[1] = {'ss_octet_name': 207, 'ss_short_name': 208, 'ss_ushort_name': 209, 'ss_long_name': 210, 
+                                      'ss_ulong_name': 211, 'ss_longlong_name': 212, 'ss_ulonglong_name': 213}
+

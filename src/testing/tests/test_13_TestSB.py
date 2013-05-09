@@ -305,8 +305,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_struct_seq[1].simp__bad, 11)
         self.assertEquals(comp.escape__structseq[0].val_2, "test")
         self.assertEquals(comp.escape__structseq[1].val__1, 22)
-        
-        
+    
     def test_simplePropertyRange(self):
         comp = sb.Component('TestPythonPropsRange')
         

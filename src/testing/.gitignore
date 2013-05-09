@@ -127,6 +127,8 @@ sdr/dom/components/TestJavaProps/TestJavaProps.jar
 sdr/dom/components/javaDep/javaDep/bin/
 sdr/dom/components/javaDep/javaDep/javaDep.jar
 sdr/dom/components/ticket2093/cpp/ticket2093
+sdr/dom/components/TestAllPropTypes/cpp/TestAllPropTypes
+sdr/dom/components/TestAllPropTypes/java/TestAllPropTypes.jar
 sdr/dom/domain/
 sdr/dom/mgr/DomainManager
 sdr/dom/mgr/DomainManager.prf.xml
