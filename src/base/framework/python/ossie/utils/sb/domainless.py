@@ -529,6 +529,9 @@ def loadSADFile(filename, props={}):
     if _DEBUG == True:
         print "loadSADFile(): loading in SAD file " + str(filename)
     try:
+        if type(props) != dict:
+            print "loadSADFile(): props argument must be a dictionary. Ignoring overload"
+            props = {}
         sadFile = open(filename,'r')
         sadFileString = sadFile.read()
         sad = _SADParser.parseString(sadFileString)

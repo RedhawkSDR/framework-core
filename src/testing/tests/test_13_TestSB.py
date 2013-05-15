@@ -96,6 +96,7 @@ class SBTestTest(scatest.CorbaTestCase):
                 
         # Make sure only one instance name and refid can be used
         comp = sb.Component(self.test_comp, "comp")
+        comp.api()
         refid = comp._refid
         self.assertRaises(AssertionError, sb.Component, self.test_comp, "comp")
         self.assertRaises(AssertionError, sb.Component, self.test_comp, "new_comp", refid)
@@ -134,6 +135,7 @@ class SBTestTest(scatest.CorbaTestCase):
     
     def test_simpleComp(self):       
         comp = sb.Component(self.test_comp)
+        comp.api()
         
         # Check the init values
         self.initValues(comp)
@@ -268,6 +270,7 @@ class SBTestTest(scatest.CorbaTestCase):
 
     def test_illegalPropertyNames(self):
         comp = sb.Component(self.test_comp)
+        comp.api()
             
         self.initValues(comp)
         
@@ -305,9 +308,37 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_struct_seq[1].simp__bad, 11)
         self.assertEquals(comp.escape__structseq[0].val_2, "test")
         self.assertEquals(comp.escape__structseq[1].val__1, 22)
+
+    def test_loadSADFile(self):
+        retval = sb.loadSADFile('sdr/dom/waveforms/ticket_462_w/ticket_462_w.sad.xml')
+        self.assertEquals(retval, True)
+        comp_ac = sb.getComponent('ticket_462_ac_1')
+        self.assertNotEquals(comp_ac, None)
+        comp = sb.getComponent('ticket_462_1')
+        self.assertNotEquals(comp, None)
+        self.assertEquals(comp_ac.my_simple, "foo")
+        self.assertEquals(comp_ac.my_seq, ["initial value"])
+        self.assertEquals(comp_ac.basic_struct.some_simple, '4')
+        self.assertEquals(comp.over_simple, "override")
+        self.assertEquals(comp.over_struct_seq, [{'a_word': 'something', 'a_number': 1}])
+
+    def test_loadSADFile_overload_create(self):
+        retval = sb.loadSADFile('sdr/dom/waveforms/ticket_462_w/ticket_462_w.sad.xml', props={'my_simple':'not foo','over_simple':'not override'})
+        #retval = sb.loadSADFile('sdr/dom/waveforms/ticket_462_w/ticket_462_w.sad.xml', props=[{'my_simple':'not foo'},{'over_simple':'not override'}])
+        self.assertEquals(retval, True)
+        comp_ac = sb.getComponent('ticket_462_ac_1')
+        self.assertNotEquals(comp_ac, None)
+        comp = sb.getComponent('ticket_462_1')
+        self.assertNotEquals(comp, None)
+        self.assertEquals(comp_ac.my_simple, "not foo")
+        self.assertEquals(comp_ac.my_seq, ["initial value"])
+        self.assertEquals(comp_ac.basic_struct.some_simple, '4')
+        self.assertEquals(comp.over_simple, "override")
+        self.assertEquals(comp.over_struct_seq, [{'a_word': 'something', 'a_number': 1}])
     
     def test_simplePropertyRange(self):
         comp = sb.Component('TestPythonPropsRange')
+        comp.api()
         
         # Test upper range
         comp.my_octet_name = 255
@@ -362,6 +393,7 @@ class SBTestTest(scatest.CorbaTestCase):
         
     def test_structPropertyRange(self):
         comp = sb.Component('TestPythonPropsRange')
+        comp.api()
         
         # Test upper range
         comp.my_struct_name.struct_octet_name = 255
@@ -421,6 +453,7 @@ class SBTestTest(scatest.CorbaTestCase):
         
     def test_seqPropertyRange(self):
         comp = sb.Component('TestPythonPropsRange')
+        comp.api()
         
         # Test upper and lower bounds
         comp.seq_octet_name[0] = 0
@@ -483,6 +516,7 @@ class SBTestTest(scatest.CorbaTestCase):
         
     def test_structSeqPropertyRange(self):
         comp = sb.Component('TestPythonPropsRange')
+        comp.api()
         
         # Test upper and lower bounds
         comp.my_structseq_name[0].ss_octet_name = 255
@@ -547,6 +581,7 @@ class SBTestTest(scatest.CorbaTestCase):
         
     def test_readOnlyProps(self):
         comp = sb.Component('Sandbox')
+        comp.api()
         
         # Properties should be able to be read, but not set, and all should throw the saem exception
         exception = None

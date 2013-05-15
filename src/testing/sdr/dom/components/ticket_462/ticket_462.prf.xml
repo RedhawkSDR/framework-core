@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties PUBLIC "-//JTRS//DTD SCA V2.2.2 PRF//EN" "properties.dtd">
+<properties>
+  <simple id="over_simple" mode="readwrite" type="string">
+    <kind kindtype="configure"/>
+    <action type="external"/>
+  </simple>
+  <simplesequence id="over_sequence" mode="readwrite" type="string">
+    <kind kindtype="configure"/>
+    <action type="external"/>
+  </simplesequence>
+  <struct id="over_struct" mode="readwrite">
+    <simple id="a_simple" type="string"/>
+    <configurationkind kindtype="configure"/>
+  </struct>
+  <simple id="another_simple" mode="readwrite" type="short">
+    <kind kindtype="configure"/>
+    <action type="external"/>
+  </simple>
+  <structsequence id="over_struct_seq" mode="readwrite">
+    <struct id="template_struct">
+      <simple id="a_number" type="short"/>
+      <simple id="a_word" type="string"/>
+    </struct>
+    <configurationkind kindtype="configure"/>
+  </structsequence>
+</properties>
