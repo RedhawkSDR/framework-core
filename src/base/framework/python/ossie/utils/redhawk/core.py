@@ -59,6 +59,9 @@ __MIDAS_TYPE_MAP = {'char'  : ('/SB/8t'),
 _DEBUG = False 
 _launchedApps = []
 
+def _uuidgen():
+    return _commands.getoutput('uuidgen')
+
 def getCurrentDateTimeString():
     # return a string representing current day and time
     # format is DDD_HHMMSSmmm where DDD represents day of year (1-365) and mmm represents number of milliseconds
@@ -127,7 +130,7 @@ class _componentBase(object):
             propSet = object.__getattribute__(self,"_propertySet")
             if propSet != None:
                 for prop in propSet: 
-                    if name == prop.clean_name:
+                    if name == prop.clean_name:                    
                         queryResults = self.query([_CF.DataType(id=str(prop.id),value=_any.to_any(None))])[0]
                         if (queryResults != None):
                             currentValue = queryResults.value._v
@@ -142,7 +145,7 @@ class _componentBase(object):
                 propSet = object.__getattribute__(self,"_propertySet")
                 if propSet != None:
                     for prop in propSet: 
-                        if name == prop.id:  
+                        if name == prop.id or name == prop.clean_name:  
                             return prop
             return object.__getattribute__(self,name)
         except AttributeError:
@@ -179,6 +182,11 @@ class Component(_componentBase):
         self._interface_list = int_list
         if domainMgr != None:
             self._fileManager = domainMgr.ref._get_fileMgr()
+
+        if refid == None:
+            self._refid = _uuidgen()
+        else:
+            self._refid = refid
 
         try:
             if componentDescriptor != None:
@@ -279,9 +287,13 @@ class Component(_componentBase):
                 if prop_id == None:
                     prop_id = prop.get_id()
                 id_clean = str(prop_id).translate(translation)
-                p.clean_name = id_clean
+                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._get_identifier())
                 self._configureTable[prop.get_id()] = p
                 propertySet.append(p)
+
+                # If property has enumerations, stores them 
+                if prop.enumerations != None:
+                    _prop_helpers._addEnumerations(prop, p.clean_name)
 
         # Simple Sequences
         for prop in self._prf.get_simplesequence():
@@ -339,13 +351,22 @@ class Component(_componentBase):
                                 defValue = {"TRUE": True, "FALSE": False}[val.strip().upper()]
                             else:
                                 defValue = None
-                        members.append((simple.get_id(), propType, defValue))
+                        prop_id = simple.get_name()
+                        if prop_id == None:
+                            prop_id = simple.get_id()
+                        id_clean = str(prop_id).translate(translation)
+                        # Checks for enumerated properties
+                        if simple.enumerations != None:
+                            _prop_helpers._addEnumerations(simple, id_clean)
+                        # Add individual property
+                        id_clean = _prop_helpers.addCleanName(id_clean, simple.get_id(), self._refid)
+                        members.append((simple.get_id(), propType, defValue, id_clean))
                 p = _prop_helpers.structProperty(id=prop.get_id(), valueType=members, compRef=self, mode=prop.get_mode())
                 prop_id = prop.get_name()
                 if prop_id == None:
                     prop_id = prop.get_id()
                 id_clean = str(prop_id).translate(translation)
-                p.clean_name = id_clean
+                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
                 self._configureTable[prop.get_id()] = p
                 propertySet.append(p)
 
@@ -379,8 +400,9 @@ class Component(_componentBase):
                         if prop_id == None:
                             prop_id = simple.get_id()
                         id_clean = str(prop_id).translate(translation)
-                        members.append((id_clean, propType, simpleDefValue))
-                    
+                        members.append((simple.get_id(), propType, simpleDefValue, id_clean))
+                        _prop_helpers.addCleanName(id_clean, simple.get_id(), self._refid)
+
                     structSeqDefValue = None
                     structValues = prop.get_structvalue()
                     if len(structValues) != 0:
@@ -395,7 +417,7 @@ class Component(_componentBase):
                                     _value = None
                                 else:
                                     _propType = None
-                                    for _id, pt, dv in members:
+                                    for _id, pt, dv, cv in members:
                                         if _id == str(id):
                                             _propType = pt
                                     _value = None
@@ -420,7 +442,7 @@ class Component(_componentBase):
                 if prop_id == None:
                     prop_id = prop.get_id()
                 id_clean = str(prop_id).translate(translation)
-                p.clean_name = id_clean
+                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
                 self._configureTable[prop.get_id()] = p
                 propertySet.append(p)
 
@@ -1130,6 +1152,8 @@ class App(_CF__POA.Application, object):
        
     """
     def __init__(self, name="", int_list=None, domain=None, sad=None):
+        # _componentsUpdated needs to be set first to prevent __setattr__ from entering an error state
+        self._componentsUpdated = False
         self.name = name
         self.comps = []
         self.ports = []
@@ -1140,7 +1164,6 @@ class App(_CF__POA.Application, object):
         self._domain = domain
         self._sad = sad
         self.adhocConnections = []
-        self._componentsUpdated = False
         self.connectioncount = 0
         self.assemblyController = None
 
@@ -1247,7 +1270,6 @@ class App(_CF__POA.Application, object):
         if self.ref:
             try:
                 self._domain.removeApplication(self)
-                self.ref.releaseObject()
             except:
                 raise
     
@@ -1299,7 +1321,28 @@ class App(_CF__POA.Application, object):
 
             return object.__getattribute__(self,name)
         except AttributeError:
-            raise
+            # Check if current request value is a member Components Property
+            for curr_comp in self.comps:
+                if curr_comp._get_identifier().find(self.assemblyController) != -1:
+                    try:
+                        return curr_comp.__getattribute__(name)
+                    except AttributeError:
+                        continue
+            raise AttributeError('App object has no attribute ' + str(name))
+    
+    def __setattr__(self, name, value):
+        if name == '_componentsUpdated' or self._componentsUpdated == False:
+            return object.__setattr__(self, name, value)
+        else:
+            # Check if current value to be set is a member Components property
+            for curr_comp in self.comps:
+                if curr_comp._get_identifier().find(self.assemblyController) != -1:
+                    try:
+                        return curr_comp.__setattr__(name, value)
+                    except AttributeError:
+                        continue
+           
+        return object.__setattr__(self, name, value)
     
     def update(self):
         self.__setattr__('_componentsUpdated', True)
@@ -1946,7 +1989,6 @@ class Domain(_CF__POA.DomainManager, object):
     """
     def __init__(self, name="DomainName1", int_list=None, location=None):
         self.name = name
-        self.apps = []
         self._sads = []
         self.ref = None
         self.NodeAlive = True
@@ -2027,13 +2069,48 @@ class Domain(_CF__POA.DomainManager, object):
     def _populateApps(self):
         self.__setattr__('_waveformsUpdated', True)
         self._updateListAvailableSads()
-        self._updateRunningApps()
+    
+    @property
+    def apps(self):
+        apps = []
+        # Gets current list of apps from the domain manager
+        try:
+            app_list = self.ref._get_applications()
+        except:
+            return
+    
+        app_name_list = []
+    
+        for app in app_list:
+            prof_path = app._get_profile()
+            
+            sadFile = self.fileManager.open(prof_path, True)
+            sadContents = sadFile.read(sadFile.sizeOf())
+            sadFile.close()
+            doc_sad = _minidom.parseString(sadContents)
+            comp_list = app._get_componentNamingContexts()
+            waveform_ns_name = ''
+            if len(comp_list) > 0:
+                comp_ns_name = comp_list[0].elementId
+                waveform_ns_name = comp_ns_name.split('/')[1]
+    
+            app_name_list.append(waveform_ns_name)
+    
+            app_name = app._get_name()
+            if app_name[:7]=='OSSIE::':
+                waveform_name = app_name[7:]
+            else:
+                waveform_name = app_name
+            waveform_entry = App(name=waveform_name, int_list=self._interface_list, domain=self, sad=doc_sad)
+            waveform_entry.ref = app
+            waveform_entry.ns_name = waveform_ns_name
+            waveform_entry.update()
+    
+            apps.append(waveform_entry)        
+        return apps       
     
     def __getattribute__(self, name):
         try:
-            if name == 'apps':
-                if not object.__getattribute__(self,'_waveformsUpdated'):
-                    self._populateApps()
             if name == 'devMgrs':
                 if not object.__getattribute__(self,'_deviceManagersUpdated'):
                     self._populateDeviceManagers()
@@ -2240,15 +2317,22 @@ class Domain(_CF__POA.DomainManager, object):
         if app_idx == len(self.apps):
             return
         
+        appId = self.apps[app_idx]._get_identifier()
+        for app in _launchedApps:
+            if app._get_identifier() == appId:
+                _launchedApps.remove(app)
+                break
+            
         app_obj.ref.releaseObject()
-        app = self.apps.pop(app_idx)
-        if app in _launchedApps:
-            _launchedApps.remove(app)
 
     def createApplication(self, application_sad=''):
         """Install and create a particular waveform. This function returns
             a pointer to the instantiated waveform"""
         uninstallAppWhenDone = True
+        # If only an application name is given, format it properly
+        if application_sad[0] != "/" and not ".sad.xml" in application_sad:
+            application_sad = "/waveforms/" + application_sad + "/" + application_sad + ".sad.xml"
+        
         try:
             self.ref.installApplication(application_sad)
         except _CF.DomainManager.ApplicationAlreadyInstalled:
@@ -2294,9 +2378,8 @@ class Domain(_CF__POA.DomainManager, object):
         waveform_entry = App(name=app._get_name(), int_list=self._interface_list, domain=self, sad=doc_sad)
         waveform_entry.ref = app
         waveform_entry.ns_name = waveform_ns_name
-        object.__getattribute__(self,'apps').append(waveform_entry)
         _launchedApps.append(waveform_entry)
-        self._updateRunningApps()
+        waveform_entry.update()
         
         if uninstallAppWhenDone:
             self.ref.uninstallApplication(_applicationFactories[app_factory_num]._get_identifier())
@@ -2305,62 +2388,8 @@ class Domain(_CF__POA.DomainManager, object):
     
     def _updateRunningApps(self):
         """Makes sure that the dictionary of waveforms is up-to-date"""
-        try:
-            app_list = self.ref._get_applications()
-        except:
-            return
-    
-        app_name_list = []
-    
-        for app in app_list:
-            foundEquivalence = False
-            for entry in object.__getattribute__(self,'apps'):
-                if entry.ref._is_equivalent(app):
-                    foundEquivalence = True
-                    break
-            if foundEquivalence:
-                continue
+        print "WARNING: _updateRunningApps() is deprecated.  Running apps are automatically updated on access."
 
-            prof_path = app._get_profile()
-            
-            sadFile = self.fileManager.open(prof_path, True)
-            sadContents = sadFile.read(sadFile.sizeOf())
-            sadFile.close()
-            doc_sad = _minidom.parseString(sadContents)
-            comp_list = app._get_componentNamingContexts()
-            waveform_ns_name = ''
-            if len(comp_list) > 0:
-                comp_ns_name = comp_list[0].elementId
-                waveform_ns_name = comp_ns_name.split('/')[1]
-    
-            app_name_list.append(waveform_ns_name)
-    
-            app_name = app._get_name()
-            if app_name[:7]=='OSSIE::':
-                waveform_name = app_name[7:]
-            else:
-                waveform_name = app_name
-            waveform_entry = App(name=waveform_name, int_list=self._interface_list, domain=self, sad=doc_sad)
-            waveform_entry.ref = app
-            waveform_entry.ns_name = waveform_ns_name
-    
-            object.__getattribute__(self,'apps').append(waveform_entry)
-        
-        if len(object.__getattribute__(self,'apps')) == len(app_list):
-           return
-        
-        pop_list = []
-        for idx in range(len(object.__getattribute__(self,'apps'))):
-            foundApp = False
-            for entry in app_list:
-                if entry._is_equivalent(object.__getattribute__(self,'apps')[idx].ref):
-                    foundApp = True
-                    break
-            if not foundApp:
-                pop_list.append(idx)
-        pop_list.sort(reverse=True)
-        for entry in pop_list:
-            object.__getattribute__(self,'apps').pop(entry)
 
 class _Port(object):
     """The Port is the gateway into and out of a particular component. A Port has a string name that is unique

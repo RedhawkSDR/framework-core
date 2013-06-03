@@ -152,7 +152,7 @@ def _populateFromExternalNC():
         resources = IDE_REF._get_registeredResources()
         # Instantiate local Component instances of Component running in IDE sandbox
         for resc in resources:
-            comp = Component(componentDescriptor="/"+resc.profile,instanceName=resc.resource._get_identifier(),refid=resc.resource._get_identifier(),autoKick=False,componentObj=resc.resource)
+            comp = Component(componentDescriptor=resc.profile,instanceName=resc.resource._get_identifier(),refid=resc.resource._get_identifier(),autoKick=False,componentObj=resc.resource)
             _currentState['Components Running'][comp._instanceName] = comp 
 
         # Determine current connection state of components running
@@ -425,13 +425,113 @@ def generateSADXML(waveform_name):
         print "generateSadFileString(): returning SAD XML string " + str(sadString)
     return sadString
 
-def loadSADFile(filename):
+class overloadContainer:
+    def __init__(self, id, value=None, type=None):
+        self.id = id
+        self.value = value
+        self.type = type
+
+def overloadProperty(component, simples=None, simpleseq=None, struct=None, structseq=None):
+    if len(component._propertySet) > 0:
+        allProps = dict([(str(prop.id),prop) for prop in component._propertySet])
+        for entry in component._propertySet:
+            for overload in simples:
+                if overload.id == entry.id:
+                    allProps.pop(overload.id)
+                    if entry.valueType == 'string' or entry.valueType == 'char':
+                        setattr(component, entry.clean_name, overload.value)
+                    elif entry.valueType == 'boolean':
+                        setattr(component, entry.clean_name, bool(overload.value))
+                    elif entry.valueType == 'ulong' or entry.valueType == 'short' or entry.valueType == 'octet' or \
+                         entry.valueType == 'ushort' or entry.valueType == 'long' or entry.valueType == 'longlong' or \
+                         entry.valueType == 'ulonglong':
+                        setattr(component, entry.clean_name, int(overload.value))
+                    elif entry.valueType == 'float' or entry.valueType == 'double':
+                        setattr(component, entry.clean_name, float(overload.value))
+                    else:
+                         print "the proposed overload (id="+entry.id+") is not of a supported type ("+entry.valueType+")"
+            for overload in simpleseq:
+                if overload.id == entry.id:
+                    allProps.pop(overload.id)
+                    if entry.valueType == 'string' or entry.valueType == 'char':
+                        setattr(component, entry.clean_name, overload.value)
+                    elif entry.valueType == 'boolean':
+                        setattr(component, entry.clean_name, [bool(s) for s in overload.value])
+                    elif entry.valueType == 'ulong' or entry.valueType == 'short' or entry.valueType == 'octet' or \
+                         entry.valueType == 'ushort' or entry.valueType == 'long' or entry.valueType == 'longlong' or \
+                         entry.valueType == 'ulonglong':
+                        stuff=[int(s) for s in overload.value]
+                        setattr(component, entry.clean_name, stuff)
+                    elif entry.valueType == 'float' or entry.valueType == 'double':
+                        setattr(component, entry.clean_name, [float(s) for s in overload.value])
+                    else:
+                         print "the proposed overload (id="+entry.id+") is not of a supported type ("+entry.valueType+")"
+            for overload in struct:
+                if overload.id == entry.id:
+                    allProps.pop(overload.id)
+                    structValue = {}
+                    for simple in entry.valueType:
+                        if overload.value.has_key(str(simple[0])):
+                            if len(simple) == 3:
+                                clean_name = str(simple[0])
+                            else:
+                                clean_name = str(simple[3])
+                        if simple[1] == 'string' or simple[1] == 'char':
+                            structValue[clean_name] = overload.value[clean_name]
+                        elif simple[1] == 'boolean':
+                            structValue[clean_name] = bool(overload.value[clean_name])
+                        elif simple[1] == 'ulong' or simple[1] == 'short' or simple[1] == 'octet' or \
+                             simple[1] == 'ushort' or simple[1] == 'long' or simple[1] == 'longlong' or \
+                             simple[1] == 'ulonglong':
+                            structValue[clean_name] = int(overload.value[clean_name])
+                        elif simple[1] == 'float' or simple[1] == 'double':
+                            structValue[clean_name] = float(overload.value[clean_name])
+                        else:
+                            print "the proposed overload (id="+entry.id+") is not of a supported type ("+entry.valueType+")"
+                            
+                    setattr(component, entry.clean_name, structValue)
+            for overload in structseq:
+                if overload.id == entry.id:
+                    allProps.pop(overload.id)
+                    structSeqValue = []
+                    for overloadedValue in overload.value:
+                        structValue = {}
+                        for simple in entry.valueType:
+                            if overloadedValue.has_key(str(simple[0])):
+                                if len(simple) == 3:
+                                    clean_name = str(simple[0])
+                                else:
+                                    clean_name = str(simple[3])
+                            if simple[1] == 'string' or simple[1] == 'char':
+                                structValue[clean_name] = overloadedValue[clean_name]
+                            elif simple[1] == 'boolean':
+                                structValue[clean_name] = bool(overloadedValue[clean_name])
+                            elif simple[1] == 'ulong' or simple[1] == 'short' or simple[1] == 'octet' or \
+                                simple[1] == 'ushort' or simple[1] == 'long' or simple[1] == 'longlong' or \
+                                simple[1] == 'ulonglong':
+                                structValue[clean_name] = int(overloadedValue[clean_name])
+                            elif simple[1] == 'float' or simple[1] == 'double':
+                                structValue[clean_name] = float(overloadedValue[clean_name])
+                            else:
+                                print "the proposed overload (id="+entry.id+") is not of a supported type ("+entry.valueType+")"
+                        structSeqValue.append(structValue)
+                    setattr(component, entry.clean_name, structSeqValue)
+        for prop in allProps:
+            dV = allProps[prop].defValue
+            if dV == None:
+                continue
+            setattr(component, allProps[prop].clean_name, allProps[prop].defValue)
+
+def loadSADFile(filename, props={}):
     '''
     Load the graph/configuration described in the SAD file onto the sandbox
     '''
     if _DEBUG == True:
         print "loadSADFile(): loading in SAD file " + str(filename)
     try:
+        if type(props) != dict:
+            print "loadSADFile(): props argument must be a dictionary. Ignoring overload"
+            props = {}
         sadFile = open(filename,'r')
         sadFileString = sadFile.read()
         sad = _SADParser.parseString(sadFileString)
@@ -460,7 +560,14 @@ def loadSADFile(filename):
             print "loadSADFile(): WARNING sad file did not specify an assembly controller"
 
         # Loop over each <componentplacement> entry to determine actual instance name for component
-        for component in sad.partitioning.get_componentplacement():
+        # NOTE: <componentplacement> can also occur within <hostcollocation> elements if that exists
+        #       so that needs to be checked also
+        componentPlacements = sad.partitioning.get_componentplacement()
+        for hostCollocation in sad.get_partitioning().get_hostcollocation():
+            componentPlacements.extend(hostCollocation.get_componentplacement())
+
+        configurable = {}
+        for component in componentPlacements:
             if _DEBUG == True:
                 print "loadSADFile(): COMPONENT PLACEMENT component spd file id " + str(component.componentfileref.refid)
                 print "loadSADFile(): COMPONENT PLACEMENT component instantiation id " + str(component.get_componentinstantiation()[0].id_)
@@ -473,98 +580,226 @@ def loadSADFile(filename):
                 instanceID = component.get_componentinstantiation()[0].id_
                 if _DEBUG == True:
                     print "loadSADFile(): launching component " + str(instanceName)
-                newComponent = Component(componentName,instanceName,instanceID)
+                properties=component.get_componentinstantiation()[0].get_componentproperties()
+                #simples
+                spd = validRequestedComponents[refid]
+                parsed_spd = _SPDParser.parse(spd)
+                pathToComponentXML = _os.path.dirname(spd)
+                prfFilename = pathToComponentXML+'/'+parsed_spd.get_propertyfile().get_localfile().name
+                _prf = _PRFParser.parse(prfFilename)
+                execprops = []
+                configurable[instanceName] = []
+                for prop_check in _prf.get_simple():
+                    if prop_check.get_kind()[0].get_kindtype() == 'execparam':
+                        execprops.append(str(prop_check.get_id()))
+                    if prop_check.get_kind()[0].get_kindtype() == 'configure':
+                        if prop_check.get_mode() == 'readwrite' or prop_check.get_mode() == 'writeonly':
+                            configurable[instanceName].append(str(prop_check.get_id()))
+                for prop_check in _prf.get_simplesequence():
+                    if prop_check.get_kind()[0].get_kindtype() == 'configure':
+                        if prop_check.get_mode() == 'readwrite' or prop_check.get_mode() == 'writeonly':
+                            configurable[instanceName].append(str(prop_check.get_id()))
+                for prop_check in _prf.get_struct():
+                    if prop_check.get_mode() == 'readwrite' or prop_check.get_mode() == 'writeonly':
+                        configurable[instanceName].append(str(prop_check.get_id()))
+                for prop_check in _prf.get_structsequence():
+                    if prop_check.get_mode() == 'readwrite' or prop_check.get_mode() == 'writeonly':
+                        configurable[instanceName].append(str(prop_check.get_id()))
+                simples = properties.get_simpleref()
+                simple_exec_vals = {}
+                for simple in simples:
+                    if not (simple.refid in execprops):
+                        continue
+                    overload_value = str(simple.value)
+                    if simple.refid in props and assemblyController:
+                        overload_value = props[simple.refid]
+                        props.pop(simple.refid)
+                    container = overloadContainer(str(simple.refid),overload_value)
+                    simple_exec_vals[container.id] = container.value
+                newComponent = Component(componentName,instanceName,instanceID,launchedFromSADFile=True,execparams=simple_exec_vals)
                 if newComponent != None:
                     launchedComponents.append(newComponent)
-                    # configure properties for launched component
-                    if component.get_componentinstantiation()[0].componentproperties != None:
-                        for property in component.get_componentinstantiation()[0].componentproperties.get_simpleref():
-                            propName = property.refid
-                            propSet = newComponent.query([_CF.DataType(id=str(propName),value=_any.to_any(None))])[0]
-                            if (propSet != []):
-                                if _DEBUG == True:
-                                    print "loadSADFile(): COMPONENT PLACEMENT property refid " + str(property.refid)
-                                    print "loadSADFile(): COMPONENT PLACEMENT property value " + str(propSet.value._v)
-                                    print "loadSADFile(): COMPONENT PLACEMENT property type " + str(type(propSet.value._v))
-                                    print "loadSADFile(): COMPONENT PLACEMENT property typecode " + str(propSet.value._t)
-                                pytype = type(propSet.value._v)
-                                newComponent._configureSingleProp(property.refid, pytype(property.value))
-        #  TODO: simple sequence, struct, and struct sequence properties specified in sad
-        #                        for property in component.get_componentinstantiation()[0].componentproperties.get_simplesequenceref():
-        #                        for property in component.get_componentinstantiation()[0].componentproperties.get_structref():
-        #                        for property in component.get_componentinstantiation()[0].componentproperties.get_structsequenceref():
 
         # Set up component connections
-        for connection in sad.connections.get_connectinterface():
-            if connection != None:
-                connectionID = None
-                if connection.get_id() != "":
-                    connectionID = connection.get_id()
-                if _DEBUG == True:
-                    print "loadSADFile(): CONNECTION INTERFACE: connection ID " + str(connection.get_id())
-                usesPortComponent = None
-                usesPortName = None
-                providesPortComponent = None
-                providesPortName = None
-                # Check for uses port
-                if connection.get_usesport() != None:
+        if sad.connections:
+            for connection in sad.connections.get_connectinterface():
+                if connection != None:
+                    connectionID = None
+                    if connection.get_id() != "":
+                        connectionID = connection.get_id()
                     if _DEBUG == True:
-                        print "loadSADFile(): CONNECTION INTERFACE: uses port name " + str(connection.get_usesport().get_usesidentifier())
-                        print "loadSADFile(): CONNECTION INTERFACE: uses port component ref " + str(connection.get_usesport().get_componentinstantiationref().get_refid())
-                    usesPortName = connection.get_usesport().get_usesidentifier() 
-                    usesPortComponentRefid = connection.get_usesport().get_componentinstantiationref().get_refid()
-                    # Loop through launched components to find one containing the uses port to be connected
-                    for component in launchedComponents:
-                        if component._refid == usesPortComponentRefid:
-                            usesPortComponent = component
+                        print "loadSADFile(): CONNECTION INTERFACE: connection ID " + str(connection.get_id())
+                    usesPortComponent = None
+                    usesPortName = None
+                    providesPortComponent = None
+                    providesPortName = None
+                    # Check for uses port
+                    if connection.get_usesport() != None:
+                        if _DEBUG == True:
+                            print "loadSADFile(): CONNECTION INTERFACE: uses port name " + str(connection.get_usesport().get_usesidentifier())
+                            print "loadSADFile(): CONNECTION INTERFACE: uses port component ref " + str(connection.get_usesport().get_componentinstantiationref().get_refid())
+                        usesPortName = connection.get_usesport().get_usesidentifier() 
+                        usesPortComponentRefid = connection.get_usesport().get_componentinstantiationref().get_refid()
+                        # Loop through launched components to find one containing the uses port to be connected
+                        for component in launchedComponents:
+                            if component._refid == usesPortComponentRefid:
+                                usesPortComponent = component
+                                break
+
+                        # Look for end point of the connection
+                        # Check for provides port 
+                        if connection.get_providesport() != None:
+                            if _DEBUG == True:
+                                print "loadSADFile(): CONNECTION INTERFACE: provides port name " + str(connection.get_providesport().get_providesidentifier())
+                                print "loadSADFile(): CONNECTION INTERFACE: provides port component ref " + str(connection.get_usesport().get_componentinstantiationref().get_refid())
+                            providesPortName = connection.get_providesport().get_providesidentifier() 
+                            providesPortComponentRefid = connection.get_providesport().get_componentinstantiationref().get_refid()
+                            # Loop through launched components to find one containing the provides port to be connected
+                            for component in launchedComponents:
+                                if component._refid == providesPortComponentRefid:
+                                    providesPortComponent = component
+                                    break
+                        elif connection.get_componentsupportedinterface() != None:
+                            if _DEBUG == True:
+                                print "loadSADFile(): CONNECTION INTERFACE: componentsupportedinterface port interface " + str(connection.get_componentsupportedinterface().get_supportedidentifier())
+                                print "loadSADFile(): CONNECTION INTERFACE: componentsupportedinterface port component ref " + str(connection.get_componentsupportedinterface().get_componentinstantiationref().get_refid())
+                            providesPortComponentRefid = connection.get_componentsupportedinterface().get_componentinstantiationref().get_refid()
+                            # Loop through launched components to find one containing the provides port to be connected
+                            for component in launchedComponents:
+                                if component._refid == providesPortComponentRefid:
+                                    providesPortComponent = component
+                                    break
+                        elif connection.get_findby() != None:
+                            if _DEBUG == True:
+                                print "loadSADFile(): CONNECTION INTERFACE: findby " + str(connection.get_componentsupportedinterface())
+
+                        # Make connection
+                        if usesPortComponent != None and providesPortComponent != None:
+                            if _DEBUG == True:
+                                print "loadSADFile(): calling connect on usesPortComponent"
+                                if providesPortName != None:
+                                    print "loadSADFile(): passing in to connect() providesPortName " + str(providesPortName)
+                                if usesPortName != None:
+                                    print "loadSADFile(): passing in to connect()  usesPortName " + str(usesPortName)
+                                if connectionID != None:
+                                    print "loadSADFile(): passing in to connect() connectionID " + str(connectionID)
+                            if providesPortName != None and usesPortName != None and connectionID != None: 
+                                usesPortComponent.connect(providesPortComponent, providesPortName,usesPortName,connectionID)
+                            elif usesPortName != None and connectionID != None:
+                                usesPortComponent.connect(providesPortComponent, usesPortName=usesPortName,connectionID=connectionID)
+                            elif usesPortName != None:
+                                usesPortComponent.connect(providesPortComponent, usesPortName=usesPortName)
+                            else:
+                                usesPortComponent.connect(providesPortComponent)
+
+        # configure properties for launched component
+        for component in componentPlacements:
+            refid = component.componentfileref.refid
+            assemblyController = False
+            sandboxComponent = None
+            if validRequestedComponents.has_key(refid):
+                instanceID = component.get_componentinstantiation()[0].id_
+                componentProps = None
+                if len(launchedComponents) > 0:
+                    for comp in launchedComponents:
+                        if instanceID == comp._refid:
+                            componentProps = comp._configRef
+                            if instanceID == assemblyControllerRefid:
+                                assemblyController = True
+                            sandboxComponent = comp
                             break
 
-                    # Look for end point of the connection
-                    # Check for provides port 
-                    if connection.get_providesport() != None:
-                        if _DEBUG == True:
-                            print "loadSADFile(): CONNECTION INTERFACE: provides port name " + str(connection.get_providesport().get_providesidentifier())
-                            print "loadSADFile(): CONNECTION INTERFACE: provides port component ref " + str(connection.get_usesport().get_componentinstantiationref().get_refid())
-                        providesPortName = connection.get_providesport().get_providesidentifier() 
-                        providesPortComponentRefid = connection.get_providesport().get_componentinstantiationref().get_refid()
-                        # Loop through launched components to find one containing the provides port to be connected
-                        for component in launchedComponents:
-                            if component._refid == providesPortComponentRefid:
-                                providesPortComponent = component
-                                break
-                    elif connection.get_componentsupportedinterface() != None:
-                        if _DEBUG == True:
-                            print "loadSADFile(): CONNECTION INTERFACE: componentsupportedinterface port interface " + str(connection.get_componentsupportedinterface().get_supportedidentifier())
-                            print "loadSADFile(): CONNECTION INTERFACE: componentsupportedinterface port component ref " + str(connection.get_componentsupportedinterface().get_componentinstantiationref().get_refid())
-                        providesPortComponentRefid = connection.get_componentsupportedinterface().get_componentinstantiationref().get_refid()
-                        # Loop through launched components to find one containing the provides port to be connected
-                        for component in launchedComponents:
-                            if component._refid == providesPortComponentRefid:
-                                providesPortComponent = component
-                                break
-                    elif connection.get_findby() != None:
-                        if _DEBUG == True:
-                            print "loadSADFile(): CONNECTION INTERFACE: findby " + str(connection.get_componentsupportedinterface())
-
-                    # Make connection
-                    if usesPortComponent != None and providesPortComponent != None:
-                        if _DEBUG == True:
-                            print "loadSADFile(): calling connect on usesPortComponent"
-                            if providesPortName != None:
-                                print "loadSADFile(): passing in to connect() providesPortName " + str(providesPortName)
-                            if usesPortName != None:
-                                print "loadSADFile(): passing in to connect()  usesPortName " + str(usesPortName)
-                            if connectionID != None:
-                                print "loadSADFile(): passing in to connect() connectionID " + str(connectionID)
-                        if providesPortName != None and usesPortName != None and connectionID != None: 
-                            usesPortComponent.connect(providesPortComponent, providesPortName,usesPortName,connectionID)
-                        elif usesPortName != None and connectionID != None:
-                            usesPortComponent.connect(providesPortComponent, usesPortName=usesPortName,connectionID=connectionID)
-                        elif usesPortName != None:
-                            usesPortComponent.connect(providesPortComponent, usesPortName=usesPortName)
-                        else:
-                            usesPortComponent.connect(providesPortComponent)
+            if sandboxComponent != None and \
+               componentProps != None:
+                properties=component.get_componentinstantiation()[0].get_componentproperties()
+                #simples
+                simples = properties.get_simpleref()
+                simple_vals = []
+                for simple in simples:
+                    if not (simple.refid in configurable[sandboxComponent._instanceName]):
+                        continue
+                    overload_value = str(simple.value)
+                    if simple.refid in props and assemblyController:
+                        overload_value = props[simple.refid]
+                        props.pop(simple.refid)
+                    simple_vals.append(overloadContainer(str(simple.refid),overload_value))
+                #simple sequences
+                simpleseqs = properties.get_simplesequenceref()
+                simpleseq_vals = []
+                if simpleseqs != None:
+                    for simpleseq in simpleseqs:
+                        if not (simpleseq.refid in configurable[sandboxComponent._instanceName]):
+                            continue
+                        values_vals = [str(value) for value in simpleseq.get_values().get_value()]
+                        if simpleseq.refid in props and assemblyController:
+                            values_vals = props[simpleseq.refid]
+                            props.pop(simpleseq.refid)
+                        simpleseq_vals.append(overloadContainer(str(simpleseq.refid),values_vals))
+                #structs
+                structs = properties.get_structref()
+                struct_vals = []
+                if structs != None:
+                    for struct in structs:
+                        if not (struct.refid in configurable[sandboxComponent._instanceName]):
+                            continue
+                        simples = struct.get_simpleref()
+                        value = {}
+                        for simple in simples:
+                            value[str(simple.refid)] = str(simple.value)
+                        if struct.refid in props and assemblyController:
+                            value = props[struct.refid]
+                            props.pop(struct.refid)
+                        struct_vals.append(overloadContainer(str(struct.refid),value))
+                #struct sequences
+                structseqs = properties.get_structsequenceref()
+                structseq_vals = []
+                if structseqs != None:
+                    for structseq in structseqs:
+                        if not (structseq.refid in configurable[sandboxComponent._instanceName]):
+                            continue
+                        values_vals = []
+                        for struct_template in structseq.get_structvalue():
+                            simples = struct_template.get_simpleref()
+                            value = {}
+                            for simple in simples:
+                                value[str(simple.refid)] = str(simple.value)
+                            values_vals.append(value)
+                        if structseq.refid in props and assemblyController:
+                            values_vals = props[structseq.refid]
+                            props.pop(structseq.refid)
+                        structseq_vals.append(overloadContainer(str(structseq.refid),values_vals))
+                if len(sandboxComponent._propertySet) > 0:
+                    overloadProperty(sandboxComponent, simple_vals, simpleseq_vals, struct_vals, structseq_vals)
+            if assemblyController:
+                prop_types = {}
+                prop_types['simple'] = []
+                prop_types['simpleseq'] = []
+                prop_types['struct'] = []
+                prop_types['structseq'] = []
+                prop_set = sandboxComponent._prf.get_simple()
+                prop_types['simple'] = ([str(prop_iter.get_id()) for prop_iter in prop_set], [])
+                prop_set = sandboxComponent._prf.get_simplesequence()
+                prop_types['simpleseq'] = ([str(prop_iter.get_id()) for prop_iter in prop_set], [])
+                prop_set = sandboxComponent._prf.get_struct()
+                prop_types['struct'] = ([str(prop_iter.get_id()) for prop_iter in prop_set], [])
+                prop_set = sandboxComponent._prf.get_structsequence()
+                prop_types['structseq'] = ([str(prop_iter.get_id()) for prop_iter in prop_set], [])
+                prop_to_pop = []
+                for prop in props:
+                    for prop_check in sandboxComponent._propertySet:
+                        if prop_check.id == prop:
+                            for prop_type_check in prop_types:
+                                if prop in prop_types[prop_type_check][0]:
+                                    prop_types[prop_type_check][1].append(overloadContainer(str(prop), props[prop]))
+                                    prop_to_pop.append(str(prop))
+                for prop_to_pop_iter in prop_to_pop:
+                    props.pop(prop_to_pop_iter)
+                overloadProperty(sandboxComponent, prop_types['simple'][1], prop_types['simpleseq'][1], prop_types['struct'][1], prop_types['structseq'][1])
+            
         launchedComponents = []
+        if len(props) != 0:
+            for prop in props:
+                print "Overload property '"+prop+"' was ignored because it is not on the Assembly Controller"
         return True
     except Exception, e:
         print "loadSADFile(): ERROR - Failed to load sad file " + str(filename) + " " + str(e)
@@ -677,10 +912,11 @@ def _spdFileExists(filename, fileMgr=None):
                         print "_spdFileExists() SPD File " + str(filename) + " not found. "
                         print "_spdFileExists() WARNING - relative path for file requires SDRROOT be set to locate ... local SDRROOT can be set calling setSDRROOT() or setting environment variable SDRROOT"
                         return None 
-                if _os.path.isfile(str(_currentState['SDRROOT']) + "/dom" + str(filename)):
+                spd_path = str(_currentState['SDRROOT']) + "/dom" + str(filename)
+                if _os.path.isfile(spd_path):
                     if _DEBUG == True:
-                        print "_spdFileExists(): filename " + str(_currentState['SDRROOT']) + "/dom" + str(filename) + " does exist" 
-                    return str(_currentState['SDRROOT']) + "/dom" + str(filename)
+                        print "_spdFileExists(): filename " + spd_path + " does exist" 
+                    return spd_path
             else:
                 # If SCA file manager passed in, use that to see if file exists
                 if fileMgr != None:
@@ -936,10 +1172,7 @@ class _componentBase(object):
                     return
                 componentName = str(tmp.get_name())
                 if componentName == self._componentName:            
-                    if connectedIDE == None:
-                        self._profile = file
-                    else:
-                        self._profile = "/" + file
+                    self._profile = file
                     if _DEBUG == True:
                         print "Component:_isKickableComponent() component " + str(self._componentName) + " is kickable"
                     return True
@@ -1090,7 +1323,9 @@ class _componentBase(object):
 
         # Prepare the exec params
         naming_context_ior = orb.object_to_string(nc_stub_var)
-        component_identifier = self._spd.get_id()
+        component_identifier = self._refid
+        if component_identifier == None:
+            component_identifier = self._spd.get_id()
 
         # if the user passed in an impl id, try to get the entry point from that impl
         if self._impl != None:
@@ -1157,6 +1392,7 @@ class _componentBase(object):
             self._verifySharedLibrary(dependency_local_filename)
             
 
+        argids = []
         if self._scd.get_componenttype() in ("device", "loadabledevice", "executabledevice"):
             # Prepare a DeviceManager stub
             if IDE_REF == None:
@@ -1171,11 +1407,13 @@ class _componentBase(object):
                      "DEVICE_LABEL", self._spd.get_name(),
                      "DEVICE_MGR_IOR", device_manager_ior,
                      "PROFILE_NAME", self._profile ]
+            argids = ["DEVICE_ID", "DEVICE_LABEL", "DEVICE_MGR_IOR", "PROFILE_NAME"]
         elif self._scd.get_componenttype() in ("resource",):
             args = [ entry_point,
                      "COMPONENT_IDENTIFIER", component_identifier,
                      "NAMING_CONTEXT_IOR", naming_context_ior,
                      "NAME_BINDING", self._instanceName ]
+            argids = ["COMPONENT_IDENTIFIER", "NAMING_CONTEXT_IOR", "NAME_BINDING"]
         elif self._scd.get_componenttype() in ("service",):
             if IDE_REF == None:
                 dm_stub_var = dm_stub._this()
@@ -1185,11 +1423,17 @@ class _componentBase(object):
             args = [ entry_point,
                      "DEVICE_MGR_IOR", device_manager_ior,
                      "SERVICE_NAME", self._spd.get_name() ]
+            argids = ["DEVICE_MGR_IOR", "SERVICE_NAME"]
         else:
             raise ValueError("Component:_kick() Unexpected component type")
 
         for ex_id, ex_val in execparams.items():
+            if ex_id in argids:
+                if _DEBUG == True:
+                    print "Component: Ignoring execparam '%s' because it is a duplicate entry (reserved id)" % ex_id
+                continue
             if (ex_val != None):
+                argids.append(ex_id)
                 args.append(ex_id)
                 args.append(str(ex_val))
         if _DEBUG == True:
@@ -1340,7 +1584,7 @@ class Component(_componentBase):
         Component.<property id> provides read/write access to component properties
     
     """
-    def __init__(self,componentDescriptor=None,instanceName=None,refid=None,autoKick=True,componentObj=None,impl=None,debugger=None,execparams={},*args,**kwargs):
+    def __init__(self,componentDescriptor=None,instanceName=None,refid=None,autoKick=True,componentObj=None,impl=None,launchedFromSADFile=False,debugger=None,execparams={},*args,**kwargs):
         self._profile = ''
         self._spd = None
         self._scd = None 
@@ -1361,10 +1605,7 @@ class Component(_componentBase):
         _componentBase.__init__(self, componentDescriptor, instanceName, refid)
         if connectedIDE == True:
             if IDE_REF != None and autoKick == True:
-                if self._profile[0] == "/":
-                    rescFactory = IDE_REF.getResourceFactoryByProfile(self._profile[1:])
-                else:
-                    rescFactory = IDE_REF.getResourceFactoryByProfile(self._profile)
+                rescFactory = IDE_REF.getResourceFactoryByProfile(self._profile)
                 self.ref = rescFactory.createResource(self._instanceName, [])
 
         try:
@@ -1385,7 +1626,7 @@ class Component(_componentBase):
             print "Component:__init__() ERROR - Failed to instantiate component " + str(self._componentName) + " with exception " + str(e)
 
         # build a configure call to initialize all properties to their default values
-        configRef = []
+        self._configRef = []
         if (connectedIDE == False or componentObj == None) and self._propertySet != None:
             for prop in self._propertySet:
                 if prop.type == 'struct':
@@ -1400,7 +1641,7 @@ class Component(_componentBase):
                                 simpleRef.value._v = _copy.deepcopy(simple.defValue)
                             refList.append(simpleRef)
                         ref.value._v = refList
-                        configRef.append(ref)
+                        self._configRef.append(ref)
                 elif prop.type == 'structSeq':
                     if prop.mode != 'readonly':
                         if prop.defValue != None:
@@ -1429,7 +1670,7 @@ class Component(_componentBase):
                                 tmpRef = _CORBA.Any(_CORBA.TypeCode("IDL:CF/Properties:1.0"), simpleRefs)
                                 structRefs.append(_copy.deepcopy(tmpRef))
                             ref.value._v = structRefs
-                            configRef.append(ref)
+                            self._configRef.append(ref)
                 else:
                     if prop.mode != 'readonly':
                         ref = _copy.deepcopy(prop.propRef)
@@ -1438,12 +1679,15 @@ class Component(_componentBase):
                         else:
                             ref.value._v = _copy.deepcopy(prop.defValue)
                         if prop.id != 'structSeq':
-                            configRef.append(ref)
-            newConfigRef = []
-            for entry in configRef:
-                if entry.value._v != None:
-                    newConfigRef.append(entry)
-            self.configure(newConfigRef)
+                            self._configRef.append(ref)
+            # When launching from SAD file, component needs to be configured after connections have been made
+            # to replicate Domain-based ApplicationFactory behavior
+            if launchedFromSADFile == False:
+                newConfigRef = []
+                for entry in self._configRef:
+                    if entry.value._v != None:
+                        newConfigRef.append(entry)
+                self.configure(newConfigRef)
 
         # Take in property name/value pairs passed into the constructor
         # Add them as attributes to the class 
@@ -1456,10 +1700,7 @@ class Component(_componentBase):
         self.releaseObject()
         if connectedIDE == True:
             if IDE_REF != None:
-                if self._profile[0] == "/":
-                    rescFactory = IDE_REF.getResourceFactoryByProfile(self._profile[1:])
-                else:
-                    rescFactory = IDE_REF.getResourceFactoryByProfile(self._profile)
+                rescFactory = IDE_REF.getResourceFactoryByProfile(self._profile[1:])
                 self.ref = rescFactory.createResource(self._instanceName, [])
             _populateFromExternalNC()
         else:
@@ -2392,7 +2633,7 @@ class Component(_componentBase):
             idl_repid = str(uses.getAttribute('repid'))
             if not int_list.has_key(idl_repid):
                 if _DEBUG == True:
-                    print "Invalid port descriptor in scd for " + self._name + " for " + idl_repid
+                    print "Invalid port descriptor in scd for " + idl_repid
                 continue
             int_entry = int_list[idl_repid]
 
@@ -2407,7 +2648,7 @@ class Component(_componentBase):
                 idl_repid = new_port.ref._NP_RepositoryId
                 if not int_list.has_key(idl_repid):
                     if _DEBUG == True:
-                        print "Unable to find port description for " + self._name + " for " + idl_repid
+                        print "Unable to find port description for " + idl_repid
                     continue
                 int_entry = int_list[idl_repid]
                 new_port._interface = int_entry
@@ -2420,7 +2661,7 @@ class Component(_componentBase):
             idl_repid = str(provides.getAttribute('repid'))
             if not int_list.has_key(idl_repid):
                 if _DEBUG == True:
-                    print "Invalid port descriptor in scd for " + self._name + " for " + idl_repid
+                    print "Invalid port descriptor in scd for " + idl_repid
                 continue
             int_entry = int_list[idl_repid]
             new_port = _Port(str(provides.getAttribute('providesname')), interface=int_entry, direction="Provides")

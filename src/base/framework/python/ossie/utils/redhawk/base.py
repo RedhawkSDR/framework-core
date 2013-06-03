@@ -41,6 +41,7 @@ class _envContainer(object):
         self.stdout = stdout
     
     def __del__(self):
+        import os as _os
         _os.kill(self.domain,2)
         if self.stdout != None:
             self.stdout.close()
@@ -167,6 +168,11 @@ def scan(location=None):
                 if obj.binding_name[0].id == entry.binding_name[0].id:
                     tmpobj = ctx.resolve(obj.binding_name)
                     tmpDomainManager = tmpobj._narrow(_CF.DomainManager)
+                    # Make sure Domain is alive
+                    try:
+                        fileManager = tmpDomainManager._get_fileMgr()
+                    except:
+                        continue
                     if tmpDomainManager:
                         foundDomain = True
                         break

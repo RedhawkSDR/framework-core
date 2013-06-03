@@ -92,7 +92,7 @@ class SimpleComponent_cpp_impl1_base : public Resource_impl
         // Member variables exposed as properties
         std::string ep_only;
         std::string ep_cfg;
-        unsigned short myOct;
+        unsigned char myOct;
 
 
     private:

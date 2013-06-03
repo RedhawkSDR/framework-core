@@ -34,7 +34,7 @@ jni_CosEventChannelAdmin.o : jni_CosEventComm.h
 nodist_libcosjni_la_SOURCES = jni_CosEventComm.cpp \
 			      jni_CosEventChannelAdmin.cpp \
 			      jni_CosNaming.cpp
-libcosjni_la_CPPFLAGS = $(OMNIJNI_CFLAGS)
+libcosjni_la_CPPFLAGS = $(OMNIJNI_CPPFLAGS)
 
 cosincludedir = $(pkgincludedir)/COS
 nodist_cosinclude_HEADERS = jni_CosEventComm.h \

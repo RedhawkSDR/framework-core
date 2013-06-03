@@ -35,6 +35,8 @@ namespace ossie {
     // All Persistence implementations must know how to store these 
     // objects.
 
+    typedef std::string     ID;
+
     class DeviceManagerNode {
         public:
             std::string identifier;
@@ -43,6 +45,8 @@ namespace ossie {
     };
 
     typedef std::list<DeviceManagerNode> DeviceManagerList;
+
+    typedef  ID    DeviceID;
 
     class DeviceNode {
         public:
@@ -56,7 +60,8 @@ namespace ossie {
             std::map<std::string, CORBA::Object_var> connections;
     };
 
-    typedef std::list<DeviceNode> DeviceList;
+    typedef std::list< DeviceNode > DeviceList;
+    typedef std::list< DeviceID >   DeviceIDList;
 
     class ApplicationFactoryNode {
         public:

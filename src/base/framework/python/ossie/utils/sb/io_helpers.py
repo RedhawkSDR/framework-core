@@ -40,6 +40,7 @@ import signal as _signal
 import os as _os
 import subprocess as _subprocess
 import Queue as _Queue
+import struct as _struct
 from omniORB import any as _any
 from omniORB import CORBA as _CORBA
 
@@ -434,11 +435,6 @@ class _DataPortBase(helperBase):
         # have been verified to work; this list does not include all
         # interfaces that might work.
         self.supportedPorts = {
-             "byte"      : {"bytesPerSample" : 1,
-                            "pktSize"        : -1,
-                            "portType" : "_BULKIO__POA.dataChar",
-                            "portDict" : {"Port Interface" : "IDL:BULKIO/dataChar:1.0",
-                                          "Port Name"      : "byte"}},
              "char"      : {"bytesPerSample" : 1,
                             "pktSize"        : -1,
                             "portType" : "_BULKIO__POA.dataChar",
@@ -549,6 +545,9 @@ class _SourceBase(_DataPortBase):
             print "WARNING: predicting data source format type by data argument is deprecated.  This will be removed in the next version"
 
         if dataFormat != None:
+            # add support for format byte (which is the same as char)
+            if dataFormat.lower() == 'byte':
+                dataFormat = 'char'
             if self.supportedPorts.has_key(dataFormat.lower()):
                 self._dataFormat = dataFormat.lower()
         else:
@@ -1018,7 +1017,7 @@ class FileSource(_SourceBase):
         if self._midasFile:
             hdr, data = _bluefile.read(self._filename, list)
             if hdr['format'].endswith('B'):
-                dataFormat = 'byte'
+                dataFormat = 'char'
             elif hdr['format'].endswith('I'):
                 dataFormat = 'short'
             elif hdr['format'].endswith('L'):
@@ -1431,6 +1430,9 @@ class DataSource(_SourceBase):
                                  streamID, 
                                  srcPortType)
                 dataSize = len(data[:pktSize])
+                if self._sri != None:
+                    if self._sri.mode == 1:
+                        dataSize = dataSize / 2
                 currentSampleTime = currentSampleTime + dataSize/self._sampleRate
                 data = data[pktSize:]
         else:
@@ -1528,6 +1530,10 @@ class DataSink(_SinkBase):
         return None
 
     def getData(self, length=None, eos_block=False):
+        isChar = False
+        if self._sink.port_type == _BULKIO__POA.dataChar:
+            isChar = True
+            
         if self._sink != None:
             self._sink.port_lock.acquire()
             try:
@@ -1571,6 +1577,9 @@ class DataSink(_SinkBase):
                             self._sink.data.__delslice__(0,length)
             finally:
                 self._sink.port_lock.release()
+            if isChar:
+                newretval = list(_struct.unpack(str(len(retval))+'b',''.join(retval)))
+                retval=newretval
             return retval
         else:
             return None
@@ -1646,7 +1655,7 @@ class probeBULKIO(_OutputBase):
     def _buildAPI(self):
         self._providesPortDict[0] = {} 
         self._providesPortDict[0]["Port Interface"] = "IDL:BULKIO/dataChar:1.0" 
-        self._providesPortDict[0]["Port Name"] = "byteIn"
+        self._providesPortDict[0]["Port Name"] = "charIn"
         self._providesPortDict[1] = {} 
         self._providesPortDict[1]["Port Interface"] = "IDL:BULKIO/dataShort:1.0" 
         self._providesPortDict[1]["Port Name"] = "shortIn"
@@ -1684,7 +1693,7 @@ class probeBULKIO(_OutputBase):
         if _domainless._DEBUG == True:
             print "probeBULKIO:getPort() portName " + str(portName) + "================================="
         try:
-            if portName == "byteIn":
+            if portName == "charIn":
                 self._sinkPortType = "_BULKIO__POA.dataChar" 
             elif portName == "shortIn":
                 self._sinkPortType = "_BULKIO__POA.dataShort" 

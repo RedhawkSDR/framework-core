@@ -43,11 +43,14 @@ with this program.  If not, see http://www.gnu.org/licenses/.
         </code>
         <os name="Linux"/>
         <processor name="x86"/>
-        <!--dependency type="runtime_requirements">
-            <softpkgref>
-                <localfile name="somefile"/>
-                <implref refid="new_ref_id"/>
-            </softpkgref>
-        </dependency-->
+    </implementation>
+    <implementation id="secondImplementation">
+        <description>
+        </description>
+        <code type="SharedLibrary">
+            <localfile name="spdDepLibrary_64"/>
+        </code>
+        <os name="Linux"/>
+        <processor name="x86_64"/>
     </implementation>
 </softpkg>

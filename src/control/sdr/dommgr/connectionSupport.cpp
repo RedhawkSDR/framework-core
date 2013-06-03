@@ -87,8 +87,15 @@ CORBA::Object_ptr ConnectionManager::resolveDomainObject(const std::string& type
 
 CORBA::Object_ptr ConnectionManager::resolveFindByNamingService(const std::string& name)
 {
-    std::string findbyName = _namingContext + "/" + name;
-
+    std::string findbyName;
+    
+    if (name.find("/") == 0) {
+        findbyName = name;
+        findbyName.erase(findbyName.begin());
+    } else {
+        findbyName = _namingContext + "/" + name;
+    }
+    
     LOG_TRACE(ConnectionManager, "resolveFindByNamingService: The findname that I'm using is: " << findbyName);
     try {
         return ossie::corba::objectFromName(findbyName);
@@ -959,6 +966,8 @@ void ConnectionNode::disconnect(DomainLookup* domainLookup)
     }
 
     try {
+        unsigned long timeout = 500; // milliseconds
+        omniORB::setClientCallTimeout(usesPort, timeout);
         usesPort->disconnectPort(identifier.c_str());
     } CATCH_LOG_WARN(ConnectionNode, "Unable to disconnect port for connection " << identifier);
 

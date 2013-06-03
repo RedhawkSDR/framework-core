@@ -886,7 +886,9 @@ public abstract class Device extends Resource implements DeviceOperations {
                     StandardEvent.StateChangeCategoryType.USAGE_STATE_EVENT, current_state, new_state);
 
             try {
-                proxy_consumer.push(AnyUtils.toAny(event, TCKind.tk_objref));
+                if (proxy_consumer != null){
+                    proxy_consumer.push(AnyUtils.toAny(event, TCKind.tk_objref));
+                }
             } catch (Disconnected e) {
                 logger.warn("Error sending event.");
             }
@@ -936,7 +938,9 @@ public abstract class Device extends Resource implements DeviceOperations {
                     StateChangeCategoryType.ADMINISTRATIVE_STATE_EVENT, current_state, new_state);
 
             try {
-                proxy_consumer.push(AnyUtils.toAny(event, TCKind.tk_objref));
+                if (proxy_consumer != null){
+                    proxy_consumer.push(AnyUtils.toAny(event, TCKind.tk_objref));
+                }
             } catch (Disconnected e) {
                 logger.warn("Error sending event.");
             } 
@@ -979,7 +983,9 @@ public abstract class Device extends Resource implements DeviceOperations {
                     StateChangeCategoryType.OPERATIONAL_STATE_EVENT, current_state, new_state);
 
             try {
-                proxy_consumer.push(AnyUtils.toAny(event, TCKind.tk_objref));
+                if (proxy_consumer != null){
+                    proxy_consumer.push(AnyUtils.toAny(event, TCKind.tk_objref));
+                }
             } catch (Disconnected e) {
                 logger.warn("Error sending event.");
             }

@@ -18,13 +18,9 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-export OSSIEHOME=@prefix@
-
-export PATH=@bindir@:${PATH}
-
-export LD_LIBRARY_PATH=@libdir@:${LD_LIBRARY_PATH}
-
-export PYTHONPATH=${OSSIEHOME}/lib64/python:${OSSIEHOME}/lib/python:${PYTHONPATH}
-
-export CLASSPATH=${OSSIEHOME}/lib:${CLASSPATH}
-
+if [ "X$OSSIEHOME" = X ] ; then
+    export OSSIEHOME=@prefix@
+    export PATH=@bindir@:${PATH}
+    export LD_LIBRARY_PATH=@libdir@:${LD_LIBRARY_PATH}
+    export PYTHONPATH=${OSSIEHOME}/lib64/python:${OSSIEHOME}/lib/python:${PYTHONPATH}
+fi

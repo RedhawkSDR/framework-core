@@ -19,12 +19,12 @@
 #
 
 from ossie.cf import CF, CF__POA
-from ossie.utils import uuid
 import struct
 import os
 import array
 import threading
 import bulkio_helpers
+import time
 from new import classobj
 try:
     from bulkio.bulkioInterfaces import BULKIO, BULKIO__POA
@@ -176,6 +176,8 @@ class ArraySource(object):
             T = BULKIO.PrecisionUTCTime(BULKIO.TCM_CPU, BULKIO.TCS_VALID, 0.0, int(currentSampleTime), currentSampleTime - int(currentSampleTime))
             self.pushPacket(d, T, False, self.sri.streamID)
             dataSize = len(d)
+            if complexData:
+                dataSize = dataSize / 2
             currentSampleTime = currentSampleTime + dataSize/sampleRate
         T = BULKIO.PrecisionUTCTime(BULKIO.TCM_CPU, BULKIO.TCS_VALID, 0.0, int(currentSampleTime), currentSampleTime - int(currentSampleTime))
         self.pushPacket([], T, True, self.sri.streamID)
@@ -836,6 +838,29 @@ class FileSink(object):
                     else:
                         outputArray.append(item)
                 outputArray.tofile(self.outFile) 
+            # If end of stream is true, close the output file
+            if EOS == True:
+                if self.outFile != None:
+                    self.outFile.close()
+        finally:
+            self.port_lock.release()
+        
+    def pushPacket(self, data, EOS, stream_id):
+        """
+        Deals with XML data
+        
+        Input:
+            <data>        xml string
+            <EOS>         Flag indicating if this is the End Of the Stream
+            <stream_id>   The unique stream id
+        """
+        self.port_lock.acquire()
+        if EOS:
+            self.gotEOS = True
+        else:
+            self.gotEOS = False
+        try:
+            self.outFile.write(data)
             # If end of stream is true, close the output file
             if EOS == True:
                 if self.outFile != None:

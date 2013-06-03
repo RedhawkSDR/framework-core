@@ -570,8 +570,11 @@ class FileManagerTest(scatest.CorbaTestCase):
         except:
             self.assertEqual(fileMgr.exists(domdir), False)
 
-        
-        
+    def test_readException(self):
+        # Makes sure that File_impl::read() throws correct exception and doesn't kill domain
+        # Issue #533
+        self.assertRaises(CF.DomainManager.ApplicationInstallationError, self._domMgr.installApplication, '/waveforms')      
+
 if __name__ == "__main__":
   # Run the unittests
   unittest.main()

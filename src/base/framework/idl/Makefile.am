@@ -23,7 +23,8 @@
 	$(IDL) -I $(IDLDIR) -I $(IDLDIR)/COS -I ../../idl -bcxx -Wba -Wbd=DynSK.cpp -Wbh=.h -Wbs=SK.cpp -Wbkeep_inc_path $<
 # omniORB uses the a ".hh" suffix for its COS header files, but omniidl doesn't
 # know the difference, so we must modify generated headers to account for that.
-	sed -i 's|<COS/\(.*\)\.h>|<COS/\1.hh>|' $*.h
+	$(SED) 's|<COS/\(.*\)\.h>|<COS/\1.hh>|' $*.h > $*.h.tmp
+	mv $*.h.tmp $*.h
 	mkdir -p ../../include/ossie/CF
 	cp $*.h ../../include/ossie/CF
 

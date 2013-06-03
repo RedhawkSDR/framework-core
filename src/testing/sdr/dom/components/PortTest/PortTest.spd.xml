@@ -25,6 +25,9 @@ with this program.  If not, see http://www.gnu.org/licenses/.
   <author>
     <name></name>
   </author>
+  <propertyfile type="PRF">
+    <localfile name="PortTest.prf.xml"/>
+  </propertyfile>
   <descriptor>
     <localfile name="PortTest.scd.xml"/>
   </descriptor>

@@ -1702,7 +1702,7 @@ DomainManager_impl::addApplication(Application_impl* new_app)
     TRACE_ENTER(DomainManager_impl)
     boost::recursive_mutex::scoped_lock lock(appAccess);
 
-    LOG_TRACE(DomainManager_impl, "Attempting to add application to AppSeq with id: " << new_app->identifier())
+    LOG_TRACE(DomainManager_impl, "Attempting to add application to AppSeq with id: " << ossie::corba::returnString(new_app->identifier()));
 
     try {
         long old_length = _applications.length();
@@ -1843,10 +1843,6 @@ throw (CORBA::SystemException, CF::InvalidObjectReference,
        CF::DomainManager::AlreadyConnected)
 {
     TRACE_ENTER(DomainManager_impl)
-    
-    if (!eventChannelExists(eventChannelName)) {
-        throw CF::DomainManager::InvalidEventChannelName ();
-    }
     
     if (registeredConsumers.find(registeringId) != registeredConsumers.end()) {
         throw CF::DomainManager::AlreadyConnected ();

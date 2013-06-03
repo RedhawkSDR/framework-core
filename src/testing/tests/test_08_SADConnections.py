@@ -20,8 +20,9 @@
 
 import unittest
 import scatest
-from omniORB import URI, any
+from omniORB import CORBA, URI, any
 from ossie.cf import CF
+import CosNaming
 
 class SADConnectionsTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -93,6 +94,43 @@ class SADConnectionsTest(scatest.CorbaTestCase):
         self.assertEqual(len(ids), 1)
         expectedId = components['PortTest2']._get_identifier()
         self.assertEqual(str(ids[0].value.value()), expectedId)
+
+    def test_FindByAbsoluteNamingService(self):
+        from ossie.utils import sb
+        comp=sb.Component('PortTest')
+        orb = CORBA.ORB_init()
+        obj = orb.resolve_initial_references("NameService")
+        rootContext = obj._narrow(CosNaming.NamingContext)
+        bindingName = URI.stringToName("PortTest2")
+        rootContext.rebind(bindingName, comp.ref)
+
+        self.assertNotEqual(self._domMgr, None)
+        self.assertNotEqual(self._devMgr, None)
+
+        sadpath = "/waveforms/PortConnectFindByAbsoluteNamingService/PortConnectFindByAbsoluteNamingService.sad.xml"
+        self._domMgr.installApplication(sadpath)
+        self.assertEqual(len(self._domMgr._get_applicationFactories()), 1)
+        appFact = self._domMgr._get_applicationFactories()[0]
+
+        try:
+            self._app = appFact.create(appFact._get_name(), [], [])
+        except:
+            rootContext.unbind(bindingName)
+            self.fail("Did not create application PortConnectFindByAbsoluteNamingService")
+        components = self._getComponents()
+
+        # Use the TestableObject interface to check that 'PortTest1' has
+        # exactly one connection, and that it's connected to 'PortTest2'.
+        ids = components['PortTest1'].runTest(0, [])
+        if (len(ids) != 1):
+            rootContext.unbind(bindingName)
+            self.fail("There are more than one connection on PortTest1")
+        expectedId = comp.ref._get_identifier()
+        if (str(ids[0].value.value()) != expectedId):
+            rootContext.unbind(bindingName)
+            self.fail("The expected id does not match")
+        rootContext.unbind(bindingName)
+        sb.domainless._cleanUpLaunchedComponents()
 
     def test_FindByFileManager(self):
         self._createApp('FindByFileManager')

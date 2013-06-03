@@ -33,7 +33,7 @@ profiled_DATA = profile.d/redhawk.sh \
   profile.d/local_pkg_config.csh
 
 lib = lib${gr_libdir_suffix}
-edit = sed \
+edit = $(SED) \
   -e 's|@prefix[@]|$(prefix)|g' \
   -e 's|@bindir[@]|$(bindir)|g' \
   -e 's|@libdir[@]|$(libdir)|g' \
@@ -50,4 +50,6 @@ profile.d/redhawk-sdrroot.sh: profile.d/redhawk-sdrroot.sh.in
 profile.d/redhawk-sdrroot.csh: profile.d/redhawk-sdrroot.csh.in
 profile.d/local_pkg_config.sh: profile.d/local_pkg_config.sh.in
 profile.d/local_pkg_config.csh: profile.d/local_pkg_config.csh.in
+
+DISTCLEANFILES = $(ldsoconfd_DATA) $(profiled_DATA)
 

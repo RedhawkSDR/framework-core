@@ -31,7 +31,7 @@ jni_%.cpp jni_%.h : %.idl holders.h
 %.cpp %.h : generate-%.py
 	env PYTHONPATH=$(OMNIJNI_PYTHONDIR) python $<
 
-libcorbajni_la_CPPFLAGS = $(OMNIORB_CFLAGS) $(OMNIJNI_CFLAGS)
+libcorbajni_la_CPPFLAGS = $(OMNIORB_CFLAGS) $(OMNIJNI_CPPFLAGS)
 nodist_libcorbajni_la_SOURCES = jni_corba.cpp jni_corba.h \
 				holders.cpp
 

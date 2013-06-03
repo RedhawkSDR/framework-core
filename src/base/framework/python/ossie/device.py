@@ -1076,6 +1076,7 @@ def start_device(deviceclass, interactive_callback=None, thread_policy=None,logg
     execparams, interactive = resource.parseCommandLineArgs(deviceclass)
 
     resource.setupSignalHandlers()
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     _checkForRequiredParameters(execparams)
 

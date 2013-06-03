@@ -75,6 +75,8 @@ def getTypeMap(type_):
     return __TYPE_MAP[type_][1]
 
 def to_xmlvalue(data, type_):
+    if data == None:
+        return ""
     v = repr(to_pyvalue(data, type_))
     if (type_ == "longlong" or type_ == "long" or type_ == "short" or type_ == "ulong" or type_ == "ushort" or type_ == "ulonglong") and v.endswith("L"):
         v = v[:-1]
@@ -190,7 +192,7 @@ def struct_from_dict(id, dt):
          returns:
             - Struct Property is id of 'id'
     '''
-    a = [CF.DataType(id=k, value=any.to_any(v)) for k, v in dt.items()]
+    a = [CF.DataType(id=k, value=any.to_any(check_type_for_long(v))) for k, v in dt.items()]
     return CF.DataType(id=id, value=any.to_any(a))
 
 def struct_prop_from_seq(prop, idx):
@@ -199,8 +201,14 @@ def struct_prop_from_seq(prop, idx):
 def struct_prop_id_update(prop, id, val):
   for idx in prop:
     if idx.id == id:
-      idx.value = any.to_any(val)
+      idx.value = any.to_any(check_type_for_long(val))
       break
+
+def check_type_for_long(val):
+    if type(val) == int: # any.to_any defaults int values to TC_long, which is not appropriate outside the 2**32 range
+        if val < -2147483648 or val > 2147483647:
+            return (long(val))
+    return val
 
 def props_from_dict(dt):
     '''Creates a Properties list from a dictionary'''
@@ -210,17 +218,17 @@ def props_from_dict(dt):
         if type(_val) == list:
             # structsequence
             if len(_val) > 0 and type(_val[0]) == dict:
-                a = [[CF.DataType(id=k, value=any.to_any(v)) for k, v in b.items()] for b in _val]
+                a = [props_to_any([CF.DataType(id=k, value=any.to_any(check_type_for_long(v))) for k,v in b.items()]) for b in _val]
                 result.append(CF.DataType(id=_id, value=any.to_any(a)))
             # simplesequence
             else: 
-                result.append(CF.DataType(id=_id, value=any.to_any(_val)))
+                result.append(CF.DataType(id=_id, value=any.to_any(check_type_for_long(_val))))
         # struct
         elif type(_val) == dict:
             result.append(struct_from_dict(_id, _val))
         # simple
         else:
-            result.append(CF.DataType(id=_id, value=any.to_any(_val)))
+            result.append(CF.DataType(id=_id, value=any.to_any(check_type_for_long(_val))))
 
     return result
 
@@ -562,7 +570,7 @@ class _property(object):
     # Subclasses may override these functions to control conversion to and from
     # CORBA Any values.
     def _toAny(self, value):
-        return any.to_any(value)
+        return any.to_any(check_type_for_long(value))
 
     def _fromAny(self, value):
         return any.from_any(value)
@@ -599,13 +607,13 @@ class _sequence_property(_property):
                 value = self._getDefaultOperator(value, operator)
             elif operator == "[?]":
                 value = self._getKeysOperator(value, operator)
-                return any.to_any(value)
+                return any.to_any(check_type_for_long(value))
             elif operator == "[@]":
                 value = self._getKeyValuePairsOperator(value, operator)
-                return any.to_any(value)
+                return any.to_any(check_type_for_long(value))
             elif operator == "[#]":
                 value = len(self._getDefaultOperator(value, operator))
-                return any.to_any(value)
+                return any.to_any(check_type_for_long(value))
             elif operator != None:
                 value = self._getSliceOperator(value, operator)
         except Exception, e:
@@ -629,7 +637,7 @@ class _sequence_property(_property):
         self._configure(obj, value)
 
     def _itemToAny(self, value):
-        return any.to_any(value)
+        return any.to_any(check_type_for_long(value))
 
     def _itemFromAny(self, value):
         return any.from_any(value)

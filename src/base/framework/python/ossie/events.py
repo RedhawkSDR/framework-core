@@ -235,7 +235,10 @@ class ChannelManager:
 
         name = self._getEventChannelName(eventChannelName, domainName)
         key = [CosNaming.NameComponent("EventChannel","object interface")]
-        criteria = [CosLifeCycle.NameValuePair(name="InsName",value=any.to_any(name))]
+        if domainName != None:
+            criteria = [CosLifeCycle.NameValuePair(name="InsName",value=any.to_any(domainName+'.'+eventChannelName))]
+        else:
+            criteria = [CosLifeCycle.NameValuePair(name="InsName",value=any.to_any(eventChannelName))]
 
         try:
             eventChannel = factory.create_object(key,criteria)._narrow(CosEventChannelAdmin.EventChannel)
@@ -259,8 +262,11 @@ class ChannelManager:
         except:
             return None
 
-        if channel and not channel._non_existent():
-            return channel._narrow(CosEventChannelAdmin.EventChannel)
+        try:
+            if channel and not channel._non_existent():
+                return channel._narrow(CosEventChannelAdmin.EventChannel)
+        except CORBA.Exception:
+            return None
         return None
 
     def destroyEventChannel(self, eventChannelName, domainName=None):

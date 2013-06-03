@@ -48,7 +48,7 @@ descriptorTypeMap = {
     idltype.tk_long:      'I',
     idltype.tk_ulong:     'I', # No unsigned types in Java
     idltype.tk_longlong:  'J', 
-    idltype.tk_ulonglong: 'I', # No unsigned types in Java
+    idltype.tk_ulonglong: 'J', # No unsigned types in Java
     idltype.tk_float:     'F',
     idltype.tk_double:    'D',
 }
@@ -900,7 +900,10 @@ class StubHelper (PeerHelper):
             elif isSequence(paramType):
                 seqType = paramType.unalias().seqType()
 
-                if isPrimitiveType(seqType) and not param.is_out():
+                # For most primitive types, except char (which is 16-bit in Java and 8-bit in CORBA),
+                # skip conversion and borrow the underlying buffer.
+                borrowBuffer = isPrimitiveType(seqType) and seqType.unalias().kind() != idltype.tk_char
+                if borrowBuffer and not param.is_out():
                     localSize = 'sz_' + localname
                     localElem = 'el_' + localname
                     primType = jniType(seqType)

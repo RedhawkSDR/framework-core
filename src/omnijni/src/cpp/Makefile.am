@@ -22,7 +22,7 @@ SUBDIRS = CORBA
 
 lib_LTLIBRARIES = libomnijni.la
 
-libomnijni_la_CPPFLAGS = $(OMNIORB_CFLAGS) $(OMNIJNI_CFLAGS)
+libomnijni_la_CPPFLAGS = $(OMNIORB_CFLAGS) $(OMNIJNI_CPPFLAGS)
 libomnijni_la_SOURCES = any.cpp \
 			exception.cpp \
 			object.cpp \

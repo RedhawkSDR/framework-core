@@ -133,17 +133,40 @@ public:
            CORBA::SystemException);
 
 private:
+
+    // List of used devices assignments
+    typedef std::vector< ossie::DeviceAssignmentInfo >                 DeviceAssignmentList;
+
+    // Capacity allocation relation, device -> property set
+    typedef ossie::AllocPropsInfo                                      CapacityAllocation;
+
+    // List of capacity allocations
+    typedef std::vector< CapacityAllocation >                          CapacityAllocationList;
+
+    // mapping of capacity allocations derived from a compoenent
+    typedef std::map< std::string, CapacityAllocationList >            CapacityAllocationTable;
+
+    // list of components that are part of a collocation
+    typedef std::vector <ossie::ComponentInfo* >                       PlacementList;
+
     // Used for storing the current state of the OE & create process
     const ApplicationFactory_impl& _appFact;
-    
-    ossie::DeviceList                   _registeredDevices;
-    std::vector <ossie::ComponentInfo*> _requiredComponents;
-    
-    std::map<std::string, std::vector<ossie::AllocPropsInfo> > _allocPropsTable;
+ 
+    //
+    // List of allocated capacities (i.e. property settings) set against assigned devices
+    //
+    CapacityAllocationTable _appCapacityTable;
 
-    std::vector<ossie::DeviceAssignmentInfo>    _usedDevs;
-    std::vector<CF::Resource_ptr>               _startSeq;
-    std::vector<std::string>                    _startOrderIds;
+    ossie::DeviceList _registeredDevices;
+    PlacementList     _requiredComponents;
+
+    //
+    // List of used devices allocated during application creation
+    //
+    DeviceAssignmentList          _appUsedDevs;
+    std::vector<CF::Resource_ptr> _startSeq;
+    std::vector<std::string>      _startOrderIds;
+    
     CF::Application::ComponentProcessIdSequence _pidSeq;
     std::map<std::string, std::string>          _fileTable;
 
@@ -172,10 +195,6 @@ private:
     void overrideProperties(
         const CF::Properties& initConfiguration,
         ossie::ComponentInfo*& component);
-    void placeComponents(
-        std::vector<ossie::ComponentInfo*>& placingComponents,
-        std::vector<std::string>&           assignedDevices,
-        const CF::DeviceAssignmentSequence& deviceAssignments);
 
     // Populate _requiredComponents vector
     void getRequiredComponents() throw (CF::ApplicationFactory::CreateApplicationError); 
@@ -183,27 +202,25 @@ private:
     void getDeviceImplementations(std::vector<ossie::SPD::Implementation>&, const CF::DeviceAssignmentSequence&);
 
     // Supports allocation
-    CF::Device_ptr allocateUsesDeviceProperties(
-        ossie::ComponentImplementationInfo* component_impl,
-        unsigned int                        usesDevIdx, 
-        CF::Properties*                     allocProps, 
-        const CF::Properties&               configureProperties);
+    CF::Device_ptr allocateUsesDeviceProperties(ossie::ComponentImplementationInfo* component_impl,
+                                                unsigned int usesDevIdx,
+                                                CF::Properties &allocatedProps,
+                                                const CF::Properties& configureProperties);
+    void allocateComponent(ossie::ComponentInfo* component,
+                           const CF::DeviceAssignmentSequence& deviceAssignments,
+                           CapacityAllocationTable &appCapacities,
+                           DeviceAssignmentList    &appAssignedDevices,
+                           bool cleanup=true );
 
-    void allocateComponent(
-        ossie::ComponentInfo*               component, 
-        const CF::DeviceAssignmentSequence& deviceAssignments);
+    void allocateComponentToDevice(ossie::ComponentInfo* component,
+                                   ossie::ImplementationInfo* implementation,
+                                   const CF::DeviceAssignmentSequence& deviceAssignments,
+                                   CapacityAllocation &deviceCapacityAlloc );
 
-    CF::Device_ptr allocateComponentToDevice(
-        ossie::ComponentInfo*               component,
-        ossie::ImplementationInfo*          implementation,
-        const CF::DeviceAssignmentSequence& deviceAssignments, 
-        CF::Properties*                     tmp);
-
-    CF::Properties allocateCapacity(
-        ossie::ComponentInfo*      component, 
-        ossie::ImplementationInfo* implementation,
-        ossie::DeviceNode          deviceNode)
-            throw (CF::ApplicationFactory::CreateApplicationError);
+    CF::Properties allocateCapacity(ossie::ComponentInfo* component,
+                                    ossie::ImplementationInfo* implementation,
+                                    ossie::DeviceNode &deviceNode)
+    throw (CF::ApplicationFactory::CreateApplicationError);
     
     bool resolveSoftpkgDependencies(
         ossie::ImplementationInfo* implementation, 
@@ -212,7 +229,8 @@ private:
     
     bool checkImplementationDependencyMatch(
         ossie::ImplementationInfo&       implementation_1, 
-        const ossie::ImplementationInfo& implementation_2);
+        const ossie::ImplementationInfo& implementation_2, 
+        CF::Device_ptr device);
     
     void errorMsgAllocate(
         std::ostringstream&        eout, 
@@ -257,6 +275,7 @@ private:
     bool alreadyCleaned;
     void _cleanupLoadAndExecuteComponents();
     void _cleanupNewContext();
+    void _cleanupCollocation( CapacityAllocationTable & collocCapacities, DeviceAssignmentList & collocAssignedDevs);
     void _cleanupAllocateDevices();
     void _cleanupRequiredComponents();
     void _cleanupResourceNotFound();
@@ -266,7 +285,7 @@ private:
     void _cleanupResourceConfigureFailed();
     void _cleanupApplicationCreateFailed();
     void _cleanupConnectionFailed();
-    void _undoAllocateUsesDevices(std::vector<ossie::AllocPropsInfo >& propSet);
+    void _undoCapacityAllocations( CapacityAllocationList & alloc_set );
     
     // Shutdown - clean up memory
     void _deleteRequiredComponents();
