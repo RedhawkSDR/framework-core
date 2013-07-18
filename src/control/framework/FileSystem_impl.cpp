@@ -291,7 +291,7 @@ CF::FileSystem::FileInformationSequence* FileSystem_impl::list (const char* patt
     if ((filePath.filename() == ".") && (fs::is_directory(filePath))) {
         searchPattern = "*";
     } else {
-        searchPattern = filePath.filename().string();
+        searchPattern = std::string(filePath.filename().c_str());
     }
 
     LOG_TRACE(FileSystem_impl, "[FileSystem::list] using searchPattern " << searchPattern << " in " << filePath.parent_path());
@@ -307,7 +307,7 @@ CF::FileSystem::FileInformationSequence* FileSystem_impl::list (const char* patt
         try {
             for (fs::directory_iterator itr(dirPath); itr != end_itr; ++itr) {
                 if (fnmatch(searchPattern.c_str(), itr->path().filename().c_str(), 0) == 0) {
-                    if ((!itr->path().empty()) && (itr->path().filename().string()[0] == '.') && (itr->path().filename() != searchPattern)) {
+                    if ((!itr->path().empty()) && (std::string(itr->path().filename().c_str())[0] == '.') && (itr->path().filename() != searchPattern)) {
                         LOG_TRACE(FileSystem_impl, "[FileSystem::list] found hidden match and ignoring " << itr->path().filename());
                         continue;
                     }
