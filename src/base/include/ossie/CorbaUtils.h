@@ -114,70 +114,81 @@ namespace ossie {
 
         // Mapping of C++ types to type codes.
         template <typename T>
-        static CORBA::TCKind TypeCode (void)
+        static CORBA::TypeCode_ptr TypeCode (void)
         {
-            return CORBA::tk_null;
+            return CORBA::_tc_null;
         }
 
         template<>
-        inline CORBA::TCKind TypeCode<char> (void)
+        inline CORBA::TypeCode_ptr TypeCode<char> (void)
         {
-            return CORBA::tk_char;
+            return CORBA::_tc_char;
         }
         
         template<>
-        inline CORBA::TCKind TypeCode<bool> (void)
+        inline CORBA::TypeCode_ptr TypeCode<bool> (void)
         {
-            return CORBA::tk_boolean;
+            return CORBA::_tc_boolean;
         }
         
         template<>
-        inline CORBA::TCKind TypeCode<CORBA::Octet> (void)
+        inline CORBA::TypeCode_ptr TypeCode<CORBA::Octet> (void)
         {
-            return CORBA::tk_octet;
+            return CORBA::_tc_octet;
         }
         
         template<>
-        inline CORBA::TCKind TypeCode<CORBA::Short> (void)
+        inline CORBA::TypeCode_ptr TypeCode<CORBA::Short> (void)
         {
-            return CORBA::tk_short;
+            return CORBA::_tc_short;
         }
         
         template<>
-        inline CORBA::TCKind TypeCode<CORBA::Long> (void)
+        inline CORBA::TypeCode_ptr TypeCode<CORBA::Long> (void)
         {
-            return CORBA::tk_long;
+            return CORBA::_tc_long;
         }
 
-        
         template<>
-        inline CORBA::TCKind TypeCode<CORBA::UShort> (void)
+        inline CORBA::TypeCode_ptr TypeCode<CORBA::UShort> (void)
         {
-            return CORBA::tk_ushort;
+            return CORBA::_tc_ushort;
+        }
+
+        template<>
+        inline CORBA::TypeCode_ptr TypeCode<CORBA::ULong> (void)
+        {
+            return CORBA::_tc_ulong;
         }
         
         template<>
-        inline CORBA::TCKind TypeCode<CORBA::ULong> (void)
+        inline CORBA::TypeCode_ptr TypeCode<CORBA::Float> (void)
         {
-            return CORBA::tk_ulong;
+            return CORBA::_tc_float;
         }
         
         template<>
-        inline CORBA::TCKind TypeCode<CORBA::Float> (void)
+        inline CORBA::TypeCode_ptr TypeCode<CORBA::Double> (void)
         {
-            return CORBA::tk_float;
+            return CORBA::_tc_double;
         }
         
         template<>
-        inline CORBA::TCKind TypeCode<CORBA::Double> (void)
+        inline CORBA::TypeCode_ptr TypeCode<CORBA::LongLong> (void)
         {
-            return CORBA::tk_double;
+            return CORBA::_tc_longlong;
         }
         
         template<>
-        inline CORBA::TCKind TypeCode<std::string> (void)
+        inline CORBA::TypeCode_ptr TypeCode<CORBA::ULongLong> (void)
         {
-            return CORBA::tk_string;
+            return CORBA::_tc_ulonglong;
+        }
+        
+        template<>
+        inline CORBA::TypeCode_ptr TypeCode<std::string> (void)
+        {
+            return CORBA::_tc_string;
         }
 
         // Instantiates POAs on demand

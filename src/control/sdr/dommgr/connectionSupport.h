@@ -78,6 +78,7 @@ namespace ossie
         virtual ~DeviceLookup() {};
         virtual CF::Device_ptr lookupDeviceThatLoadedComponentInstantiationId(const std::string& componentId) = 0;
         virtual CF::Device_ptr lookupDeviceUsedByComponentInstantiationId(const std::string& componentId, const std::string& usesId) = 0;
+        virtual CF::Device_ptr lookupDeviceUsedByApplication(const std::string& usesRefId) = 0;
     };
 
 
@@ -197,6 +198,7 @@ namespace ossie
         // Subclasses must implement these device lookups as appropriate.
         virtual CF::Device_ptr resolveDeviceThatLoadedThisComponentRef(const std::string& refid) = 0;
         virtual CF::Device_ptr resolveDeviceUsedByThisComponentRef(const std::string& refid, const std::string& usesid) = 0;
+        virtual CF::Device_ptr resolveDeviceUsedByApplication(const std::string& usesrefid) = 0;
 
     protected:
         ossie::DomainLookup* _domainLookup;
@@ -224,6 +226,7 @@ namespace ossie
         virtual CORBA::Object_ptr resolveFindByNamingService(const std::string& name);
         virtual CF::Device_ptr resolveDeviceThatLoadedThisComponentRef(const std::string& refid);
         virtual CF::Device_ptr resolveDeviceUsedByThisComponentRef(const std::string& refid, const std::string& usesrefid);
+        virtual CF::Device_ptr resolveDeviceUsedByApplication(const std::string& usesrefid);
 
         void addConnection_(const ConnectionNode& connection);
 
@@ -259,6 +262,7 @@ namespace ossie
     protected:
         virtual CF::Device_ptr resolveDeviceThatLoadedThisComponentRef(const std::string& refid);
         virtual CF::Device_ptr resolveDeviceUsedByThisComponentRef(const std::string& refid, const std::string& usesrefid);
+        virtual CF::Device_ptr resolveDeviceUsedByApplication(const std::string& usesrefid);
 
         void addConnection_(const std::string& deviceManagerId, const ConnectionNode& connection);
         void tryPendingConnections_(Endpoint::DependencyType type, const std::string& identifier);

@@ -55,6 +55,12 @@ def getSdrPath():
     except KeyError:
         return os.path.join(os.getcwd())
 
+def getSdrCache():
+    try:
+        return os.environ['SDRCACHE']
+    except KeyError:
+        return os.path.join(getSdrPath(), 'dev')
+
 def getDatPath():
    return os.path.join(os.getcwd(), "dat")
         
@@ -259,6 +265,31 @@ class OssieTestCase(unittest.TestCase):
                 self.fail("Yes answer to %s" % question)
         else:
             pass # For non TTY just continue
+
+    def waitPredicate (self, predicate, wait=5.0):
+        """
+        Waits up to wait seconds (default 5) for a predicate to become true.
+
+        The predicate should be a callable object that takes no arguments;
+        typically a lambda function. Calling the predicate should have no
+        significant side effects.
+        """
+        end = time.time() + wait
+        while not predicate() and time.time() < end:
+            time.sleep(0.1)
+
+    def assertPredicateWithWait (self, predicate, msg=None, wait=5.0):
+        """
+        Waits up to wait seconds (default 5) for a predicate to become true.
+        If the wait period has elapsed and the predicate is still not true, the
+        calling test fails.
+
+        The predicate should be a callable object that takes no arguments;
+        typically a lambda function. Calling the predicate should have no
+        significant side effects.
+        """
+        self.waitPredicate(predicate, wait)
+        self.assert_(predicate(), msg)
 
 class CorbaTestCase(OssieTestCase):
     """A helper class for test cases which need a CORBA connection."""

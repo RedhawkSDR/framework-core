@@ -33,8 +33,8 @@ clean-local:
 	python setup.py clean
 	rm -rf build
 
-ossie/cf/%_idl.py : ../../idl/ossie/CF/%.idl
-	$(IDL) -bpython -Wbpackage=ossie.cf -Wbextern=CosNaming -Wbextern=CosEventComm -Wbextern=CosEventChannelAdmin -I $(IDLDIR) -I $(OMNICOS_IDLDIR) -I ../../idl $<
+ossie/cf/%_idl.py : $(top_srcdir)/idl/ossie/CF/%.idl
+	$(IDL) -bpython -Wbpackage=ossie.cf -Wbextern=CosNaming -Wbextern=CosEventComm -Wbextern=CosEventChannelAdmin -I $(IDLDIR) -I $(OMNICOS_IDLDIR) -I $(top_srcdir)/idl $<
 
 EXTRA_DIST = setup.py
 

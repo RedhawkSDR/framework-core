@@ -38,7 +38,7 @@
 #include <ossie/DomainManagerConfiguration.h>
 #include <ossie/Runnable.h>
 
-#include "PersistanceStore.h"
+#include "PersistenceStore.h"
 #include "connectionSupport.h"
 
 class Application_impl;

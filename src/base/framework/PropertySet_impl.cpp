@@ -27,6 +27,24 @@
 
 PREPARE_LOGGING(PropertySet_impl);
 
+PropertySet_impl::PropertySet_impl ():
+    propertyChangePort(0)
+{
+}
+
+PropertySet_impl::~PropertySet_impl ()
+{
+    // Clean up all property wrappers created by descendents.
+    for (std::vector<PropertyInterface*>::iterator ii = ownedWrappers.begin(); ii != ownedWrappers.end(); ++ii) {
+        delete *ii;
+    }
+
+    // Clean up all property callback functors.
+    for (PropertyCallbackMap::iterator ii = propCallbacks.begin(); ii != propCallbacks.end(); ++ii) {
+        delete ii->second;
+    }
+}
+
 void PropertySet_impl::setExecparamProperties(std::map<std::string, char*>& execparams)
 {
     LOG_TRACE(PropertySet_impl, "Setting " << execparams.size() << " exec parameters");
@@ -41,28 +59,13 @@ void PropertySet_impl::setExecparamProperties(std::map<std::string, char*>& exec
         // Manager.  If the property is not found, then it might be a resource
         // property passed through the nodeBooter to the DeviceManager
         if (property) {
-            CORBA::Any val = ossie::string_to_any(iter->second,
-                    static_cast<CORBA::TCKind> (property->type));
+            CORBA::Any val = ossie::string_to_any(iter->second, property->type);
             property->setValue(val);
         } else {
-            LOG_WARN(PropertySet_impl, "propery: " << id << " is not defined, ignoring it!!");
+            LOG_WARN(PropertySet_impl, "Property: " << id << " is not defined, ignoring it!!");
         }
     }
     LOG_TRACE(PropertySet_impl, "Done setting exec parameters");
-}
-
-
-PropertySet_impl::~PropertySet_impl ()
-{
-    // Clean up all property wrappers created by descendents.
-    for (std::vector<PropertyInterface*>::iterator ii = ownedWrappers.begin(); ii != ownedWrappers.end(); ++ii) {
-        delete *ii;
-    }
-
-    // Clean up all property callback functors.
-    for (PropertyCallbackMap::iterator ii = propCallbacks.begin(); ii != propCallbacks.end(); ++ii) {
-        delete ii->second;
-    }
 }
 
 void
@@ -155,7 +158,6 @@ throw (CORBA::SystemException, CF::UnknownProperties)
 
         // Handle deprecated old-style properties.
         remapProperties();
-
         configProperties.length(0);
 
         PropertyMap::iterator jj = propTable.begin();
@@ -314,6 +316,10 @@ void PropertySet_impl::setPropertyCallback (const std::string& id, PropertyCallb
     if (property) {
         propId = property->id;
     } else {
+        // Check if property exists
+        if (!getPropertyFromId(id)){
+            LOG_WARN(PropertySet_impl, "Setting listener for property " << id << " that does not exist");
+        }
         propId = id;
     }
 

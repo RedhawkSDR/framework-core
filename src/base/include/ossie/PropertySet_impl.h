@@ -27,7 +27,6 @@
 #include <sstream>
 #include <map>
 
-#include "ossiecf.h"
 #include "ossie/debug.h"
 #include "ossie/PropertyInterface.h"
 
@@ -66,7 +65,7 @@ public:
     CF::DataType baseProperty;
     std::string string_val;
 
-    propertyContainer(std::string _id, std::string _name, short _type,
+    propertyContainer(std::string _id, std::string _name, CORBA::TypeCode_ptr _type,
                       std::string _mode, CORBA::Any& _initial_value, std::string _units,
                       std::string _action, std::vector<std::string> _kinds) :
         PropertyInterface(_type)
@@ -207,7 +206,7 @@ public:
     }
 
     short compare(CORBA::Any& a) {
-        switch(type) {
+        switch(type->kind()) {
         case 2:
         {CORBA::Short COMPAREPROPS}
         case 3:
@@ -235,7 +234,7 @@ public:
     }
 
     short compare(const CORBA::Any& a) {
-        switch(type) {
+        switch(type->kind()) {
         case 2:
         {CORBA::Short COMPAREPROPS}
         case 3:
@@ -263,7 +262,7 @@ public:
     }
 
     void increment(CORBA::Any& a) {
-        switch(type) {
+        switch(type->kind()) {
         case 2:
         {CORBA::Short INCREMENTPROPS}
         case 3:
@@ -282,7 +281,7 @@ public:
     }
 
     void increment(const CORBA::Any& a) {
-        switch(type) {
+        switch(type->kind()) {
         case 2:
         {CORBA::Short INCREMENTPROPS}
         case 3:
@@ -301,7 +300,7 @@ public:
     }
 
     void decrement(CORBA::Any& a) {
-        switch(type) {
+        switch(type->kind()) {
         case 2:
         {CORBA::Short DECREMENTPROPS}
         case 3:
@@ -320,7 +319,7 @@ public:
     }
 
     void decrement(const CORBA::Any& a) {
-        switch(type) {
+        switch(type->kind()) {
         case 2:
         {CORBA::Short DECREMENTPROPS}
         case 3:
@@ -345,15 +344,13 @@ Figure out how to describe this interface.
 */
 
 ///\todo Why can't I use CF::PropertySet???
-class OSSIECF_API PropertySet_impl: public virtual POA_CF::PropertySet
+class PropertySet_impl: public virtual POA_CF::PropertySet
 {
     ENABLE_LOGGING;
 
 public:
 
-    PropertySet_impl () {
-        propertyChangePort = NULL;
-    };
+    PropertySet_impl ();
     ~PropertySet_impl ();
 
     /**
@@ -401,8 +398,13 @@ protected:
      * Adds a property with no initial value.
      */
     template <typename T>
-    PropertyInterface* addProperty (T& value, const std::string& id, const std::string& name, const std::string& mode,
-                                    const std::string& units, const std::string& action, const std::string& kinds)
+    PropertyInterface* addProperty (T& value, 
+                                    const std::string& id, 
+                                    const std::string& name, 
+                                    const std::string& mode,
+                                    const std::string& units, 
+                                    const std::string& action, 
+                                    const std::string& kinds)
     {
         PropertyInterface* wrapper = PropertyWrapperFactory::Create(value);
         wrapper->configure(id, name, mode, units, action, kinds);
@@ -416,8 +418,13 @@ protected:
      * Adds a property with an initial value.
      */
     template <typename T, typename T2>
-    PropertyInterface* addProperty (T& value, const T2& initial_value, const std::string& id, const std::string& name,
-                                    const std::string& mode, const std::string& units, const std::string& action,
+    PropertyInterface* addProperty (T& value, 
+                                    const T2& initial_value, 
+                                    const std::string& id, 
+                                    const std::string& name,
+                                    const std::string& mode, 
+                                    const std::string& units, 
+                                    const std::string& action,
                                     const std::string& kinds)
     {
         PropertyInterface* wrapper = addProperty(value, id, name, mode, units, action, kinds);

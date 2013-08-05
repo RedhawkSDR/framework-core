@@ -38,10 +38,10 @@
 #include "ossie/CorbaUtils.h"
 #include <signal.h>
 
-class OSSIECF_API Device_impl;
+class Device_impl;
 
 #if ENABLE_EVENTS
-class OSSIECF_API IDM_Channel_Supplier_i : virtual public POA_CosEventComm::PushSupplier
+class IDM_Channel_Supplier_i : virtual public POA_CosEventComm::PushSupplier
 {
 
 public:
@@ -55,7 +55,7 @@ private:
 #endif
 
 
-class OSSIECF_API Device_impl: public virtual POA_CF::Device, public Resource_impl
+class Device_impl: public virtual POA_CF::Device, public Resource_impl
 {
     ENABLE_LOGGING
 
@@ -112,10 +112,6 @@ public:
 
         LOG_DEBUG(Device_impl, "Identifier = " << id << "Label = " << label << " Profile = " << profile << " IOR = " << devMgr_ior)
 
-        /** Ignore SIGInterrupt because when you CTRL-C the node
-        booter we don't want the device to die, and it's the shells responsibility
-        to send CTRL-C to all foreground processes (even children) */
-        //signal(SIGINT, SIG_IGN);
         // Associate SIGINT to signal_catcher interrupt handler
         if( sigaction( SIGINT, &sa, NULL ) == -1 ) {
             LOG_FATAL(Device_impl, "SIGINT association failed");
@@ -133,6 +129,11 @@ public:
             LOG_FATAL(Device_impl, "SIGTERM association failed");
             exit(EXIT_FAILURE);
         }
+
+        /** Ignore SIGInterrupt because when you CTRL-C the node
+        booter we don't want the device to die, and it's the shells responsibility
+        to send CTRL-C to all foreground processes (even children) */
+        signal(SIGINT, SIG_IGN);
 
         if (composite_device != 0) {
             // The AggregateDevice version of the constructor implicitly activates the new device,

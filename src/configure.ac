@@ -19,7 +19,7 @@
 #
 
 dnl Update this version number immedately after a release
-AC_INIT([ossie],[1.8.4])
+AC_INIT([ossie],[1.9.0])
 #AM_INIT_AUTOMAKE(nostdinc)
 # allows filenames over 99 characters long during dist
 AM_INIT_AUTOMAKE([1.9 tar-pax])
@@ -29,7 +29,7 @@ dnl The version number is in the format "current:revision:age"
 dnl
 dnl Follow these steps (in order) to correctly update the
 dnl version info:
-dnl
+dnl 
 dnl 1. If any source code has changed at all, increment revision
 dnl 2. If any interfaces have been added, modified, or removed
 dnl    then increment current and set revision to 0
@@ -38,6 +38,7 @@ dnl 4. If any interfaces have been removed or changed, then set
 dnl    age to 0
 AC_SUBST([LIBOSSIECF_VERSION_INFO], [3:0:0])
 AC_SUBST([LIBOSSIEPARSER_VERSION_INFO], [2:0:0])
+
 
 dnl AC_CONFIG_MACRO_DIR([m4])
 dnl LT_INIT
@@ -59,11 +60,14 @@ AC_LANG_PUSH([C++])
 
 AX_BOOST_BASE([1.35])
 AX_BOOST_SYSTEM
+AC_DEFINE(BOOST_FILESYSTEM_VERSION, 2)
 AX_BOOST_FILESYSTEM
+AX_BOOST_SERIALIZATION
 AX_BOOST_THREAD
-AX_BOOST_REGEX
+AX_BOOST_DATE_TIME
 
-OSSIE_FIND_EXPAT
+AX_LIB_EXPAT([1.95.8])
+
 PKG_CHECK_MODULES([OMNIORB], [omniORB4 >= 4.0.0])
 PKG_CHECK_MODULES([OMNITHREAD], [omnithread3 >= 4.0.0])
 PKG_CHECK_MODULES([OMNIDYNAMIC], [omniDynamic4 >= 4.0.0])
@@ -121,10 +125,10 @@ fi
 AC_ARG_ENABLE([xml_validation], AS_HELP_STRING([--disable-xml-validation], [Disable xml validation in the parsers]))
 AC_MSG_CHECKING([if xml parsers should perform validation])
 if test "x$enable_xml_validation" != "xno"; then
-  AC_SUBST(OSSIE_XSDFLAGS, "--generate-validation")
+  AC_SUBST(OSSIE_XSDFLAGS, "--generate-validation") 
   AC_MSG_RESULT([yes])
 else
-  AC_SUBST(OSSIE_XSDFLAGS, "--suppress-validation")
+  AC_SUBST(OSSIE_XSDFLAGS, "--suppress-validation") 
   AC_MSG_RESULT([no])
 fi
 
@@ -204,10 +208,12 @@ AC_CHECK_LIB([uuid], [uuid_generate], [], [AC_MSG_ERROR([libuuid is required])])
 
 # Set flags for building against the main C++ library.
 AC_SUBST(OSSIE_CFLAGS, '-I$(top_srcdir)/base/include')
-AC_SUBST(OSSIE_IDLDIR, '$(top_srcdir)/base/idl')
+AC_SUBST(OSSIE_IDLDIR, '$(top_srcdir)/idl')
 AC_SUBST(OSSIEIDL_LIBS, '$(top_builddir)/base/framework/idl/libossieidl.la')
 
 if test "$HAVE_JAVASUPPORT" = yes; then
+  AC_SUBST(OSSIE_CLASSPATH, '$(top_srcdir)/base/framework/java/CFInterfaces.jar:$(top_srcdir)/base/framework/java/log4j-1.2.15.jar:$(top_srcdir)/base/framework/java/ossie/ossie.jar')
+
   # Set up omnijni-required variables
   # Enable other parts of the framework to locate omnijni
   AC_SUBST(omnijni_srcdir, '$(top_srcdir)/omnijni')
@@ -219,7 +225,7 @@ if test "$HAVE_JAVASUPPORT" = yes; then
     pkgpythondir='${prefix}/lib/python/ossie'
   fi
 
-  # Set flags and variables for building with omnijni
+  # Set flags and variables for building with omnijni 
   AC_SUBST(OMNIJNI_CPPFLAGS, '$(JNI_CPPFLAGS) -I$(omnijni_srcdir)/include -I$(omnijni_builddir)/src/cpp/CORBA')
   AC_SUBST(OMNIJNI_LIBS, '$(omnijni_builddir)/src/cpp/libomnijni.la')
   AC_SUBST(OMNIJNI_PYTHONDIR, '$(omnijni_srcdir)/src/python')
@@ -245,13 +251,8 @@ AC_CONFIG_FILES(Makefile \
                 omnijni/src/java/Makefile \
                 omnijni/src/python/omnijni/Makefile \
                 control/Makefile \
-                control/idl/Makefile \
-                control/framework/idl/Makefile \
                 control/parser/Makefile \
                 control/framework/Makefile \
-                control/include/Makefile \
-                control/include/ossie/Makefile \
-                control/xml/Makefile \
                 control/sdr/Makefile \
                 control/sdr/dommgr/Makefile \
                 control/sdr/devmgr/Makefile \
@@ -260,25 +261,30 @@ AC_CONFIG_FILES(Makefile \
                 base/framework/java/Makefile \
                 base/framework/java/jni/Makefile \
                 base/framework/java/jni/COS/Makefile \
+                base/framework/java/ossie/Makefile \
                 base/framework/idl/Makefile \
                 base/framework/Makefile \
-                base/idl/Makefile \
                 base/include/ossie/Makefile \
                 base/include/Makefile \
                 base/parser/Makefile \
-                base/xml/Makefile \
+                idl/Makefile \
+                xml/Makefile \
                 testing/Makefile \
                 testing/helpers/buildconfig.py \
                 testing/sdr/dev/devices/ExecutableDevice/Makefile \
                 testing/sdr/dev/devices/BasicTestDevice_cpp/BasicTestDevice_cpp_impl1/Makefile \
                 testing/sdr/dev/devices/BasicTestDevice_java/java/Makefile \
                 testing/sdr/dev/devices/BasicDevWithExecParam_cpp/BasicDevWithExecParam_cpp_impl1/Makefile \
+                testing/sdr/dev/devices/JavaTestDevice/java/Makefile \
                 testing/sdr/dev/devices/SimpleDevice/SimpleDevice_cpp_impl1/Makefile \
                 testing/sdr/dev/devices/props_test_device/props_test_device_cpp_impl1/Makefile \
                 testing/sdr/dev/devices/issue_111_cpp/cpp/Makefile \
                 testing/sdr/dev/devices/issue_111_java/java/Makefile \
+                testing/sdr/dev/services/BasicService_java/java/Makefile \
                 testing/sdr/dom/components/TestCppProps/Makefile \
                 testing/sdr/dom/components/TestJavaProps/Makefile \
+                testing/sdr/dom/components/TestLegacyJavaProps/Makefile \
+                testing/sdr/dom/components/TestJavaPropsRange/java/Makefile \
                 testing/sdr/dom/components/linkedLibraryTest/Makefile \
                 testing/sdr/dom/components/TestCppsoftpkgDeps/Makefile \
                 testing/sdr/dom/components/javaDep/javaDep/Makefile \
@@ -293,6 +299,9 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dom/components/PropertyChangeEventsCpp/Makefile \
                 testing/sdr/dom/components/PropertyChangeEventsJava/PropertyChangeEventsJava_java_impl1/Makefile \
                 testing/sdr/dom/components/ticket2093/cpp/Makefile \
+                testing/sdr/dom/components/TestComplexProps/cpp/Makefile \
+                testing/sdr/dom/components/TestComplexProps/java/Makefile \
+                testing/sdr/dom/components/TestCppPropsRange/cpp/Makefile \
                 testing/sdr/dom/components/TestAllPropTypes/cpp/Makefile \
                 testing/sdr/dom/components/TestAllPropTypes/java/Makefile) 
 

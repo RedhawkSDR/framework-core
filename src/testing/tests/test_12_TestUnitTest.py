@@ -92,22 +92,17 @@ class UnitTestTest(scatest.OssieTestCase):
         tc.setUp()
 
         self.assertEqual(tc.comp_obj, None)
-        self.assertEqual(len(tc._processes), 0)
+        self.assertEqual(tc.comp, None)
 
-        tc.launch(ossiehome=os.getcwd()+'/../base/')
+        tc.launch(ossiehome=os.getcwd()+'/../')
         pid = None
         comp_obj = None
         try:
             self.assertNotEqual(tc.comp_obj, None)
-            self.assertEqual(len(tc._processes), 1)
-            pid = tc._processes.keys()[0]
+            self.assertNotEqual(tc.comp, None)
             comp_obj = tc.comp_obj
-            try:
-                os.kill(pid, 0)
-            except OSError:
-                self.fail("Component process not alive")
             self.assertEqual(comp_obj._non_existent(), False)
-            self.assertEqual(tc.comp_obj._is_a("IDL:CF/Resource:1.0"), True)
+            self.assertEqual(comp_obj._is_a("IDL:CF/Resource:1.0"), True)
         finally:
             tc.tearDown()
 
@@ -118,14 +113,6 @@ class UnitTestTest(scatest.OssieTestCase):
             nonExistent = True
         self.assertEqual(nonExistent, True)
         self.assertEqual(tc.comp_obj, None)
-        self.assertEqual(len(tc._processes), 0)
-        self.assertNotEqual(pid, None)
-        try:
-            os.kill(pid, 0)
-        except OSError:
-            pass
-        else:
-            self.fail("Component process did not die")
 
     def test_DeviceLaunch(self):
         # Simulate ScaComponentTestProgram
@@ -137,20 +124,14 @@ class UnitTestTest(scatest.OssieTestCase):
         tc.setUp()
 
         self.assertEqual(tc.comp_obj, None)
-        self.assertEqual(len(tc._processes), 0)
+        self.assertEqual(tc.comp, None)
 
-        tc.launch(ossiehome=os.getcwd()+'/../base/')
-        pid = None
+        tc.launch(ossiehome=os.getcwd()+'/../')
         comp_obj = None
         try:
             self.assertNotEqual(tc.comp_obj, None)
-            self.assertEqual(len(tc._processes), 1)
-            pid = tc._processes.keys()[0]
+            self.assertNotEqual(tc.comp, None)
             comp_obj = tc.comp_obj
-            try:
-                os.kill(pid, 0)
-            except OSError:
-                self.fail("Component process not alive")
             self.assertEqual(comp_obj._non_existent(), False)
             self.assertEqual(tc.comp_obj._is_a("IDL:CF/Resource:1.0"), True)
             self.assertEqual(tc.comp_obj._is_a("IDL:CF/Device:1.0"), True)
@@ -166,14 +147,6 @@ class UnitTestTest(scatest.OssieTestCase):
             nonExistent = True
         self.assertEqual(nonExistent, True)
         self.assertEqual(tc.comp_obj, None)
-        self.assertEqual(len(tc._processes), 0)
-        self.assertNotEqual(pid, None)
-        try:
-            os.kill(pid, 0)
-        except OSError:
-            pass
-        else:
-            self.fail("Component process did not die")
 
 
 if __name__ == "__main__":

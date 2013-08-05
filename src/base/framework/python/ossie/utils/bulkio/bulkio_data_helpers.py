@@ -207,14 +207,36 @@ class ArraySink(object):
         self.sri = BULKIO.StreamSRI(1, 0.0, 0.001, 1, 200, 0.0, 0.001, 1,
                                     1, "defaultStreamID", True, [])
         self.data = []
+        self.timestamps = []
         self.gotEOS = False
+        self.breakBlock = False
         self.port_lock = threading.Lock()
+        self.port_cond = threading.Condition(self.port_lock)
     
+    def _isActive(self):
+        return not self.gotEOS and not self.breakBlock
+
     def start(self):
         self.gotEOS = False
+        self.breakBlock = False
+
+    def stop(self):
+        self.port_cond.acquire()
+        self.breakBlock = True
+        self.port_cond.notifyAll()
+        self.port_cond.release()
     
     def eos(self):
         return self.gotEOS
+
+    def waitEOS(self):
+        self.port_cond.acquire()
+        try:
+            while self._isActive():
+                self.port_cond.wait()
+            return self.gotEOS
+        finally:
+            self.port_cond.release()
     
     def pushSRI(self, H):
         """
@@ -236,16 +258,53 @@ class ArraySink(object):
             <EOS>         Flag indicating if this is the End Of the Stream
             <stream_id>   The unique stream id
         """
-        self.port_lock.acquire()
-        if EOS:
-            self.gotEOS = True
-        else:
-            self.gotEOS = False
+        self.port_cond.acquire()
         try:
-            for item in data:
-                self.data.append(item)
+            self.gotEOS = EOS
+            self.timestamps.append([len(self.data), ts])
+            self.data += data
+            self.port_cond.notifyAll()
         finally:
-            self.port_lock.release()
+            self.port_cond.release()
+    
+    def retrieveData(self, length=None):
+        self.port_cond.acquire()
+        try:
+            if length is None:
+                # No length specified; get all of the data.
+                length = len(self.data)
+            
+            # Wait for there to be enough data.
+            while len(self.data) < length and self._isActive():
+                self.port_cond.wait()
+
+            if len(self.data) > length:
+                # More data is available than was requested. Return only
+                # as much data as was asked for, and the associated
+                # timestamps.
+                rettime = []
+                length_to_erase = None
+                for i,(l,t) in enumerate(self.timestamps[::-1]):
+                    if l > length:
+                        self.timestamps[len(self.timestamps)-i-1][0] = l - length
+                        continue
+                    if length_to_erase == None:
+                        length_to_erase = len(self.timestamps)-i
+                    rettime.append((l,t))
+                if length_to_erase != None:
+                    del self.timestamps[:length_to_erase]
+                retval = self.data[:length]
+                del self.data[:length]
+                return (retval, rettime)
+
+            # No length was provided, or length is equal to the length of data.
+            # Return all data and timestamps.
+            (retval, rettime) = (self.data, self.timestamps)
+            self.data = []
+            self.timestamps = []
+            return (retval, rettime)
+        finally:
+            self.port_cond.release()
             
     def getPort(self):
         """
@@ -432,15 +491,13 @@ class XmlArraySink(ArraySink):
             <EOS>         Flag indicating if this is the End Of the Stream
             <stream_id>   The unique stream id
         """
-        self.port_lock.acquire()
-        if EOS:
-            self.gotEOS = True
-        else:
-            self.gotEOS = False
+        self.port_cond.acquire()
         try:
+            self.gotEOS = EOS
             self.data.append(data)
+            self.port_cond.notifyAll()
         finally:
-            self.port_lock.release()
+            self.port_cond.release()
 
 class XmlArraySource(ArraySource):
     "This sub-class exists to override pushPacket for dataXML ports."
@@ -832,11 +889,11 @@ class FileSink(object):
 
             if len(data) > 0:
                 outputArray = array.array(self.structFormat)
-                for item in data:
-                    if self.structFormat == "b" or self.structFormat == "B":
+                if self.structFormat == "b" or self.structFormat == "B":
+                    for item in data:
                         outputArray.fromstring(item)
-                    else:
-                        outputArray.append(item)
+                else:
+                    outputArray = outputArray + array.array(self.structFormat, data)
                 outputArray.tofile(self.outFile) 
             # If end of stream is true, close the output file
             if EOS == True:
@@ -845,7 +902,7 @@ class FileSink(object):
         finally:
             self.port_lock.release()
         
-    def pushPacket(self, data, EOS, stream_id):
+    def pushPacketXML(self, data, EOS, stream_id):
         """
         Deals with XML data
         

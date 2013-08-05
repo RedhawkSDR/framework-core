@@ -24,16 +24,14 @@
 
 #include <string>
 #include <map>
-#include "ossiecf.h"
 #include "Port_impl.h"
 #include "LifeCycle_impl.h"
 #include "PortSupplier_impl.h"
 #include "PropertySet_impl.h"
 #include "TestableObject_impl.h"
 #include "ossie/ossieSupport.h"
-#include "ossie/prop_helpers.h"
 
-class OSSIECF_API Resource_impl: public virtual POA_CF::Resource, public PropertySet_impl, public PortSupplier_impl, public LifeCycle_impl, public TestableObject_impl
+class Resource_impl: public virtual POA_CF::Resource, public PropertySet_impl, public PortSupplier_impl, public LifeCycle_impl, public TestableObject_impl
 
 {
     ENABLE_LOGGING
@@ -102,6 +100,11 @@ public:
         // setting all the execparams passed as argument, this method resides in the Resource_impl class
         component->setExecparamProperties(execparams);
 
+        std::string pathAndFile = argv[0];
+        unsigned lastSlash      = pathAndFile.find_last_of("/");
+        std::string cwd         = pathAndFile.substr(0, lastSlash);
+        component->setCurrentWorkingDirectory(cwd);
+
         // Activate the component servant.
         LOG_TRACE(Resource_impl, "Activating component object");
         PortableServer::ObjectId_var oid = ossie::corba::RootPOA()->activate_object(component);
@@ -146,8 +149,6 @@ protected:
     void deactivateOutPorts();
     void deactivateInPorts();
 
-
-
     omni_mutex component_running_mutex;
     omni_condition component_running;
 
@@ -165,11 +166,15 @@ public:
     virtual void run ();
     virtual void halt ();
     
+    virtual void setCurrentWorkingDirectory(std::string& cwd);
+    virtual std::string& getCurrentWorkingDirectory();
+
     std::string _identifier;
     std::string naming_service_name;
 
 private:
     Resource_impl(); // No default constructor
     Resource_impl(Resource_impl&);  // No copying
+    std::string currentWorkingDirectory;
 };
 #endif

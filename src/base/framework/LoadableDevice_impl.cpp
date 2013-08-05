@@ -205,11 +205,6 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
         }
         // copy the file
         LOG_DEBUG(LoadableDevice_impl, "Copying " << workingFileName << " to the device's cache")
-        CF::File_var srcFile = fs->open (workingFileName.c_str(), true);
-        CF::OctetSequence_var data;
-        unsigned int srcSize = srcFile->sizeOf();
-        srcFile->read(data, srcSize);
-
         std::fstream fileStream;
         std::ios_base::openmode mode;
         mode = std::ios::out;
@@ -221,8 +216,34 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
         if (!fileStream.is_open()) {
             LOG_ERROR(LoadableDevice_impl, "File " << relativeFileName.c_str() << " did not open succesfully.")
         }
-        fileStream.write((const char*)data->get_buffer(), data->length());
-        fileStream.close();
+        
+        CF::File_var srcFile = fs->open (workingFileName.c_str(), true);
+        unsigned int srcSize = srcFile->sizeOf();
+        if (srcSize > ossie::corba::giopMaxMsgSize()) {
+            bool doneReading = false;
+            unsigned int maxReadSize = ossie::corba::giopMaxMsgSize() * 0.95;
+            LOG_DEBUG(LoadableDevice_impl, "File is longer than giopMaxMsgSize (" << ossie::corba::giopMaxMsgSize() << "), partitioning the copy into pieces of length " << maxReadSize)
+            unsigned int readSize = maxReadSize;
+            unsigned int leftoverSrcSize = srcSize;
+            while (not doneReading) {
+                CF::OctetSequence_var data;
+                if (readSize > leftoverSrcSize) {
+                    readSize = leftoverSrcSize;
+                }
+                srcFile->read(data, readSize);
+                fileStream.write((const char*)data->get_buffer(), data->length());
+                leftoverSrcSize -= readSize;
+                if (leftoverSrcSize == 0) {
+                    doneReading = true;
+                }
+            }
+            fileStream.close();
+        } else {
+            CF::OctetSequence_var data;
+            srcFile->read(data, srcSize);
+            fileStream.write((const char*)data->get_buffer(), data->length());
+            fileStream.close();
+        }
         chmod(relativeFileName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         fileTypeTable[workingFileName] = CF::FileSystem::PLAIN;
     } else {

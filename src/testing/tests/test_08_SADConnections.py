@@ -198,6 +198,36 @@ class SADConnectionsTest(scatest.CorbaTestCase):
         # Disconnect the test connection.
         usesPort.disconnectPort(connectionId)
 
+    def test_ExternalPortsRename(self):
+        # Makes sure that duplicate external port name throws an error
+        self.assertRaises(CF.DomainManager.ApplicationInstallationError, self._createApp, 'ExternalPortRenameDuplicate')
+        
+        self._createApp('ExternalPortRename')
+        components = self._getComponents()
+
+        # Make sure old names raise errors
+        self.assertRaises(CF.PortSupplier.UnknownPort, self._app.getPort, 'resouce_in')
+        self.assertRaises(CF.PortSupplier.UnknownPort, self._app.getPort, 'resource_out')
+
+        # Make sure we can get the renamed port
+        providesPort = self._app.getPort('rename_resource_in')
+        usesPort = self._app.getPort('rename_resource_out')
+        self.assertNotEqual(providesPort, None)
+        self.assertNotEqual(usesPort, None)
+
+        # Connect the application's external ports together.
+        connectionId = 'test_connection'
+        usesPort.connectPort(providesPort, connectionId)
+        
+        # Disconnect the test connection.
+        usesPort.disconnectPort(connectionId)
+        
+        # Makes sure that the components can still get ports based of their orig name
+        usesPort = components['PortTest1'].getPort('resource_out')
+        providesPort = components['PortTest1'].getPort('resource_in')
+        usesPort = components['PortTest2'].getPort('resource_out')
+        providesPort = components['PortTest2'].getPort('resource_in')
+    
     def _test_Service(self, connection):
         svcBooter, svcMgr = self.launchDeviceManager("/nodes/test_BasicService_node/DeviceManager.dcd.xml")
         self.assertNotEqual(svcMgr, None)

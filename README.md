@@ -8,15 +8,25 @@ Contains the source and build script for the REDHAWK Core Framework.
 
 REDHAWK Website: [www.redhawkSDR.org](http://www.redhawksdr.org)
 
-Overview and Getting Started Guide: [PDF](http://sourceforge.net/projects/redhawksdr/files/Documentation/REDHAWK_Overview_v1.0.pdf/download "PDF") [HTML](http://redhawksdr.github.com/Documentation/gettingstarted/main.html "HTML")
+Overview and Getting Started Guide: [PDF](REDHAWK_Getting_Started_Guide_pdf_webaddress "PDF") [HTML](REDHAWK_Getting_Started_Guide_html_webaddress "HTML")
 
-Full REDHAWK Manual: [PDF](http://sourceforge.net/projects/redhawksdr/files/Documentation/REDHAWK_Manual_v1.0.pdf/download "PDF") [HTML](http://redhawksdr.github.com/Documentation/main.html "HTML")
-
+Full REDHAWK Manual: [PDF](REDHAWK_Manual_pdf_webaddress "PDF") [HTML](REDHAWK_Manual_html_webaddress "HTML")
+ 
 ## Copyrights
 
-This work is protected by Copyright. Please refer to the [Copyright File](src/COPYRIGHT) for updated copyright           information.
+Copyright © 2012, 2013, United States Government, as represented by the Secretary of Defense.  All rights reserved. 
 
-## License
+Copyright © 2009, 2010 Northrop Grumman Corporation.
+The U.S. Government has Unlimited Rights in this documentation pursuant to the appropriate DFARS clause.  
 
-REDHAWK Core is licensed under a combination of the GNU Lesser General Public License (LGPL) and the Apache (v.2.0)  License.
- 
+Copyright © 2009, 2010, 2011, 2012 Axios, Inc.
+The U.S. Government has Unlimited Rights in this documentation pursuant to the appropriate DFARS clause.  
+
+Copyright © 2009, 2010, 2011 2012 Rincon Research Corporation.
+The U.S. Government has Unlimited Rights in this documentation pursuant to the appropriate DFARS clause.  
+
+Copyright © 2010, 2011 Artemis Communications, LLC.
+The U.S. Government has Unlimited Rights in this documentation pursuant to the appropriate DFARS clause.  
+
+Copyright © 2009, 2010, 2011, 2012 Ventura Solutions, Inc.
+The U.S. Government has Unlimited Rights in this documentation pursuant to the appropriate DFARS clause.

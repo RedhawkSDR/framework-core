@@ -23,6 +23,7 @@ import unittest
 import scatest
 from ossie.cf import CF
 from omniORB import CORBA
+import struct
 
 class CppPropertiesTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -157,7 +158,378 @@ class CppPropertiesTest(scatest.CorbaTestCase):
         # Check that the default value is not 'None'.
         propVal = self._app.query([prop])[0]
         self.assertNotEqual(propVal.value.value(), None)
+        
+        
+class CppPropertiesRangeTest(scatest.CorbaTestCase):
+    def setUp(self):
+        domBooter, self._domMgr = self.launchDomainManager(debug=9)
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        self._app = None
+        if self._domMgr:
+            try:
+                sadpath = "/waveforms/TestCppPropsRange/TestCppPropsRange.sad.xml"
+                self._domMgr.installApplication(sadpath)
+                appFact = self._domMgr._get_applicationFactories()[0]
+                self._app = appFact.create(appFact._get_name(), [], [])
+            except:
+                pass
 
+    def tearDown(self):
+        if self._app:
+            self._app.stop()
+            self._app.releaseObject()
+
+        # Do all application shutdown before calling the base class tearDown,
+        # or failures will probably occur.
+        scatest.CorbaTestCase.tearDown(self)
+
+    def preconditions(self):
+        self.assertNotEqual(self._domMgr, None, "DomainManager not available")
+        self.assertNotEqual(self._devMgr, None, "DeviceManager not available")
+        self.assertNotEqual(self._app, None, "Application not created")
+        
+    def test_cppPropsRangeSimple(self):
+        self.preconditions()
+        
+        # Test upper bound
+        my_octet = CF.DataType(id='my_octet', value=CORBA.Any(CORBA.TC_octet, 255))
+        my_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_short, 32767))
+        my_ushort = CF.DataType(id='my_ushort', value=CORBA.Any(CORBA.TC_ushort, 65535))
+        my_long = CF.DataType(id='my_long', value=CORBA.Any(CORBA.TC_long, 2147483647))
+        my_ulong = CF.DataType(id='my_ulong', value=CORBA.Any(CORBA.TC_ulong, 4294967295))
+        my_longlong = CF.DataType(id='my_longlong', value=CORBA.Any(CORBA.TC_longlong, 9223372036854775807L))
+        my_ulonglong = CF.DataType(id='my_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 18446744073709551615L))
+        self._app.configure([my_octet, my_short, my_ushort, my_long, my_ulong, my_longlong, my_ulonglong])
+        res = self._app.query([])
+        for r in res:
+            if r.id == 'my_octet':
+                self.assertEquals(r.value.value(), 255)
+            elif r.id == 'my_short':
+                self.assertEquals(r.value.value(), 32767)
+            elif r.id == 'my_ushort':
+                self.assertEquals(r.value.value(), 65535)
+            elif r.id == 'my_long':
+                self.assertEquals(r.value.value(), 2147483647)
+            elif r.id == 'my_ulong':
+                self.assertEquals(r.value.value(), 4294967295)
+            elif r.id == 'my_longlong':
+                self.assertEquals(r.value.value(), 9223372036854775807)
+            elif r.id == 'my_ulonglong':
+                self.assertEquals(r.value.value(), 18446744073709551615)
+
+        # Test lower bound
+        my_octet = CF.DataType(id='my_octet', value=CORBA.Any(CORBA.TC_octet, 0))
+        my_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_short, -32768))
+        my_ushort = CF.DataType(id='my_ushort', value=CORBA.Any(CORBA.TC_ushort, 0))
+        my_long = CF.DataType(id='my_long', value=CORBA.Any(CORBA.TC_long, -2147483648))
+        my_ulong = CF.DataType(id='my_ulong', value=CORBA.Any(CORBA.TC_ulong, 0))
+        my_longlong = CF.DataType(id='my_longlong', value=CORBA.Any(CORBA.TC_longlong, -9223372036854775808L))
+        my_ulonglong = CF.DataType(id='my_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 0))
+        self._app.configure([my_octet, my_short, my_ushort, my_long, my_ulong, my_longlong, my_ulonglong])
+        res = self._app.query([])
+        for r in res:
+            if r.id == 'my_octet':
+                self.assertEquals(r.value.value(), 0)
+            elif r.id == 'my_short':
+                self.assertEquals(r.value.value(), -32768)
+            elif r.id == 'my_ushort':
+                self.assertEquals(r.value.value(), 0)
+            elif r.id == 'my_long':
+                self.assertEquals(r.value.value(), -2147483648)
+            elif r.id == 'my_ulong':
+                self.assertEquals(r.value.value(), 0)
+            elif r.id == 'my_longlong':
+                self.assertEquals(r.value.value(), -9223372036854775808)
+            elif r.id == 'my_ulonglong':
+                self.assertEquals(r.value.value(), 0)
+
+    def test_cppPropsRangeStruct(self):
+        self.preconditions()
+        # Test upper bounds
+        my_struct = CF.DataType(id='my_struct', value=any.to_any([
+                                CF.DataType(id='struct_octet', value=CORBA.Any(CORBA.TC_octet, 255)),
+                                CF.DataType(id='struct_short', value=CORBA.Any(CORBA.TC_short, 32767)),
+                                CF.DataType(id='struct_ushort', value=CORBA.Any(CORBA.TC_ushort, 65535)),
+                                CF.DataType(id='struct_long', value=CORBA.Any(CORBA.TC_long, 2147483647)),
+                                CF.DataType(id='struct_ulong', value=CORBA.Any(CORBA.TC_ulong, 4294967295)),
+                                CF.DataType(id='struct_longlong', value=CORBA.Any(CORBA.TC_longlong, 9223372036854775807L)),
+                                CF.DataType(id='struct_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 18446744073709551615L))
+                                ]))
+        self._app.configure([my_struct])
+        res = self._app.query([])
+        for r in res:
+            if r.id == 'my_struct':
+                val = r.value.value()
+                for v in val:
+                    if v.id == 'struct_octet':
+                        self.assertEquals(v.value.value(), 255)
+                    elif v.id == 'struct_short':
+                        self.assertEquals(v.value.value(), 32767)
+                    elif v.id == 'struct_ushort':
+                        self.assertEquals(v.value.value(), 65535)
+                    elif v.id == 'struct_long':
+                        self.assertEquals(v.value.value(), 2147483647)
+                    elif v.id == 'struct_ulong':
+                        self.assertEquals(v.value.value(), 4294967295)
+                    elif v.id == 'struct_longlong':
+                        self.assertEquals(v.value.value(), 9223372036854775807L)
+                    elif v.id == 'struct_ulonglong':
+                        self.assertEquals(v.value.value(), 18446744073709551615L)
+                        
+        # Test lower bounds
+        my_struct = CF.DataType(id='my_struct', value=any.to_any([
+                                CF.DataType(id='struct_octet', value=CORBA.Any(CORBA.TC_octet, 0)),
+                                CF.DataType(id='struct_short', value=CORBA.Any(CORBA.TC_short, -32768)),
+                                CF.DataType(id='struct_ushort', value=CORBA.Any(CORBA.TC_ushort, 0)),
+                                CF.DataType(id='struct_long', value=CORBA.Any(CORBA.TC_long, -2147483648)),
+                                CF.DataType(id='struct_ulong', value=CORBA.Any(CORBA.TC_ulong, 0)),
+                                CF.DataType(id='struct_longlong', value=CORBA.Any(CORBA.TC_longlong, -9223372036854775808L)),
+                                CF.DataType(id='struct_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 0))
+                                ]))
+        self._app.configure([my_struct])
+        res = self._app.query([])
+        for r in res:
+            if r.id == 'my_struct':
+                val = r.value.value()
+                for v in val:
+                    if v.id == 'struct_octet':
+                        self.assertEquals(v.value.value(), 0)
+                    elif v.id == 'struct_short':
+                        self.assertEquals(v.value.value(), -32768)
+                    elif v.id == 'struct_ushort':
+                        self.assertEquals(v.value.value(), 0)
+                    elif v.id == 'struct_long':
+                        self.assertEquals(v.value.value(), -2147483648)
+                    elif v.id == 'struct_ulong':
+                        self.assertEquals(v.value.value(), 0)
+                    elif v.id == 'struct_longlong':
+                        self.assertEquals(v.value.value(), -9223372036854775808L)
+                    elif v.id == 'struct_ulonglong':
+                        self.assertEquals(v.value.value(), 0)
+                        
+    def test_cppPropsRangeSeq(self):
+        self.preconditions()
+        
+        # Test upper and lower bounds
+        octet_val = struct.pack('B', 0) + struct.pack('B', 255)
+        seq_octet = CF.DataType(id='seq_octet', value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/OctetSeq:1.0"),
+                                                            octet_val
+                                                            ))        
+        seq_short = CF.DataType(id='seq_short', value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/ShortSeq:1.0"),
+                                                            [-32768, 32767]
+                                                            ))
+        seq_ushort = CF.DataType(id='seq_ushort', value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/UShortSeq:1.0"),
+                                                            [0, 65535]
+                                                            ))        
+        seq_long = CF.DataType(id='seq_long', value=any.to_any([-2147483648, 2147483647]))
+        seq_ulong = CF.DataType(id='seq_ulong', value=any.to_any([0,4294967295]))
+        seq_longlong = CF.DataType(id='seq_longlong', value=any.to_any([-9223372036854775808L, 9223372036854775807L]))
+        self._app.configure([seq_octet, seq_short, seq_ushort, seq_long, seq_ulong, seq_longlong])
+        
+        res = self._app.query([])
+        for r in res:
+            if r.id == 'seq_octet':
+                # Octets need to be unpacked
+                stored_vals = r.value.value()
+                vals = []
+                for num in stored_vals:
+                    curr = struct.unpack('B', num)
+                    vals.append(curr[0])
+                self.assertEquals(vals[0], 0)
+                self.assertEquals(vals[1], 255)
+            elif r.id == 'seq_short':
+                self.assertEquals(r.value.value()[0], -32768)
+                self.assertEquals(r.value.value()[1], 32767)
+            elif r.id == 'seq_ushort':
+                self.assertEquals(r.value.value()[0], 0)
+                self.assertEquals(r.value.value()[1], 65535)
+            elif r.id == 'seq_long':
+                self.assertEquals(r.value.value()[0], -2147483648)
+                self.assertEquals(r.value.value()[1], 2147483647)   
+            elif r.id == 'seq_ulong':
+                self.assertEquals(r.value.value()[0], 0)
+                self.assertEquals(r.value.value()[1], 4294967295)
+            elif r.id == 'seq_longlong':
+                self.assertEquals(r.value.value()[0], -9223372036854775808L)
+                self.assertEquals(r.value.value()[1], 9223372036854775807L)
+                
+    def test_cppPropsRangeStructSeq(self):
+        self.preconditions()
+        
+        # Struct with upper bound
+        upper = CORBA.Any(CORBA.TypeCode("IDL:CF/Properties:1.0"), [
+                            CF.DataType(id='ss_octet', value=CORBA.Any(CORBA.TC_octet, 255)),
+                            CF.DataType(id='ss_short', value=CORBA.Any(CORBA.TC_short, 32767)),
+                            CF.DataType(id='ss_ushort', value=CORBA.Any(CORBA.TC_ushort, 65535)),
+                            CF.DataType(id='ss_long', value=CORBA.Any(CORBA.TC_long, 2147483647)),
+                            CF.DataType(id='ss_ulong', value=CORBA.Any(CORBA.TC_ulong, 4294967295)),
+                            CF.DataType(id='ss_longlong', value=CORBA.Any(CORBA.TC_longlong, 9223372036854775807L)),
+                            CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 18446744073709551615L))])
+        # Struct with lower bound
+        lower = CORBA.Any(CORBA.TypeCode("IDL:CF/Properties:1.0"), [
+                            CF.DataType(id='ss_octet', value=CORBA.Any(CORBA.TC_octet, 0)),
+                            CF.DataType(id='ss_short', value=CORBA.Any(CORBA.TC_short, -32768)),
+                            CF.DataType(id='ss_ushort', value=CORBA.Any(CORBA.TC_ushort, 0)),
+                            CF.DataType(id='ss_long', value=CORBA.Any(CORBA.TC_long, -2147483648)),
+                            CF.DataType(id='ss_ulong', value=CORBA.Any(CORBA.TC_ulong, 0)),
+                            CF.DataType(id='ss_longlong', value=CORBA.Any(CORBA.TC_longlong, -9223372036854775808L)),
+                            CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 0))])
+        
+        my_structseq = CF.DataType(id='my_structseq', 
+                value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"), 
+                        [ upper , lower ]
+                        ))  
+        self._app.configure([my_structseq])
+        
+        # Make sure values all got set
+        res = self._app.query([])
+        for r in res:
+            if r.id == 'my_structseq':
+                upper = r.value.value()[0]
+                lower = r.value.value()[1]
+                for v in upper.value():
+                    if v.id == 'ss_octet':
+                        self.assertEquals(v.value.value(), 255)
+                    elif v.id == 'ss_short':
+                        self.assertEquals(v.value.value(), 32767)
+                    elif v.id == 'ss_ushort':
+                        self.assertEquals(v.value.value(), 65535)
+                    elif v.id == 'ss_long':
+                        self.assertEquals(v.value.value(), 2147483647)
+                    elif v.id == 'ss_ulong':
+                        self.assertEquals(v.value.value(), 4294967295)
+                    elif v.id == 'ss_longlong':
+                        self.assertEquals(v.value.value(), 9223372036854775807L)
+                    elif v.id == 'ss_ulonglong':
+                        self.assertEquals(v.value.value(), 18446744073709551615L)
+                for v in lower.value():
+                    if v.id == 'ss_octet':
+                        self.assertEquals(v.value.value(), 0)
+                    elif v.id == 'ss_short':
+                        self.assertEquals(v.value.value(), -32768)
+                    elif v.id == 'ss_ushort':
+                        self.assertEquals(v.value.value(), 0)
+                    elif v.id == 'ss_long':
+                        self.assertEquals(v.value.value(), -2147483648)
+                    elif v.id == 'ss_ulong':
+                        self.assertEquals(v.value.value(), 0)
+                    elif v.id == 'ss_longlong':
+                        self.assertEquals(v.value.value(), -9223372036854775808L)
+                    elif v.id == 'ss_ulonglong':
+                        self.assertEquals(v.value.value(), 0)
+                        
+    def checkPropValues(self, expected_short, expected_long, expected_struct_short, expected_struct_long):
+        # Gets the property values
+        res = self._app.query([])
+        
+        # Checks for expected prop values
+        for r in res:
+            if r.id == 'my_short':
+                self.assertEquals(r.value.value(), expected_short)
+            elif r.id == 'my_long':
+                self.assertEquals(r.value.value(), expected_long)
+            elif r.id == 'my_struct':
+                val = r.value.value()
+                for v in val:
+                    if v.id == 'struct_short':
+                        self.assertEquals(v.value.value(), expected_struct_short)
+                    elif v.id == 'struct_long':
+                        self.assertEquals(v.value.value(), expected_struct_long)
+
+    def test_bug208(self):
+        self.preconditions()
+        
+        # Makes sure that a query will change the property values
+        my_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_short, 11))
+        my_long = CF.DataType(id='my_long', value=CORBA.Any(CORBA.TC_long, 22))
+        my_struct = CF.DataType(id='my_struct',value=any.to_any([
+                                CF.DataType(id='struct_short',value=CORBA.Any(CORBA.TC_short, 33)),
+                                CF.DataType(id='struct_long',value=CORBA.Any(CORBA.TC_long, 44))]))
+
+        # Configures and makes sure properties were set correctly
+        self._app.configure([my_short, my_long, my_struct])
+        self.checkPropValues(11, 22, 33, 44)    
+        
+        # Make sure correct exceptions are raised
+        bad_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_long, 66))
+        bad_long = CF.DataType(id='my_long' , value=CORBA.Any(CORBA.TC_short, 66))
+        bad_struct = CF.DataType(id='my_struct', value=any.to_any([
+                                CF.DataType(id='struct_short', value=CORBA.Any(CORBA.TC_long, 77)),
+                                CF.DataType(id='struct_long', value=CORBA.Any(CORBA.TC_short, 77))]))
+        
+        # Properties should not have changed
+        self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_short])
+        self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_short, bad_long])
+        self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_short, bad_struct])
+        self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_long])
+        self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_long, bad_struct])
+        self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_struct])
+        self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_short, bad_long, bad_struct])
+        self.checkPropValues(11, 22, 33, 44)
+        
+        new_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_short, 111))
+        new_long = CF.DataType(id='my_long', value=CORBA.Any(CORBA.TC_long, 222))
+        new_struct = CF.DataType(id='my_struct',value=any.to_any([
+                                CF.DataType(id='struct_short',value=CORBA.Any(CORBA.TC_short, 333)),
+                                CF.DataType(id='struct_long',value=CORBA.Any(CORBA.TC_long, 444))]))
+        
+        # Only long should change
+        self.assertRaises(CF.PropertySet.PartialConfiguration, self._app.configure, [bad_short, new_long, bad_struct])
+        self.checkPropValues(11, 222, 33, 44)
+        
+        # Only short should change
+        self.assertRaises(CF.PropertySet.PartialConfiguration, self._app.configure, [new_short, bad_long, bad_struct])
+        self.checkPropValues(111, 222, 33, 44)
+        
+        # Only struct should change
+        self.assertRaises(CF.PropertySet.PartialConfiguration, self._app.configure, [bad_short, bad_long, new_struct])
+        self.checkPropValues(111, 222, 333, 444)
+        
+        bad_short_name = CF.DataType(id='wrong_short', value=CORBA.Any(CORBA.TC_short, 66))
+        bad_long_name = CF.DataType(id='wrong_long' , value=CORBA.Any(CORBA.TC_long, 66))
+        bad_struct_name = CF.DataType(id='wrong_struct',value=any.to_any([
+                                CF.DataType(id='struct_short',value=CORBA.Any(CORBA.TC_short, 333)),
+                                CF.DataType(id='struct_long',value=CORBA.Any(CORBA.TC_long, 444))]))
+        self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_short_name, bad_long_name, bad_struct_name])
+        self.checkPropValues(111, 222, 333, 444)
+        
+        # Check random partial configs
+        self.assertRaises(CF.PropertySet.PartialConfiguration, self._app.configure, [bad_short_name, my_long, bad_struct])
+        self.checkPropValues(111, 22, 333, 444)
+        self.assertRaises(CF.PropertySet.PartialConfiguration, self._app.configure, [my_short, bad_long_name, bad_struct])
+        self.checkPropValues(11, 22, 333, 444)
+        self.assertRaises(CF.PropertySet.PartialConfiguration, self._app.configure, [bad_short, my_long, my_struct])
+        self.checkPropValues(11, 22, 33, 44)
+        
+        # Makes sure that all values can successfully be changed at once
+        self._app.configure([new_short, new_struct, new_long])
+        self.checkPropValues(111, 222, 333, 444)
+        
+    def test_propertyExceptionsSeq(self):
+        self.preconditions()
+        
+        seq_short = CF.DataType(id='seq_short', value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/ShortSeq:1.0"),
+                                                            [11, 22]
+                                                            ))
+        self._app.configure([seq_short])
+        
+        seq_short = CF.DataType(id='seq_short', value=any.to_any([33,44]))
+        self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [seq_short])
+        
+        seq_long = CF.DataType(id='seq_long', value=any.to_any([55, 66]))
+        self.assertRaises(CF.PropertySet.PartialConfiguration, self._app.configure, [seq_short, seq_long])
+        
+        # Long sequence should have changed and short did not
+        for r in self._app.query([]):
+            if r.id == 'seq_long':
+                self.assertEquals(r.value.value()[0], 55)
+                self.assertEquals(r.value.value()[1], 66)
+            elif r.id =='seq_short':
+                self.assertEquals(r.value.value()[0], 11)
+                self.assertEquals(r.value.value()[1], 22)
+
+        
+                        
 if __name__ == "__main__":
   # Run the unittests
   unittest.main()

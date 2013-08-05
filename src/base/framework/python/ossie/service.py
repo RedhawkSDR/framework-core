@@ -132,6 +132,13 @@ def start_service(serviceclass, thread_policy=None):
         except:
             logging.exception("Error while unregistering service")
             
+        if component_Obj != None and callable(getattr(component_Obj, "terminateService", None)):
+            try:
+                component_Obj.terminateService()
+            except:
+                logging.exception("Error releasing service object")
+                
+        # Call to a deprecated exit function.
         if component_Obj != None and callable(getattr(component_Obj, "releaseObject", None)):
             try:
                 component_Obj.releaseObject()

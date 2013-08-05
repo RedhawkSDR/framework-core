@@ -57,7 +57,7 @@ namespace fs = boost::filesystem;
 #include <ossie/Properties.h>
 #include <ossie/DomainManagerConfiguration.h>
 #include <ossie/DeviceManagerConfiguration.h>
-#include <ossie/prop_helpers.h>
+#include <ossie/prop_utils.h>
 #include <ossie/ossieSupport.h>
 #include <ossie/debug.h>
 
@@ -402,6 +402,7 @@ void usage()
     std::cerr << "    --user <username>       Run as the specified user." << std::endl;
     std::cerr << "    --group <groupname>     Run as the specified group." << std::endl;
     std::cerr << "    --ORBport <portnumber>  Change the port number used by the Domain Manager to listen (only valid with the -D option)." << std::endl;
+    std::cerr << "    --ORBInitRef <ip address>  Change the ip address used by the Device Manager to find the naming service (only valid with the -d option)." << std::endl;
     std::cerr << "    --domainname <domain name> override the domain name specified in the configuration file." << std::endl << std::endl;
     std::cerr << std::endl;
 
@@ -419,7 +420,7 @@ void usage()
     std::cerr << "    nodeBooter -D /domain/DomainManager.dmd.xml -d /nodes/MyNode/DeviceManager.dcd.xml -sdrroot /opt/sdr -sdrcache /tmp" << std::endl;
     std::cerr << "    nodeBooter -D dom/domain/DomainManager.dmd.xml -d dev/nodes/DeviceManager.dcd.xml #(NOTE: see below for details)" << std::endl;
     std::cerr << "    nodeBooter -D -d DeviceManager.dcd.xml -debug 9" << std::endl;
-    std::cerr << "    nodeBooter -D -d DeviceManager.dcd.xml -ORBInitRef 127.0.0.1" << std::endl;
+    std::cerr << "    nodeBooter -D -d DeviceManager.dcd.xml --ORBInitRef 127.0.0.1" << std::endl;
     std::cerr << "    nodeBooter -d DeviceManager.dcd.xml --daemon --pidfile /var/run/domain.pid --user domainuser" << std::endl;
     std::cerr << "    nodeBooter --help" << std::endl << std::endl;
 
@@ -456,6 +457,7 @@ int main(int argc, char* argv[])
     string sdrCache;
     string logfile_uri;
     string db_uri;
+    string orb_init_ref;
     string domainName;
     string endPoint;
     int debugLevel = 3;
@@ -592,6 +594,17 @@ int main(int argc, char* argv[])
             }
         }
 
+        if (( strcmp( argv[i], "--ORBInitRef" ) == 0 )) {
+            if( i + 1 < argc && strcmp( argv[i + 1], "--" ) != 0) {
+                orb_init_ref = "NameService=corbaname::";
+                orb_init_ref += argv[i+1];
+            } else {
+                std::cerr << "[nodeBooter] ERROR: No initial reference address provided\n";
+                usage();
+                exit(EXIT_FAILURE);
+            }
+        }
+
         if (( strcmp( argv[i], "--ORBport" ) == 0 )) {
             if( i + 1 < argc && strcmp( argv[i + 1], "--" ) != 0) {
                 endPoint = "giop:tcp::";
@@ -704,13 +717,13 @@ int main(int argc, char* argv[])
         // Loops to find the sdr root from given path
         for (bool foundSdr = false ; !foundSdr; ){
             if (fs::exists(path)){
-                if (std::string(path.filename().c_str()).compare(SDR_FOLDER) == 0){
+                if (path.filename().compare(SDR_FOLDER) == 0){
                     sdrRootPath = path.string();
                     foundSdr = true;
-                } else if (std::string(path.filename().c_str()).compare(DOM_FOLDER) == 0){
+                } else if (path.filename().compare(DOM_FOLDER) == 0){
                     dmdPath = "/" + DOM_FOLDER + temp;
                 }
-                temp = "/" + std::string(path.filename().c_str()) + temp;
+                temp = "/" + path.filename() + temp;
                 path = path.parent_path();
             } else {
                 std::cerr << "[nodeBooter] ERROR: can't find relative dmd.xml path" << std::endl;
@@ -736,14 +749,14 @@ int main(int argc, char* argv[])
         // Loops to find the sdr root from given path
         for (bool foundSdr = false; !foundSdr; ){
             if (fs::exists(path)){
-                if (std::string(path.filename().c_str()).compare(SDR_FOLDER) == 0){
+                if (path.filename().compare(SDR_FOLDER) == 0){
                     sdrRootPath = path.string();
                     foundSdr = true;
-                } else if (std::string(path.filename().c_str()).compare(NODE_FOLDER) == 0){
+                } else if (path.filename().compare(NODE_FOLDER) == 0){
                     dcdPath = "/" + NODE_FOLDER + temp;
                 }
 
-                temp = "/" + std::string(path.filename().c_str()) + temp;
+                temp = "/" + path.filename() + temp;
                 path = path.parent_path();
             } else {
                 std::cerr << "[nodeBooter] ERROR: can't find relative dcd.xml path" << std::endl;
@@ -822,10 +835,22 @@ int main(int argc, char* argv[])
     // Build a list of properties for this system based on the information from uname.
     std::vector<std::string> kinds;
     kinds.push_back("allocation");
-    ossie::SimpleProperty osProp("DCE:4a23ad60-0b25-4121-a630-68803a498f75", "os_name", "string",
-                                 "readonly", "eq", kinds, std::string(un.sysname));
-    ossie::SimpleProperty procProp("DCE:fefb9c66-d14a-438d-ad59-2cfd1adb272b", "processor_name", "string",
-                                   "readonly", "eq", kinds, std::string(un.machine));
+    ossie::SimpleProperty osProp("DCE:4a23ad60-0b25-4121-a630-68803a498f75", 
+                                 "os_name", 
+                                 "string",
+                                 "readonly", 
+                                 "eq", 
+                                 kinds, 
+                                 std::string(un.sysname),
+                                 "false");
+    ossie::SimpleProperty procProp("DCE:fefb9c66-d14a-438d-ad59-2cfd1adb272b", 
+                                   "processor_name", 
+                                   "string",
+                                   "readonly", 
+                                   "eq", 
+                                   kinds, 
+                                   std::string(un.machine),
+                                   "false");
     std::vector<const ossie::Property*> systemProps;
     systemProps.push_back(&osProp);
     systemProps.push_back(&procProp);
@@ -984,7 +1009,10 @@ int main(int argc, char* argv[])
             if (!logfile_uri.empty()) {
                 execParams["LOGGING_CONFIG_URI"] = logfile_uri;
             }
-
+            if (!orb_init_ref.empty()) {
+                execParams["-ORBInitRef"] = orb_init_ref;
+            }
+            
             if(execparams.size() > 0) {
                 for(unsigned int index = 0; index < execparams.size(); index++) {
                     string id = execparams[index];

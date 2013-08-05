@@ -61,7 +61,8 @@ void Application_impl::populateApplication(CF::Resource_ptr _controller,
                                            CF::Application::ComponentProcessIdSequence* _pidSeq,
                                            std::vector<ConnectionNode>& connections,
                                            std::map<std::string, std::string>& fileTable,
-                                           std::map<std::string, std::vector<ossie::AllocPropsInfo> >& allocPropsTable)
+                                           std::map<std::string, std::vector<ossie::AllocPropsInfo> >& allocPropsTable,
+                                           std::vector<AllocPropsInfo>& _usesDevCap)
 {
     TRACE_ENTER(Application_impl)
     _fileTable = fileTable;
@@ -69,6 +70,7 @@ void Application_impl::populateApplication(CF::Resource_ptr _controller,
     _connections = connections;
     _componentDevices = _devSeq;
     _appStartSeq = _startSeq;
+    _usesDeviceCapacities = _usesDevCap;
     
     _registeredComponents.length(0);
 
@@ -191,19 +193,323 @@ throw (CORBA::SystemException, CF::Resource::StopError)
 void Application_impl::configure (const CF::Properties& configProperties)
 throw (CF::PropertySet::PartialConfiguration, CF::PropertySet::InvalidConfiguration, CORBA::SystemException)
 {
-    if (CORBA::is_nil(assemblyController)) { return; }
+    int validProperties = 0;
+    CF::Properties invalidProperties;
 
-    LOG_TRACE(Application_impl, "Calling configure on assembly controller")
-    assemblyController->configure(configProperties);
+    // Creates a map from componentIdentifier -> (rsc_ptr, ConfigPropSet)
+    // to allow for one batched configure call per component
+
+    CF::Properties acProps;
+    const std::string acId = ossie::corba::returnString(assemblyController->identifier());
+    std::map<std::string, std::pair<CF::Resource_ptr, CF::Properties> > batch;
+    batch[acId] = std::pair<CF::Resource_ptr, CF::Properties>(assemblyController, acProps);
+
+    // Loop through each passed external property, mapping it with its respective resource
+    for (unsigned int i = 0; i < configProperties.length(); ++i) {
+        // Gets external ID for property mapping
+        const std::string extId(configProperties[i].id);
+
+        if (_properties.count(extId)) {
+            // Gets the component and its internal property id
+            const std::string propId = _properties[extId].first;
+            CF::Resource_ptr comp = _properties[extId].second;
+
+            if (CORBA::is_nil(comp)) {
+                LOG_ERROR(Application_impl, "Unable to retrieve component for external property: " << extId);
+                int count = invalidProperties.length();
+                invalidProperties.length(count + 1);
+                invalidProperties[count].id = CORBA::string_dup(extId.c_str());
+                invalidProperties[count].value = configProperties[i].value;
+            } else {
+                // Key used for map
+                const std::string compId = ossie::corba::returnString(comp->identifier());
+
+                LOG_TRACE(Application_impl, "Configure external property: " << extId << " on "
+                        << compId << " (propid: " << propId << ")");
+
+                // Adds property to component ID mapping
+                // If one doesn't exist, adds it
+                if (batch.count(compId)) {
+                    int count = batch[compId].second.length();
+                    batch[compId].second.length(count + 1);
+                    batch[compId].second[count].id = propId.c_str();
+                    batch[compId].second[count].value = configProperties[i].value;
+                } else {
+                    CF::Properties tempProp;
+                    tempProp.length(1);
+                    tempProp[0].id = propId.c_str();
+                    tempProp[0].value = configProperties[i].value;
+                    batch[compId] = std::pair<CF::Resource_ptr, CF::Properties>(comp, tempProp);
+                }
+            }
+        } else if (!CORBA::is_nil(assemblyController)) {
+            // Properties that are not external get batched with assembly controller
+            LOG_TRACE(Application_impl, "Calling configure on assembly controller for property: " << configProperties[i].id);
+            int count = batch[acId].second.length();
+            batch[acId].second.length(count + 1);
+            batch[acId].second[count].id = configProperties[i].id;
+            batch[acId].second[count].value = configProperties[i].value;
+        } else {
+            LOG_ERROR(Application_impl, "Unable to retrieve assembly controller for external property: " << extId);
+            int count = invalidProperties.length();
+            invalidProperties.length(count + 1);
+            invalidProperties[count].id = CORBA::string_dup(extId.c_str());
+            invalidProperties[count].value = configProperties[i].value;
+        }
+    }
+
+    // -Loop through each component with a property that needs to be configured and make configure call
+    // -Catch any errors
+    for (std::map<std::string, std::pair<CF::Resource_ptr, CF::Properties> >::const_iterator comp = batch.begin();
+            comp != batch.end(); ++comp) {
+        int propLength = comp->second.second.length();
+        try {
+            comp->second.first->configure(comp->second.second);
+            validProperties += propLength;
+        } catch (CF::PropertySet::InvalidConfiguration e) {
+            // Add invalid properties to return list
+            for (unsigned int i = 0; i < e.invalidProperties.length(); ++i) {
+                int count = invalidProperties.length();
+                invalidProperties.length(count + 1);
+                invalidProperties[count].id = CORBA::string_dup(e.invalidProperties[i].id);
+                invalidProperties[count].value = e.invalidProperties[i].value;
+            }
+        } catch (CF::PropertySet::PartialConfiguration e) {
+            // Add invalid properties to return list
+            for (unsigned int i = 0; i < e.invalidProperties.length(); ++i) {
+                int count = invalidProperties.length();
+                invalidProperties.length(count + 1);
+                invalidProperties[count].id = CORBA::string_dup(e.invalidProperties[i].id);
+                invalidProperties[count].value = e.invalidProperties[i].value;
+            }
+            validProperties += propLength - e.invalidProperties.length();
+        }
+    }
+
+    // Throw appropriate exception if any configure errors were handled
+    if (invalidProperties.length () > 0) {
+        if (validProperties > 0) {
+            throw CF::PropertySet::PartialConfiguration(invalidProperties);
+        } else {
+            throw CF::PropertySet::InvalidConfiguration("No matching external properties found", invalidProperties);
+        }
+    }
 }
+
 
 void Application_impl::query (CF::Properties& configProperties)
 throw (CF::UnknownProperties, CORBA::SystemException)
 {
-    if (CORBA::is_nil(assemblyController)) { return; }
+    CF::Properties invalidProperties;
 
-    LOG_TRACE(Application_impl, "Calling query on assembly controller")
-    assemblyController->query(configProperties);
+    // Creates a map from componentIdentifier -> (rsc_ptr, ConfigPropSet)
+    // to allow for one batched query call per component
+    const std::string acId = ossie::corba::returnString(assemblyController->identifier());
+    std::map<std::string, std::pair<CF::Resource_ptr, CF::Properties> > batch;
+
+    // For queries of zero length, return all external properties
+    if (configProperties.length() == 0) {
+        LOG_TRACE(Application_impl, "Query all external and assembly controller properties");
+
+        configProperties.length(0);
+
+        // Loop through each external property and add it to the batch with its respective component
+        for (std::map<std::string, std::pair<std::string, CF::Resource_ptr> >::const_iterator prop = _properties.begin();
+                prop != _properties.end(); ++prop) {
+            // Gets the property mapping info
+            std::string extId = prop->first;
+            std::string propId = prop->second.first;
+            CF::Resource_ptr comp = prop->second.second;
+
+            if (CORBA::is_nil(comp)) {
+                LOG_ERROR(Application_impl, "Unable to retrieve component for external property: " << extId);
+                int count = invalidProperties.length();
+                invalidProperties.length(count + 1);
+                invalidProperties[count].id = CORBA::string_dup(extId.c_str());
+                invalidProperties[count].value = CORBA::Any();
+            } else {
+                // Key used for map
+                const std::string compId = ossie::corba::returnString(comp->identifier());
+
+                LOG_TRACE(Application_impl, "Query external property: " << extId << " on "
+                        << compId << " (propid: " << propId << ")");
+
+                // Adds property to component ID mapping
+                // If one doesn't exist, creates it
+                if (batch.count(compId)) {
+                    int count = batch[compId].second.length();
+                    batch[compId].second.length(count + 1);
+                    batch[compId].second[count].id = propId.c_str();
+                } else {
+                    CF::Properties tempProp;
+                    tempProp.length(1);
+                    tempProp[0].id = propId.c_str();
+                    batch[compId] = std::pair<CF::Resource_ptr, CF::Properties>(comp, tempProp);
+                }
+            }
+        }
+
+        // -Loop through each component with an external property and make query() call
+        // -Catch any errors
+        for (std::map<std::string, std::pair<CF::Resource_ptr, CF::Properties> >::iterator comp = batch.begin();
+                comp != batch.end(); ++comp) {
+            try {
+                comp->second.first->query(comp->second.second);
+
+                // Adds each individual queried property
+                for (unsigned int i = 0; i < comp->second.second.length(); ++i) {
+                    // Gets the external property ID from the component ID and internal prop ID
+                    std::string extId = getExternalPropertyId(comp->first, std::string(comp->second.second[i].id));
+                    int count = configProperties.length();
+                    configProperties.length(count + 1);
+                    configProperties[count].id = CORBA::string_dup(extId.c_str());
+                    configProperties[count].value = comp->second.second[i].value;
+                }
+            } catch (CF::UnknownProperties e) {
+                for (unsigned int i = 0; i < e.invalidProperties.length(); ++i) {
+                    // Add invalid properties to return list
+                    int count = invalidProperties.length();
+                    invalidProperties.length(count + 1);
+                    invalidProperties[count].id = CORBA::string_dup(e.invalidProperties[i].id);
+                    invalidProperties[count].value = e.invalidProperties[i].value;
+                }
+            }
+        }
+
+        // Query Assembly Controller properties
+        CF::Properties tempProp;
+        try {
+            assemblyController->query(tempProp);
+        } catch (CF::UnknownProperties e) {
+            int count = invalidProperties.length();
+            invalidProperties.length(count + e.invalidProperties.length());
+            for (unsigned int i = 0; i < e.invalidProperties.length(); ++i) {
+                LOG_ERROR(Application_impl, "Invalid assembly controller property name: " << e.invalidProperties[i].id);
+                invalidProperties[count + i] = e.invalidProperties[i];
+            }
+        }
+
+        // Adds Assembly Controller properties
+        for (unsigned int i = 0; i < tempProp.length(); ++i) {
+            // Only add AC props that aren't already promoted as external
+            if (this->getExternalPropertyId(acId, std::string(tempProp[i].id)) == "") {
+                int count = configProperties.length();
+                configProperties.length(count + 1);
+                configProperties[count].id = CORBA::string_dup(tempProp[i].id);
+                configProperties[count].value = tempProp[i].value;
+            }
+        }
+    } else {
+        // For queries of length > 0, return all requested pairs that are valid external properties
+        // or are Assembly Controller Properties
+        CF::Properties acProps;
+        batch[acId] = std::pair<CF::Resource_ptr, CF::Properties>(assemblyController, acProps);
+
+        for (unsigned int i = 0; i < configProperties.length(); ++i) {
+            // Gets external ID for property mapping
+            const std::string extId(configProperties[i].id);
+
+            if (_properties.count(extId)) {
+                // Gets the component and its property id
+                const std::string propId = _properties[extId].first;
+                CF::Resource_ptr comp = _properties[extId].second;
+
+                if (CORBA::is_nil(comp)) {
+                    LOG_ERROR(Application_impl, "Unable to retrieve component for external property: " << extId);
+                    int count = invalidProperties.length();
+                    invalidProperties.length(count + 1);
+                    invalidProperties[count].id = CORBA::string_dup(extId.c_str());
+                    invalidProperties[count].value = configProperties[i].value;
+                } else {
+                    // Key used for map
+                    std::string compId = ossie::corba::returnString(comp->identifier());
+
+                    LOG_TRACE(Application_impl, "Query external property: " << extId << " on "
+                            << compId << " (propid: " << propId << ")");
+
+                    // Adds property to component ID mapping
+                    // If one doesn't exist, adds it
+                    if (batch.count(compId)) {
+                        int count = batch[compId].second.length();
+                        batch[compId].second.length(count + 1);
+                        batch[compId].second[count].id = propId.c_str();
+                        batch[compId].second[count].value = configProperties[i].value;
+                    } else {
+                        CF::Properties tempProp;
+                        tempProp.length(1);
+                        tempProp[0].id = propId.c_str();
+                        tempProp[0].value = configProperties[i].value;
+                        batch[compId] = std::pair<CF::Resource_ptr, CF::Properties>(comp, tempProp);
+                    }
+                }
+            } else if (!CORBA::is_nil(assemblyController)) {
+                // Properties that are not external get batched with assembly controller
+                LOG_TRACE(Application_impl, "Calling query on assembly controller for property: "
+                        << configProperties[i].id);
+                int count = batch[acId].second.length();
+                batch[acId].second.length(count + 1);
+                batch[acId].second[count].id = configProperties[i].id;
+                batch[acId].second[count].value = configProperties[i].value;
+            } else {
+                LOG_ERROR(Application_impl, "Unable to retrieve assembly controller for external property: " << extId);
+                int count = invalidProperties.length();
+                invalidProperties.length(count + 1);
+                invalidProperties[count].id = CORBA::string_dup(extId.c_str());
+                invalidProperties[count].value = configProperties[i].value;
+            }
+        }
+
+        // -Loop through each component with a property that needs to be queried and make query() call
+        // -Catch any errors
+        for (std::map<std::string, std::pair<CF::Resource_ptr, CF::Properties> >::iterator comp = batch.begin();
+                comp != batch.end(); ++comp) {
+            try {
+                comp->second.first->query(comp->second.second);
+            } catch (CF::UnknownProperties e) {
+                for (unsigned int i = 0; i < e.invalidProperties.length(); ++i) {
+                    // Add invalid properties to return list
+                    int count = invalidProperties.length();
+                    invalidProperties.length(count + 1);
+                    invalidProperties[count].id = CORBA::string_dup(e.invalidProperties[i].id);
+                    invalidProperties[count].value = e.invalidProperties[i].value;
+                }
+            }
+        }
+
+        // Loops through requested property IDs to find value that was returned from internal call
+        for (unsigned int i = 0; i < configProperties.length(); ++i) {
+            const std::string extId(configProperties[i].id);
+            std::string propId;
+            std::string compId;
+
+            // Checks if property ID is external or AC property
+            if (_properties.count(extId)) {
+                propId = _properties[extId].first;
+                compId = ossie::corba::returnString(_properties[extId].second->identifier());
+            } else {
+                propId = extId;
+                compId = ossie::corba::returnString(assemblyController->identifier());
+            }
+
+            // Loops through batched query results finding requested property
+            for (std::map<std::string, std::pair<CF::Resource_ptr, CF::Properties> >::const_iterator comp = batch.begin();
+                    comp != batch.end(); ++comp) {
+                for (unsigned int j = 0; j < comp->second.second.length(); ++j) {
+                    const std::string currPropId(comp->second.second[j].id);
+                    if (compId == comp->first && propId == currPropId) {
+                        configProperties[i].value = comp->second.second[j].value;
+                    }
+                }
+            }
+        }
+    }
+
+    if (invalidProperties.length () != 0) {
+        throw CF::UnknownProperties(invalidProperties);
+    }
+
+    LOG_TRACE(Application_impl, "Query returning " << configProperties.length() <<
+            " external and assembly controller properties");
 }
 
 
@@ -438,9 +744,9 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
         // deallocate capacity
         LOG_DEBUG(Application_impl, "Determining if we need to deallocate capacities")
         try {
-            LOG_DEBUG(Application_impl, "Entering deallocation function " << _allocPropsTable.count(id))
+            LOG_DEBUG(Application_impl, "Entering deallocation function " << _allocPropsTable.count(id));
             if (_allocPropsTable.count(id) > 0) {
-                LOG_DEBUG(Application_impl, "Entering deallocation function " << _allocPropsTable[id].size())
+                LOG_DEBUG(Application_impl, "Entering deallocation function " << _allocPropsTable[id].size());
                 for (unsigned int devCount = 0; devCount < _allocPropsTable[id].size(); devCount++) {
                     if (_allocPropsTable[id][devCount].properties.length() > 0) {
                         // first check to see if device still exists
@@ -466,6 +772,26 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
         }
 
         LOG_DEBUG(Application_impl, "Next component")
+    }
+
+    // deallocate uses device capacities
+    for (unsigned int i = 0; i < _usesDeviceCapacities.size(); ++i) {
+        if (_usesDeviceCapacities[i].properties.length() > 0) {
+            // first check to see if device still exists
+            if (!ossie::corba::objectExists(_usesDeviceCapacities[i].device)) {
+                LOG_WARN(Application_impl, "Not deallocating capacity on device " <<
+                        ossie::corba::returnString(_usesDeviceCapacities[i].device->identifier()) <<
+                        " because it no longer exists");
+                continue;
+            }
+            // deallocate capacity
+            LOG_DEBUG(Application_impl, "deallocating on device " <<
+                    ossie::corba::returnString(_usesDeviceCapacities[i].device->identifier()));
+            _usesDeviceCapacities[i].device->deallocateCapacity(_usesDeviceCapacities[i].properties);
+            LOG_DEBUG(Application_impl, "Finished deallocating")
+        } else {
+            LOG_DEBUG(Application_impl, "No capacity to deallocate")
+        }
     }
 
     // Unbind the application's naming context using the fully-qualified name.
@@ -586,6 +912,14 @@ void Application_impl::addExternalPort (const std::string& identifier, CORBA::Ob
     _ports[identifier] = CORBA::Object::_duplicate(port);
 }
 
+void Application_impl::addExternalProperty (const std::string& propId, const std::string& externalId, CF::Resource_ptr comp)
+{
+    if (_properties.count(externalId)) {
+        throw std::runtime_error("External Property name " + externalId + " is already in use");
+    }
+
+    _properties[externalId] = std::pair<std::string, CF::Resource_ptr>(propId, comp);
+}
 
 bool Application_impl::checkConnectionDependency (Endpoint::DependencyType type, const std::string& identifier) const
 {
@@ -596,4 +930,22 @@ bool Application_impl::checkConnectionDependency (Endpoint::DependencyType type,
     }
     
     return false;
+}
+
+std::string Application_impl::getExternalPropertyId(std::string compIdIn, std::string propIdIn)
+{
+    for (std::map<std::string, std::pair<std::string, CF::Resource_ptr> >::const_iterator prop = _properties.begin();
+            prop != _properties.end(); ++prop) {
+        // Gets the property mapping info
+        std::string extId = prop->first;
+        std::string propId = prop->second.first;
+        // Gets the Resource identifier
+        std::string compId = ossie::corba::returnString(prop->second.second->identifier());
+
+        if (compId == compIdIn && propId == propIdIn) {
+            return extId;
+        }
+    }
+
+    return "";
 }

@@ -31,35 +31,38 @@ class SBTestTest(scatest.CorbaTestCase):
     def setUp(self):
         sb.setDEBUG(True)
         self.test_comp = "Sandbox"
-        sb.domainless._std_idl_path = '../base/idl/'
-        sb.domainless._std_idl_include_path = '../base/idl'
-        # Clean up previous states
-        sb.domainless._currentState['Components Running'] = {}
+        # Flagrant violation of sandbox API: if the sandbox singleton exists,
+        # clean up previous state and dispose of it.
+        if sb.domainless._sandbox:
+            sb.domainless._sandbox.shutdown()
+            sb.domainless._sandbox = None
+
+    def assertComponentCount(self, count):
+        self.assertEquals(len(sb.domainless._getSandbox().getComponents()), count)
 
     def tearDown(self):
-        sb.domainless._cleanUpLaunchedComponents()
+        sb.domainless._getSandbox().shutdown()
         sb.setDEBUG(False)
         os.environ['SDRROOT'] = globalsdrRoot
 
     def test_catalog(self):
         # Store orig sdrroot
-        sb.domainless._currentState['SDRROOT'] = None
         sdrRoot = os.environ.pop('SDRROOT')
         
-        # No SDRROOT env
-        self.assertEquals(sb.catalog(), None)
+        # No SDRROOT env (should default to current directory).
+        self.assertEquals(sb.catalog(), [])
         
-        # Bad Sdr root env
+        # Bad Sdr root env; dispose of existing sandbox instance to test.
+        sb.domainless._sandbox = None
         os.environ["SDRROOT"] = ""
         self.assertEquals(sb.catalog(), [])
                 
         # Good SDRROOT
-        sb.domainless._currentState['SDRROOT'] = None
-        os.environ['SDRROOT'] = sdrRoot
-        self.assertNotEquals(sb.catalog(), 0)
+        sb.setSDRROOT(sdrRoot)
+        self.assertNotEquals(len(sb.catalog()), 0)
         
         # Bad search path
-        self.assertEquals(sb.catalog("my_path"), [])
+        self.assertEquals(len(sb.catalog("my_path")), 0)
         
         # Search path with no usable files
         self.assertEquals(len(sb.catalog("jackhammer")), 0)
@@ -73,17 +76,17 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertRaises(TypeError, sb.setSDRROOT, None)
         
         # Bad dir should not change root
-        sdrroot = sb.domainless._currentState['SDRROOT']
+        sdrroot = sb.getSDRROOT()
         self.assertRaises(AssertionError, sb.setSDRROOT, 'TEMP_PATH')
-        self.assertEquals(sdrroot, sb.domainless._currentState['SDRROOT'])
+        self.assertEquals(sdrroot, sb.getSDRROOT())
         
         # Good dir with no dev/dom should not change root
         self.assertRaises(AssertionError, sb.setSDRROOT, 'jackhammer')
-        self.assertEquals(sdrroot, sb.domainless._currentState['SDRROOT'])
+        self.assertEquals(sdrroot, sb.getSDRROOT())
         
         # New root
         sb.setSDRROOT('sdr')
-        self.assertEquals(sb.domainless._currentState['SDRROOT'], 'sdr')
+        self.assertEquals(sb.getSDRROOT(), 'sdr')
         
         # Restore sdrroot
         sb.setSDRROOT(os.environ['SDRROOT'])
@@ -91,19 +94,22 @@ class SBTestTest(scatest.CorbaTestCase):
     
     def test_componentInit(self):        
         # Bad descriptors
-        self.assertRaises(AssertionError, sb.Component)
-        self.assertRaises(AssertionError, sb.Component, "test_name")
+        self.assertRaises(TypeError, sb.launch)
+        self.assertRaises(ValueError, sb.launch, "test_name")
                 
         # Make sure only one instance name and refid can be used
-        comp = sb.Component(self.test_comp, "comp")
+        comp = sb.launch(self.test_comp, "comp")
         comp.api()
         refid = comp._refid
-        self.assertRaises(AssertionError, sb.Component, self.test_comp, "comp")
-        self.assertRaises(AssertionError, sb.Component, self.test_comp, "new_comp", refid)
+        self.assertRaises(ValueError, sb.launch, self.test_comp, "comp")
+        self.assertRaises(ValueError, sb.launch, self.test_comp, "new_comp", refid)
         
         # Only 1 component should be running
-        self.assertEquals(len(sb.domainless._currentState['Components Running']), 1)
+        self.assertComponentCount(1)
 
+    def test_relativePath(self):
+        comp = sb.launch('sdr/dom/components/Sandbox/Sandbox.spd.xml')
+        self.assertComponentCount(1)
     
     def initValues(self, comp):
         # Init values 
@@ -113,13 +119,13 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_long, 10)
         self.assertEquals(comp.my_long_empty, None)
         self.assertEquals(comp.my_str, "Hello World!")
-# TODO How to deal with these Bug #131      self.assertEquals(comp.my_str_empty, None)
+        self.assertEquals(comp.my_str_empty, None)
         self.assertEquals(comp.my_struct.bool_true, True)
         self.assertEquals(comp.my_struct.bool_false, False)
                 
         self.assertEquals(comp.my_struct.bool_empty, None)
         self.assertEquals(comp.my_struct.long_s, None)
-#TODO Bug #131        self.assertEquals(comp.my_struct.str_s, "")
+        self.assertEquals(comp.my_struct.str_s, None)
         self.assertEquals(comp.my_seq_bool[0], True)
         self.assertEquals(comp.my_seq_bool[1], False)
         self.assertEquals(comp.my_seq_str[0], "one")
@@ -127,14 +133,14 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_seq_str[2], "three")
         self.assertEquals(comp.my_long_enum, None)
         self.assertEquals(comp.my_bool_enum, None)
-#TODO Bug #131        self.assertEquals(comp.my_str_enum, None)
+        self.assertEquals(comp.my_str_enum, None)
         self.assertEquals(comp.my_struct.enum_long, None)
         self.assertEquals(comp.my_struct.enum_bool, None)
-#TODO Bug #131        self.assertEquals(comp.my_struct.enum_str, None)
+        self.assertEquals(comp.my_struct.enum_str, None)
     
     
     def test_simpleComp(self):       
-        comp = sb.Component(self.test_comp)
+        comp = sb.launch(self.test_comp)
         comp.api()
         
         # Check the init values
@@ -177,7 +183,7 @@ class SBTestTest(scatest.CorbaTestCase):
         comp.my_str_enum = "one"
         comp.my_str_enum = 11.1
         comp.my_str_enum = False
-        # TODO Bug #131 self.assertEquals(comp.my_str_enum, None)
+        self.assertEquals(comp.my_str_enum, None)
         comp.my_bool_enum = 10
         comp.my_bool_enum = "one"
         comp.my_bool_enum = 11.1
@@ -195,7 +201,7 @@ class SBTestTest(scatest.CorbaTestCase):
         comp.my_struct.enum_str = "one"
         comp.my_struct.enum_str = 11.1
         comp.my_struct.enum_str = False
-        #TODO Bug #131 self.assertEquals(comp.my_struct.enum_str, None)
+        self.assertEquals(comp.my_struct.enum_str, None)
         comp.my_struct.enum_bool = 10
         comp.my_struct.enum_bool = "one"
         comp.my_struct.enum_bool = 11.1
@@ -269,7 +275,7 @@ class SBTestTest(scatest.CorbaTestCase):
 
 
     def test_illegalPropertyNames(self):
-        comp = sb.Component(self.test_comp)
+        comp = sb.launch(self.test_comp)
         comp.api()
             
         self.initValues(comp)
@@ -322,6 +328,13 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.over_simple, "override")
         self.assertEquals(comp.over_struct_seq, [{'a_word': 'something', 'a_number': 1}])
 
+    def test_loadSADFileNoOverriddenProperties(self):
+        retval = sb.loadSADFile('sdr/dom/waveforms/ticket_841_and_854/ticket_841_and_854.sad.xml')
+        self.assertEquals(retval, True)
+        comp_ac = sb.getComponent('Sandbox_1')
+        self.assertNotEquals(comp_ac, None)
+        self.assertEquals(comp_ac.my_long, 10)
+
     def test_loadSADFile_overload_create(self):
         retval = sb.loadSADFile('sdr/dom/waveforms/ticket_462_w/ticket_462_w.sad.xml', props={'my_simple':'not foo','over_simple':'not override'})
         #retval = sb.loadSADFile('sdr/dom/waveforms/ticket_462_w/ticket_462_w.sad.xml', props=[{'my_simple':'not foo'},{'over_simple':'not override'}])
@@ -337,7 +350,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.over_struct_seq, [{'a_word': 'something', 'a_number': 1}])
     
     def test_simplePropertyRange(self):
-        comp = sb.Component('TestPythonPropsRange')
+        comp = sb.launch('TestPythonPropsRange')
         comp.api()
         
         # Test upper range
@@ -392,7 +405,7 @@ class SBTestTest(scatest.CorbaTestCase):
         
         
     def test_structPropertyRange(self):
-        comp = sb.Component('TestPythonPropsRange')
+        comp = sb.launch('TestPythonPropsRange')
         comp.api()
         
         # Test upper range
@@ -446,13 +459,14 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_struct_name.struct_ulonglong_name.configureValue, -1)       
         
         # Makes sure the struct can be set without error
-        
-        comp.my_struct_name = {'struct_octet_name': 100, 'struct_short_name': 101, 'struct_ushort_name': 102, 'struct_long_name': 103, 
-                                      'struct_ulong_name': 104, 'struct_longlong_name': 105, 'struct_ulonglong_name': 106}
-        
+        # NB: This test used to use names instead of ids, which silently failed in 1.8.
+        new_value = {'struct_octet': 100, 'struct_short': 101, 'struct_ushort': 102, 'struct_long': 103,
+                     'struct_ulong': 104, 'struct_longlong': 105, 'struct_ulonglong': 106}
+        comp.my_struct_name = new_value
+        self.assertEquals(comp.my_struct_name, new_value)
         
     def test_seqPropertyRange(self):
-        comp = sb.Component('TestPythonPropsRange')
+        comp = sb.launch('TestPythonPropsRange')
         comp.api()
         
         # Test upper and lower bounds
@@ -515,7 +529,7 @@ class SBTestTest(scatest.CorbaTestCase):
 
         
     def test_structSeqPropertyRange(self):
-        comp = sb.Component('TestPythonPropsRange')
+        comp = sb.launch('TestPythonPropsRange')
         comp.api()
         
         # Test upper and lower bounds
@@ -567,20 +581,24 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_structseq_name[1].ss_ulonglong_name.configureValue, -1)
         
         # Make sure entire struct seq can be set without error
-        comp.my_structseq_name = [{'ss_octet': 100, 'ss_short': 101, 'ss_ushort': 102, 'ss_long': 103, 
-                                      'ss_ulong': 104, 'ss_longlong': 105, 'ss_ulonglong': 106},
-                                      {'ss_octet': 107, 'ss_short': 108, 'ss_ushort': 109, 'ss_long': 110, 
-                                      'ss_ulong': 111, 'ss_longlong': 112, 'ss_ulonglong': 113}
-                                      ]
+        new_value = [{'ss_octet': 100, 'ss_short': 101, 'ss_ushort': 102, 'ss_long': 103, 
+                      'ss_ulong': 104, 'ss_longlong': 105, 'ss_ulonglong': 106},
+                     {'ss_octet': 107, 'ss_short': 108, 'ss_ushort': 109, 'ss_long': 110, 
+                      'ss_ulong': 111, 'ss_longlong': 112, 'ss_ulonglong': 113}]
+        comp.my_structseq_name = new_value
+        self.assertEqual(comp.my_structseq_name, new_value)
         
         # Make sure individual structs can be set without error
-        comp.my_structseq_name[0] = {'ss_octet_name': 200, 'ss_short_name': 201, 'ss_ushort_name': 202, 'ss_long_name': 203, 
-                                      'ss_ulong_name': 204, 'ss_longlong_name': 205, 'ss_ulonglong_name': 206}
-        comp.my_structseq_name[1] = {'ss_octet_name': 207, 'ss_short_name': 208, 'ss_ushort_name': 209, 'ss_long_name': 210, 
-                                      'ss_ulong_name': 211, 'ss_longlong_name': 212, 'ss_ulonglong_name': 213}
+        # NB: This test used to use names instead of ids, which silently failed in 1.8.
+        for item in new_value:
+            for name in item.iterkeys():
+                item[name] = item[name] + 100
+        comp.my_structseq_name[0] = new_value[0]
+        comp.my_structseq_name[1] = new_value[1]
+        self.assertEqual(comp.my_structseq_name, new_value)
         
     def test_readOnlyProps(self):
-        comp = sb.Component('Sandbox')
+        comp = sb.launch('Sandbox')
         comp.api()
         
         # Properties should be able to be read, but not set, and all should throw the saem exception
@@ -634,7 +652,7 @@ class SBTestTest(scatest.CorbaTestCase):
         else:
             self.fail('Expected exception to be thrown for read only property')
         try: 
-            comp.readonly_structseq[1] = [{'readonly_s':'bad'}]
+            comp.readonly_structseq[1] = {'readonly_s':'bad'}
         except Exception, e:
             self.assertEquals(type(e), Exception)
         else:
@@ -655,7 +673,22 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.readonly_structseq[1].readonly_s, 'struct seq property')
         
 
+    def test_Services(self):
+        service = sb.launch(sb.getSDRROOT() + '/dev/services/BasicService_java/BasicService_java.spd.xml')
+        comp = sb.launch('ServiceComponent')
+        comp.connect(service)
+        self.assertEquals(len(sb.domainless.ConnectionManager.instance().getConnections().keys()), 1)
 
+        # Check that all the parameters got set correctly
+        props = service.query([])
+        d = dict([(p.id, any.from_any(p.value)) for p in props])
+        self.assertEqual(d["SERVICE_NAME"], "BasicService_java_1")
+        self.assertEqual(d["PARAM1"], "ABCD")
+        self.assertEqual(d["PARAM2"], 42)
+        self.assertAlmostEqual(d["PARAM3"], 3.1459)
+        self.assertEqual(d["PARAM4"], False)
+        self.assertEqual(d["PARAM5"], "Hello World")
+        self.assertEqual(d.has_key("PARAM6"), False)
 
 
         #TODO if BULKIO ever gets folded into core framework these tests can be used
@@ -665,10 +698,10 @@ class SBTestTest(scatest.CorbaTestCase):
         # 1 with a good connection
 
 #    def test_connections(self):
-#        a = sb.Component(self.test_comp)
-#        b = sb.Component("SandBoxTest2")
-#        no_connections = sb.Component("SimpleComponent")
-#        multiple_connections = sb.Component("SandBoxTestMultipleConnections")
+#        a = sb.launch(self.test_comp)
+#        b = sb.launch("SandBoxTest2")
+#        no_connections = sb.launch("SimpleComponent")
+#        multiple_connections = sb.launch("SandBoxTestMultipleConnections")
 #
 #        names = [a._componentName,              \
 #                 b._componentName,              \

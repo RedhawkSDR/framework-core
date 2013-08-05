@@ -28,7 +28,20 @@
 #include <COS/CosEventChannelAdmin.hh>
 #include <COS/CosLifeCycle.hh>
 
-#include "CF/StandardEvent.h"
+#include <ossie/CF/StandardEvent.h>
+
+#ifndef HAVE_LOG4CXX
+
+class log4cxx
+{
+    public:
+        static std::string __logger;
+        typedef std::string LoggerPtr;
+};
+
+#define LOG4CXX_WARN(classname, expression) ;
+
+#endif
 
 #ifndef HAVE_LOG4CXX
 

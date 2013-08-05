@@ -259,8 +259,8 @@ class Resource(object):
                 if self._props.has_id(prop.id) and self._props.isConfigurable(prop.id):
                     try:
                         self._props.configure(prop.id, prop.value)
-                    except ValueError:
-                        self._log.warning("Invalid value provided to configure for property %s", prop.id)
+                    except ValueError, e:
+                        self._log.warning("Invalid value provided to configure for property %s %s", prop.id, e)
                         notSet.append(prop)
                 else:
                     self._log.warning("Tried to configure non-existent, readonly, or property with action not equal to external %s", prop.id)

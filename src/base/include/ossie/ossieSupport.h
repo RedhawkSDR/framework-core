@@ -34,8 +34,7 @@
 #include "ossie/CF/cf.h"
 #include "ossie/CF/StandardEvent.h"
 
-#include "ossieparser.h" // For OSSIEPARSER_API which is needed for windows shared libraries, for other targets the definition is empty
-#include "applicationSupport.h"
+#include "debug.h"
 
 /**
 The ossieSupport namespace contains useful functions used throughout the
@@ -50,7 +49,7 @@ namespace ossie
     The ORB class provides access to a CORBA orb variable across multiple classes.
 
     */
-    class OSSIEPARSER_API ORB
+    class ORB
     {
     public:
         /**

@@ -39,13 +39,11 @@ from ossie.cf import CF, CF__POA
 from ossie.cf import ExtendedCF
 import copy
 from ossie import properties
+from ossie.utils import model
 from ossie.utils import prop_helpers
 from ossie.utils import sb
 import getopt
 from ossie.utils.sca import importIDL
-
-NamingContextStub = sb.domainless._NamingContextStub
-DeviceManagerStub = sb.domainless._DeviceManagerStub
 
 # These global methods are here to allow other modules to modify the global variables IMPL_ID and SOFT_PKG
 # TestCase setUp() method doesn't allow passing in arguments to the test case so global values are needed
@@ -105,16 +103,19 @@ class ScaComponentTestCase(unittest.TestCase):
         global IMPL_ID
         self.comp_obj = None
         self.comp = None
-        self._processes = {}
         # Use the globals by default
         self.impl = IMPL_ID
         self.spd_file = SOFT_PKG
         self.spd = SPDParser.parse(SOFT_PKG)
         
-        self.prf_file = self.spd.get_propertyfile().get_localfile().get_name()
-        if (self.prf_file[0] != '/'):
-            self.prf_file = os.path.join(os.path.dirname(self.spd_file), self.prf_file)
-        self.prf = PRFParser.parse(self.prf_file)
+        try:
+            self.prf_file = self.spd.get_propertyfile().get_localfile().get_name()
+            if (self.prf_file[0] != '/'):
+                self.prf_file = os.path.join(os.path.dirname(self.spd_file), self.prf_file)
+            self.prf = PRFParser.parse(self.prf_file)
+        except:
+            self.prf_file = None
+            self.prf = None
         
         self.scd_file = self.spd.get_descriptor().get_localfile().get_name()
         if (self.scd_file[0] != '/'):
@@ -122,7 +123,8 @@ class ScaComponentTestCase(unittest.TestCase):
         self.scd = SCDParser.parse(self.scd_file)
 
         # create a map between prop ids and names
-        self._props = prop_helpers.getPropNameDict(self.prf)
+        if self.prf:
+            self._props = prop_helpers.getPropNameDict(self.prf)
 
     def tearDown(self):
         """
@@ -131,176 +133,29 @@ class ScaComponentTestCase(unittest.TestCase):
         if self.comp_obj != None and self.scd.get_componenttype() in \
             ("resource", "device", "loadabledevice", "executabledevice"):
             try:
-                self.comp_obj.stop()
+                self.comp.releaseObject()
             except CORBA.Exception:
                 pass
-            
-            try:
-                self.comp_obj.releaseObject()
-            except CORBA.Exception:
-                pass
-            
-        for pid in self._processes.keys():
-            logging.debug("Killing Process: %d" % pid)
-            self._terminate(pid)
-            
+        else:
+            # TODO: Services
+            pass
         self.comp_obj = None
-        #NamingContextStub.component = None
-    
-    def _terminate(self, pid):
-        sp = self._processes[pid]
-        for sig, timeout in self.STOP_SIGNALS:
-            try:
-                # the group id is used to handle child processes (if they 
-                # exist) of the component being cleaned up
-                os.killpg(pid, sig)
-            except OSError:
-                pass
-            if timeout != None:
-                giveup_time = time.time() + timeout
-            while sp.poll() == None:
-                if time.time() > giveup_time: break
-                time.sleep(0.1)
-            if sp.poll() != None: break
-        sp.wait()
-        del self._processes[pid]
-        
-    
-    def _launchResource(self, execparams={}, ossiehome=None):
+            
+    def launch(self, execparams={}, ossiehome=None):
         if IDE_REF_ENV == None:
             if ossiehome:
-                sb.domainless._ossiehome = str(ossiehome)
-                sb.domainless._interface_list = importIDL.importStandardIdl(std_idl_path=str(ossiehome)+'/idl', std_idl_include_path=str(ossiehome)+'/idl')
-                sb.domainless._loadedInterfaceList = True
-            component = sb.Component(self.spd_file, impl=self.impl, execparams=execparams)
+                model._ossiehome = str(ossiehome)
+                model._interface_list = importIDL.importStandardIdl(std_idl_path=str(ossiehome)+'/idl', std_idl_include_path=str(ossiehome)+'/idl')
+                model._loadedInterfaceList = True
+            component = sb.launch(self.spd_file, impl=self.impl, execparams=execparams)
         else:
             # spd file path passed in to unit test is relative to current component tests directory (i.e. "..")
             # IDE unit test requires spd file path relative to sca file system
             componentName = str(self.spd.get_name())
             sca_file_system_spd_file = "components/" + componentName + "/" + self.spd_file[3:]
-            component = sb.Component(sca_file_system_spd_file, impl=self.impl, execparams=execparams)
+            component = sb.launch(sca_file_system_spd_file, impl=self.impl, execparams=execparams)
         self.comp_obj = component.ref
         self.comp = component
-        if IDE_REF_ENV == None:
-            if component._sub_process != None:
-                pid = component._sub_process.pid
-                self._processes[pid] = component._sub_process
-        
-                logging.debug("Component is running (%d)...", pid)
-            else:
-                raise AssertionError, "Component instance has _sub_process equal to None"
-
-        
-    def launch(self, execparams={}, ossiehome=None):
-        if self.scd.get_componenttype() in ('resource',):
-            return self._launchResource(execparams, ossiehome)
-        
-        # get the implementation info
-        if self.impl == None:
-            chosen_impl = self.spd.get_implementation()[0]
-        else:
-            for impl in self.spd.get_implementation():
-                if impl.get_id() == self.impl:
-                    chosen_impl = impl
-       
-        # get the type
-        type = self.scd.get_componenttype()
-
-        # The id was not part of the SPD file
-        if chosen_impl == None:
-            raise ValueError("ID %s was not found" % self.impl)
-        
-        # Prepare the ORB
-        orb = CORBA.ORB_init()
-        obj_poa = orb.resolve_initial_references("RootPOA")
-        poaManager = obj_poa._get_the_POAManager()
-        poaManager.activate()
-    
-        # Prepare the NamingContext stub
-        nc_stub = NamingContextStub()
-        obj_poa.activate_object(nc_stub)
-        nc_stub_var = nc_stub._this()
-        dm_stub = DeviceManagerStub()
-          
-        # Prepare the exec params
-        naming_context_ior = orb.object_to_string(nc_stub_var)
-        name_binding = self.spd.get_name()
-        component_identifier = self.spd.get_id()
-       
-        entry_point = chosen_impl.get_code().get_entrypoint()
-        if (entry_point[0] != '/'):
-            entry_point = os.path.join(os.path.dirname(self.spd_file), entry_point)
-        logging.debug("Running Entry Point: %s", entry_point)
-        logging.debug("Binding to Name: %s", name_binding)
-        logging.debug("Simulated Naming Context IOR: %s", naming_context_ior)
-        if not os.path.exists(entry_point):
-            raise AssertionError, "Component implementation %s is missing entry_point %s" % (self.impl, chosen_impl.get_code().get_entrypoint())
-
-        if self.scd.get_componenttype() in ("device", "loadabledevice", "executabledevice"):
-            # Prepare a DeviceManager stub
-            #dm_stub = DeviceManagerStub()
-            dm_stub_var = dm_stub._this()
-            device_manager_ior = orb.object_to_string(dm_stub_var)
-              
-            # Prepare the exec params
-            args = [ entry_point,
-                     "DEVICE_ID", component_identifier, 
-                     "DEVICE_LABEL", self.spd.get_name(),
-                     "DEVICE_MGR_IOR", device_manager_ior,
-                     "PROFILE_NAME", self.spd_file ]
-        elif self.scd.get_componenttype() in ("service",):
-            dm_stub_var = dm_stub._this()
-            device_manager_ior = orb.object_to_string(dm_stub_var)
-            args = [ entry_point,
-                     "DEVICE_MGR_IOR", device_manager_ior, 
-                     "SERVICE_NAME", self.spd.get_name() ]
-        else:
-            raise ValueError("Unexpected component type")
-
-        for ex_id, ex_val in execparams.items():
-            if (ex_val != None):
-                args.append(ex_id)
-                args.append(str(ex_val))
-        
-        try:
-            sub_process = subprocess.Popen(args, 
-                                           executable=os.path.join(os.getcwd(), 
-                                                                   entry_point),
-                                           cwd=os.getcwd(),
-                                           preexec_fn=os.setpgrp)
-        except Exception, e:
-            raise AssertionError, "Failed to launch component implementation %s due to %s" % (self.impl, e)
-    
-        # Wait up to 10 seconds for the component to bind
-        timeout = 10
-        self.comp_obj = None
-        if self.scd.get_componenttype() in ("device", "loadabledevice", "executabledevice"):
-            while DeviceManagerStub.device == None:
-                logging.debug("Waiting for DeviceManagerStub device %s", timeout)
-                time.sleep(1)
-                timeout -= 1
-                if timeout < 0:
-                    raise AssertionError, "Device implementation %s did not register with device manager" % self.impl
-            self.comp_obj = DeviceManagerStub.device
-            self.comp_obj = self.comp_obj._narrow(CF.Device)
-            if self.comp_obj._narrow(CF.LoadableDevice):
-                self.comp_obj = self.comp_obj._narrow(CF.LoadableDevice)
-            if self.comp_obj._narrow(CF.ExecutableDevice):
-                self.comp_obj = self.comp_obj._narrow(CF.ExecutableDevice)
-            self.comp = sb.Component(componentDescriptor=self.spd_file,autoKick=False,componentObj=self.comp_obj)
-        elif self.scd.get_componenttype() in ("service",):
-            while DeviceManagerStub.service == None:
-                logging.debug("Waiting for DeviceManagerStub service %s", timeout)
-                time.sleep(1)
-                timeout -= 1
-                if timeout < 0:
-                    raise AssertionError, "Service implementation %s did not register with device manager" % self.impl
-            self.comp_obj = DeviceManagerStub.service
-            
-        pid = sub_process.pid
-        self._processes[pid] = sub_process
-        
-        logging.debug("Component is running (%d)...", pid)
             
     def isMatch(self, prop, modes, kinds, actions):
         if prop.get_mode() == None:
@@ -356,10 +211,10 @@ class ScaComponentTestCase(unittest.TestCase):
         # Simples
         for prop in self.prf.get_simple():
             if self.isMatch(prop, modes, kinds, (action,)): 
-                if prop.get_value() == None and includeNil == False:
-                    continue
-                if prop.get_value() != None:
+                if prop.get_value() is not None:
                     dt = properties.to_tc_value(prop.get_value(), prop.get_type())
+                elif not includeNil:
+                    continue
                 else:
                     dt = any.to_any(None)
                 p = CF.DataType(id=str(prop.get_id()), value=dt)
@@ -368,11 +223,13 @@ class ScaComponentTestCase(unittest.TestCase):
         # Simple Sequences
         for prop in self.prf.get_simplesequence():
             if self.isMatch(prop, modes, kinds, (action,)): 
-                if prop.get_values() != None:
+                if prop.get_values() is not None:
                     seq = []
                     for v in prop.get_values().get_value():
                         seq.append(properties.to_pyvalue(v, prop.get_type()))
                     dt = any.to_any(seq)
+                elif not includeNil:
+                    continue
                 else:
                     dt = any.to_any(None)
                 p = CF.DataType(id=str(prop.get_id()), value=dt)
@@ -381,11 +238,16 @@ class ScaComponentTestCase(unittest.TestCase):
         # Structures
         for prop in self.prf.get_struct():
             if self.isMatch(prop, modes, kinds, (action,)): 
-                if prop.get_simple() != None:
+                if prop.get_simple() is not None:
                     fields = []
+                    hasValue = False
                     for s in prop.get_simple():
+                        if s.get_value() is not None:
+                            hasValue = True
                         dt = properties.to_tc_value(s.get_value(), s.get_type())
                         fields.append(CF.DataType(id=str(s.get_id()), value=dt))
+                    if not hasValue and not includeNil:
+                        continue
                     dt = any.to_any(fields)
                 else:
                     dt = any.to_any(None)
@@ -410,7 +272,10 @@ class ScaComponentTestCase(unittest.TestCase):
                   for subfield in baseProp[-1]:
                       if subfield.id == entry.refid:
                         subfield.value = properties.to_tc_value(entry.get_value(), val_type)
-              p = CF.DataType(id=str(prop.get_id()), value=any.to_any(baseProp))
+              anybp = []
+              for bp in baseProp:
+                  anybp.append(properties.props_to_any(bp))
+              p = CF.DataType(id=str(prop.get_id()), value=any.to_any(anybp))
               propertySet.append(p)
         # Struct Sequence
 

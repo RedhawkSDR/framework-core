@@ -21,9 +21,9 @@
 package org.ossie.events;
 
 import org.omg.CORBA.Any;
+import org.omg.CosEventChannelAdmin.*;
 import java.util.Hashtable;
 
-import CosEventChannelAdmin.*;
 import org.ossie.events.Consumer_i;
 import org.ossie.component.*;
 import org.ossie.properties.StructDef;
@@ -60,7 +60,7 @@ public class MessageSupplierPort extends UsesPort<EventChannelOperations> implem
                 for (ProxyPushConsumerOperations p : this.outConnections_channel.values()) {
                     try {
                         ((ProxyPushConsumerOperations) p).push(data);
-                    } catch (final COS.CosEventComm.Disconnected ex) {
+                    } catch (final org.omg.CosEventComm.Disconnected ex) {
                         continue;
                     }
                 }
@@ -73,18 +73,18 @@ public class MessageSupplierPort extends UsesPort<EventChannelOperations> implem
         return EventChannelHelper.narrow(connection);
     }
 
-    public CosEventChannelAdmin.ConsumerAdmin for_consumers() 
+    public org.omg.CosEventChannelAdmin.ConsumerAdmin for_consumers() 
     {
-        CosEventChannelAdmin.ConsumerAdmin retval = null;
+        org.omg.CosEventChannelAdmin.ConsumerAdmin retval = null;
         return retval;
     }
     public void destroy() 
     {
         return;
     }
-    public CosEventChannelAdmin.SupplierAdmin for_suppliers() 
+    public org.omg.CosEventChannelAdmin.SupplierAdmin for_suppliers() 
     {
-        CosEventChannelAdmin.SupplierAdmin retval = null;
+        org.omg.CosEventChannelAdmin.SupplierAdmin retval = null;
         return retval;
     }
 }

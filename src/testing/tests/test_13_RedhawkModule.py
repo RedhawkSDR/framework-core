@@ -20,6 +20,7 @@
 
 import unittest
 import scatest
+import time
 from ossie.utils import redhawk
 from ossie.utils import type_helpers
 
@@ -85,14 +86,18 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertEquals(len(self._rhDom._get_applications()), 1)
         self.assertEquals(len(self._rhDom.apps), 1)
         
-        # Make sure that a list created outside of the redhawk module still updates the app list inside
+        # Make sure that an app created outside of the redhawk module still updates the app list inside
         self._domMgr.installApplication('/waveforms/TestCppProps/TestCppProps.sad.xml')
         appFact = self._domMgr._get_applicationFactories()[0]
         app2 = appFact.create(appFact._get_name(), [], [])
+        # Give the domain a moment to process the ODM event
+        time.sleep(0.1)
         self.assertEquals(len(self._rhDom.apps), 2)
         
         app2.releaseObject()
         app.releaseObject()
+        # Give the domain a moment to process the ODM event
+        time.sleep(0.1)
         self.assertEquals(len(self._rhDom.apps), 0)
         self.assertEquals(len(self._rhDom._get_applications()), 0)
         
@@ -206,9 +211,11 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_ulonglong_name.configureValue, -1)       
         
         # Makes sure the struct can be set without error
-        
-        app.my_struct_name = {'struct_octet_name': 100, 'struct_short_name': 101, 'struct_ushort_name': 102, 'struct_long_name': 103, 
-                                      'struct_ulong_name': 104, 'struct_longlong_name': 105, 'struct_ulonglong_name': 106}
+        # NB: This test used to use names instead of ids, which silently failed in 1.8.
+        new_value = {'struct_octet': 100, 'struct_short': 101, 'struct_ushort': 102, 'struct_long': 103,
+                     'struct_ulong': 104, 'struct_longlong': 105, 'struct_ulonglong': 106}
+        app.my_struct_name = new_value
+        self.assertEquals(app.my_struct_name, new_value)
         
         
     def test_seqPropertyRange(self):
@@ -327,15 +334,18 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_ulonglong_name.configureValue, -1)
         
         # Make sure entire struct seq can be set without error
-        app.my_structseq_name = [{'ss_octet': 100, 'ss_short': 101, 'ss_ushort': 102, 'ss_long': 103, 
-                                      'ss_ulong': 104, 'ss_longlong': 105, 'ss_ulonglong': 106},
-                                      {'ss_octet': 107, 'ss_short': 108, 'ss_ushort': 109, 'ss_long': 110, 
-                                      'ss_ulong': 111, 'ss_longlong': 112, 'ss_ulonglong': 113}
-                                      ]
+        new_value = [{'ss_octet': 100, 'ss_short': 101, 'ss_ushort': 102, 'ss_long': 103, 
+                      'ss_ulong': 104, 'ss_longlong': 105, 'ss_ulonglong': 106},
+                     {'ss_octet': 107, 'ss_short': 108, 'ss_ushort': 109, 'ss_long': 110, 
+                      'ss_ulong': 111, 'ss_longlong': 112, 'ss_ulonglong': 113}]
+        app.my_structseq_name = new_value
+        self.assertEqual(app.my_structseq_name, new_value)
         
         # Make sure individual structs can be set without error
-        app.my_structseq_name[0] = {'ss_octet_name': 200, 'ss_short_name': 201, 'ss_ushort_name': 202, 'ss_long_name': 203, 
-                                      'ss_ulong_name': 204, 'ss_longlong_name': 205, 'ss_ulonglong_name': 206}
-        app.my_structseq_name[1] = {'ss_octet_name': 207, 'ss_short_name': 208, 'ss_ushort_name': 209, 'ss_long_name': 210, 
-                                      'ss_ulong_name': 211, 'ss_longlong_name': 212, 'ss_ulonglong_name': 213}
-
+        # NB: This test used to use names instead of ids, which silently failed in 1.8.
+        for item in new_value:
+            for name in item.iterkeys():
+                item[name] = item[name] + 100
+        app.my_structseq_name[0] = new_value[0]
+        app.my_structseq_name[1] = new_value[1]
+        self.assertEqual(app.my_structseq_name, new_value)

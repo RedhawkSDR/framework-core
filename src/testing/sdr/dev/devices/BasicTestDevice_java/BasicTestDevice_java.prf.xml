@@ -66,4 +66,8 @@ with this program.  If not, see http://www.gnu.org/licenses/.
     <configurationkind kindtype="configure"/>
     <configurationkind kindtype="allocation"/>
   </struct>
+  <simple id="test_execparam" mode="readwrite" name="test_execparam" type="string">
+    <kind kindtype="execparam"/>
+    <action type="external"/>
+  </simple>
 </properties>

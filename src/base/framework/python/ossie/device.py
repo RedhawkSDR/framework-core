@@ -208,7 +208,7 @@ class Device(resource.Resource):
                         if success:
                             successfulAllocations[key] = val
                         else:
-                            self._log.error("property %s, could not be set to %s" % 
+                            self._log.debug("property %s, could not be set to %s" % 
                                             (key, val))
                             break
                     # If we couldn't allocate enough capacity, add it back
@@ -319,7 +319,7 @@ class Device(resource.Resource):
         else:
             self._log.error("deallocate capacity failed due to InvalidState")
             self._log.debug("%s %s %s", self._adminState, self._operationalState, self._usageState)
-            raise CF.Device.InvalidState("System is not DISABLED and UNLOCKED")
+            raise CF.Device.InvalidState("Cannot deallocate capacity. System is not DISABLED and UNLOCKED")
 
     def _deallocateCapacity(self, propname, value):
         """Override this if you want if you don't want magic dispatch"""
@@ -364,6 +364,18 @@ class Device(resource.Resource):
 
     def _get_adminState(self):
         return self._adminState
+
+    # Legal state transitions for _set_adminState
+    _adminStateTransitions = (
+        (CF.Device.LOCKED, CF.Device.UNLOCKED),
+        (CF.Device.UNLOCKED, CF.Device.LOCKED)
+    )
+
+    def _set_adminState(self, state):
+        if (self._adminState, state) not in Device._adminStateTransitions:
+            self._log.debug("Ignoring invalid admin state transition %s->%s", self._adminState, state)
+            return
+        self._adminState = state
 
     def _get_operationalState(self):
         return self._operationalState
@@ -463,7 +475,7 @@ class Device(resource.Resource):
             return
 
         try:
-            event = StandardEvent.StateChangeEventType(self._label, self._label, eventType, stateMap[fromState], stateMap[toState])
+            event = StandardEvent.StateChangeEventType(self._id, self._id, eventType, stateMap[fromState], stateMap[toState])
         except:
             self._log.warn("Error creating StateChangeEvent")
 
@@ -699,10 +711,30 @@ class LoadableDevice(Device):
             pass
         # it matches no patterns. Assume that it's a set of libraries
         if not matchesPattern:
+            # Split the path up
             try:
-                os.environ['LD_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']+':'+localFilePath+':'
+                path = [ x for x in os.environ['LD_LIBRARY_PATH'].split(os.path.pathsep) if x != "" ]
             except KeyError:
-                os.environ['LD_LIBRARY_PATH'] = localFilePath+':'
+                path = []
+
+            # Get an absolute path for localFilePath; look for a duplicate of this path before appending
+            candidatePath = os.path.abspath(localFilePath)
+            foundPath = False
+            for pathEntry in path:
+                try:
+                    if os.path.samefile(pathEntry, localFilePath):
+                        foundPath = True
+                        break
+                except OSError:
+                    # If we can't find concrete files to compare, fall back to string compare
+                    if pathEntry == candidatePath:
+                        foundPath = True
+                        break
+            if not foundPath:
+                path.append(candidatePath)
+
+            # Write the new LD_LIBRARY_PATH
+            os.environ['LD_LIBRARY_PATH'] = os.path.pathsep.join(path)
 
     def _modTime(self, fileSystem, remotePath):
         try:
@@ -850,7 +882,7 @@ class ExecutableDevice(LoadableDevice):
     STOP_SIGNALS = ((signal.SIGINT, 2),
                     (signal.SIGQUIT, 3),
                     (signal.SIGTERM, 15),
-                    (signal.SIGKILL, None))
+                    (signal.SIGKILL, 0))
 
     def __init__(self, devmgr, identifier, label, softwareProfile, compositeDevice, execparams, propertydefs=(),loggerName=None):
         LoadableDevice.__init__(self, devmgr, identifier, label, softwareProfile, compositeDevice, execparams, propertydefs,loggerName=loggerName)
@@ -973,18 +1005,16 @@ class ExecutableDevice(LoadableDevice):
         # SR:456
         sp = self._applications[pid]
         for sig, timeout in self.STOP_SIGNALS:
+            if sp.poll() is not None:
+                break
             try:
                 # the group id is used to handle child processes (if they exist) of the component being cleaned up
                 os.killpg(pid, sig)
             except OSError:
                 pass
-            if timeout != None:
-                giveup_time = time.time() + timeout
-            while sp.poll() == None:
-                if time.time() > giveup_time: break
+            giveup_time = time.time() + timeout
+            while sp.poll() is None and time.time() < giveup_time:
                 time.sleep(0.1)
-            if sp.poll() != None: break
-        sp.wait()
         try:
             del self._applications[pid]
         except:

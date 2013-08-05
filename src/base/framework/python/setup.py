@@ -42,19 +42,37 @@ else:
         print co.getvalue()
         sys.exit(-1)
 
-ossiepy = ['ossie', 'ossie/cf', \
-           'ossie/cf/CF', 'ossie/cf/CF__POA', \
-           'ossie/cf/PortTypes', 'ossie/cf/PortTypes__POA', \
-           'ossie/cf/StandardEvent', 'ossie/cf/StandardEvent__POA', \
-           'ossie/cf/ExtendedEvent', 'ossie/cf/ExtendedEvent__POA', \
-           'ossie/cf/ExtendedCF', 'ossie/cf/ExtendedCF__POA', \
-           'ossie/cf/ExtendedCF/WKP', 'ossie/cf/ExtendedCF__POA/WKP', \
-           'ossie/utils', 'ossie/utils/redhawk', 'ossie/utils/sca', 'ossie/utils/bluefile', 'ossie/utils/bulkio', 'ossie/utils/sb', \
-           'ossie/apps', 'ossie/apps/qtbrowse', \
-           'ossie/parsers', 'ossie/utils/tools', 'ossie/utils/log4py', 'ossie/utils/testing',
+ossiepy = ['ossie',
+           'ossie/apps',
+           'ossie/apps/qtbrowse',
+           'ossie/cf',
+           'ossie/cf/CF',
+           'ossie/cf/CF__POA',
+           'ossie/cf/PortTypes',
+           'ossie/cf/PortTypes__POA',
+           'ossie/cf/StandardEvent',
+           'ossie/cf/StandardEvent__POA',
+           'ossie/cf/ExtendedEvent',
+           'ossie/cf/ExtendedEvent__POA',
+           'ossie/cf/ExtendedCF',
+           'ossie/cf/ExtendedCF__POA',
+           'ossie/cf/ExtendedCF/WKP',
+           'ossie/cf/ExtendedCF__POA/WKP',
+           'ossie/parsers',
+           'ossie/utils',
+           'ossie/utils/bluefile',
+           'ossie/utils/bulkio',
+           'ossie/utils/log4py',
+           'ossie/utils/model',
+           'ossie/utils/redhawk',
+           'ossie/utils/sandbox',
+           'ossie/utils/sb',
+           'ossie/utils/sca',
+           'ossie/utils/testing',
+           'ossie/utils/tools',
            'redhawk']
 
-version='1.8.4'
+version='1.9.0'
 
 setup(
         name='ossiepy',

@@ -23,9 +23,9 @@ import scatest
 from omniORB import URI, any
 from ossie.cf import CF
 
-class ApplicationFactoryTest(scatest.CorbaTestCase):
+class LoadableDeviceTest(scatest.CorbaTestCase):
     def setUp(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=9)
+        domBooter, self._domMgr = self.launchDomainManager()
         self._testFiles = []
 
     def tearDown(self):
@@ -44,7 +44,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(self._domMgr._get_applications()), 0)
 
         # Ensure the expected device is available
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml", debug=9)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
         device = devMgr._get_registeredDevices()[0]
@@ -74,6 +74,31 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         self._domMgr.uninstallApplication(appFact._get_identifier())
 
+    def test_cpp_BigFiles(self):
+        self.assertNotEqual(self._domMgr, None)
+
+        self.assertEqual(len(self._domMgr._get_applicationFactories()), 0)
+        self.assertEqual(len(self._domMgr._get_applications()), 0)
+
+        self._domMgr.installApplication("/waveforms/CommandWrapperOsProcessor/CommandWrapper.sad.xml")
+        self.assertEqual(len(self._domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(self._domMgr._get_applications()), 0)
+
+        # Ensure the expected device is available
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(devMgr, None)
+        self.assertEqual(len(devMgr._get_registeredDevices()), 1)
+        device = devMgr._get_registeredDevices()[0]
+        device.load(devMgr._get_fileSys(), '/data/big_file.txt', CF.LoadableDevice.SHARED_LIBRARY)
+        source_file = open('sdr/dev/data/big_file.txt','r')
+        destination_file = open('sdr/cache/.ExecutableDevice_node/ExecutableDevice1/data/big_file.txt','r')
+        source_data = source_file.read()
+        destination_data = destination_file.read()
+        source_file.close()
+        destination_file.close()
+        self.assertEqual(source_data,destination_data)
+        device.unload('/data/big_file.txt')
+
     def test_EmptyDir(self):
         self.assertNotEqual(self._domMgr, None)
 
@@ -85,7 +110,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(self._domMgr._get_applications()), 0)
 
         # Ensure the expected device is available
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
         device = devMgr._get_registeredDevices()[0]
@@ -99,14 +124,8 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         app.start()
         app.stop()
-        fs = devMgr._get_fileSys()
-        contents = fs.list('/.BasicTestDevice_node/BasicTestDevice1/components/CommandWrapperEmptyDir/cmd_dir/tmp')
-        foundEmptyDirectory = False
-        for entry in contents:
-            if entry.name == 'tmp':
-                foundEmptyDirectory = True
-                break
-        self.assertEqual(foundEmptyDirectory, True)
+        tmpdir = os.path.join(scatest.getSdrCache(), '.BasicTestDevice_node/BasicTestDevice1/components/CommandWrapperEmptyDir/cmd_dir/tmp')
+        self.assert_(os.path.isdir(tmpdir))
         app.releaseObject()
         self.assertEqual(len(self._domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(self._domMgr._get_applications()), 0)
@@ -118,7 +137,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         # Verify in the devices cache is emtpy
         componentDir = os.path.join(scatest.getSdrPath(), "dom", "components", "CommandWrapperWithDirectoryLoad")
-        deviceCacheDir = os.path.join(scatest.getSdrPath(), "dev", ".ExecutableDevice_node", "ExecutableDevice1", "components", "CommandWrapperWithDirectoryLoad")
+        deviceCacheDir = os.path.join(scatest.getSdrCache(), ".ExecutableDevice_node", "ExecutableDevice1", "components", "CommandWrapperWithDirectoryLoad")
         if os.path.exists(deviceCacheDir):
             os.system("rm -rf %s" % deviceCacheDir)
 
@@ -130,7 +149,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(self._domMgr._get_applications()), 0)
 
         # Ensure the expected device is available
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml", debug=9)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
         device = devMgr._get_registeredDevices()[0]
@@ -171,7 +190,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(self._domMgr._get_applications()), 0)
 
         # Ensure the expected device is available
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
         device = devMgr._get_registeredDevices()[0]
@@ -209,7 +228,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         # Verify in the devices cache is emtpy
         componentDir = os.path.join(scatest.getSdrPath(), "dom", "components", "CommandWrapperWithDirectoryLoad")
-        deviceCacheDir = os.path.join(scatest.getSdrPath(), "dev", ".BasicTestDevice_node", "BasicTestDevice1", "components", "CommandWrapperWithDirectoryLoad")
+        deviceCacheDir = os.path.join(scatest.getSdrCache(), ".BasicTestDevice_node", "BasicTestDevice1", "components", "CommandWrapperWithDirectoryLoad")
         if os.path.exists(deviceCacheDir):
             os.system("rm -rf %s" % deviceCacheDir)
 
@@ -218,7 +237,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(self._domMgr._get_applications()), 0)
 
         # Ensure the expected device is available
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
         device = devMgr._get_registeredDevices()[0]
@@ -268,14 +287,14 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
     def test_py_UnloadOnRelease(self):
         # Test that releasing the device unloads all files
-        deviceCacheDir = os.path.join(scatest.getSdrPath(), "dev", ".BasicTestDevice_node", "BasicTestDevice1")
+        deviceCacheDir = os.path.join(scatest.getSdrCache(), ".BasicTestDevice_node", "BasicTestDevice1")
         if os.path.exists(deviceCacheDir):
             os.system("rm -rf %s" % deviceCacheDir)
 
         self.assertNotEqual(self._domMgr, None)
 
         # Ensure the expected device is available
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
         device = devMgr._get_registeredDevices()[0]
@@ -306,14 +325,14 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
     def test_py_LoadUnload(self):
         # Test that releasing the device unloads all files
-        deviceCacheDir = os.path.join(scatest.getSdrPath(), "dev", ".BasicTestDevice_node", "BasicTestDevice1")
+        deviceCacheDir = os.path.join(scatest.getSdrCache(), ".BasicTestDevice_node", "BasicTestDevice1")
         if os.path.exists(deviceCacheDir):
             os.system("rm -rf %s" % deviceCacheDir)
 
         self.assertNotEqual(self._domMgr, None)
 
         # Ensure the expected device is available
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
         device = devMgr._get_registeredDevices()[0]
@@ -382,14 +401,14 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
     def test_cpp_LoadUnload(self):
         # Test that releasing the device unloads all files
-        deviceCacheDir = os.path.join(scatest.getSdrPath(), "dev", ".ExecutableDevice_node", "ExecutableDevice1")
+        deviceCacheDir = os.path.join(scatest.getSdrCache(), ".ExecutableDevice_node", "ExecutableDevice1")
         if os.path.exists(deviceCacheDir):
             os.system("rm -rf %s" % deviceCacheDir)
 
         self.assertNotEqual(self._domMgr, None)
 
         # Ensure the expected device is available
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml", debug=9)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
         device = devMgr._get_registeredDevices()[0]
@@ -463,7 +482,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
     def _test_FileChanged(self, nodeName, deviceName):
         # Test that updating a file in the SCA filesystem causes a device to reload that file
         # in its cache.
-        deviceCacheDir = os.path.join(scatest.getSdrPath(), "dev", "." + nodeName, deviceName)
+        deviceCacheDir = os.path.join(scatest.getSdrCache(), "." + nodeName, deviceName)
         if os.path.exists(deviceCacheDir):
             os.system("rm -rf %s" % deviceCacheDir)
 
@@ -471,7 +490,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         fileMgr = self._domMgr._get_fileMgr()
         
         # Ensure the expected device is available
-        devBooter, devMgr = self.launchDeviceManager(dcdFile="/nodes/test_%s/DeviceManager.dcd.xml" % nodeName, debug=9)
+        devBooter, devMgr = self.launchDeviceManager(dcdFile="/nodes/test_%s/DeviceManager.dcd.xml" % nodeName)
         self.assertNotEqual(devMgr, None)
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
         device = devMgr._get_registeredDevices()[0]
@@ -505,7 +524,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         f.close()
 
     def test_DeviceBadLoadable(self):
-        devBooter, devMgr = self.launchDeviceManager("/nodes/SimpleDevMgr/DeviceManager.dcd.xml", debug=9)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/SimpleDevMgr/DeviceManager.dcd.xml")
         device = devMgr._get_registeredDevices()[0]
         fileSys = devMgr._get_fileSys()
         self.assertRaises(CF.LoadableDevice.InvalidLoadKind, device.load, fileSys, '/nodes/SimpleDevMgr/DeviceManager.dcd.xml',CF.LoadableDevice.DRIVER)

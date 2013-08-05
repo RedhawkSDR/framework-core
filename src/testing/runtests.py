@@ -39,6 +39,10 @@ def prependPythonPath(thepath):
     else:
         os.environ['PYTHONPATH'] = "%s" % (theabspath) 
 
+def appendClassPath(path):
+    classpath = os.environ.get('CLASSPATH', '').split(':')
+    classpath.append(os.path.abspath(path))
+    os.environ['CLASSPATH'] = ':'.join(classpath)
 
 if sys.hexversion < 0x020400F0:
     # Python 2.3 requires us to import the backports module
@@ -46,9 +50,24 @@ if sys.hexversion < 0x020400F0:
 
 # Point to the testing SDR folder
 os.environ['SDRROOT'] = os.path.join(os.getcwd(), "sdr")
-# Bring in the Python OSSIE stuff for things runing in this process
 
+# Point the SDR cache to a different location so that it's easy to clean/ignore
+os.environ['SDRCACHE'] = os.path.join(os.environ['SDRROOT'], "cache")
+
+# Bring in the Python OSSIE stuff for things running in this process
 prependPythonPath("../base/framework/python")
+
+# Add Java libraries to CLASSPATH so that test components can find them
+# regardless of where they run.
+appendClassPath('../base/framework/java/CFInterfaces.jar')
+appendClassPath('../base/framework/java/apache-commons-lang-2.4.jar')
+appendClassPath('../base/framework/java/log4j-1.2.15.jar')
+appendClassPath('../base/framework/java/ossie/ossie.jar')
+
+# Set the model IDL paths to point to the (uninstalled) REDHAWK IDLs.
+from ossie.utils import model
+model._std_idl_path = '../idl/'
+model._std_idl_include_path = '../idl'
 
 def loadModule(filename):
     if filename == '':

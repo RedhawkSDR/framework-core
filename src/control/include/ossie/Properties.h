@@ -81,6 +81,8 @@ namespace ossie {
         const char* getAction() const;
         const std::vector<std::string>& getKinds() const;
 
+        std::string mapPrimitiveToComplex(const std::string& type) const;
+
         // Pure virtual functions
         virtual bool isNone() const = 0;
         virtual const std::string asString() const = 0;
@@ -93,7 +95,7 @@ namespace ossie {
         std::string mode;
         std::string action;
         std::vector <std::string> kinds;
-
+        
         // Pure virtual functions
         virtual void override(const Property* otherProp) = 0;
     };
@@ -115,9 +117,17 @@ namespace ossie {
                const std::string& mode, 
                const std::string& action, 
                const std::vector<std::string>& kinds,
+               const optional_value<std::string>& value,
+               const std::string& complex_);
+
+        SimpleProperty(const std::string& id, 
+               const std::string& name, 
+               const std::string& type, 
+               const std::string& mode, 
+               const std::string& action, 
+               const std::vector<std::string>& kinds,
                const optional_value<std::string>& value);
 
-    
         virtual ~SimpleProperty();
 
         // SimpleProperty specific functions
@@ -128,6 +138,7 @@ namespace ossie {
         virtual const std::string asString() const;
         virtual const Property* clone() const;
         const char* getType() const;
+        const char* getComplex() const;
 
     protected:
         virtual void override(const Property* otherProp);
@@ -135,6 +146,7 @@ namespace ossie {
     private:
         std::string type;
         optional_value<std::string> value;
+        std::string _complex;
     };
 
     /**
@@ -148,15 +160,23 @@ namespace ossie {
     public:
         SimpleSequenceProperty() {}
 
-        SimpleSequenceProperty(const std::string& id, 
-                       const std::string& name, 
-                       const std::string& type, 
-                       const std::string& mode, 
-                       const std::string& action, 
-                       const std::vector<std::string>& kinds,
-                       const std::vector<std::string>& values) :
-        Property(id, name, mode, action, kinds), type(type), values(values)
-        {}
+        SimpleSequenceProperty(const std::string&              id, 
+                               const std::string&              name, 
+                               const std::string&              type, 
+                               const std::string&              mode, 
+                               const std::string&              action, 
+                               const std::vector<std::string>& kinds,
+                               const std::vector<std::string>& values,
+                               const std::string&              complex_);
+
+        SimpleSequenceProperty(const std::string&              id, 
+                               const std::string&              name, 
+                               const std::string&              type, 
+                               const std::string&              mode, 
+                               const std::string&              action, 
+                               const std::vector<std::string>& kinds,
+                               const std::vector<std::string>& values);
+
         virtual ~SimpleSequenceProperty();
 
         const std::vector<std::string>& getValues() const;
@@ -165,6 +185,7 @@ namespace ossie {
         virtual const std::string asString() const;
         virtual const Property* clone() const;
         const char* getType() const;
+        const char* getComplex() const;
 
     protected:
         virtual void override(const Property* otherProp);
@@ -172,6 +193,7 @@ namespace ossie {
     private:
         std::string type;
         std::vector<std::string> values;
+        std::string _complex;
     };
 
     /**
@@ -341,6 +363,7 @@ namespace ossie {
          * This will override values for any properties with the same id
          */
         void join(std::istream& input) throw (ossie::parser_error);
+        void join(ossie::Properties& props) throw (ossie::parser_error);
 
     protected:
         Properties(const Properties&) // Hide copy constructor

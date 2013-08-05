@@ -278,8 +278,6 @@ class TestResource(Resource):
                 unittest.assertEqual(self.port_output.nonCorbaCall(), True)
                
                 unittest.assertEqual(type(self.invalidprop), str) 
-                self.invalidprop = 50 # Change the type of invalidprop from string to int
-                unittest.assertEqual(type(self.invalidprop), int) 
 
             # An example that uses custom setters/getters
             someprop = simple_property(\

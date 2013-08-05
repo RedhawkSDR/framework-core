@@ -132,6 +132,37 @@ void Properties::join(std::istream& input) throw (ossie::parser_error) {
     }
 }
 
+void Properties::join(ossie::Properties& props) throw (ossie::parser_error) {
+    LOG_TRACE(Properties, "Loading property set")
+    LOG_TRACE(Properties, "Merging property sets")
+    std::vector<const Property*>::iterator jp_iter;
+    for (jp_iter = props._prf->_allProperties.begin(); jp_iter != props._prf->_allProperties.end(); ++jp_iter) {
+        std::map<std::string, const Property*>::iterator p;
+        assert(*jp_iter != 0);
+        const Property* jp = *jp_iter;
+
+        p = _prf->_properties.find(jp->getID());
+        LOG_TRACE(Properties, "Merging '" << *jp << "'") 
+
+        // The property exists so override it's value
+        if (p != _prf->_properties.end()) {
+            Property* thep = const_cast<Property*>(p->second);
+            assert(thep != 0);
+            // override the value
+            if (thep->isReadOnly()) {
+                LOG_WARN(Properties, "ignoring attempt to override readonly property with id: " << thep->getID());
+            }
+            LOG_TRACE(Properties, "Overriding '" << *thep << "' with '" << *jp << "'") 
+            thep->override(jp);
+            LOG_TRACE(Properties, "New value '" << *thep << "' with '") 
+        } else {
+            LOG_TRACE(Properties, "Adding '" << *jp << "'") 
+            _prf->addProperty(jp->clone());
+        }
+    }
+    LOG_TRACE(Properties, "Done merging property sets, cleaning up")
+}
+
 const std::vector<const Property*>& Properties::getProperties() const
 {
     assert(_prf.get() != 0);
@@ -320,6 +351,42 @@ bool Property::isExternal() const
     return ((action == "external") || (action == ""));
 }
 
+std::string Property::mapPrimitiveToComplex(const std::string& type) const 
+{
+    std::string newType;
+    if (type.compare("float") == 0) {
+        newType = "complexFloat";
+    } else if (type.compare("double") == 0) {
+        newType = "complexDouble";
+    } else if (type.compare("char") == 0) {
+        newType = "complexChar";
+    } else if (type.compare("octet") == 0) {
+        newType = "complexOctet";
+    } else if (type.compare("boolean") == 0) {
+        newType = "complexBoolean";
+    } else if (type.compare("short") == 0) {
+        newType = "complexShort";
+    } else if (type.compare("ushort") == 0) {
+        newType = "complexUShort";
+    } else if (type.compare("long") == 0) {
+        newType = "complexLong";
+    } else if (type.compare("longlong") == 0) {
+        newType = "complexLongLong";
+    } else if (type.compare("ulong") == 0) {
+        newType = "complexULong";
+    } else if (type.compare("ulonglong") == 0) {
+        newType = "complexULongLong";
+    } 
+    /*
+     * else do nothing.  Either the primitive to complex
+     * conversion has already been completed, or there
+     * is an invalid type.  In the event of an invalid
+     * type, let downstream checks catch the error.
+     */ 
+
+    return newType;
+}
+
 /**
  * SimpleProperty class
  */
@@ -329,14 +396,42 @@ SimpleProperty::SimpleProperty(const std::string& id,
                                const std::string& mode, 
                                const std::string& action, 
                                const std::vector<std::string>& kinds,
-                               const optional_value<std::string>& value) :
-Property(id, name, mode, action, kinds), type(type), value(value)
+                               const optional_value<std::string>& value, 
+                               const std::string& complex_) :
+Property(id, name, mode, action, kinds), value(value), _complex(complex_)
 {
+    if (_complex.compare("true") == 0) {
+        /* 
+         * Downstream processing expects complex types
+         * (e.g., complexLong) rather than primitive 
+         * types (e.g., long).
+         */
+        this->type = mapPrimitiveToComplex(type);
+    } else {
+        this->type = type;
+    }
+}
+
+/**
+ * A constructor that does not require the specification of 
+ * whether or not the property is complex.  If complexity
+ * is not specified, the property is assumed to be primitive.
+ */
+SimpleProperty::SimpleProperty(const std::string& id, 
+                               const std::string& name, 
+                               const std::string& type, 
+                               const std::string& mode, 
+                               const std::string& action, 
+                               const std::vector<std::string>& kinds,
+                               const optional_value<std::string>& value)
+{
+    SimpleProperty(id, name, type, mode, action, kinds, value, "false");
 }
 
 SimpleProperty::~SimpleProperty()
 {
 }
+
 
 bool SimpleProperty::isNone() const {
     return !value.isSet();
@@ -354,6 +449,11 @@ void SimpleProperty::override(const Property* otherProp) {
 const char* SimpleProperty::getType() const
 {
     return type.c_str();
+}
+
+const char* SimpleProperty::getComplex() const
+{
+    return _complex.c_str();
 }
 
 
@@ -381,13 +481,63 @@ const std::string SimpleProperty::asString() const {
 }
 
 const Property* SimpleProperty::clone() const {
-    return new SimpleProperty(id, name, type, mode, action, kinds, value);
+    return new SimpleProperty(id, name, type, mode, action, kinds, value, _complex);
 }
 
 
 /**
  * SimpleSequenceProperty class
  */
+SimpleSequenceProperty::SimpleSequenceProperty(
+    const std::string&              id, 
+    const std::string&              name, 
+    const std::string&              type, 
+    const std::string&              mode, 
+    const std::string&              action, 
+    const std::vector<std::string>& kinds,
+    const std::vector<std::string>& values,
+    const std::string&              complex_) :
+        Property(id, name, mode, action, kinds), 
+        type(type), 
+        values(values), 
+        _complex(complex_)
+{
+    if (_complex.compare("true") == 0) {
+        /* 
+         * Downstream processing expects complex types
+         * (e.g., complexLong) rather than primitive 
+         * types (e.g., long).
+         */
+        this->type = mapPrimitiveToComplex(type);
+    } else {
+        this->type = type;
+    }
+}
+
+/**
+ * A constructor that does not require the specification of 
+ * whether or not the property is complex.  If complexity
+ * is not specified, the property is assumed to be primitive.
+ */
+SimpleSequenceProperty::SimpleSequenceProperty( 
+    const std::string&              id, 
+    const std::string&              name, 
+    const std::string&              type, 
+    const std::string&              mode, 
+    const std::string&              action, 
+    const std::vector<std::string>& kinds,
+    const std::vector<std::string>& values)
+{
+    SimpleSequenceProperty(id, 
+                           name, 
+                           type, 
+                           mode, 
+                           action, 
+                           kinds, 
+                           values, 
+                           "false");
+}
+
 SimpleSequenceProperty::~SimpleSequenceProperty()
 {
 }
@@ -409,6 +559,11 @@ void SimpleSequenceProperty::override(const Property* otherProp) {
 const char* SimpleSequenceProperty::getType() const
 {
     return type.c_str();
+}
+
+const char* SimpleSequenceProperty::getComplex() const
+{
+    return _complex.c_str();
 }
 
 const std::vector<std::string>& SimpleSequenceProperty::getValues() const

@@ -42,7 +42,7 @@ class Consumer_i(CosEventComm__POA.PushConsumer):
         self.parent = parent
     
     def push(self, data):
-        if data._v == "bye":
+        if data._v == "response":
             self.parent.eventFlag = True
             self.parent.localEvent.set()
     
@@ -54,7 +54,7 @@ class ConsumerDevice_i(CosEventComm__POA.PushConsumer):
         self.parent = parent
     
     def push(self, data):
-        if data._v == "bye device":
+        if data._v == "response device":
             self.parent.eventFlag = True
             self.parent.localEvent.set()
     

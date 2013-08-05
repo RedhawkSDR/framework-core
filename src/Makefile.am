@@ -33,7 +33,7 @@ if HAVE_JAVASUPPORT
   OMNIJNI = omnijni
 endif
 
-SUBDIRS = acinclude etc $(OMNIJNI) control base testing
+SUBDIRS = acinclude etc $(OMNIJNI) base control xml idl testing
 
 pkgconfigdir = $(libdir)/pkgconfig
 dist_pkgconfig_DATA = ossie.pc

@@ -21,59 +21,56 @@
 %{!?_ossiehome:  %define _ossiehome  /usr/local/redhawk/core}
 %{!?_sdrroot:    %define _sdrroot    /var/redhawk/sdr}
 %define _prefix %{_ossiehome}
+Prefix:         %{_prefix}
+
 %define groupname redhawk
 %define username redhawk
 
-Name:		redhawk
-Version:	1.8.4
-Release:	3%{?dist}
-Summary:	REDHAWK is a Software Defined Radio framework
+Name:           redhawk
+Version:        1.9.0
+Release:        1%{?dist}
+Summary:        REDHAWK is a Software Defined Radio framework
 
-Group:		Applications/Engineering
-License:	LGPLv3+
-URL:		http://redhawksdr.org/
-Source:		%{name}-%{version}.tar.gz
+Group:          Applications/Engineering
+License:        LGPLv3+
+URL:            http://redhawksdr.org/
+Source:         %{name}-%{version}.tar.gz
 
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
+# BuildRoot required for el5
+BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
-# Requires and BuildRequires
-Requires: python
-Requires: numpy
-Requires: libomniORB4.1
-Requires: libomniORBpy3-devel
-Requires: libomniEvents2
-Requires: expat
+# el6 gives us issues with rpaths
 %if "%{?rhel}" == "6"
-Requires: libuuid
 %define __arch_install_post %{nil}
-%else
-Requires: e2fsprogs
 %endif
-Requires: zip
-Requires: apr apr-util
-Requires: apache-log4cxx >= 0.10
-Requires: boost >= 1.41
-Requires: java >= 1.6
-BuildRequires: autoconf automake libtool
-%if "%{?rhel}" == "6"
-BuildRequires: libuuid-devel
-%else
-BuildRequires: e2fsprogs-devel
-%endif
-BuildRequires: expat-devel
-BuildRequires: apr-devel apr-util-devel
-BuildRequires: python-devel
-BuildRequires: libomniORB4.1-devel
-BuildRequires: libomniORBpy3-devel
-BuildRequires: libomniEvents2-devel
-BuildRequires: apache-log4cxx-devel >= 0.10
-BuildRequires: boost-devel >= 1.41
-BuildRequires: xsd >= 3.3.0
-BuildRequires: java-devel >= 1.6
-BuildRequires: jpackage-utils
 
-Prefix: %{_prefix}
-%define python_sitelib %{_prefix}/lib/python
+%if "%{?rhel}" == "6"
+Requires:       util-linux-ng
+%else
+Requires:       e2fsprogs
+%endif
+Requires:       java >= 1.6
+Requires:       python
+Requires:       numpy
+Requires:       libomniorbpy
+
+%if "%{?rhel}" == "6"
+BuildRequires:  libuuid-devel
+BuildRequires:  boost-devel = 1.41.0
+%else
+BuildRequires:  e2fsprogs-devel
+BuildRequires:  boost141-devel
+%endif
+BuildRequires:  autoconf automake libtool
+BuildRequires:  expat-devel
+BuildRequires:  apr-devel apr-util-devel
+BuildRequires:  java-devel >= 1.6
+BuildRequires:  python-devel >= 2.4
+BuildRequires:  log4cxx-devel >= 0.10
+BuildRequires:  omniORB-devel >= 4.1.0
+BuildRequires:  libomniorbpy-devel >= 3.6
+BuildRequires:  libomniEvents2-devel
+BuildRequires:  xsd >= 3.3.0
 
 %description
 REDHAWK is a Software Defined Radio framework.
@@ -81,62 +78,60 @@ REDHAWK is a Software Defined Radio framework.
  * Source Date/Time: __DATETIME__
 
 %package sdrroot-dom-mgr
-Summary:  SDRROOT Domain Manager
-Group:    Communications/Framework
-Requires: %{name} = %{version}-%{release}
-Provides: DomainManager = %{version}-%{release}
-# Obsolete with the old packages of SDR ROOT
-Obsoletes: sdrroot redhawk-sdrroot-dom
+Summary:        SDRROOT Domain Manager
+Group:          Applications/Engineering
+Requires:       %{name} = %{version}-%{release}
+Provides:       DomainManager = %{version}-%{release}
 
 %description sdrroot-dom-mgr
 The SDDROOT Domain Manager software package
 
 %package sdrroot-dom-profile
-Summary:  Basic domain manager profile
-Group:    Communications/Framework
-Requires: %{name}-sdrroot-dom-mgr = %{version}-%{release}
+Summary:        Basic domain manager profile
+Group:          Applications/Engineering
+Requires:       %{name}-sdrroot-dom-mgr = %{version}-%{release}
 
 %description sdrroot-dom-profile
 A generic domain profile and domain profile template
 
 %package sdrroot-dev-mgr
-Summary:  SDRROOT Device Manager
-Group:    Communications/Framework
-Requires: %{name} = %{version}-%{release}
-Provides: DeviceManager = %{version}-%{release}
-# Obsolete with the old packages of SDR ROOT
-Obsoletes: sdrroot redhawk-sdrroot-dev
+Summary:        SDRROOT Device Manager
+Group:          Applications/Engineering
+Requires:       %{name} = %{version}-%{release}
+Provides:       DeviceManager = %{version}-%{release}
 
 %description sdrroot-dev-mgr
 The SDDROOT Device Manager software package
 
 %package devel
-Summary: The REDHAWK development package
-Group:   Applications/Engineering
+Summary:        The REDHAWK development package
+Group:          Applications/Engineering
 
-# REDHAWK and BULKIO
+# REDHAWK
 Requires:       redhawk = %{version}-%{release}
-Requires:       bulkioInterfaces
 
 # Base dependencies
-Requires:       autoconf automake libtool
 %if "%{?rhel}" == "6"
 Requires:       libuuid-devel
+Requires:       boost-devel = 1.41.0
 %else
 Requires:       e2fsprogs-devel
+Requires:       boost141-devel
 %endif
-Requires:       apache-log4cxx-devel >= 0.10
-Requires:       boost-devel >= 1.41
+Requires:       autoconf automake libtool
+Requires:       log4cxx-devel >= 0.10
 
 # omniORB / omniORBpy
-Requires:       libomniORB4.1-devel
-Requires:       libomniORBpy3-devel
+Requires:       omniORB-devel >= 4.1.0
+Requires:       libomniorbpy-devel >= 3.6
 
 # Languages
 Requires:       gcc-c++
 Requires:       python-devel >= 2.4
 Requires:       java-devel >= 1.6
 
+# qtbrowse
+Requires:       PyQt
 
 %description devel
 This package ensures that all requirements for REDHAWK development are installed. It also provides a useful development utilities.
@@ -147,9 +142,6 @@ This package ensures that all requirements for REDHAWK development are installed
 
 
 %build
-# Make pkg-config also check /usr/local/lib
-export PKG_CONFIG_PATH=/usr/local/%{_lib}/pkgconfig:${PKG_CONFIG_PATH}
-
 # build the core framework
 cd src
 ./reconf
@@ -186,7 +178,7 @@ fi
 %exclude %{_bindir}/qtbrowse
 %exclude %{_bindir}/prf2py.py
 %exclude %{_bindir}/py2prf
-%{_prefix}/include
+%dir %{_includedir}
 %dir %{_prefix}/lib
 %ifarch x86_64
 %dir %{_prefix}/lib64
@@ -195,19 +187,22 @@ fi
 %{_prefix}/lib/apache-commons-lang-2.4.jar
 %{_prefix}/lib/log4j-1.2.15.jar
 %{_prefix}/lib/ossie.jar
-%{python_sitelib}
-%exclude %{python_sitelib}/ossie/apps/qtbrowse
-%{_libdir}/libomnijni.*
-%{_libdir}/libossiecf.*
-%{_libdir}/libossiecfjni.*
-%{_libdir}/libossieidl.*
-%{_libdir}/libossieparser.*
-%{_libdir}/pkgconfig
+%{_prefix}/lib/python
+%exclude %{_prefix}/lib/python/ossie/apps/qtbrowse
+%{_libdir}/libomnijni.so.0
+%{_libdir}/libomnijni.so.0.0.0
+%{_libdir}/libossiecf.so.3
+%{_libdir}/libossiecf.so.3.0.0
+%{_libdir}/libossiecfjni.so.0
+%{_libdir}/libossiecfjni.so.0.0.0
+%{_libdir}/libossieidl.so.3
+%{_libdir}/libossieidl.so.3.0.0
+%{_libdir}/libossieparser.so.2
+%{_libdir}/libossieparser.so.2.0.0
+%dir %{_libdir}/pkgconfig
 %{_datadir}
 %{_sysconfdir}/profile.d/redhawk.csh
 %{_sysconfdir}/profile.d/redhawk.sh
-%{_sysconfdir}/profile.d/local_pkg_config.csh
-%{_sysconfdir}/profile.d/local_pkg_config.sh
 %{_sysconfdir}/ld.so.conf.d/redhawk.conf
 
 %files sdrroot-dom-mgr
@@ -245,7 +240,19 @@ fi
 %{_bindir}/qtbrowse
 %{_bindir}/prf2py.py
 %{_bindir}/py2prf
-%{python_sitelib}/ossie/apps/qtbrowse
+%{_includedir}/ossie
+%{_libdir}/libomnijni.*a
+%{_libdir}/libomnijni.so
+%{_libdir}/libossiecf.*a
+%{_libdir}/libossiecf.so
+%{_libdir}/libossiecfjni.*a
+%{_libdir}/libossiecfjni.so
+%{_libdir}/libossieidl.so
+%{_libdir}/libossieidl.*a
+%{_libdir}/libossieparser.*a
+%{_libdir}/libossieparser.so
+%{_libdir}/pkgconfig/ossie.pc
+%{_prefix}/lib/python/ossie/apps/qtbrowse
 
 
 %post
@@ -256,7 +263,8 @@ fi
 
 
 %changelog
-* Fri Apr 12 2013 - 1.8.4-1
+* Tue Apr 18 2013 1.9.0-1
+- Re-work lots of dependencies
 - Package for REDHAWK development
 - Minor fixes for docs, licensing
 - Explicitly require Java for build

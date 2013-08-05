@@ -59,10 +59,8 @@ import org.omg.PortableServer.POAPackage.ObjectNotActive;
 import org.omg.PortableServer.POAPackage.ServantAlreadyActive;
 import org.omg.PortableServer.POAPackage.ServantNotActive;
 import org.omg.PortableServer.POAPackage.WrongPolicy;
-import org.ossie.PropertyContainer;
 import org.ossie.events.PropertyEventSupplier;
 import org.ossie.properties.IProperty;
-import org.ossie.properties.SimpleProperty;
 import org.ossie.properties.AnyUtils;
 
 import CF.AggregateDevice;
@@ -279,6 +277,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
                 throw new ReleaseError(new String[] {e.toString()});
             }
             disposed = true;
+            notifyAll();
         }
     }
 
@@ -318,47 +317,45 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      */
     public void configure(final DataType[] configProperties) throws InvalidConfiguration, PartialConfiguration {
         logger.trace("configure()");
-        final ArrayList<DataType> validProperties = new ArrayList<DataType>();
+
+        // Ensure there's something to do
+        if (configProperties.length == 0) {
+            return;
+        }
+
         final ArrayList<DataType> invalidProperties = new ArrayList<DataType>();
-        
-        try {
-            c_validate(configProperties, validProperties, invalidProperties);
-            if (configProperties.length == 0) {
-                return;
+        for (final DataType dt : configProperties) {
+            // Look up the property and ensure it is configurable
+            final IProperty prop = this.propSet.get(dt.id);
+            if ((prop == null) || !prop.isConfigurable()) {
+                invalidProperties.add(dt);
+                continue;
             }
 
-            for (final DataType validProp : validProperties) {
-                for (final IProperty prop : this.propSet.values()) {
-                    // make sure that the property ids match
-                    if (prop.getId().equals(validProp.id)) {
-                        
-                        // see if the value has changed
-                        if (AnyUtils.compareAnys(prop.toAny(),(validProp.value), "ne")) {
-                            
-                            // update the value on the property
-                            prop.fromAny(validProp.value);
-                            
-                            // check to see if this property should issue property change events
-                            if (prop.isEventable()) {
-                                
-                                // make sure that the port exists
-                                if (this.propertyChangePort != null) {
-                                    this.propertyChangePort.sendPropertyEvent(validProp.id);
-                                }
-                            }
-                        }
-                        logger.trace("Configured property: " + prop);
+            try {
+                // See if the value has changed
+                if (AnyUtils.compareAnys(prop.toAny(), dt.value, "ne")) {
+                    // Update the value on the property, which may trigger a
+                    // callback.
+                    prop.configure(dt.value);
+
+                    // Check to see if this property should issue property change
+                    // events and a port is registered.
+                    if (prop.isEventable() && (this.propertyChangePort != null)) {
+                        this.propertyChangePort.sendPropertyEvent(prop.getId());
                     }
                 }
+                logger.trace("Configured property: " + prop);
+            } catch (Throwable t) {
+                t.printStackTrace();
+                invalidProperties.add(dt);
             }
-        } catch (final Throwable t) {
-            t.printStackTrace();
         }
         
-        if ((validProperties.size() == 0) && (invalidProperties.size() != 0)) {
+        if (invalidProperties.size() == configProperties.length) {
             throw new InvalidConfiguration("Error configuring component", invalidProperties.toArray(new DataType[0]));
-        } else if ((validProperties.size() != 0) && (invalidProperties.size() != 0)) {
-            throw new PartialConfiguration();
+        } else if (invalidProperties.size() > 0) {
+            throw new PartialConfiguration(invalidProperties.toArray(new DataType[0]));
         }
     }
 
@@ -367,7 +364,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      */
     public void query(final PropertiesHolder configProperties) throws UnknownProperties {
         logger.trace("query()");
-        // for queries of zero length, return all id/value pairs in propertySet
+        // For queries of zero length, return all id/value pairs in propertySet
         if (configProperties.value.length == 0) {
             final ArrayList<DataType> props = new ArrayList<DataType>(this.propSet.size());
             for (final IProperty prop : this.propSet.values()) {
@@ -381,80 +378,26 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
             return;
         }
 
-        // for queries of length > 0, return all requested pairs in propertySet
+        // For queries of length > 0, return all requested pairs in propertySet
         final ArrayList<DataType> validProperties = new ArrayList<DataType>();
         final ArrayList<DataType> invalidProperties = new ArrayList<DataType>();
 
-        q_validate(configProperties.value, validProperties, invalidProperties);
-
-        //returns values for valid queries in the same order as requested
-        for (final DataType valid : validProperties) {
-            for (int j = 0; j < configProperties.value.length; j++) {
-                if (configProperties.value[j].id.equals(valid.id)) {
-                    configProperties.value[j].value = this.propSet.get(valid.id).toAny();
-                    break;
-                }
+        // Return values for valid queries in the same order as requested
+        for (final DataType dt : configProperties.value) {
+            // Look up the property and ensure it is queryable
+            final IProperty prop = this.propSet.get(dt.id);
+            if ((prop != null) && prop.isQueryable()) {
+                validProperties.add(new DataType(prop.getId(), prop.toAny()));
+            } else {
+                invalidProperties.add(dt);
             }
         }
 
-        if (invalidProperties.size() != 0) {
+        // Store query results back in holder
+        configProperties.value = validProperties.toArray(new DataType[validProperties.size()]);
+
+        if (invalidProperties.size() > 0) {
             throw new UnknownProperties(invalidProperties.toArray(new DataType[invalidProperties.size()]));
-        }
-    }
-
-    /**
-     * This method checks if the given configProperties are valid for this
-     * component for the query operation.
-     * 
-     * @param configProperties the properties to validate
-     * @param validProperties storage for the valid properties
-     * @param invalidProperties storage for the invalid properties
-     */
-    private void q_validate(final DataType[] configProperties, final ArrayList<DataType> validProperties, final ArrayList<DataType> invalidProperties) {
-        for (final DataType p : configProperties) {
-            boolean success = false;
-            for (final IProperty prop : this.propSet.values()) {
-                if (prop.getId().equals(p.id)) {
-                    if (prop.isQueryable()){
-                        success = true;
-                    }
-                    break;
-                }
-            }
-
-            if (success) {
-                validProperties.add(p);
-            } else {
-                invalidProperties.add(p);
-            }
-        }
-    }
-    
-    /**
-     * This method checks if the given configProperties are valid for this
-     * component for the configure operation.
-     * 
-     * @param configProperties the properties to validate
-     * @param validProperties storage for the valid properties
-     * @param invalidProperties storage for the invalid properties
-     */
-    private void c_validate(final DataType[] configProperties, final ArrayList<DataType> validProperties, final ArrayList<DataType> invalidProperties) {
-        for (final DataType p : configProperties) {
-            boolean success = false;
-            for (final IProperty prop : this.propSet.values()) {
-                if (prop.getId().equals(p.id)) {
-                    if (prop.isConfigurable()){
-                        success = true;
-                    }
-                    break;
-                }
-            }
-
-            if (success) {
-                validProperties.add(p);
-            } else {
-                invalidProperties.add(p);
-            }
         }
     }
 
@@ -586,7 +529,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      * @throws WrongPolicy 
      * @throws ServantNotActive 
      */
-    public static void start_component(final Class clazz, final String[] args, final boolean builtInORB, final int fragSize, final int bufSize) 
+    public static void start_component(final Class<? extends Resource> clazz, final String[] args, final boolean builtInORB, final int fragSize, final int bufSize) 
     throws InstantiationException, IllegalAccessException, InvalidObjectReference, NotFound, CannotProceed, org.omg.CosNaming.NamingContextPackage.InvalidName, ServantNotActive, WrongPolicy 
     {
         final Properties props = new Properties();
@@ -620,12 +563,9 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      * @throws WrongPolicy 
      * @throws ServantNotActive 
      */
-    public static void start_component(final Class clazz,  final String[] args, final Properties props) 
+    public static void start_component(final Class<? extends Resource> clazz,  final String[] args, final Properties props) 
     throws InstantiationException, IllegalAccessException, InvalidObjectReference, NotFound, CannotProceed, org.omg.CosNaming.NamingContextPackage.InvalidName, ServantNotActive, WrongPolicy 
     {
-        if (! Resource.class.isAssignableFrom(clazz)) {
-            throw new IllegalArgumentException("start_component() can only start classes of type org.ossie.component.Resource");
-        }
         final org.omg.CORBA.ORB orb = ORB.init((String[]) null, props);
 
         // get reference to RootPOA & activate the POAManager
@@ -641,6 +581,9 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         }
 
         Map<String, String> execparams = parseArgs(args);
+
+        // Configure log4j from the execparams (or use default settings).
+        Resource.configureLogging(execparams, orb);
 
         NamingContextExt nameContext = null;
         if (execparams.containsKey("NAMING_CONTEXT_IOR")) {
@@ -669,7 +612,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
             }
         }
 
-        final Resource resource_i = (Resource)clazz.newInstance();
+        final Resource resource_i = clazz.newInstance();
         final CF.Resource resource = resource_i.setup(identifier, nameBinding, orb, rootpoa);
         resource_i.initializeProperties(execparams);
 
@@ -680,6 +623,56 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
             System.out.println("The IOR for your component is:\n" + orb.object_to_string(resource));
         }
 
+        // Create a thread that watches for the resource to be deactivated
+        Thread shutdownWatcher = new Thread(new Runnable() {
+            public void run() {
+                resource_i.waitDisposed();
+                logger.trace("Shutting down orb");
+                orb.shutdown(true);
+            }
+        });
+
+        shutdownWatcher.start();
+
+        orb.run();
+        logger.trace("Waiting for shutdown watcher to join");
+        try {
+            shutdownWatcher.join(1000);
+        } catch (InterruptedException e) {
+            // PASS
+        }
+
+        // Explicitly call exit to ensure that process terminates. In some
+        // cases, especially if a CORBA request came in after ORB.shutdown(),
+        // the JVM may not exit on its own.
+        logger.debug("Goodbye!");
+        System.exit(0);
+    }
+
+    protected void waitDisposed() {
+        synchronized(this) {
+            while (!this.isDisposed()) {
+                try {
+                    this.wait();
+                } catch (InterruptedException e) {
+                    // PASS
+                }
+            }
+        }
+    }
+
+    /**
+     * Configure log4j for use in a component. The order of preference for settings is:
+     *
+     *   1. LOGGING_CONFIG_URI execparam
+     *   2. DEBUG_LEVEL execparam
+     *   3. Default debug level (INFO)
+     *
+     * @param execparams Map of component execparam values
+     * @param orb CORBA ORB instance for contacting SCA FileSystem (if LOGGING_CONFIG_URI is an SCA URI)
+     */
+    protected static void configureLogging(final Map<String, String> execparams, final org.omg.CORBA.ORB orb) {
+        // Sets up the logging
         String loggingConfigURI = null;
         if (execparams.containsKey("LOGGING_CONFIG_URI")) {
             loggingConfigURI = execparams.get("LOGGING_CONFIG_URI");
@@ -688,13 +681,13 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
                 PropertyConfigurator.configure(loggingConfigURI.substring(startIndex));
             }else if (loggingConfigURI.indexOf("sca:") != -1){
                 int startIndex = loggingConfigURI.indexOf("sca:") + 4;
-                String localFile = resource_i.getLogConfig(loggingConfigURI.substring(startIndex));
+                String localFile = Resource.getLogConfig(loggingConfigURI.substring(startIndex), orb);
                 File testLocalFile = new File(localFile);
                 if (localFile.length() > 0 && testLocalFile.exists()){
                     PropertyConfigurator.configure(localFile);
                 }
             }
-        }else{
+        } else {
             // If no logging config file, then set up logging using DEBUG_LEVEL exec param
             int debugLevel = 3; // Default level is INFO
             if (execparams.containsKey("DEBUG_LEVEL")) {
@@ -719,42 +712,16 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
                 root.setLevel(Level.ALL);
             }
         }
-
-        // Create a thread that watches for the resource to be deactivated
-        Thread shutdownWatcher = new Thread(new Runnable() {
-
-            public void run() {
-                while (!resource_i.isDisposed()) {
-                    try {
-                        Thread.sleep(500);
-                    } catch (InterruptedException e) {
-                        // PASS
-                    }
-                }
-                logger.trace("Shutting down orb");
-                orb.shutdown(true);
-            }
-        });
-
-        shutdownWatcher.start();
-
-        orb.run();
-        logger.trace("Waiting for shutdown watcher to join");
-        try {
-            shutdownWatcher.join(1000);
-        } catch (InterruptedException e) {
-            // PASS
-        }
-        logger.debug("Goodbye!");
     }
 
     /**
      * This function returns the filename of the local logging configuration file given an SCA FileSystem logging file.
      * 
      * @param uri string containing SCA File System filename for logging configuration file
+     * @param orb CORBA ORB instance for contacting SCA FileSystem
      * @return the string reprenting the local logging configuration filename
      */
-    protected String getLogConfig(String uri) {
+    protected static String getLogConfig(String uri, org.omg.CORBA.ORB orb) {
         String localPath = "";
 
         int fsPos = uri.indexOf("?fs=");
@@ -794,5 +761,15 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         } catch (Exception e){
             return localPath;
         }
+    }
+
+    /**
+     * This function returns the filename of the local logging configuration file given an SCA FileSystem logging file.
+     * 
+     * @param uri string containing SCA File System filename for logging configuration file
+     * @return the string reprenting the local logging configuration filename
+     */
+    protected String getLogConfig(String uri) {
+        return Resource.getLogConfig(uri, this.orb);
     }
 }

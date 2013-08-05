@@ -25,7 +25,6 @@
 #include <map>
 #include "Resource_impl.h"
 #include "Device_impl.h"
-#include "FileSystem_impl.h"
 #include "CF/cf.h"
 #include <boost/filesystem/path.hpp>
 
@@ -35,7 +34,7 @@ copiedFiles_type;
 
 /* CLASS DEFINITION *******************************************************************************
  ************************************************************************************************ */
-class OSSIECF_API LoadableDevice_impl: public virtual
+class LoadableDevice_impl: public virtual
     POA_CF::LoadableDevice,
     public
     Device_impl

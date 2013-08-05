@@ -28,9 +28,13 @@ import org.omg.PortableServer.POAPackage.ServantNotActive;
 import org.omg.PortableServer.POAPackage.WrongPolicy;
 import CF.DataType;
 import CF.InvalidObjectReference;
+import CF.PropertiesHolder;
+import CF.UnknownProperties;
 import CF.DevicePackage.AdminType;
 import CF.DevicePackage.OperationalType;
 import CF.DevicePackage.UsageType;
+import CF.LifeCyclePackage.InitializeError;
+import CF.TestableObjectPackage.UnknownTest;
 import org.apache.log4j.Logger;
 import org.ossie.component.*;
 import org.ossie.properties.*;
@@ -244,6 +248,26 @@ public class BasicTestDevice_java extends Device implements Runnable {
             "readwrite", //mode
             new String[] { "configure","allocation" } //kind
             ); 
+
+    /**
+     * The property test_execparam
+     * None
+     *
+     * <!-- begin-user-doc -->
+     * <!-- end-user-doc -->
+     * @generated
+     */
+    public final SimpleProperty<String> test_execparam =
+        new SimpleProperty<String>(
+            "test_execparam", //id
+            "test_execparam", //name
+            "string", //type
+            null, //default value
+            "readwrite", //mode
+            "external", //action
+            new String[] {"execparam"} //kind
+            );
+
     // Provides/inputs
 
     // Uses/outputs
@@ -266,6 +290,7 @@ public class BasicTestDevice_java extends Device implements Runnable {
         addProperty(not_external);
         addProperty(non_simple1);
         addProperty(non_simple2);
+        addProperty(test_execparam);
 
         // Inits the call back classes
         int_prop_callback int_prop_call_var = new int_prop_callback();
@@ -562,4 +587,26 @@ public class BasicTestDevice_java extends Device implements Runnable {
         // TODO You may add extra shutdown code here
         //end-user-code
     }
+
+    @Override
+    public void initialize() throws InitializeError {
+        super.initialize();
+
+        // Save the current value of "test_execparam" to check whether
+        // execparams are available in initialize (they should be).
+        this.test_execparam_at_init = this.test_execparam.getValue();
+    }
+
+    @Override
+    public void runTest(int testid, PropertiesHolder testValues) throws UnknownTest, UnknownProperties {
+        if (testid == 561) {
+            // Issue #561: Execparams are not set in Java device when initialize() is called
+            testValues.value = new DataType[1];
+            testValues.value[0] = new DataType("test_execparam", AnyUtils.toAny(this.test_execparam_at_init, "string"));
+        } else {
+            throw new UnknownTest("Invalid test " + testid);
+        }
+    }
+
+    private String test_execparam_at_init;
 }

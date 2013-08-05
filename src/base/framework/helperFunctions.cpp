@@ -26,12 +26,15 @@
 
 #include <boost/filesystem/path.hpp>
 
-#include <ossie/CF/cf.h>
+namespace fs = boost::filesystem;
+
 #include <ossie/CorbaUtils.h>
 #include <ossie/ossieSupport.h>
 #include <ossie/debug.h>
-
-namespace fs = boost::filesystem;
+#if HAVE_LOG4CXX
+#else
+unsigned int LoggingConfigurator::ossieDebugLevel = 0;
+#endif
 
 void ossie::createProfileFromFileName(std::string fileName, std::string& profile)
 {
@@ -46,11 +49,7 @@ bool ossie::isValidFileName(const char* fileName)
     bool fsOpSuccess = false;
     while (!fsOpSuccess) {
         try {
-#if BOOST_FILESYSTEM_VERSION == 2
             fs::path testPath(fileName, fs::portable_posix_name);
-#else
-            fs::path testPath(fileName);
-#endif
             fsOpSuccess = true;
         } catch ( ... ) {
             fsOpSuccessAttempts++;

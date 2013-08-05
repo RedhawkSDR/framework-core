@@ -114,11 +114,11 @@ private:
     };
 
     struct ServiceNode{
-    	std::string identifier;
-    	std::string label;
-    	std::string IOR;
-    	CORBA::Object_ptr service;
-    	pid_t pid;
+        std::string identifier;
+        std::string label;
+        std::string IOR;
+        CORBA::Object_ptr service;
+        pid_t pid;
     };
 
     typedef std::vector<DeviceNode*> DeviceList;

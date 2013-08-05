@@ -20,7 +20,6 @@
 
 
 #include "ossie/Resource_impl.h"
-#include <ossie/prop_helpers.h>
 
 PREPARE_LOGGING(Resource_impl)
 
@@ -172,4 +171,12 @@ void Resource_impl::deactivateInPorts() {
             poa->deactivate_object(oid);
         }
     }
+}
+
+void Resource_impl::setCurrentWorkingDirectory(std::string& cwd) {
+    this->currentWorkingDirectory = cwd;
+}
+
+std::string& Resource_impl::getCurrentWorkingDirectory() {
+    return this->currentWorkingDirectory;
 }

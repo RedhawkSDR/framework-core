@@ -61,6 +61,18 @@ namespace sad
   }
 
   void softwareassembly_pimpl::
+  externalproperties (const ::std::vector<ossie::SoftwareAssembly::Property>& externalproperties)
+  {
+      _sad->externalproperties = externalproperties;
+  }
+
+  void softwareassembly_pimpl::
+  usesdevicedependencies (const ::std::vector<ossie::SoftwareAssembly::UsesDevice>& usesdevices)
+  {
+      _sad->usesdevice = usesdevices;
+  }
+
+  void softwareassembly_pimpl::
   id (const ::std::string& id)
   {
       _sad->id = id;
@@ -428,6 +440,27 @@ namespace sad
   post_deviceusedbythiscomponentref ()
   {
       return info;
+  }
+
+  // deviceusedbyapplication
+  //
+
+  void deviceusedbyapplication_pimpl::
+  pre ()
+  {
+      usesRefId = "";
+  }
+
+  void deviceusedbyapplication_pimpl::
+  usesrefid (const ::std::string& idIn)
+  {
+      usesRefId = idIn;
+  }
+
+  ::std::string deviceusedbyapplication_pimpl::
+  post_deviceusedbyapplication ()
+  {
+      return usesRefId;
   }
 
   // resourcefactoryproperties_pimpl
@@ -907,6 +940,13 @@ namespace sad
   }
 
   void usesport_pimpl::
+  deviceusedbyapplication (const ::std::string& id)
+  {
+      usesPort->usesRefId = id;
+      usesPort->type = ::ossie::Port::DEVICEUSEDBYAPPLICATION;
+  }
+
+  void usesport_pimpl::
   findby (const ::ossie::FindBy& findby)
   {
       usesPort->findBy = findby;
@@ -957,6 +997,13 @@ namespace sad
   }
 
   void providesport_pimpl::
+  deviceusedbyapplication (const ::std::string& id)
+  {
+      provPort->usesRefId = id;
+      provPort->type = ::ossie::Port::DEVICEUSEDBYAPPLICATION;
+  }
+
+  void providesport_pimpl::
   findby (const ::ossie::FindBy& findby)
   {
       provPort->findBy = findby;
@@ -988,6 +1035,25 @@ namespace sad
   componentinstantiationref (const ::std::string& componentinstantiationref)
   {
       ciface->componentInstantiationRefId = componentinstantiationref;
+  }
+
+  void componentsupportedinterface_pimpl::
+  devicethatloadedthiscomponentref (const ::std::string& devicethatloadedthiscomponentref)
+  {
+      ciface->componentRefId = devicethatloadedthiscomponentref;
+  }
+
+  void componentsupportedinterface_pimpl::
+  deviceusedbythiscomponentref (const ::std::pair<std::string, std::string>& ref)
+  {
+      ciface->componentRefId = ref.first;
+      ciface->usesId = ref.second;
+  }
+
+  void componentsupportedinterface_pimpl::
+  deviceusedbyapplication (const ::std::string& id)
+  {
+     ciface->usesId = id;
   }
 
   void componentsupportedinterface_pimpl::
@@ -1033,6 +1099,12 @@ namespace sad
   }
 
   void port_pimpl::
+  externalname(const ::std::string& externalname)
+  {
+      port->externalname = externalname;
+  }
+
+  void port_pimpl::
   description (const ::std::string& description)
   {
     // TODO
@@ -1070,6 +1142,165 @@ namespace sad
   post_port ()
   {
       return *port;
+  }
+
+  // externalproperties_pimpl
+  //
+
+  void externalproperties_pimpl::
+  pre ()
+  {
+      extProps.clear();
+  }
+
+  void externalproperties_pimpl::
+  property (const ossie::SoftwareAssembly::Property& prop)
+  {
+      extProps.push_back(prop);
+  }
+
+  ::std::vector<ossie::SoftwareAssembly::Property> externalproperties_pimpl::
+   post_externalproperties ()
+  {
+      return extProps;
+  }
+
+  // property_pimpl
+  //
+
+  void property_pimpl::
+  pre ()
+  {
+      property.reset(new ossie::SoftwareAssembly::Property());
+  }
+
+  void property_pimpl::
+  comprefid (const ::std::string& comprefid)
+  {
+      property->comprefid = comprefid;
+  }
+
+  void property_pimpl::
+  propid (const ::std::string& propid)
+  {
+      property->propid = propid;
+  }
+
+  void property_pimpl::
+  externalpropid (const ::std::string& externalpropid)
+  {
+      property->externalpropid = externalpropid;
+  }
+
+  ::ossie::SoftwareAssembly::Property property_pimpl::
+   post_property ()
+  {
+      return *property;
+  }
+
+  // usesdevicedependencies_pimpl
+  //
+
+  void usesdevicedependencies_pimpl::
+  pre ()
+  {
+      usesDevices.clear();
+  }
+
+  void usesdevicedependencies_pimpl::
+  usesdevice (const ossie::SoftwareAssembly::UsesDevice& use)
+  {
+      usesDevices.push_back(use);
+  }
+
+  ::std::vector<ossie::SoftwareAssembly::UsesDevice> usesdevicedependencies_pimpl::
+   post_usesdevicedependencies ()
+  {
+      return usesDevices;
+  }
+
+  // usesdevice_pimpl
+  //
+
+  void usesdevice_pimpl::
+  pre ()
+  {
+      uses.reset(new ossie::SoftwareAssembly::UsesDevice());
+  }
+
+  void usesdevice_pimpl::
+  propertyref (const ossie::SoftwareAssembly::PropertyRef& propRef)
+  {
+      uses->dependencies.push_back(propRef);
+  }
+
+  void usesdevice_pimpl::
+  simpleref (ossie::SimplePropertyRef* propRef)
+  {
+      uses->dependencies.push_back(propRef->clone());
+  }
+
+  void usesdevice_pimpl::
+  simplesequenceref (ossie::SimpleSequencePropertyRef* propRef)
+  {
+      uses->dependencies.push_back(propRef->clone());
+  }
+
+  void usesdevice_pimpl::
+  structref (ossie::StructPropertyRef* propRef)
+  {
+      uses->dependencies.push_back(propRef->clone());
+  }
+
+  void usesdevice_pimpl::
+  structsequenceref (ossie::StructSequencePropertyRef* propRef)
+  {
+      uses->dependencies.push_back(propRef->clone());
+  }
+
+  void usesdevice_pimpl::
+  id (const ::std::string& id)
+  {
+      uses->id = id;
+  }
+
+  void usesdevice_pimpl::
+  type (const ::std::string& type)
+  {
+      uses->type = type;
+  }
+
+  ossie::SoftwareAssembly::UsesDevice usesdevice_pimpl::
+  post_usesdevice ()
+  {
+      return *uses;
+  }
+
+  // property_pimpl
+  //
+
+  void propertyref_pimpl::
+  pre ()
+  {
+      propRef.reset(new ossie::SimplePropertyRef());
+  }
+
+  void propertyref_pimpl::
+  refid (const ::std::string& refid)
+  {
+      propRef->_id = refid;
+  }
+
+  void propertyref_pimpl::
+  value (const ::std::string& value)
+  {
+      propRef->_value = value;
+  }
+
+  ossie::SoftwareAssembly::PropertyRef propertyref_pimpl::
+  post_propertyref ()
+  {
+      return ossie::SoftwareAssembly::PropertyRef(propRef->clone());
   }
 }
 

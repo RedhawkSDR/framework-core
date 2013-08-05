@@ -42,7 +42,7 @@ class Consumer_i(CosEventComm__POA.PushConsumer):
         self.parent = parent
     
     def push(self, data):
-        if data._v == "bye":
+        if data._v == "response":
             self.parent.eventFlag = True
             self.parent.localEvent.set()
     
@@ -54,7 +54,7 @@ class ConsumerDevice_i(CosEventComm__POA.PushConsumer):
         self.parent = parent
     
     def push(self, data):
-        if data._v == "bye device":
+        if data._v == "response device":
             self.parent.eventFlag = True
             self.parent.localEvent.set()
     
@@ -121,7 +121,7 @@ class EventPortConnectionsTest(scatest.CorbaTestCase):
         _consumer = ConsumerDevice_i(self)
         _proxy_supplier.connect_push_consumer(_consumer._this())
         
-        _proxy_consumer.push(any.to_any("hello device"))
+        _proxy_consumer.push(any.to_any("message device"))
         self.localEvent.wait(5.0)
         self.assertEqual(self.eventFlag, True)
     
@@ -155,7 +155,7 @@ class EventPortConnectionsTest(scatest.CorbaTestCase):
         _consumer = Consumer_i(self)
         _proxy_supplier.connect_push_consumer(_consumer._this())
         
-        _proxy_consumer.push(any.to_any("hello"))
+        _proxy_consumer.push(any.to_any("message"))
         self.localEvent.wait(5.0)
         self.assertEqual(self.eventFlag, True)
         

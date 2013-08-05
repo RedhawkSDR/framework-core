@@ -2,21 +2,6 @@
 
 ## Installing REDHAWK
 
-If you just want to use REDHAWK, it is far easier to use the REDHAWK PPA than
-to build from source.  The PPA is located here:
-https://launchpad.net/~axios/+archive/redhawk
-
-For Ubuntu 12.04 and 12.10 you can get started with the following steps:
-    
-    sudo add-apt-repository ppa:axios/redhawk
-    sudo apt-get update
-    sudo apt-get install redhawk \
-                         redhawk-sdrroot-dom-mgr \
-                         redhawk-sdrroot-dev-mgr \
-                         redhawk-sdrroot-dom-profile \
-                         redhawk-bulkiointerfaces \
-                         redhawk-device-gpp
-
 ## Configuring your terminal to load the REDHAWK environment
 
 Per REDHAWK conventions certian environment variables need to be defined.  When
@@ -84,13 +69,8 @@ be 'bash'.  You have two choices:
 
 This will make bash your /bin/sh shell; this may make your system boot ever so slightly slower.
 
-The other alternative is to install a code-generator patch following the directions here
-https://github.com/Axios-Engineering/redhawk-ide-patch-updatesite
-
 3. Ubuntu places the omniidl library outside of the Python Path.  When using the IDE code
 generators this must be importable.  You have a a few choices to fix this issue:
-
-The best option is to install the patches from https://github.com/Axios-Engineering/redhawk-ide-patch-updatesite.
 
 Alternativly, you can symlink omniidl into the dist-packages folder:
 
@@ -100,35 +80,6 @@ Finally, you can manually add /usr/lib/omniidl/omniidl to your PyDev interpreter
 
 ## Building from source
 
-If you really, really, really want to build from source, you can
-replace the PPA install steps with the following:
-
-    git clone git@github.com:Axios-Engineering/framework-core.git
-    git checkout -b ubuntu origin/ubuntu
-
-    sudo apt-get install build-essential \
-                         openjdk-6-jdk \
-                         python-omniorb \
-                         libboost-dev \
-                         libboost-system-dev \
-                         libboost-filesystem-dev \
-                         libboost-regex-dev \
-                         libboost-thread-dev \
-                         omnievents \
-                         omniidl \
-                         omniidl-python \
-                         omniorb \
-                         omniorb-idl \
-                         omniorb-nameserver \
-                         libcos4-dev \
-                         libomnievents-dev \
-                         libomniorb4-dev \
-                         xsdcxx \
-                         python-numpy \
-                         python-omniorb \
-                         omniidl-python \
-                         liblog4cxx10-dev
-    
     cd src                     
     ./reconf
     ./configure --with-ossie=/usr/local/redhawk/core --with-sdr=/var/redhawk/sdr
@@ -148,13 +99,6 @@ variables.  This can be done in your ~/.bashrc.
     export OSSIEHOME=/usr/local/redhawk/core
     export SDRROOT=/var/redhawk/sdr
     export PYTHONPATH=${OSSIEHOME}/lib/python
-
-The bulkioInterfaces project requires minor patches (available on the
-AxiosEngineering/framework-bulkioInterface repo) because of the way that Python
-2.7 distutils interacts with the Makefile.  You can follow the same
-"checkinstall" technique used for the core framework for both of these
-packages.
-
     sudo checkinstall --provides=redhawk-bulkio --pkgversion=1.8.3 --pkgname=redhawk-bulkio make install
 
 The GPP project works as-is (if you use ./reconf; ./configure; make), installing it is simple:

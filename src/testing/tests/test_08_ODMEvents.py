@@ -160,7 +160,7 @@ class ODMEventsTest(scatest.CorbaTestCase):
         self.assertNotEqual(devMgr, None)
 
         timeout = 0.0
-        while (_consumer.getAddedEventCount('DEVICE_MANAGER') < 1 and _consumer.getAddedEventCount('DEVICE') < 1 and timeout < 2):
+        while ((_consumer.getAddedEventCount('DEVICE_MANAGER') < 1 or _consumer.getAddedEventCount('DEVICE') < 1) and timeout < 2):
             timeout += 0.2
             time.sleep(0.2)
 
@@ -170,7 +170,7 @@ class ODMEventsTest(scatest.CorbaTestCase):
             pass
 
         timeout = 0.0
-        while (_consumer.getRemovedEventCount('DEVICE_MANAGER') < 1 and _consumer.getRemovedEventCount('DEVICE') < 1 and timeout < 2):
+        while ((_consumer.getRemovedEventCount('DEVICE_MANAGER') < 1 or _consumer.getRemovedEventCount('DEVICE') < 1) and timeout < 2):
             timeout += 0.2
             time.sleep(0.2)
 
@@ -179,7 +179,7 @@ class ODMEventsTest(scatest.CorbaTestCase):
         self.assertNotEqual(devMgr, None)
 
         timeout = 0.0
-        while (_consumer.getAddedEventCount('DEVICE_MANAGER') < 2 and _consumer.getAddedEventCount('SERVICE') < 1 and timeout < 2):
+        while ((_consumer.getAddedEventCount('DEVICE_MANAGER') < 2 or _consumer.getAddedEventCount('SERVICE') < 1) and timeout < 2):
             timeout += 0.2
             time.sleep(0.2)
 
@@ -189,7 +189,7 @@ class ODMEventsTest(scatest.CorbaTestCase):
             pass
 
         timeout = 0.0
-        while (_consumer.getRemovedEventCount('DEVICE_MANAGER') < 2 and _consumer.getRemovedEventCount('SERVICE') < 1 and timeout < 2):
+        while ((_consumer.getRemovedEventCount('DEVICE_MANAGER') < 2 or _consumer.getRemovedEventCount('SERVICE') < 1) and timeout < 2):
             timeout += 0.2
             time.sleep(0.2)
 

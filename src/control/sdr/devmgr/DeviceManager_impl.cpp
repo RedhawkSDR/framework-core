@@ -24,16 +24,16 @@
 #include <sys/stat.h>
 #include <sys/utsname.h>
 
-#include <boost/filesystem/path.hpp>
+#include <boost/filesystem.hpp>
 
 #include <ossie/debug.h>
 #include <ossie/ossieSupport.h>
-#include <ossie/prop_helpers.h>
 #include <ossie/DeviceManagerConfiguration.h>
 #include <ossie/CorbaUtils.h>
 #include <ossie/EventChannelSupport.h>
 #include <ossie/ComponentDescriptor.h>
 #include <ossie/FileStream.h>
+#include <ossie/prop_utils.h>
 
 #include "DeviceManager_impl.h"
 
@@ -210,86 +210,6 @@ void DeviceManager_impl::resolveNamingContext(){
     LOG_TRACE(DeviceManager_impl, "Resolved DomainManager naming context");
 }
 
-/** 
- * Store location of the common device PRF by calling deviceProperties.load.
- *
- * Handle exceptions: if an exception occurs, log an error and return false, 
- * which indicates a failure.  Otherwise, return true.
- */
-bool DeviceManager_impl::storeCommonDevicePrfLocation(
-        SoftPkg& SPDParser, 
-        ossie::Properties& deviceProperties) {
-
-    bool returnVal = true;
-
-    LOG_TRACE(DeviceManager_impl, "Loading device PRF file, if any")
-    if ( SPDParser.getPRFFile() ) {
-        try {
-            LOG_TRACE(DeviceManager_impl, "Loading device PRF file " << SPDParser.getPRFFile());
-            File_stream prfStream(_fileSys, SPDParser.getPRFFile());
-            deviceProperties.load(prfStream);
-            LOG_TRACE(DeviceManager_impl, "Loaded device PRF file " << SPDParser.getPRFFile());
-            prfStream.close();
-        } catch (ossie::parser_error& ex) {
-            LOG_ERROR(DeviceManager_impl, 
-                "Skipping instantiation of device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "; "
-                << "error parsing file " << SPDParser.getPRFFile() << "; " << ex.what())
-            returnVal = false;
-        } catch ( std::exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following standard exception occurred: "<<ex.what()<<". Skipping instantiation of device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "; " << "error parsing file " << SPDParser.getPRFFile();
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            returnVal = false;
-        } catch ( CORBA::Exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following CORBA exception occurred: "<<ex._name()<<". Skipping instantiation of device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "; " << "error parsing file " << SPDParser.getPRFFile();
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            returnVal = false;
-        }
-    } else {
-        LOG_TRACE(DeviceManager_impl, "Device does not provide softpkg PRF file");
-    }
-
-    return returnVal;
-}
-
-bool DeviceManager_impl::storeImplementationSpecificDevicePrfLocation(
-        SoftPkg&                    SPDParser, 
-        ossie::Properties&          deviceProperties,
-        const SPD::Implementation*& matchedDeviceImpl) {
-
-    bool returnVal = true;    
-    // store location of implementation specific PRF file
-    if ( matchedDeviceImpl->getPRFFile()) {
-        LOG_TRACE(DeviceManager_impl, "Joining implementation PRF file" << matchedDeviceImpl->getPRFFile());
-        try {
-            LOG_TRACE(DeviceManager_impl, "Joining implementation PRF file" << matchedDeviceImpl->getPRFFile());
-            File_stream prfStream(_fileSys, matchedDeviceImpl->getPRFFile());
-            deviceProperties.join(prfStream);
-            prfStream.close();
-        } catch (ossie::parser_error& ex) {
-            LOG_ERROR(DeviceManager_impl, 
-                "Skipping instantiation of device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "; "
-                << "error parsing file " << SPDParser.getPRFFile() << "; " << ex.what())
-            returnVal = false;
-        } catch ( std::exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following standard exception occurred: "<<ex.what()<<". Skipping instantiation of device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "; " << "error parsing file " << SPDParser.getPRFFile();
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            returnVal = false;
-        } catch ( CORBA::Exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following CORBA exception occurred: "<<ex._name()<<". Skipping instantiation of device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "; " << "error parsing file " << SPDParser.getPRFFile();
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            returnVal = false;
-        }
-    } else {
-        LOG_TRACE(DeviceManager_impl, "Device does not provide implementation specific PRF file");
-    }
-
-    return returnVal;
-}
-
 bool DeviceManager_impl::loadSPD(
         SoftPkg&                    SPDParser,
         DeviceManagerConfiguration& DCDParser,
@@ -322,26 +242,6 @@ bool DeviceManager_impl::loadSPD(
     } catch ( ... ) {
         LOG_FATAL(DeviceManager_impl, "stopping device manager; unknown error parsing SPD")
         throw std::runtime_error("unexpected error");
-    }
-
-    return true;
-}
-
-/**
- * Join properties from common PRF and implementation PRFs.
- */
-bool DeviceManager_impl::joinDevicePropertiesFromPRFs(
-        SoftPkg&                    SPDParser,
-        Properties&                 deviceProperties,
-        const SPD::Implementation*& matchedDeviceImpl) {
-
-    if (!storeCommonDevicePrfLocation(SPDParser, deviceProperties )) {
-        return false;
-    }
-
-    if (!storeImplementationSpecificDevicePrfLocation(
-            SPDParser, deviceProperties, matchedDeviceImpl)) {
-        return false;
     }
 
     return true;
@@ -724,6 +624,7 @@ void DeviceManager_impl::createDeviceCacheLocation(
     bool retval = this->makeDirectory(devcache);
     if (not retval) {
         LOG_ERROR(DeviceManager_impl, "Unable to create the Device cache: " << devcache)
+        exit(-1);
     }
 }
 
@@ -1624,14 +1525,18 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
                 for (unsigned int j = 0; j < overrideProps.size (); j++) {
                     std::string propid = static_cast<char*>(prop.id);
                     std::string refid(overrideProps[j]->getID());
-            
+
                     LOG_TRACE(DeviceManager_impl, "Comparing DCD component instantiation ID " << propid << " to " << refid);
                     if (refid == propid) {
                         // only store property if it has a mode of ['readwrite' or 'writeonly']
                         if (std::string(prfSimpleProp[i]->getMode()) == "readonly") {
-                            LOG_WARN(DeviceManager_impl, "Ignoring DCD override of property '" << prfSimpleProp[i]->getName() << "' - '" << prfSimpleProp[i]->getID() << "' " 
-                                 << "in file '" << _deviceConfigurationProfile << "'; "
-                                 << "device property is readonly")
+                            LOG_WARN(DeviceManager_impl, 
+                                     "Ignoring DCD override of property '" 
+                                        << prfSimpleProp[i]->getName() << "' - '" 
+                                        << prfSimpleProp[i]->getID() << "' " 
+                                        << "in file '" 
+                                        << _deviceConfigurationProfile << "'; "
+                                        << "device property is readonly")
                         } else {
                             LOG_TRACE(DeviceManager_impl, "override value with " << *overrideProps[j]);
                             prop = overridePropertyValue(prfSimpleProp[i], overrideProps[j]);
@@ -1929,7 +1834,7 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
         throw (CF::InvalidObjectReference("Cannot unregister Service. registeringService is a nil reference."));
     }
 
-    //Look for registeredService in _registeredServices
+    //Look for registeredDevice in _registeredDevices
     bool serviceFound = decrement_registeredServices(registeredService, name);
     if (serviceFound)
         return;
@@ -2052,6 +1957,24 @@ bool DeviceManager_impl::checkWriteAccess(std::string &path)
     DIR *dp;
     struct dirent *ep;
     dp = opendir(path.c_str());
+    if (dp == NULL) {
+        if (errno == ENOENT) {
+            LOG_WARN(DeviceManager_impl, "Failed to create directory " << path <<".")
+        } else if (errno == EACCES) {
+            LOG_WARN(DeviceManager_impl, "Failed to create directory " << path <<". Please check your write permissions.")
+        } else if (errno == ENOTDIR) {
+            LOG_WARN(DeviceManager_impl, "Failed to create directory " << path <<". One of the components of the path is not a directory.")
+        } else if (errno == EMFILE) {
+            LOG_WARN(DeviceManager_impl, "Failed to create directory " << path <<". Too many file descriptors open by the process.")
+        } else if (errno == ENFILE) {
+            LOG_WARN(DeviceManager_impl, "Failed to create directory " << path <<". Too many file descriptors open by the system.")
+        } else if (errno == ENOMEM) {
+            LOG_WARN(DeviceManager_impl, "Failed to create directory " << path <<". Insufficient memory to complete the operation.")
+        } else {
+            LOG_WARN(DeviceManager_impl, "Attempt to create directory " << path <<" failed with the following error number: " << errno)
+        }
+        return false;
+    }
     while ((ep = readdir(dp)) != NULL) {
         std::string name = ep->d_name;
         if ((name == ".") or (name == "..")) continue;
@@ -2620,7 +2543,7 @@ void DeviceManager_impl::childExited (pid_t pid, int status)
         decrement_registeredServices(serviceNode->service, serviceNode->label.c_str());
     }
 
-    if (!deviceNode) {
+    if (deviceNode) {
         delete deviceNode;
     } else {
         delete serviceNode;

@@ -22,12 +22,14 @@
 #define PROPERTYINTERFACE_H
 
 #include <string>
+#include <complex>
 
-class Resource_impl;
-
+#include <iostream>
 #include "ossie/CorbaUtils.h"
 #include "CF/cf.h"
 #include "ossie/Port_impl.h"
+
+#include "ossie/ComplexProperties.h"
 
 #if ENABLE_EVENTS
 #include "CF/ExtendedEvent.h"
@@ -140,14 +142,14 @@ public:
 
     std::string id;
     std::string name;
-    short type;
+    CORBA::TypeCode_ptr type;
     std::string mode;
     std::string units;
     std::string action;
     std::vector<std::string> kinds;
 
 protected:
-    PropertyInterface(short _type) :
+    PropertyInterface(CORBA::TypeCode_ptr _type) :
         id(),
         name(),
         type(_type),
@@ -165,7 +167,6 @@ protected:
     bool isNil_;
     bool enableNil_;
 };
-
 
 /**
  * 
@@ -192,6 +193,10 @@ public:
             isNil_ = false;
         } else {
             isNil_ = enableNil_;
+
+            if (newValue.type()->kind() != CORBA::tk_null){
+                throw std::invalid_argument("Unable to set value");
+            }
         }
     }
 
@@ -255,7 +260,6 @@ protected:
 
     value_type& value_;
 };
-
 
 template <>
 inline bool PropertyWrapper<char>::fromAny (const CORBA::Any& a, char& v)
@@ -374,8 +378,19 @@ protected:
 
 };
 
-
 // Convenience typedefs for simple property types.
+typedef PropertyWrapper<std::complex<float> >            ComplexFloatProperty;
+typedef PropertyWrapper<std::complex<bool> >             ComplexBooleanProperty;
+typedef PropertyWrapper<std::complex<CORBA::ULong> >     ComplexULongProperty;
+typedef PropertyWrapper<std::complex<short> >            ComplexShortProperty;
+typedef PropertyWrapper<std::complex<unsigned char> >    ComplexOctetProperty;
+typedef PropertyWrapper<std::complex<char> >             ComplexCharProperty;
+typedef PropertyWrapper<std::complex<unsigned short> >   ComplexUShortProperty;
+typedef PropertyWrapper<std::complex<double> >           ComplexDoubleProperty;
+typedef PropertyWrapper<std::complex<CORBA::Long> >      ComplexLongProperty;
+typedef PropertyWrapper<std::complex<CORBA::LongLong> >  ComplexLongLongProperty;
+typedef PropertyWrapper<std::complex<CORBA::ULongLong> > ComplexULongLongProperty;
+
 typedef PropertyWrapper<std::string> StringProperty;
 typedef PropertyWrapper<bool> BooleanProperty;
 typedef PropertyWrapper<char> CharProperty;
@@ -416,7 +431,9 @@ public:
 
     virtual void setValue (const CORBA::Any& newValue)
     {
-        this->fromAny(newValue, value_);
+        if (!fromAny(newValue, value_)){
+            throw std::invalid_argument("Unable to set value");
+        }
     }
 
     virtual void isNil (bool nil)
@@ -475,16 +492,27 @@ protected:
     {
     }
 
+    /*
+     * a -> seq_p -> v
+     * any -> CORBA sequence type -> std::vector<simple type>
+     */
     virtual bool fromAny (const CORBA::Any& a, value_type& v)
     {
+        // Recall:
+        //      value_type == std::vector<simple type>
+        //      SEQ_type   == CORBA sequence type
+
         SEQ_T* seq_p;
         if (a >>= seq_p) {
+            // any -> CORBA sequence type worked
             v.resize(seq_p->length());
-	    if ( v.size() > 0 )  {
+            if ( v.size() > 0 )  {
+                // CORBA sequence -> std::vector<simple type>
                 memcpy(&v[0], &(*seq_p)[0], seq_p->length()*sizeof(T));
             }
             return true;
         } else {
+            // Something went wrong with any -> CORBA sequence type.  Abort.
             return false;
         }
     }
@@ -577,20 +605,243 @@ inline void SeqPropertyWrapper<std::string, CORBA::StringSeq>::toAny (const std:
     a <<= seq;
 }
 
-typedef SeqPropertyWrapper<std::string, CORBA::StringSeq> StringSeqProperty;
-typedef SeqPropertyWrapper<char, CORBA::CharSeq> CharSeqProperty;
-typedef SeqPropertyWrapper<bool, CORBA::BooleanSeq> BooleanSeqProperty;
-typedef SeqPropertyWrapper<CORBA::Octet, CORBA::OctetSeq> OctetSeqProperty;
-typedef SeqPropertyWrapper<CORBA::Short, CORBA::ShortSeq> ShortSeqProperty;
-typedef SeqPropertyWrapper<CORBA::UShort, CORBA::UShortSeq> UShortSeqProperty;
-typedef SeqPropertyWrapper<CORBA::Long, CORBA::LongSeq > LongSeqProperty;
-typedef SeqPropertyWrapper<CORBA::ULong, CORBA::ULongSeq > ULongSeqProperty;
-typedef SeqPropertyWrapper<CORBA::LongLong, CORBA::LongLongSeq > LongLongSeqProperty;
+template<>
+inline void SeqPropertyWrapper<std::complex<float>, CF::complexFloatSeq>::toAny (
+    const std::vector<std::complex<float> >& v, 
+    CORBA::Any& a)
+{
+    CF::complexFloatSeq::_var_type seq = new CF::complexFloatSeq(v.size(), 
+                                 v.size(),
+                                 (CF::complexFloat*)&v[0],
+                                 0);  
+    a <<= seq;
+} 
+
+template<>
+inline void SeqPropertyWrapper<std::complex<double>, CF::complexDoubleSeq>::toAny (
+    const std::vector<std::complex<double> >& v, 
+    CORBA::Any& a)
+{
+    CF::complexDoubleSeq::_var_type seq = new CF::complexDoubleSeq(v.size(), 
+                                 v.size(),
+                                 (CF::complexDouble*)&v[0],
+                                 0);  
+    a <<= seq;
+} 
+
+template<>
+inline void SeqPropertyWrapper<std::complex<char>, CF::complexCharSeq>::toAny (
+    const std::vector<std::complex<char> >& v, 
+    CORBA::Any& a)
+{
+    CF::complexCharSeq::_var_type seq = new CF::complexCharSeq(v.size(), 
+                                 v.size(),
+                                 (CF::complexChar*)&v[0],
+                                 0);  
+    a <<= seq;
+} 
+
+template<>
+inline void SeqPropertyWrapper<std::complex<unsigned char>, CF::complexOctetSeq>::toAny (
+    const std::vector<std::complex<unsigned char> >& v, 
+    CORBA::Any& a)
+{
+    CF::complexOctetSeq::_var_type seq = new CF::complexOctetSeq(v.size(), 
+                                 v.size(),
+                                 (CF::complexOctet*)&v[0],
+                                 0);  
+    a <<= seq;
+} 
+
+template<>
+inline void SeqPropertyWrapper<std::complex<bool>, CF::complexBooleanSeq>::toAny (
+    const std::vector<std::complex<bool> >& v, 
+    CORBA::Any& a)
+{
+    CF::complexBooleanSeq::_var_type seq = new CF::complexBooleanSeq(v.size(), 
+                                 v.size(),
+                                 (CF::complexBoolean*)&v[0],
+                                 0);  
+    a <<= seq;
+} 
+
+template<>
+inline void SeqPropertyWrapper<std::complex<short>, CF::complexShortSeq>::toAny (
+    const std::vector<std::complex<short> >& v, 
+    CORBA::Any& a)
+{
+    CF::complexShortSeq::_var_type seq = new CF::complexShortSeq(v.size(), 
+                                 v.size(),
+                                 (CF::complexShort*)&v[0],
+                                 0);  
+    a <<= seq;
+} 
+
+template<>
+inline void SeqPropertyWrapper<std::complex<unsigned short>, CF::complexUShortSeq>::toAny (
+    const std::vector<std::complex<unsigned short> >& v, 
+    CORBA::Any& a)
+{
+    CF::complexUShortSeq::_var_type seq = new CF::complexUShortSeq(v.size(), 
+                                 v.size(),
+                                 (CF::complexUShort*)&v[0],
+                                 0);  
+    a <<= seq;
+} 
+
+template<>
+inline void SeqPropertyWrapper<std::complex<CORBA::Long>, CF::complexLongSeq>::toAny (
+    const std::vector<std::complex<CORBA::Long> >& v, 
+    CORBA::Any& a)
+{
+    CF::complexLongSeq::_var_type seq = new CF::complexLongSeq(v.size(), 
+                                 v.size(),
+                                 (CF::complexLong*)&v[0],
+                                 0);  
+    a <<= seq;
+} 
+
+template<>
+inline void SeqPropertyWrapper<std::complex<CORBA::ULong>, CF::complexULongSeq>::toAny (
+    const std::vector<std::complex<CORBA::ULong> >& v, 
+    CORBA::Any& a)
+{
+    CF::complexULongSeq::_var_type seq = new CF::complexULongSeq(v.size(), 
+                                 v.size(),
+                                 (CF::complexULong*)&v[0],
+                                 0);  
+    a <<= seq;
+} 
+
+
+template<>
+inline void SeqPropertyWrapper<std::complex<CORBA::LongLong>, CF::complexLongLongSeq>::toAny (
+    const std::vector<std::complex<CORBA::LongLong> >& v, 
+    CORBA::Any& a)
+{
+    CF::complexLongLongSeq::_var_type seq = new CF::complexLongLongSeq(v.size(), 
+                                 v.size(),
+                                 (CF::complexLongLong*)&v[0],
+                                 0);  
+    a <<= seq;
+} 
+
+template<>
+inline void SeqPropertyWrapper<std::complex<CORBA::ULongLong>, CF::complexULongLongSeq>::toAny (
+    const std::vector<std::complex<CORBA::ULongLong> >& v, 
+    CORBA::Any& a)
+{
+    CF::complexULongLongSeq::_var_type seq = new CF::complexULongLongSeq(v.size(), 
+                                 v.size(),
+                                 (CF::complexULongLong*)&v[0],
+                                 0);  
+    a <<= seq;
+} 
+
+/*
+template <typename T, typename SEQ_T>
+class ComplexSeqPropertyWrapper : public SeqPropertyWrapper<T, SEQ_T>
+{
+protected:
+    ComplexSeqPropertyWrapper (std::vector<T>& value) :
+        SeqPropertyWrapper(std::vector<T>& value)
+        value_(value)
+    {
+    }
+
+private:
+    virtual void toAny (const std::vector<T>& v, CORBA::Any& a) 
+    {
+        seq_var_type seq = new SEQ_T(v.size(), 
+                                     v.size(),
+                                     (seq_var_type*)&v[0],
+                                     0);  
+        a <<= seq;
+    }
+    friend class PropertyWrapperFactory;
+}
+*/
+
+typedef SeqPropertyWrapper<std::string,      CORBA::StringSeq>     StringSeqProperty;
+typedef SeqPropertyWrapper<char,             CORBA::CharSeq>       CharSeqProperty;
+typedef SeqPropertyWrapper<bool,             CORBA::BooleanSeq>    BooleanSeqProperty;
+typedef SeqPropertyWrapper<CORBA::Octet,     CORBA::OctetSeq>      OctetSeqProperty;
+typedef SeqPropertyWrapper<CORBA::Short,     CORBA::ShortSeq>      ShortSeqProperty;
+typedef SeqPropertyWrapper<CORBA::UShort,    CORBA::UShortSeq>     UShortSeqProperty;
+typedef SeqPropertyWrapper<CORBA::Long,      CORBA::LongSeq >      LongSeqProperty;
+typedef SeqPropertyWrapper<CORBA::ULong,     CORBA::ULongSeq >     ULongSeqProperty;
+typedef SeqPropertyWrapper<CORBA::LongLong,  CORBA::LongLongSeq >  LongLongSeqProperty;
 typedef SeqPropertyWrapper<CORBA::ULongLong, CORBA::ULongLongSeq > ULongLongSeqProperty;
-typedef SeqPropertyWrapper<CORBA::Float, CORBA::FloatSeq> FloatSeqProperty;
-typedef SeqPropertyWrapper<CORBA::Double, CORBA::DoubleSeq> DoubleSeqProperty;
+typedef SeqPropertyWrapper<CORBA::Float,     CORBA::FloatSeq>      FloatSeqProperty;
+typedef SeqPropertyWrapper<CORBA::Double,    CORBA::DoubleSeq>     DoubleSeqProperty;
 
+typedef SeqPropertyWrapper<std::complex<float>, CF::complexFloatSeq> 
+    ComplexFloatSeqProperty;
 
+typedef SeqPropertyWrapper<std::complex<double>, CF::complexDoubleSeq >
+    ComplexDoubleSeqProperty;
+
+typedef SeqPropertyWrapper<std::complex<char>, CF::complexCharSeq >
+    ComplexCharSeqProperty;
+
+typedef SeqPropertyWrapper<std::complex<bool>,  CF::complexBooleanSeq>
+    ComplexBooleanSeqProperty;
+
+typedef SeqPropertyWrapper<std::complex<unsigned char>, CF::complexOctetSeq>
+    ComplexOctetSeqProperty;
+
+typedef SeqPropertyWrapper<std::complex<short>, CF::complexShortSeq>
+    ComplexShortSeqProperty;
+
+typedef SeqPropertyWrapper<std::complex<unsigned short>, CF::complexUShortSeq>
+    ComplexUShortSeqProperty;
+
+typedef SeqPropertyWrapper<std::complex<CORBA::Long>, CF::complexLongSeq>
+    ComplexLongSeqProperty;
+
+typedef SeqPropertyWrapper<std::complex<CORBA::ULong>, CF::complexULongSeq>
+    ComplexULongSeqProperty;
+
+typedef SeqPropertyWrapper<std::complex<CORBA::LongLong>, CF::complexLongLongSeq>
+    ComplexLongLongSeqProperty;
+
+typedef SeqPropertyWrapper<std::complex<CORBA::ULongLong>, CF::complexULongLongSeq>
+    ComplexULongLongSeqProperty;
+
+/*
+typedef SeqPropertyWrapper<CF::complexFloat, CF::complexFloatSeq > 
+    ComplexFloatSeqProperty;
+
+typedef SeqPropertyWrapper<CF::complexDouble, CF::complexDoubleSeq >
+    ComplexDoubleSeqProperty;
+
+typedef SeqPropertyWrapper<CF::complexChar, CF::complexCharSeq >
+    ComplexCharSeqProperty;
+
+typedef SeqPropertyWrapper<CF::complexBoolean,  CF::complexBooleanSeq>
+    ComplexBooleanSeqProperty;
+
+typedef SeqPropertyWrapper<CF::complexOctet, CF::complexOctetSeq>
+    ComplexOctetSeqProperty;
+
+typedef SeqPropertyWrapper<CF::complexShort, CF::complexShortSeq>
+    ComplexShortSeqProperty;
+
+typedef SeqPropertyWrapper<CF::complexUShort, CF::complexUShortSeq>
+    ComplexUShortSeqProperty;
+
+typedef SeqPropertyWrapper<CF::complexLong, CF::complexLongSeq>
+    ComplexLongSeqProperty;
+
+typedef SeqPropertyWrapper<CF::complexULong, CF::complexULongSeq>
+    ComplexULongSeqProperty;
+
+typedef SeqPropertyWrapper<CF::complexLongLong, CF::complexLongLongSeq>
+    ComplexLongLongSeqProperty;
+
+typedef SeqPropertyWrapper<CF::complexULongLong>, CF::complexULongLongSeq>
+    ComplexULongLongSeqProperty;
+*/
 template <typename T>
 class StructProperty : public PropertyWrapper<T>
 {
@@ -621,12 +872,11 @@ protected:
     StructProperty (value_type& value) :
         super(value)
     {
-        super::type = CORBA::tk_struct;
+        super::type = CORBA::_tc_TypeCode;
     }
 
     friend class PropertyWrapperFactory;
 };
-
 
 template <typename T>
 class StructSequenceProperty : public PropertyInterface
@@ -680,7 +930,7 @@ public:
     }
 
     StructSequenceProperty (value_type& value) :
-        super(CORBA::tk_sequence),
+        super(CORBA::_tc_TypeCode),
         value_(value)
     {
     }
@@ -717,7 +967,6 @@ protected:
     value_type& value_;
 };
 
-
 class PropertyWrapperFactory
 {
 public:
@@ -738,7 +987,6 @@ private:
     PropertyWrapperFactory();
 
 };
-
 
 template <>
 inline PropertyInterface* PropertyWrapperFactory::Create<std::string> (std::string& value)
@@ -798,6 +1046,83 @@ template <>
 inline PropertyInterface* PropertyWrapperFactory::Create<CORBA::Double> (CORBA::Double& value)
 {
     return new DoubleProperty(value);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<float> >
+    (std::complex<float>& value)
+{
+   return new ComplexFloatProperty(value);
+
+}
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<bool> >
+    (std::complex<bool>& value)
+{
+    return new ComplexBooleanProperty(value);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<CORBA::ULong> >
+    (std::complex<CORBA::ULong>& value)
+{
+    return new ComplexULongProperty(value);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<short> >
+    (std::complex<short>& value)
+{
+    return new ComplexShortProperty(value);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<unsigned char> >
+    (std::complex<unsigned char>& value)
+{
+    return new ComplexOctetProperty(value);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<char> >
+    (std::complex<char>& value)
+{
+    return new ComplexCharProperty(value);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<unsigned short> >
+    (std::complex<unsigned short>& value)
+{
+    return new ComplexUShortProperty(value);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<double> >
+    (std::complex<double>& value)
+{
+    return new ComplexDoubleProperty(value);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<CORBA::Long> >
+    (std::complex<CORBA::Long>& value)
+{
+    return new ComplexLongProperty(value);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<CORBA::LongLong> >
+    (std::complex<CORBA::LongLong>& value)
+{
+    return new ComplexLongLongProperty(value);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<CORBA::ULongLong> >
+    (std::complex<CORBA::ULongLong>& value)
+{
+    return new ComplexULongLongProperty(value);
 }
 
 template <>
@@ -871,6 +1196,84 @@ inline PropertyInterface* PropertyWrapperFactory::Create<CORBA::Double> (std::ve
 {
     return new DoubleSeqProperty(value);
 }
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<float> > (
+    std::vector<std::complex<float> >& inputVector)
+{
+    return new ComplexFloatSeqProperty(inputVector);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<double> > (
+    std::vector<std::complex<double> >& inputVector)
+{
+    return new ComplexDoubleSeqProperty(inputVector);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<char> > (
+    std::vector<std::complex<char> >& inputVector)
+{
+    return new ComplexCharSeqProperty(inputVector);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<unsigned char> > (
+    std::vector<std::complex<unsigned char> >& inputVector)
+{
+   return new ComplexOctetSeqProperty(inputVector);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<bool> > (
+    std::vector<std::complex<bool> >& inputVector)
+{
+    return new ComplexBooleanSeqProperty(inputVector);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<short> > (
+    std::vector<std::complex<short> >& inputVector)
+{
+    return new ComplexShortSeqProperty(inputVector);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<unsigned short> > (
+    std::vector<std::complex<unsigned short> >& inputVector)
+{
+    return new ComplexUShortSeqProperty(inputVector);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<CORBA::Long> > (
+    std::vector<std::complex<CORBA::Long> >& inputVector)
+{
+    return new ComplexLongSeqProperty(inputVector);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<CORBA::ULong> > (
+    std::vector<std::complex<CORBA::ULong> >& inputVector)
+{
+    return new ComplexULongSeqProperty(inputVector);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<CORBA::LongLong> > (
+    std::vector<std::complex<CORBA::LongLong> >& inputVector)
+{
+    return new ComplexLongLongSeqProperty(inputVector);
+}
+
+template <>
+inline PropertyInterface* PropertyWrapperFactory::Create<std::complex<CORBA::ULongLong> > (
+    std::vector<std::complex<CORBA::ULongLong> >& inputVector)
+{
+    return new ComplexULongLongSeqProperty(inputVector);
+}
+
 
 #if ENABLE_EVENTS
 

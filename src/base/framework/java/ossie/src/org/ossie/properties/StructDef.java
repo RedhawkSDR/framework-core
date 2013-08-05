@@ -27,6 +27,10 @@ import java.util.List;
 import java.util.Map;
 
 import org.omg.CORBA.Any;
+import org.omg.CORBA.ORB;
+
+import CF.DataType;
+import CF.PropertiesHelper;
 
 public abstract class StructDef {
     private Map<String, IProperty> elements;
@@ -98,6 +102,28 @@ public abstract class StructDef {
 
     public IProperty getElement(final String id) {
         return getElementsMap().get(id);
+    }
+
+    public Any toAny() {
+        Any retVal = ORB.init().create_any();
+
+        DataType[] props = new DataType[this.getElementsMap().size()];
+        int ii = 0;
+        for (IProperty prop : this.getElementsMap().values()) {
+            props[ii++] = new DataType(prop.getId(), prop.toAny());
+        }
+        
+        PropertiesHelper.insert(retVal, props);
+        return retVal;
+    }
+
+    public void fromAny(Any any) {
+        if (!any.type().equivalent(PropertiesHelper.type())) {
+            throw new IllegalArgumentException("Invalid Any type for struct");
+        }
+        for (final DataType prop : PropertiesHelper.extract(any)) {
+            this.getElement(prop.id).fromAny(prop.value);
+        }
     }
 
     @Override

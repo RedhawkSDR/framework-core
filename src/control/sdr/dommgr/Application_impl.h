@@ -59,7 +59,8 @@ public:
                               CF::Application::ComponentProcessIdSequence* _procIdSequence,
                               std::vector<ossie::ConnectionNode>& connections,
                               std::map<std::string, std::string>& fileTable,
-                              std::map<std::string, std::vector< ossie::AllocPropsInfo > >& allocPropsTable);
+                              std::map<std::string, std::vector< ossie::AllocPropsInfo > >& allocPropsTable,
+                              std::vector<ossie::AllocPropsInfo>& usesDevCaps);
 
     ~Application_impl ();
 
@@ -115,6 +116,7 @@ public:
     const ossie::AppConnectionManager& getConnectionManager();
 
     void addExternalPort (const std::string&, CORBA::Object_ptr);
+    void addExternalProperty (const std::string&, const std::string&, CF::Resource_ptr);
 
     /** Implements the ConnectionManager functions
      *  - Makes this class compatible with the ConnectionManager
@@ -154,6 +156,7 @@ private:
     std::map<std::string, std::string> _fileTable;
     std::map<std::string, unsigned long> _pidTable;
     std::map<std::string, std::vector<ossie::AllocPropsInfo> >_allocPropsTable;
+    std::vector<ossie::AllocPropsInfo> _usesDeviceCapacities;
     std::auto_ptr<ossie::AppConnectionManager> connectionManager;
     DomainManager_impl* _domainManager;
     std::string _waveformContextName;
@@ -162,11 +165,16 @@ private:
     CF::Components _registeredComponents;
 
     std::map<std::string, CORBA::Object_var> _ports;
+    std::map<std::string, std::pair<std::string, CF::Resource_ptr> > _properties;
 
     bool release_already_called;
     boost::mutex releaseObjectLock;
 
     PortableServer::POA_var app_poa;
+
+    // Returns externalpropid if one exists based off of compId and
+    // internal propId, returns empty string if no external prop exists
+    std::string getExternalPropertyId(std::string compId, std::string propId);
 
 };
 #endif

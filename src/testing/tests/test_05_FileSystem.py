@@ -19,6 +19,7 @@
 #
 
 import unittest, os
+import shutil
 import scatest
 from ossie.cf import CF
 
@@ -569,6 +570,49 @@ class FileManagerTest(scatest.CorbaTestCase):
             self.fail("mdir should not have worked. Directory does not exist")
         except:
             self.assertEqual(fileMgr.exists(domdir), False)
+
+    def test_Move(self):
+        #################
+        # test move
+        #################
+        self.assertNotEqual(self._domMgr, None)
+        fileMgr = self._domMgr._get_fileMgr()
+
+        # Test move on the same file system
+        original = os.path.join(scatest.getSdrPath(), "dom/mgr/DomainManager.spd.xml")
+        domoldfile = "/components/old.txt"
+        domnewfile = "/waveforms/new.txt"
+        devfile = "/ExecutableDevice_node/nodes/dev.txt"
+        domlocaloldfile = os.path.join(scatest.getSdrPath(), 'dom' + domoldfile)
+        domlocalnewfile = os.path.join(scatest.getSdrPath(), 'dom' + domnewfile)
+        devlocalfile = os.path.join(scatest.getSdrPath(), "dev/nodes/dev.txt")
+
+        shutil.copyfile(original, domlocaloldfile)
+        if os.path.exists(domlocalnewfile):
+            os.remove(domlocalnewfile)
+
+        try:
+            fileMgr.move(domoldfile, domnewfile)
+        except:
+            self.fail("Exception in local move")
+        self.assertEqual(fileMgr.exists(domoldfile), False)
+        self.assertEqual(fileMgr.exists(domnewfile), True)
+
+        self.assertEqual(file(original).read(), file(domlocalnewfile).read())
+
+        # Test move across file systems
+        if os.path.exists(devlocalfile):
+            os.remove(devlocalfile)
+        try:
+            fileMgr.move(domnewfile, devfile)
+        except:
+            self.fail("Exception in local->remote move")
+        self.assertEqual(fileMgr.exists(domnewfile), False)
+        self.assertEqual(fileMgr.exists(devfile), True)
+
+        self.assertEqual(file(original).read(), file(devlocalfile).read())
+
+        os.remove(devlocalfile)
 
     def test_readException(self):
         # Makes sure that File_impl::read() throws correct exception and doesn't kill domain

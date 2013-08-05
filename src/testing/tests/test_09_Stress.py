@@ -50,6 +50,8 @@ class WaveformWorker:
         return retval
 
     def Process(self):
+        if self.thread_num and self.debug:
+            print 'starting thread: ' + str(self.thread_num)
         try:
             self.app = self.appFact.create(self.appFact._get_name(), [], [])
         except:
@@ -215,8 +217,8 @@ class StressTest(scatest.CorbaTestCase):
 
         processThreads = []
         domNb, domMgr = self.launchDomainManager()
-        devNb1, devMgr1 = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
-        devNb2, devMgr2 = self.launchDeviceManager("/nodes/test_BasicTestDevice3_node/DeviceManager.dcd.xml", debug=9)
+        devNb1, devMgr1 = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
+        devNb2, devMgr2 = self.launchDeviceManager("/nodes/test_BasicTestDevice3_node/DeviceManager.dcd.xml")
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
@@ -229,11 +231,10 @@ class StressTest(scatest.CorbaTestCase):
 
         # create the worker classes - these will each create a new app (waveform) in a new thread
         for i in xrange(num_waveforms):
-            processThreads.append(WaveformWorker(appFact, True, i))
-
+            processThreads.append(WaveformWorker(appFact, False, i))
+            
         # start the thread (app/waveform)
         for entry in processThreads:
-            print 'start'
             entry.process_thread.start()
 
         # Give it time to start
@@ -242,6 +243,8 @@ class StressTest(scatest.CorbaTestCase):
         # make sure each waveform has started (or timed out while starting)
         for entry in processThreads:
             app = entry.getApp()
+            if isinstance(app, str):
+                self.fail("App %d: %s" % (entry.thread_num, app))
             entry.data_signal_1.set()
 
         # Give it time to shut down, and make sure they all finish
@@ -253,14 +256,9 @@ class StressTest(scatest.CorbaTestCase):
 
         time.sleep(5)
 
-        for entry in processThreads:
-            app = entry.getApp()
-            if isinstance(app, str):
-                self.fail("App %d: %s" % (entry.thread_num, app))
- 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
-
+        
         domMgr.uninstallApplication(appFact._get_identifier())
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
 

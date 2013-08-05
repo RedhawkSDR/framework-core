@@ -252,6 +252,7 @@ namespace ossie {
             COMPONENTINSTANTIATIONREF,
             DEVICETHATLOADEDTHISCOMPONENTREF,
             DEVICEUSEDBYTHISCOMPONENTREF,
+            DEVICEUSEDBYAPPLICATION,
             FINDBY
         } port_type;
 
@@ -292,6 +293,10 @@ namespace ossie {
             return usesRefId.c_str();
         }
 
+        const char* getDeviceUsedByApplicationUsesRefID() const {
+            return usesRefId.c_str();
+        }
+
         const FindBy* getFindBy() const {
             return findBy.get();
         }
@@ -306,6 +311,10 @@ namespace ossie {
 
         bool isDeviceUsedByThisComponentRef() const {
             return (type == DEVICEUSEDBYTHISCOMPONENTREF);
+        }
+
+        bool isDeviceUsedByApplication() const {
+            return (type == DEVICEUSEDBYAPPLICATION);
         }
 
         bool isFindBy() const {
@@ -352,6 +361,8 @@ namespace ossie {
         std::string identifier;
         ossie::optional_value<std::string>componentInstantiationRefId;
         ossie::optional_value<FindBy> theFindBy;
+        std::string componentRefId;
+        std::string usesId;
 
         const std::string& getComponentInstantiationRefId() const {
             return *componentInstantiationRefId;
@@ -363,6 +374,14 @@ namespace ossie {
 
         const FindBy* getFindBy() const {
             return theFindBy.get();
+        }
+
+        const std::string& getComponentRefId() const {
+            return componentRefId;
+        }
+
+        const std::string& getUsesId() const {
+            return usesId;
         }
 
         bool isComponentInstantiationRef() const {

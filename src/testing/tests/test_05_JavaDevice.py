@@ -24,19 +24,9 @@ import buildconfig
 from ossie.cf import CF
 from omniORB import any
 
-class ApplicationFactoryTest(scatest.CorbaTestCase):
-    def setUp(self):
-        self._testFiles = []
-
-    def tearDown(self):
-        scatest.CorbaTestCase.tearDown(self)
-        for file in self._testFiles:
-            os.unlink(file)
+class JavaDeviceTest(scatest.CorbaTestCase):
 
     def test_BasicDevice(self):
-        if buildconfig.HAVE_JAVASUPPORT != "yes":
-            return
-
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_java_node/DeviceManager.dcd.xml", debug=9)
 
@@ -62,7 +52,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         short_id = "DCE:d3aa6040-b731-4110-b814-376967264728"
 
         res = device.query([])
-        self.assertEqual(len(res), 8)
+        self.assertEqual(len(res), 9)
         ids = []
         for r in res :
             ids.append(r.id)
@@ -130,15 +120,22 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertRaises(CF.Device.InvalidCapacity, device.deallocateCapacity, props_int)
         self.assertRaises(CF.Device.InvalidCapacity, device.deallocateCapacity, props_short)
 
+        # Save current values to restore later
+        state = device.query([CF.DataType(int_id, any.to_any(None)), CF.DataType(short_id, any.to_any(None))])
+
         # Makes sure if if 1 dealloc fails, neither are written
+        # NB: 1.9 does not guarantee this behavior.
         props = [CF.DataType(id=int_id, value=any.to_any(1)), CF.DataType(id=short_id, value=any.to_any(20))]
         self.assertRaises(CF.Device.InvalidCapacity, device.deallocateCapacity, props)
-        res = device.query([])
-        for r in res:
-            if r.id == int_id:
-                self.assertEqual(any.from_any(r.value), 9)
-            elif r.id == short_id:
-                self.assertEqual(any.from_any(r.value), 21)
+        #res = device.query([])
+        #for r in res:
+        #    if r.id == int_id:
+        #        self.assertEqual(any.from_any(r.value), 9)
+        #    elif r.id == short_id:
+        #        self.assertEqual(any.from_any(r.value), 21)
+
+        # Restore device to known state
+        device.configure(state)
 
         # Makes sure if props are at full capacity, usage State returns to IDLE
         props = [CF.DataType(id=int_id, value=any.to_any(1)), CF.DataType(id=short_id, value=any.to_any(1))]
@@ -153,19 +150,23 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         # Makes sure that props with aren't allocatable, don't get allocated
         prop = [CF.DataType(id="no_allocation", value=any.to_any(1))]
-        self.assertEqual(device.allocateCapacity(prop), False)
+        self.assertRaises(CF.Device.InvalidCapacity, device.allocateCapacity, prop)
         prop = [CF.DataType(id="not_external", value=any.to_any(1.1))]
-        self.assertEqual(device.allocateCapacity(prop), False)
+        self.assertRaises(CF.Device.InvalidCapacity, device.allocateCapacity, prop)
         prop = [CF.DataType(id="non_simple1", value=any.to_any("Hello"))]
-        self.assertEqual(device.allocateCapacity(prop), False)
+        self.assertRaises(CF.Device.InvalidCapacity, device.allocateCapacity, prop)
         prop = [CF.DataType(id="non_simple2", value=any.to_any([]))]
-        self.assertEqual(device.allocateCapacity(prop), False)
+        self.assertRaises(CF.Device.InvalidCapacity, device.allocateCapacity, prop)
         res = device.query([])
         for r in res:
             if r.id == int_id:
                 self.assertEqual(any.from_any(r.value), 10)
             elif r.id == short_id:
                 self.assertEqual(any.from_any(r.value), 22)
+
+        # Check that execparams are set in initialize (issue #561).
+        for prop in device.runTest(561, []):
+            self.assertNotEqual(any.from_any(prop.value), None, 'execparams not set in intialize()')
 
         device.releaseObject()
 
@@ -175,6 +176,9 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         devMgr.shutdown()
 
         self.assertEqual(len(domMgr._get_deviceManagers()), 0)
+
+if buildconfig.HAVE_JAVASUPPORT != "yes":
+    del JavaDeviceTest
 
 if __name__ == "__main__":
   # Run the unittests

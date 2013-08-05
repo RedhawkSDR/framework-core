@@ -273,9 +273,10 @@ throw (CORBA::SystemException, CF::Device::InvalidCapacity, CF::Device::InvalidS
     AnyComparisonType compResult;
 
     /* Verify that the device is in a valid state */
-    if (isLocked () || isDisabled ()) {
-        LOG_WARN(Device_impl, "Cannot deallocate capacity. System is either LOCKED or DISABLED.");
-        throw (CF::Device::InvalidState("Cannot deallocate capacity. System is either LOCKED or DISABLED."));
+    if (isLocked () or isDisabled ()) {
+        LOG_ERROR(Device_impl, "Cannot deallocate capacity. System is not DISABLED and UNLOCKED.");
+        LOG_DEBUG(Device_impl, this->_adminState<<" "<<this->_operationalState<<" "<<this->_usageState);
+        throw (CF::Device::InvalidState("Cannot deallocate capacity. System is not DISABLED and UNLOCKED."));
         return;
     }
 

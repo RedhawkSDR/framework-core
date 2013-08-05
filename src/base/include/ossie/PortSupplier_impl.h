@@ -22,8 +22,6 @@
 #ifndef PORTSUPPLIER_IMPL_H
 #define PORTSUPPLIER_IMPL_H
 
-#include "ossiecf.h"
-
 #include "CF/cf.h"
 
 
@@ -32,7 +30,7 @@ The port supplier interface provides a method that supplies an object
 reference for a port.
 */
 
-class OSSIECF_API PortSupplier_impl: public virtual POA_CF::PortSupplier
+class PortSupplier_impl: public virtual POA_CF::PortSupplier
 {
 public:
     PortSupplier_impl () { }

@@ -457,6 +457,14 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
                 Application_impl* _application = new Application_impl (i->identifier.c_str(), i->name.c_str(), i->profile.c_str(), this, i->contextName, context);
                 LOG_TRACE(DomainManager_impl, "Restored " << i->connections.size() << " connections");
 
+                i->_startOrder.resize(i->componentIORS.size());
+                for (unsigned int ii = 0; ii < i->componentIORS.size(); ++ii) {
+                    CORBA::Object_var obj = ossie::corba::stringToObject(i->componentIORS[ii]);
+                    if (!CORBA::is_nil(obj)) {
+                        i->_startOrder[ii] = CF::Resource::_duplicate(ossie::corba::_narrowSafe<CF::Resource> (obj));
+                    }
+                }
+
                 _application->populateApplication(i->assemblyController,
                                                   i->componentDevices,
                                                   &(i->componentImplementations),
@@ -465,7 +473,42 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
                                                   &(i->componentProcessIds),
                                                   i->connections,
                                                   i->fileTable,
-                                                  i->allocPropsTable);
+                                                  i->allocPropsTable,
+                                                  i->usesDeviceCapacities);
+
+                // Recover and register components
+                for (unsigned int ii = 0; ii < i->components.size() ; ++ii) {
+                    CF::ComponentType c;
+                    c.identifier = i->components[ii].identifier.c_str();
+                    c.softwareProfile = i->components[ii].softwareProfile.c_str();
+                    c.type = CF::APPLICATION_COMPONENT;
+                    c.componentObject = ossie::corba::stringToObject(i->components[ii].ior);
+                    _application->registerComponent(c);
+                }
+
+                // Add external ports
+                for (std::map<std::string, CORBA::Object_var>::const_iterator it = i->ports.begin();
+                        it != i->ports.end();
+                        ++it) {
+                    _application->addExternalPort(it->first, it->second);
+                }
+
+                // Add external properties
+                for (std::map<std::string, std::pair<std::string, std::string> >::const_iterator it = i->properties.begin();
+                        it != i->properties.end();
+                        ++it) {
+                    std::string extId = it->first;
+                    std::string propId = it->second.first;
+                    std::string compId = it->second.second;
+                    std::vector<CF::Resource_ptr> comps = i->_startOrder;
+                    comps.push_back(i->assemblyController);
+                    for (unsigned int ii = 0; ii < comps.size(); ++ii) {
+                        if (compId == ossie::corba::returnString(comps[ii]->identifier())) {
+                            _application->addExternalProperty(propId, extId, comps[ii]);
+                            break;
+                        }
+                    }
+                }
 
                 PortableServer::POA_var dm_poa = ossie::corba::RootPOA()->find_POA("DomainManager", 0);
                 PortableServer::POA_var poa = dm_poa->find_POA("Applications", 1);
@@ -585,7 +628,7 @@ void DomainManager_impl::shutdown (int signal)
         destroyEventChannels ();
 #endif
     }
-    
+
     boost::recursive_mutex::scoped_lock lock(stateAccess);
     db.close();
 
@@ -1722,15 +1765,35 @@ DomainManager_impl::addApplication(Application_impl* new_app)
         appNode.componentImplementations = new_app->appComponentImplementations;
         appNode.assemblyController = CF::Resource::_duplicate(new_app->assemblyController);
         appNode._startOrder = new_app->_appStartSeq;
+        appNode.componentIORS.resize(0);
+        for (unsigned int i = 0; i < new_app->_appStartSeq.size(); ++i) {
+            appNode.componentIORS.push_back(ossie::corba::objectToString(new_app->_appStartSeq[i]));
+        }
         appNode.fileTable = new_app->_fileTable;
         appNode.allocPropsTable = new_app->_allocPropsTable;
         appNode.connections = new_app->_connections;
+        appNode.usesDeviceCapacities = new_app->_usesDeviceCapacities;
         appNode._registeredComponents.length(new_app->_registeredComponents.length());
         for (unsigned int i=0; i<appNode._registeredComponents.length(); i++) {
+            ComponentNode compNode;
+            compNode.identifier = CORBA::string_dup(new_app->_registeredComponents[i].identifier);
+            compNode.softwareProfile = CORBA::string_dup(new_app->_registeredComponents[i].softwareProfile);
+            compNode.ior = ossie::corba::objectToString(new_app->_registeredComponents[i].componentObject);
+            appNode.components.push_back(compNode);
             appNode._registeredComponents[i].identifier = CORBA::string_dup(new_app->_registeredComponents[i].identifier);
             appNode._registeredComponents[i].softwareProfile = CORBA::string_dup(new_app->_registeredComponents[i].softwareProfile);
             appNode._registeredComponents[i].type = new_app->_registeredComponents[i].type;
             appNode._registeredComponents[i].componentObject = CORBA::Object::_duplicate(new_app->_registeredComponents[i].componentObject);
+        }
+        appNode.ports = new_app->_ports;
+        // Adds external properties
+        for (std::map<std::string, std::pair<std::string, CF::Resource_ptr> >::const_iterator it = new_app->_properties.begin();
+                it != new_app->_properties.end();
+                ++it) {
+            std::string extId = it->first;
+            std::string propId = it->second.first;
+            std::string compId = ossie::corba::returnString(it->second.second->identifier());
+            appNode.properties[extId] = std::pair<std::string, std::string>(propId, compId);
         }
 
         _runningApplications.push_back(appNode);

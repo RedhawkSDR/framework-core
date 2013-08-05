@@ -29,8 +29,6 @@
 
 #include <boost/thread/mutex.hpp>
 
-#include "ossiecf.h"
-
 #include "CF/cf.h"
 
 namespace _seqVector {
@@ -124,7 +122,7 @@ public:
 };
 
 template <class PortType, class ComponentType>
-class OSSIECF_API Port_Uses_impl
+class Port_Uses_impl
 {
 public:
     Port_Uses_impl(ComponentType* _parent, std::string port_name);
@@ -218,7 +216,7 @@ std::string Port_Uses_impl<PortType, ComponentType>::getName()
 
 
 template <class PortType, class ComponentType>
-class OSSIECF_API Port_Provides_impl
+class Port_Provides_impl
 {
 public:
     Port_Provides_impl(ComponentType* _parent, std::string port_name);
@@ -249,7 +247,7 @@ std::string Port_Provides_impl<PortType, ComponentType>::getName()
 };
 
 
-class OSSIECF_API Port_Uses_base_impl
+class Port_Uses_base_impl
 {
 public:
     Port_Uses_base_impl(std::string port_name)
@@ -293,7 +291,7 @@ protected:
 };
 
 
-class OSSIECF_API Port_Provides_base_impl
+class Port_Provides_base_impl
 {
 public:
     Port_Provides_base_impl(std::string port_name) {
