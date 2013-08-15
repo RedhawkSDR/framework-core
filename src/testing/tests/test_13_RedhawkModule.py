@@ -47,6 +47,12 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertNotEqual(app, None, "Application not created")
         self.assertEquals(len(self._rhDom._get_applications()), 1)
         self.assertEquals(len(self._rhDom.apps), 1)
+
+        # Ensure that api() works.
+        try:
+            app.api()
+        except:
+            self.fail('App.api() raised an exception')
         
         app2 = self._rhDom.createApplication("TestCppProps")
         self.assertNotEqual(app, None, "Application not created")

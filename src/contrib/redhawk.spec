@@ -28,23 +28,24 @@ Prefix:         %{_prefix}
 
 Name:           redhawk
 Version:        1.9.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        REDHAWK is a Software Defined Radio framework
 
 Group:          Applications/Engineering
 License:        LGPLv3+
 URL:            http://redhawksdr.org/
 Source:         %{name}-%{version}.tar.gz
+Vendor:         REDHAWK
 
 # BuildRoot required for el5
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
 # el6 gives us issues with rpaths
-%if "%{?rhel}" == "6"
+%if 0%{?rhel} == 6
 %define __arch_install_post %{nil}
 %endif
 
-%if "%{?rhel}" == "6"
+%if 0%{?rhel} >= 6
 Requires:       util-linux-ng
 %else
 Requires:       e2fsprogs
@@ -54,7 +55,7 @@ Requires:       python
 Requires:       numpy
 Requires:       libomniorbpy
 
-%if "%{?rhel}" == "6"
+%if 0%{?rhel} >= 6
 BuildRequires:  libuuid-devel
 BuildRequires:  boost-devel = 1.41.0
 %else
@@ -111,7 +112,7 @@ Group:          Applications/Engineering
 Requires:       redhawk = %{version}-%{release}
 
 # Base dependencies
-%if "%{?rhel}" == "6"
+%if 0%{?rhel} >= 6
 Requires:       libuuid-devel
 Requires:       boost-devel = 1.41.0
 %else

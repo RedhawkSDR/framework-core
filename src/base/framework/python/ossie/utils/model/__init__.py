@@ -268,8 +268,9 @@ class PortSupplier(object):
             providesComponent.setup(usesEndpoint.getReference(), dataType=usesPort['Port Interface'],
                                     componentName=self._instanceName, usesPortName=usesPortName)
             
-            # TODO: Connection management.
-
+            # Underlying connection is handled by OutputBase object, so return early.
+            # NB: OutputBase interface does not currently support connection management.
+            return
         elif isinstance(providesComponent, Service):
             log.debug('Provides side is Service')
             # Use usesPortName if provided
@@ -837,10 +838,10 @@ class ComponentBase(object):
                 else:
                     defValue = _convertType(propType, val)
                 if prop.get_action():
-                    action = prop.get_action().get_type()
+                    act = prop.get_action().get_type()
                 else:
-                    action = 'external'
-                p = _prop_helpers.simpleProperty(id=prop.get_id(), valueType=propType, compRef=weakref.proxy(self), defValue=defValue, mode=prop.get_mode(), action=action)
+                    act = 'external'
+                p = _prop_helpers.simpleProperty(id=prop.get_id(), valueType=propType, compRef=weakref.proxy(self), defValue=defValue, mode=prop.get_mode(), action=act)
                 id_clean = _prop_helpers._cleanId(prop)
                 p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
                 propertySet.append(p)

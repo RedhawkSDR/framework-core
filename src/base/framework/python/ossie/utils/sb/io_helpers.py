@@ -1093,7 +1093,8 @@ class DataSink(_SinkBase):
 
     def stop(self):
         super(DataSink,self).stop()
-        self._sink.stop()
+        if self._sink:
+            self._sink.stop()
 
 class _OutputBase(helperBase):
     def __init__(self):

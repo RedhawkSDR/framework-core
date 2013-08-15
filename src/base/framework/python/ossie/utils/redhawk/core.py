@@ -321,7 +321,7 @@ class App(_CF__POA.Application, Resource):
 
         # Display AC props
         if self._acRef:
-            self._acRef(showComponentName=False, showInterfaces=False, showProperties=True)
+            self._acRef.api(showComponentName=False, showInterfaces=False, showProperties=True)
 
         # Loops through each external prop looking for a component to use to display the internal prop value
         for extId in self._externalProps.keys():

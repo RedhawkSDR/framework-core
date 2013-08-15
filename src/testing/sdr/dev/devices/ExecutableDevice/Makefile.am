@@ -29,4 +29,4 @@ noinst_PROGRAMS = ExecutableDevice
 
 ExecutableDevice_SOURCES = main.cpp
 ExecutableDevice_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(LOG4CXX_FLAGS) $(OMNIORB_CFLAGS)
-ExecutableDevice_LDADD = $(OMNIORB_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la
+ExecutableDevice_LDADD = $(OMNICOS_LIBS) $(BOOST_SYSTEM_LIB) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la

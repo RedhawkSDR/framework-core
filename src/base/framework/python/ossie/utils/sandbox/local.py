@@ -93,7 +93,6 @@ class LocalSandboxComponent(SandboxComponent, LocalMixin):
 
         self._parseComponentXMLFiles()
         self._buildAPI()
-        self._ports = self._populatePorts()
 
     def releaseObject(self):
         try:

@@ -607,7 +607,7 @@ class SBTestTest(scatest.CorbaTestCase):
         try:
             comp.readonly_simp = 'bad'
         except Exception, e:
-            self.assertEquals(type(e), Exception)    
+            self.assertEquals(e.__class__, Exception)    
         else:
             self.fail('Expected exception to be thrown for read only property')
         
@@ -616,13 +616,13 @@ class SBTestTest(scatest.CorbaTestCase):
         try:
             comp.readonly_struct.readonly_struct_simp = 'bad'
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
         try:
             comp.readonly_struct = {'readonly_struct_simp':'bad'}
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
             
@@ -632,13 +632,13 @@ class SBTestTest(scatest.CorbaTestCase):
         try:
             comp.readonly_seq[1] = 'bad'
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
         try:
             comp.readonly_seq = ['bad1', 'bad2']
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
         
@@ -648,19 +648,19 @@ class SBTestTest(scatest.CorbaTestCase):
         try: 
             comp.readonly_structseq[0].readonly_s = 'bad'
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
         try: 
             comp.readonly_structseq[1] = {'readonly_s':'bad'}
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
         try: 
             comp.readonly_structseq = [{'readonly_s':'bad1'}, {'readonly_s':'bad2'}]
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
 

@@ -83,7 +83,8 @@ class Sandbox(object):
             component.reset()
 
     def launch(self, descriptor, instanceName=None, refid=None, impl=None,
-               debugger=None, window=None, execparams={}, configure={}):
+               debugger=None, window=None, execparams={}, configure={},
+               initialize=True):
         sdrRoot = self.getSdrRoot()
 
         # Parse the component XML profile.
@@ -111,9 +112,13 @@ class Sandbox(object):
         clazz = self.__comptypes__[comptype]
         comp = clazz(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window)
 
-        # Services don't get configured
+        # Services don't get initialized or configured
         if comptype == 'service':
-            configure = None
+            return comp
+
+        # Initialize the component unless asked not to.
+        if initialize:
+            comp.initialize()
         
         # Configure component with default values unless requested not to (e.g.,
         # when launched from a SAD file).
@@ -141,22 +146,31 @@ class SandboxComponent(ComponentBase):
                 continue
             self._configRef[str(prop.id)] = prop.defValue
 
+        self.__ports = None
+
     def _readProfile(self):
         sdrRoot = self._sandbox.getSdrRoot()
         self._spd, self._scd, self._prf = sdrRoot.readProfile(self._profile)
 
     def _kick(self):
         self.ref = self._launch()
-        self.initialize()
         self._sandbox._registerComponent(self)
+
+    @property
+    def _ports(self):
+        if self.__ports == None:
+            self.__ports = self._populatePorts()
+        return self.__ports
         
     def reset(self):
         self.releaseObject()
         self._readProfile()
         self._kick()
+        self.initialize()
         self._parseComponentXMLFiles()
         self._buildAPI()
-        self._ports = self._populatePorts()
+        # Clear cached ports list
+        self.__ports = None
 
     def releaseObject(self):
         # Break any connections involving this component.

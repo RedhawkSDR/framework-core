@@ -141,19 +141,36 @@ class ScaComponentTestCase(unittest.TestCase):
             pass
         self.comp_obj = None
             
-    def launch(self, execparams={}, ossiehome=None):
+    def launch(self, execparams={}, ossiehome=None, configure=None, initialize=False):
+        """
+        Launch the component. The component will be executed as a child process,
+        then (optionally) initialized and configured.
+
+        Arguments:
+          execparams - Execparams to override on component execution.
+          ossiehome  - Base location of REDHAWK installation for finding IDL files.
+                       Default location is determined from $OSSIEHOME environment
+                       variable.
+          configure  - If None, skip initial configuration (default).
+                       If a dictionary, a set of key/value pairs to override the
+                       initial configuration values of the component.
+          initialize - If false, skip initialization (default).
+                       If true, call initialize() after launching the component.
+        """
         if IDE_REF_ENV == None:
             if ossiehome:
                 model._ossiehome = str(ossiehome)
                 model._interface_list = importIDL.importStandardIdl(std_idl_path=str(ossiehome)+'/idl', std_idl_include_path=str(ossiehome)+'/idl')
                 model._loadedInterfaceList = True
-            component = sb.launch(self.spd_file, impl=self.impl, execparams=execparams)
+            component = sb.launch(self.spd_file, impl=self.impl, execparams=execparams,
+                                  configure=configure, initialize=initialize)
         else:
             # spd file path passed in to unit test is relative to current component tests directory (i.e. "..")
             # IDE unit test requires spd file path relative to sca file system
             componentName = str(self.spd.get_name())
             sca_file_system_spd_file = "components/" + componentName + "/" + self.spd_file[3:]
-            component = sb.launch(sca_file_system_spd_file, impl=self.impl, execparams=execparams)
+            component = sb.launch(sca_file_system_spd_file, impl=self.impl, execparams=execparams,
+                                  configure=configure, initialize=initialize)
         self.comp_obj = component.ref
         self.comp = component
             

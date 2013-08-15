@@ -822,7 +822,8 @@ def stop():
     _getSandbox().stop()
 
 def launch(descriptor, instanceName=None, refid=None, impl=None,
-           debugger=None, window=None, execparams={}, configure={}):
+           debugger=None, window=None, execparams={}, configure={},
+           initialize=True):
     """
     Execute a softpkg, returning a proxy object. This is a factory function
     that may return a component, device or service depending on the SPD.
@@ -851,5 +852,8 @@ def launch(descriptor, instanceName=None, refid=None, impl=None,
                      initial configuration values of the component.
                      If None, defer configuration of the component to the
                      caller (generally used by loadSADFile).
+      initialize   - If true, call initialize() after launching the component.
+                     If false, defer initialization to ther caller.
     """
-    return _getSandbox().launch(descriptor, instanceName, refid, impl, debugger, window, execparams, configure)
+    return _getSandbox().launch(descriptor, instanceName, refid, impl, debugger,
+                                window, execparams, configure, initialize)

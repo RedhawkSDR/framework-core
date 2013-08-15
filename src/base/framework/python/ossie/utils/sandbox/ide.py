@@ -53,7 +53,6 @@ class IDEComponent(SandboxComponent, IDEMixin):
 
         self._parseComponentXMLFiles()
         self._buildAPI()
-        self._ports = self._populatePorts()
     
     def __repr__(self):
         return "<IDE component '%s' at 0x%x>" % (self._instanceName, id(self))

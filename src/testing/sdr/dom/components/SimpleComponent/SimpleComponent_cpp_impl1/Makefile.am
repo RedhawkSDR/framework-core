@@ -26,4 +26,4 @@ noinst_PROGRAMS = SimpleComponent_cpp_impl1
 
 SimpleComponent_cpp_impl1_SOURCES = SimpleComponent_cpp_impl1.cpp SimpleComponent_cpp_impl1_base.cpp SimpleComponent_cpp_impl1_base.h SimpleComponent_cpp_impl1.h main.cpp port_impl.cpp port_impl.h
 SimpleComponent_cpp_impl1_CXXFLAGS = $(BOOST_CPPFLAGS)
-SimpleComponent_cpp_impl1_LDADD = $(BOOST_LDFLAGS) $(BOOST_THREAD_LIB) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la
+SimpleComponent_cpp_impl1_LDADD = $(BOOST_LDFLAGS) $(BOOST_THREAD_LIB) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la

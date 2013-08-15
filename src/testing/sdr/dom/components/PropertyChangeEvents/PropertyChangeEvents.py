@@ -20,6 +20,7 @@
 #
 
 #
+from omniORB import any
 from ossie.cf import CF, CF__POA
 from ossie.resource import Resource, start_component, usesport
 from ossie.properties import simple_property
@@ -121,6 +122,34 @@ class PropertyChangeEvents(CF__POA.Resource, Resource):
         newval.append(tmp)
         self.structseq_prop = newval
 
+    def runTest(self, testid, properties):
+        if testid == 1061:
+            # Ticket #1061: Ensure that if an eventable struct or struct sequence
+            # has None for both the current and prior values, sendChangedPropertiesEvent
+            # does not raise an exception.
+
+            # Save values of struct and struct sequence properties
+            saved_struct = copy.deepcopy(self.some_struct)
+            saved_structseq = copy.deepcopy(self.structseq_prop)
+
+            self.some_struct = None
+            self.saved_structseq = None
+            try:
+                # Send two consecutive property change events so that the current
+                # and saved values are both None.
+                self.propEvent.sendChangedPropertiesEvent()
+                self.propEvent.sendChangedPropertiesEvent()
+                success = True
+            except:
+                success = False
+            results = [CF.DataType('1061', any.to_any(success))]
+
+            # Restore saved state
+            self.some_struct = saved_struct
+            self.saved_structseq = saved_structseq
+        else:
+            raise CF.TestableObject.UnknownTest('No test %d' % testid)
+        return results
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
