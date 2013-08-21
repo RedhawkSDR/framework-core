@@ -26,6 +26,7 @@ import os
 from ossie.utils import sb
 from ossie.utils import type_helpers
 globalsdrRoot = os.environ['SDRROOT']
+import sys
 
 class SBTestTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -109,6 +110,19 @@ class SBTestTest(scatest.CorbaTestCase):
 
     def test_relativePath(self):
         comp = sb.launch('sdr/dom/components/Sandbox/Sandbox.spd.xml')
+        self.assertComponentCount(1)
+
+    def test_nestedSoftPkgDeps(self):
+        cwd = os.getcwd()
+        depLibraryPath = cwd + "/sdr/dom/components/softpkgNestedDep/spdNestedDepLibrary"
+        if not depLibraryPath in sys.path:
+            sys.path.append(depLibraryPath)
+        if os.environ.has_key('PYTHONPATH'):
+            os.environ['PYTHONPATH'] = "%s:%s" % (depLibraryPath, os.environ['PYTHONPATH'])
+        else:
+            os.environ['PYTHONPATH'] = "%s" % (depLibraryPath)
+
+        comp= sb.launch('sdr/dom/components/CommandWrapperNestedSPDDep/CommandWrapperNestedSPDDep.spd.xml')
         self.assertComponentCount(1)
     
     def initValues(self, comp):

@@ -28,7 +28,7 @@ Prefix:         %{_prefix}
 
 Name:           redhawk
 Version:        1.9.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        REDHAWK is a Software Defined Radio framework
 
 Group:          Applications/Engineering
@@ -64,7 +64,6 @@ BuildRequires:  boost141-devel
 %endif
 BuildRequires:  autoconf automake libtool
 BuildRequires:  expat-devel
-BuildRequires:  apr-devel apr-util-devel
 BuildRequires:  java-devel >= 1.6
 BuildRequires:  python-devel >= 2.4
 BuildRequires:  log4cxx-devel >= 0.10
@@ -174,7 +173,7 @@ fi
 
 
 %files
-%defattr(-,root,root)
+%defattr(-,root,root,-)
 %{_bindir}
 %exclude %{_bindir}/qtbrowse
 %exclude %{_bindir}/prf2py.py
@@ -237,7 +236,7 @@ fi
 %attr(644,root,root) %{_sysconfdir}/profile.d/redhawk-sdrroot.sh
 
 %files devel
-%defattr(-,%{username},%{groupname})
+%defattr(-,root,root,-)
 %{_bindir}/qtbrowse
 %{_bindir}/prf2py.py
 %{_bindir}/py2prf

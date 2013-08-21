@@ -141,7 +141,7 @@ class ScaComponentTestCase(unittest.TestCase):
             pass
         self.comp_obj = None
             
-    def launch(self, execparams={}, ossiehome=None, configure=None, initialize=False):
+    def launch(self, execparams={}, ossiehome=None, configure={}, initialize=True):
         """
         Launch the component. The component will be executed as a child process,
         then (optionally) initialized and configured.
@@ -151,11 +151,11 @@ class ScaComponentTestCase(unittest.TestCase):
           ossiehome  - Base location of REDHAWK installation for finding IDL files.
                        Default location is determined from $OSSIEHOME environment
                        variable.
-          configure  - If None, skip initial configuration (default).
-                       If a dictionary, a set of key/value pairs to override the
+          configure  - If a dictionary, a set of key/value pairs to override the
                        initial configuration values of the component.
-          initialize - If false, skip initialization (default).
-                       If true, call initialize() after launching the component.
+                       If None, skip initial configuration.
+          initialize - If true, call initialize() after launching the component.
+                       If false, skip initialization.
         """
         if IDE_REF_ENV == None:
             if ossiehome:

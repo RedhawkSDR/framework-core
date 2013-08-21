@@ -312,11 +312,11 @@ class App(_CF__POA.Application, Resource):
         PortSupplier.api(self)
 
         print "Components =============="
-        for count, comp_entry in enumerate(self.comps, 1):
+        for count, comp_entry in enumerate(self.comps):
             name = comp_entry.name
             if comp_entry._get_identifier().find(self.assemblyController) != -1:
                 name += " (Assembly Controller)"
-            print "%d. %s" % (count, name)
+            print "%d. %s" % (count+1, name)
         print "\n"
 
         # Display AC props

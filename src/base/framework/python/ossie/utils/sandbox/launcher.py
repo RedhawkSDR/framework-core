@@ -117,7 +117,7 @@ class LocalLauncher(object):
 
         # Make sure the entry point can be run.
         entry_point = self._getEntryPoint(implementation)
-        if not os.access(entry_point, os.X_OK|os.W_OK):
+        if not os.access(entry_point, os.X_OK|os.R_OK):
             raise RuntimeError, "Entry point '%s' is not executable" % entry_point
         log.trace("Using entry point '%s'", entry_point)
 
@@ -233,7 +233,9 @@ class LocalLauncher(object):
         dep_localfile = impl.get_code().get_localfile().name
 
         # Resolve nested dependencies.
-        envvars = [self._resolveDependency(dep) for dep in impl.dependency]
+        envvars = []
+        for dep in impl.dependency:
+            envvars.extend(self._resolveDependency(dep))
 
         localfile = os.path.join(os.path.dirname(local_filename), dep_localfile)
         envvars.append(self._getDependencyConfiguration(localfile))

@@ -27,6 +27,7 @@ package org.ossie.properties;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import org.omg.CORBA.Any;
 
@@ -37,6 +38,10 @@ public class Complex${name}SequenceProperty extends AbstractSequenceProperty<com
     public Complex${name}SequenceProperty(String id, String name, List<complex${name}> value, Mode mode,
                                          Action action, Kind[] kinds) {
         super(id, name, "${scaname}", value, mode, action, kinds);
+    }
+
+    public static List<complex${name}> asList(complex${name}... array) {
+        return new ArrayList<complex${name}>(Arrays.asList(array));
     }
 
     protected List<complex${name}> extract(Any any) {
