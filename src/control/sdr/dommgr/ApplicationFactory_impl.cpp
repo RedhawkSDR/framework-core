@@ -1049,8 +1049,10 @@ void createHelper::setUpExternalProperties(
             }
         }
         if (!foundProp){
+            LOG_ERROR(ApplicationFactory_impl, "Attempting to promote property: '" <<
+                    prop->propid << "' that does not exist in component: '" << prop->comprefid << "'");
             throw (CF::ApplicationFactory::CreateApplicationError(CF::CF_NOTSET,
-                    "Attempting to promote property that does not exist in component:  << prop->propid"));
+                    "Attempting to promote property that does not exist in component"));
         }
 
         // Get the component from the compref identifier.
@@ -3539,6 +3541,7 @@ CF::Device_ptr createHelper::lookupDeviceUsedByApplication(const std::string& us
     const ossie::UsesDeviceInfo* usesdevice = _appInfo.getUsesDeviceById(usesRefId);
     if (!usesdevice) {
         LOG_WARN(ApplicationFactory_impl, "[DeviceLookup] UsesDevice not found");
+        return CF::Device::_nil();
     }
 
     std::string deviceId = usesdevice->getAssignedDeviceId();

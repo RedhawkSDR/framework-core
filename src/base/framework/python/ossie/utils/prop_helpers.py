@@ -365,13 +365,16 @@ class Property(object):
         self.action = action
         self._parent = parent
 
+    def _isNested(self):
+        return self._parent is not None
+
     def _checkRead(self):
-        if self._parent:
+        if self._isNested():
             return self._parent._checkRead()
         return self.mode != 'writeonly'
 
     def _checkWrite(self):
-        if self._parent:
+        if self._isNested():
             return self._parent._checkWrite()
         return self.mode != 'readonly'
 
@@ -599,7 +602,7 @@ class simpleProperty(Property):
 
         
     def _queryValue(self):
-        if self._parent:
+        if self._isNested():
             results = self._parent._queryValue()
             if results is None:
                 return None
@@ -656,7 +659,7 @@ class simpleProperty(Property):
         return _CORBA.Any(self.typecode, value)
 
     def _configureValue(self, value):
-        if self._parent:
+        if self._isNested():
             # The simple is part of a struct.
             structValue = self._parent._queryValue()
             if structValue is None:
@@ -880,7 +883,7 @@ class structProperty(Property):
         self.propRef = _CF.DataType(id=str(self.id), value=_CORBA.Any(self.typecode, None))
 
     def _queryValue(self):
-        if self._parent:
+        if self._isNested():
             # Get the full struct sequence value.
             results = self._parent._queryValue()
             if results is None:
@@ -932,7 +935,7 @@ class structProperty(Property):
 
     def _configureValue(self, value):
         # Check if this struct is a member of a struct sequence
-        if self._parent:
+        if self._isNested():
             # Get the full struct sequence value.
             results = self._parent._queryValue()
             if results is None:

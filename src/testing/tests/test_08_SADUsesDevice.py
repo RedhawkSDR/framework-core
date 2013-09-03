@@ -21,7 +21,7 @@
 import unittest
 import scatest
 from ossie.cf import CF
-from omniORB import any
+from omniORB import any, CORBA
 
 class SADUsesDeviceTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -179,3 +179,19 @@ class SADUsesDeviceTest(scatest.CorbaTestCase):
         self._app = None
         self._checkSimplePropValue('SADUsesDevice_1', 'simple_alloc', 10)
         
+    def test_connectionBadRefid(self):
+        """
+        Test that specifiying an invalid usesdeviceref for a connection does not
+        crash the domain.
+        """
+        appFact = self.createAppFact('ConnectionBadDeviceRef')
+
+        try:
+            self._app = appFact.create(appFact._get_name(), [], [])
+        except CF.ApplicationFactory.CreateApplicationError:
+            # The app should fail creation, due to the invalid connection
+            pass
+        except CORBA.COMM_FAILURE:
+            self.fail('Invalid usesdeviceref crashed domain manager')
+        else:
+            self.fail('Invalid usesdeviceref did not prevent app creation')

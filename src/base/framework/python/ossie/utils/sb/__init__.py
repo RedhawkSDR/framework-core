@@ -130,7 +130,12 @@ except ImportError, e:
 
         Sandbox plots require BULKIO, matplotlib and PyQt4.
         """
-        raise RuntimeError, "Missing required package for sandbox plots: '%s'" % e
+        raise RuntimeError, _noplot.errorMsg
+    import platform
+    if 'el5' in platform.release() and 'PyQt4' in e.__str__():
+        _noplot.errorMsg = "matplotlib-based plots are not available by default on Red Hat Enterprise Linux 5 (missing PyQt4 dependency)"
+    else:
+        _noplot.errorMsg = "Missing required package for sandbox plots: '%s'" % e
     del e
     LinePlot = _noplot
     LinePSD = _noplot
