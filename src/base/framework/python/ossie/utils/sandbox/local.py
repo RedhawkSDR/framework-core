@@ -186,6 +186,7 @@ class LocalSandbox(Sandbox):
         }
     
     def __init__(self, sdrroot):
+        super(LocalSandbox, self).__init__(autoInit=True)
         self.__components = {}
         self.__services = []
         self._sdrroot = LocalSdrRoot(sdrroot)

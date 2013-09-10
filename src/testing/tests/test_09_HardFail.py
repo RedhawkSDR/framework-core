@@ -131,8 +131,11 @@ class HardFailTest(scatest.CorbaTestCase):
 
         self.assertEqual(len(domMgr._get_applications()), 0)
         
-        # kill off remaining component process
-        os.kill(componentProcessId, signal.SIGKILL)
+        # kill off remaining component process if it is still around
+        try:
+            os.kill(componentProcessId, signal.SIGKILL)
+        except:
+            pass
 
     def test_HardFailComponent(self):
         # test HardFail of the component(s) in and application

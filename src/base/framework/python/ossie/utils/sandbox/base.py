@@ -78,6 +78,9 @@ class SdrRoot(object):
 
 
 class Sandbox(object):
+    def __init__(self, autoInit=True):
+        self._autoInit = autoInit
+
     def start(self):
         log.debug('start()')
         for component in self.getComponents():
@@ -136,8 +139,9 @@ class Sandbox(object):
         if comptype == 'service':
             return comp
 
-        # Initialize the component unless asked not to.
-        if initialize:
+        # Initialize the component unless asked not to (if the subclass has not
+        # disabled automatic initialization).
+        if initialize and self._autoInit:
             comp.initialize()
         
         # Configure component with default values unless requested not to (e.g.,

@@ -174,6 +174,7 @@ class Resource(object):
         self._log.trace("releaseObject()")
         objid = self._default_POA().servant_to_id(self)
         self._default_POA().deactivate_object(objid)
+        __orb__.shutdown(False)
 
     #########################################
     # CF::PortSupplier
@@ -504,6 +505,7 @@ def start_component(componentclass, interactive_callback=None, thread_policy=Non
     try:
         try:
             orb = createOrb()
+            globals()['__orb__'] = orb
 
             configureLogging(execparams, loggerName, orb)
 

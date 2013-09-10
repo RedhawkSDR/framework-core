@@ -102,6 +102,7 @@ class IDESandbox(Sandbox):
         }
 
     def __init__(self, ideRef):
+        super(IDESandbox, self).__init__(autoInit=False)
         self.__ide = ideRef
         self.__launchedComps = {}
 

@@ -764,6 +764,7 @@ def catalog(searchPath=None, printResults=False, returnSPDs=False):
     '''
     profiles = _getSandbox().catalog(searchPath)
     componentNames = profiles.keys()
+    componentNames.sort()
     spdFilesWithFullPath = profiles.values()
 
     if printResults == True:
