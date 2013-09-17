@@ -1113,6 +1113,7 @@ def start_device(deviceclass, interactive_callback=None, thread_policy=None,logg
     try:
         try:
             orb = resource.createOrb()
+            resource.__orb__ = orb
 
             resource.configureLogging(execparams, loggerName, orb)
 

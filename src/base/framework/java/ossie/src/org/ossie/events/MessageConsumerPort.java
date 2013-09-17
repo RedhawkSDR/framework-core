@@ -24,6 +24,7 @@ import org.omg.CORBA.Any;
 import org.omg.CosEventChannelAdmin.*;
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 import org.ossie.events.Consumer_i;
@@ -126,10 +127,6 @@ public class MessageConsumerPort extends ExtendedEvent.MessageEventPOA implement
     }
     
     public void registerMessage(final String message_id, EventCallback _callback) {
-        if (this.supplier_admin == null) {
-            this.supplier_admin = new SupplierAdmin_i(this);
-            supplier_admin_ref = this.supplier_admin.setup(this._orb(), this._poa());
-        }
         this.callbacks.put(message_id, _callback);
         if (this.local_consumer != null) {
             this.local_consumer.registerMessage(message_id, _callback);
@@ -171,14 +168,21 @@ public class MessageConsumerPort extends ExtendedEvent.MessageEventPOA implement
         
         return;
     }
+
     /**
      * @generated
      */
     public org.omg.CosEventChannelAdmin.SupplierAdmin for_suppliers() 
     {
-        //begin-user-code
-        //end-user-code
-        
+        synchronized(this.updatingPortsLock) {
+            if (this.supplier_admin == null) {
+                this.supplier_admin = new SupplierAdmin_i(this);
+                this.supplier_admin_ref = this.supplier_admin.setup(this._orb(), this._poa());
+            }
+            for (Map.Entry<String, EventCallback> entry : this.callbacks.entrySet()) {
+                this.local_consumer.registerMessage(entry.getKey(), entry.getValue());
+            }
+        }
         return this.supplier_admin_ref;
     }
 }

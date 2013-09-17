@@ -21,6 +21,10 @@
 import unittest
 import scatest
 from ossie.cf import CF
+from omniORB import CORBA
+import time
+import os
+from test_09_HardFail import getChildren
 
 class DeviceManagerTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -69,10 +73,23 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         self._setupDevices(node)
 
         # test aggregate device releaseObject functionality
+        pids = getChildren(self._devBooter.pid)
         self._parentDevice.releaseObject()
+        for pid in pids:
+            number_attempts = 0
+            while True:
+                try:
+                    os.kill(pid, 0) # check to see if the process is still alive
+                    time.sleep(0.5)
+                    number_attempts+=1
+                except:
+                    break
+                if number_attempts == 5:
+                    break
+        pids = getChildren(self._devBooter.pid)
         self.assertEqual(len(self._devMgr._get_registeredDevices()), 0)
         # make sure the child device was also released
-        self.assertEqual(self._childDevice._non_existent(), 1)
+        self.assertEqual(len(pids), 0)
 
         self._devMgr.shutdown()
         self.assert_(self.waitTermination(self._devBooter))
@@ -82,15 +99,48 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         self._setupDevices(node)
 
         # test child device releaseObject functionality
+        pids = getChildren(self._devBooter.pid)
+        pids1 = getChildren(pids[0])
+        pids2 = getChildren(pids[1])
+        if len(pids2) == 1:
+            child_pid = pids[0]
+            parent_pid = pids[1]
+        else:
+            child_pid = pids[1]
+            parent_pid = pids[0]
         self._childDevice.releaseObject()
+        number_attempts = 0
+        while True:
+            try:
+                os.kill(child_pid, 0) # check to see if the process is still alive
+                time.sleep(0.5)
+                number_attempts+=1
+            except:
+                break
+            if number_attempts == 5:
+                break
         self.assertEqual(len(self._aggregateDevice._get_devices()), 0)
         self.assertEqual(len(self._devMgr._get_registeredDevices()), 1)
         # make sure child device no longer exists
-        self.assertEqual(self._childDevice._non_existent(), 1)
+        pids = getChildren(self._devBooter.pid)
+        self.assertEqual(len(pids), 1)
 
         # now make sure parent device releases okay
+        pids = getChildren(self._devBooter.pid)
         self._parentDevice.releaseObject()
         self.assertEqual(len(self._devMgr._get_registeredDevices()), 0)
+        number_attempts = 0
+        while True:
+            try:
+                os.kill(parent_pid, 0) # check to see if the process is still alive
+                time.sleep(0.5)
+                number_attempts+=1
+            except:
+                break
+            if number_attempts == 5:
+                break
+        pids = getChildren(self._devBooter.pid)
+        self.assertEqual(len(pids), 0)
 
         self._devMgr.shutdown()
         self.assert_(self.waitTermination(self._devBooter))

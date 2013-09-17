@@ -283,11 +283,12 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
             std::string additionalPath = currentPath+std::string("/")+relativeFileName;
             std::string::size_type pathLocation = ld_library_path.find(additionalPath);
             if (pathLocation == std::string::npos) {
-                ld_library_path += std::string(":")+additionalPath;
-                unsigned int filenameLocation = ld_library_path.rfind('/');
-                unsigned int ld_lib_path_length = ld_library_path.size();
-                ld_library_path.erase(filenameLocation, ld_lib_path_length-filenameLocation);
+                unsigned int filenameLocation = additionalPath.rfind('/');
+                unsigned int additionalPath_length = additionalPath.size();
+                additionalPath.erase(filenameLocation, additionalPath_length-filenameLocation);
+                ld_library_path = additionalPath+std::string(":")+ld_library_path;
                 setenv("LD_LIBRARY_PATH", ld_library_path.c_str(), 1);
+                ld_library_path = getenv("LD_LIBRARY_PATH");
             }
             CLibrary = true;
         }
@@ -323,12 +324,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                     }
                     std::string::size_type pathLocation = pythonpath.find(additionalPath);
                     if (pathLocation == std::string::npos) {
-                        unsigned int lastSeparator = pythonpath.find_last_of(":");
-                        if (lastSeparator == pythonpath.size()-1) {
-                            pythonpath += additionalPath;
-                        } else {
-                            pythonpath += std::string(":")+additionalPath;
-                        }
+                        pythonpath = additionalPath + std::string(":") + pythonpath;
                         setenv("PYTHONPATH", pythonpath.c_str(), 1);
                     }
                     PythonPackage = true;
@@ -368,12 +364,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                         }
                         std::string::size_type pathLocation = pythonpath.find(additionalPath);
                         if (pathLocation == std::string::npos) {
-                            unsigned int lastSeparator = pythonpath.find_last_of(":");
-                            if (lastSeparator == pythonpath.size()-1) {
-                                pythonpath += additionalPath;
-                            } else {
-                                pythonpath += std::string(":")+additionalPath;
-                            }
+                            pythonpath = additionalPath + std::string(":") + pythonpath;
                             setenv("PYTHONPATH", pythonpath.c_str(), 1);
                         }
                         PythonPackage = true;
@@ -403,12 +394,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                     std::string additionalPath = currentPath+std::string("/")+relativeFileName;
                     std::string::size_type pathLocation = classpath.find(additionalPath);
                     if (pathLocation == std::string::npos) {
-                        unsigned int lastSeparator = classpath.find_last_of(":");
-                        if (lastSeparator == classpath.size()-1) {
-                            classpath += additionalPath;
-                        } else {
-                            classpath += std::string(":")+additionalPath;
-                        }
+                        classpath = additionalPath + std::string(":") + classpath;
                         setenv("CLASSPATH", classpath.c_str(), 1);
                     }
                 }

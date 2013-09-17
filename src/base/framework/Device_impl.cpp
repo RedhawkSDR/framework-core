@@ -160,9 +160,7 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
         LOG_DEBUG(Device_impl, "Done Releasing Device")
     }
     
-    PortableServer::POA_ptr root_poa = ossie::corba::RootPOA();
-    PortableServer::ObjectId_var oid = root_poa->servant_to_id(this);
-    root_poa->deactivate_object(oid);
+    Resource_impl::releaseObject();
 }
 
 
