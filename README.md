@@ -2,31 +2,22 @@
  
 ## Description
 
-Contains the source and build script for the REDHAWK Core Framework.
+Contains the REDHAWK Core Framework
  
 ## REDHAWK Documentation
 
-REDHAWK Website: [www.redhawkSDR.org](http://www.redhawksdr.org)
+REDHAWK Website: [www.redhawksdr.org](http://www.redhawksdr.org)
 
-Overview and Getting Started Guide: [PDF](REDHAWK_Getting_Started_Guide_pdf_webaddress "PDF") [HTML](REDHAWK_Getting_Started_Guide_html_webaddress "HTML")
+Overview and Getting Started Guide: [PDF](http://sourceforge.net/projects/redhawksdr/files/redhawk-doc/1.9.0/REDHAWK_Overview_v1.9.0.pdf/download "PDF") [HTML](http://redhawksdr.github.com/Documentation/gettingstarted/main.html "HTML")
 
-Full REDHAWK Manual: [PDF](REDHAWK_Manual_pdf_webaddress "PDF") [HTML](REDHAWK_Manual_html_webaddress "HTML")
+Full REDHAWK Manual: [PDF](http://sourceforge.net/projects/redhawksdr/files/redhawk-doc/1.9.0/REDHAWK_Manual_v1.9.0.pdf/download "PDF") [HTML](http://redhawksdr.github.com/Documentation/main.html "HTML")
  
 ## Copyrights
 
-Copyright © 2012, 2013, United States Government, as represented by the Secretary of Defense.  All rights reserved. 
+This work is protected by Copyright. Please refer to the [Copyright File](COPYRIGHT) for updated copyright information.
 
-Copyright © 2009, 2010 Northrop Grumman Corporation.
-The U.S. Government has Unlimited Rights in this documentation pursuant to the appropriate DFARS clause.  
+## License
 
-Copyright © 2009, 2010, 2011, 2012 Axios, Inc.
-The U.S. Government has Unlimited Rights in this documentation pursuant to the appropriate DFARS clause.  
+The REDHAWK Core Framework is licensed under the GNU Lesser General Public License (LGPL).
 
-Copyright © 2009, 2010, 2011 2012 Rincon Research Corporation.
-The U.S. Government has Unlimited Rights in this documentation pursuant to the appropriate DFARS clause.  
 
-Copyright © 2010, 2011 Artemis Communications, LLC.
-The U.S. Government has Unlimited Rights in this documentation pursuant to the appropriate DFARS clause.  
-
-Copyright © 2009, 2010, 2011, 2012 Ventura Solutions, Inc.
-The U.S. Government has Unlimited Rights in this documentation pursuant to the appropriate DFARS clause.
