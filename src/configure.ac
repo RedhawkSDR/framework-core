@@ -118,6 +118,8 @@ OSSIE_ENABLE_LOG4CXX
 OSSIE_ENABLE_TRACE
 OSSIE_ENABLE_PERSISTENCE
 
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+
 if test "$IDL" = no; then
   AC_MSG_ERROR([cannot find omniidl program])
 fi
