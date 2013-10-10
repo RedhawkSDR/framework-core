@@ -140,6 +140,7 @@ def createTestDomain():
 
 DEBUG_NODEBOOTER=False
 GDB_CMD_FILE=None
+VALGRIND=None
 def spawnNodeBooter(dmdFile=None, dcdFile=None, debug=0, domainname=None, loggingURI=None, endpoint=None, dbURI=None, execparams=""):
     args = []
     if dmdFile != None:
@@ -173,12 +174,20 @@ def spawnNodeBooter(dmdFile=None, dcdFile=None, debug=0, domainname=None, loggin
             print "Could not find Log Conf file <" + logconfig + '>'
             print "Not using a log configuration file"
     args.extend(execparams.split(" "))
-    args.insert(0, "../../control/framework/nodeBooter")
 
     print '\n-------------------------------------------------------------------'
     print 'Launching nodeBooter', " ".join(args)
     print '-------------------------------------------------------------------'
-    nb = ossie.utils.Popen(args, cwd=getSdrPath(), shell=False, preexec_fn=os.setpgrp)
+    if VALGRIND and dmdFile != None:
+        args.insert(0, "../../control/framework/nodeBooter")
+        args.insert(0, "--trace-children=yes")
+        args.insert(0, "--leak-check=yes")
+        args.insert(0, "--tool=memcheck")
+        args.insert(0, "valgrind")
+        nb = ossie.utils.Popen(args, cwd=getSdrPath(), shell=False, preexec_fn=os.setpgrp)
+    else:
+        args.insert(0, "../../control/framework/nodeBooter")
+        nb = ossie.utils.Popen(args, cwd=getSdrPath(), shell=False, preexec_fn=os.setpgrp)
     if DEBUG_NODEBOOTER:
         absNodeBooterPath = os.path.abspath("../control/framework/nodeBooter")
         if GDB_CMD_FILE != None:

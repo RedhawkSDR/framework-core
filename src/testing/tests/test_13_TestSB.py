@@ -113,13 +113,13 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_long, 10)
         self.assertEquals(comp.my_long_empty, None)
         self.assertEquals(comp.my_str, "Hello World!")
-# TODO How to deal with these Bug #131      self.assertEquals(comp.my_str_empty, None)
+        self.assertEquals(comp.my_str_empty, None)
         self.assertEquals(comp.my_struct.bool_true, True)
         self.assertEquals(comp.my_struct.bool_false, False)
                 
         self.assertEquals(comp.my_struct.bool_empty, None)
         self.assertEquals(comp.my_struct.long_s, None)
-#TODO Bug #131        self.assertEquals(comp.my_struct.str_s, "")
+        self.assertEquals(comp.my_struct.str_s, None)
         self.assertEquals(comp.my_seq_bool[0], True)
         self.assertEquals(comp.my_seq_bool[1], False)
         self.assertEquals(comp.my_seq_str[0], "one")
@@ -127,10 +127,10 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_seq_str[2], "three")
         self.assertEquals(comp.my_long_enum, None)
         self.assertEquals(comp.my_bool_enum, None)
-#TODO Bug #131        self.assertEquals(comp.my_str_enum, None)
+        self.assertEquals(comp.my_str_enum, None)
         self.assertEquals(comp.my_struct.enum_long, None)
         self.assertEquals(comp.my_struct.enum_bool, None)
-#TODO Bug #131        self.assertEquals(comp.my_struct.enum_str, None)
+        self.assertEquals(comp.my_struct.enum_str, None)
     
     
     def test_simpleComp(self):       
@@ -177,7 +177,7 @@ class SBTestTest(scatest.CorbaTestCase):
         comp.my_str_enum = "one"
         comp.my_str_enum = 11.1
         comp.my_str_enum = False
-        # TODO Bug #131 self.assertEquals(comp.my_str_enum, None)
+        self.assertEquals(comp.my_str_enum, None)
         comp.my_bool_enum = 10
         comp.my_bool_enum = "one"
         comp.my_bool_enum = 11.1
@@ -195,7 +195,7 @@ class SBTestTest(scatest.CorbaTestCase):
         comp.my_struct.enum_str = "one"
         comp.my_struct.enum_str = 11.1
         comp.my_struct.enum_str = False
-        #TODO Bug #131 self.assertEquals(comp.my_struct.enum_str, None)
+        self.assertEquals(comp.my_struct.enum_str, None)
         comp.my_struct.enum_bool = 10
         comp.my_struct.enum_bool = "one"
         comp.my_struct.enum_bool = 11.1
@@ -321,6 +321,13 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp_ac.basic_struct.some_simple, '4')
         self.assertEquals(comp.over_simple, "override")
         self.assertEquals(comp.over_struct_seq, [{'a_word': 'something', 'a_number': 1}])
+
+    def test_loadSADFileNoOverriddenProperties(self):
+        retval = sb.loadSADFile('sdr/dom/waveforms/ticket_841_and_854/ticket_841_and_854.sad.xml')
+        self.assertEquals(retval, True)
+        comp_ac = sb.getComponent('Sandbox_1')
+        self.assertNotEquals(comp_ac, None)
+        self.assertEquals(comp_ac.my_long, 10)
 
     def test_loadSADFile_overload_create(self):
         retval = sb.loadSADFile('sdr/dom/waveforms/ticket_462_w/ticket_462_w.sad.xml', props={'my_simple':'not foo','over_simple':'not override'})
@@ -589,7 +596,7 @@ class SBTestTest(scatest.CorbaTestCase):
         try:
             comp.readonly_simp = 'bad'
         except Exception, e:
-            self.assertEquals(type(e), Exception)    
+            self.assertEquals(e.__class__, Exception)    
         else:
             self.fail('Expected exception to be thrown for read only property')
         
@@ -598,13 +605,13 @@ class SBTestTest(scatest.CorbaTestCase):
         try:
             comp.readonly_struct.readonly_struct_simp = 'bad'
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
         try:
             comp.readonly_struct = {'readonly_struct_simp':'bad'}
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
             
@@ -614,13 +621,13 @@ class SBTestTest(scatest.CorbaTestCase):
         try:
             comp.readonly_seq[1] = 'bad'
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
         try:
             comp.readonly_seq = ['bad1', 'bad2']
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
         
@@ -630,19 +637,19 @@ class SBTestTest(scatest.CorbaTestCase):
         try: 
             comp.readonly_structseq[0].readonly_s = 'bad'
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
         try: 
             comp.readonly_structseq[1] = [{'readonly_s':'bad'}]
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
         try: 
             comp.readonly_structseq = [{'readonly_s':'bad1'}, {'readonly_s':'bad2'}]
         except Exception, e:
-            self.assertEquals(type(e), Exception)
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
 
@@ -654,9 +661,9 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.readonly_structseq[0].readonly_s, 'read only')
         self.assertEquals(comp.readonly_structseq[1].readonly_s, 'struct seq property')
         
-
-
-
+    def test_solibDependency(self):
+        comp = sb.Component('TestCppsoftpkgDeps')
+        self.assert_(comp.ref != None)
 
         #TODO if BULKIO ever gets folded into core framework these tests can be used
         # to add them proper components must be created

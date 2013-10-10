@@ -556,7 +556,7 @@ class _SourceBase(_DataPortBase):
         self._connections = {}
         self._buildAPI()
 
-    def _addConnection(self, portName, arraySrcInst):
+    def _addConnection(self, portName, arraySrcInst, connectionId):
         """
         When a connection is made, this method should be called 
         to update the running list of array sources.
@@ -570,7 +570,7 @@ class _SourceBase(_DataPortBase):
                       "srcPortType"  : srcPortType,
                       "arraySrcInst" : arraySrcInst}
 
-        self._connections[portName] = connection
+        self._connections[connectionId] = connection
 
     def _addUsesPort(self, port, index):
         """
@@ -672,7 +672,7 @@ class _SourceBase(_DataPortBase):
                                         dataType=dataType, 
                                         componentName="__local"+self.className, 
                                         usesPortName=usesPortName)
-                self._addConnection(usesPortName, arraySrcInst)
+                self._addConnection(usesPortName, arraySrcInst, portIOR)
 
                 return True
             raise AssertionError, self.className+":connect() failed because usesPortName given was not a valid port for providesComponent"
@@ -858,7 +858,7 @@ class _SourceBase(_DataPortBase):
                 _domainless._currentState['Component Connections'][connectionID]['Provides Port Interface'] = str(foundProvidesPortInterface)
                 _domainless._currentState['Component Connections'][connectionID]['Provides Component'] = providesComponent
 
-                self._addConnection(foundUsesPortName, arraySrcInst)
+                self._addConnection(foundUsesPortName, arraySrcInst, connectionID)
 
         except Exception, e:
             print self.className+":connect() failed " + str(e)
@@ -873,9 +873,9 @@ class _SourceBase(_DataPortBase):
                _domainless._currentState['Component Connections'][id]['Provides Component']._refid == providesComponent._refid:
                 usesPortName = _domainless._currentState['Component Connections'][id]['Uses Port Name']
                 usesPort_ref = None
-                arraySrcInst = self._connections[usesPortName]["arraySrcInst"]
+                arraySrcInst = self._connections[id]["arraySrcInst"]
                 usesPort_ref = arraySrcInst.getPort()
-                del self._connections[usesPortName]
+                del self._connections[id]
                 if usesPort_ref != None:
                     usesPort_handle = usesPort_ref._narrow(_CF.Port)
                 if usesPort_handle != None:
@@ -1377,7 +1377,10 @@ class DataSource(_SourceBase):
                                                            EOS, 
                                                            streamID)
                 else:
-                    self.pushPacket([])
+                    self._pushPacketAllConnectedPorts(data,
+                                                      currentSampleTime,
+                                                      EOS,
+                                                      streamID)
             except Exception, e:
                 print self.className + ":pushData() failed " + str(e)
         self.threadExited = True
@@ -1404,12 +1407,12 @@ class DataSource(_SourceBase):
                                      streamID):
 
         for connection in self._connections.values():
-            self._pushPackets(arraySrcInst      = connection["arraySrcInst"],
-                              data              = data,
-                              currentSampleTime = currentSampleTime,
-                              EOS               = EOS,
-                              streamID          = streamID,
-                              srcPortType       = connection["srcPortType"])
+            self._pushPacket(arraySrcInst      = connection["arraySrcInst"],
+                             data              = data,
+                             currentSampleTime = currentSampleTime,
+                             EOS               = EOS,
+                             streamID          = streamID,
+                             srcPortType       = connection["srcPortType"])
 
     def _pushPackets(self, 
                      arraySrcInst, 

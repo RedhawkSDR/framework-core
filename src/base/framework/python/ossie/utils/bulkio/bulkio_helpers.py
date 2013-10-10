@@ -42,6 +42,124 @@ if haveBulkio:
 else:
     defaultSRI = None
 
+def bulkioComplexToPythonComplexList(bulkioList):
+    '''
+    Convert a BulkIO list of complex data to a list of Python complex
+    data.  For example, the BulkIO list:
+
+        [1,2,3,4,5,6]
+
+    is converted as:
+
+        [complex(1,2), complex(3,4), complex(5.6)]
+
+    resulting in:
+
+        [(1+2j), (3+4j), (5+6j)]
+
+    '''
+
+    # The list comprehension below provides efficient behavior, but is
+    # somewhat difficult to read; therefore; it necessitates some 
+    # explaintation.
+    #
+    # Example input bulkioList = [1,2,3,4,5,6]
+    #
+    # bulkioList[0::2] = [1,3,5]
+    # bulkioList[1::2] = [2,4,6]
+    #
+    # zip(bulkioList[0::2], bulkioList[1::2]) = [(1,2), (3,4), (5,6)]
+    #
+    # list comprehension therefore computes:
+    #   result = []
+    #   for x in [(1,2), (3,4), (5,6)]:
+    #       real = x[0]
+    #       imag = x[1]
+    #       result.append(complex(real, imag))
+    if (len(bulkioList)%2):            
+        raise BadParamException('BulkIO complex data list must have an even number of entries.')
+    return [complex(x[0], x[1]) for x in zip(bulkioList[0::2], 
+                                             bulkioList[1::2])]
+
+def pythonComplexListToBulkioComplex(pythonComplexListInput):
+    '''
+    Convert a list of Python complex data to a BulkIO list of complex  
+    data.  For example, the Python list:
+
+        [(1+2j), (3+4j), (5+6j)]
+
+    is converted as:
+
+        [(1+2j).real, 
+         (1+2j).imag, 
+         (3+4j).real, 
+         (3+4j).imag, 
+         (5+6j).real,
+         (5+6j).imag]
+
+    resulting in:
+
+        [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+
+    Note that the resultant list items are always floats since the real and 
+    imag members of a Python complex are always returned as floats.  To convert
+    to another format, "int" for example, using a list comprehension is 
+    recommended:
+
+        floatList = pythonComplexListToBulkioComplex(complexList)
+        intList   = [int(iter) for iter in floatList]
+
+    '''
+
+    # define helper function 
+    def mergeComplexIntoList(listBase, complexVal):
+        '''
+        Take some list, listBase, and extend it by the real an imaginary 
+        components of complexVal.
+
+        For example:
+
+            mergeComplexIntoList([1,2], (3+4j))
+
+        will return [1,2,3,4]
+
+        '''
+
+        # define helper function 
+        def complexToList(val):
+            '''
+            For a given complex input, (R+Ij), return [R,I].
+
+            For example:
+
+                complexToList((3+4j))
+
+            will return [3,4]
+
+            '''
+
+            return [val.real, val.imag]
+
+       
+        listBase.extend(complexToList(complexVal))
+        return listBase
+
+    # The mergeComplexIntoList expects the first argument to be a list.  We 
+    # must therefore force the first argument of pythonComplexListInput to 
+    # be a list.
+    pythonComplexListInput.insert(0,[])
+
+    # Continually apply mergeComplexIntoList on pythonComplexListInput
+    # until the result is a list of real numbers.
+    #
+    # For example, [[], (1+2j), (3+4j), (5+6j)] will convert via:
+    #
+    #       [], (1+2j), (3+4j), (5+6j)
+    #       [1, 2], (3+4j), (5+6j)
+    #       [1, 2, 3, 4], (5+6j)
+    #       [1, 2, 3, 4, 5, 6]
+    return reduce(mergeComplexIntoList, pythonComplexListInput)
+
 def createCPUTimestamp():
     """
     Generates a BULKIO.PrecisionUTCTime object using the current 

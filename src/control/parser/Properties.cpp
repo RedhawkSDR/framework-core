@@ -132,6 +132,37 @@ void Properties::join(std::istream& input) throw (ossie::parser_error) {
     }
 }
 
+void Properties::join(ossie::Properties& props) throw (ossie::parser_error) {
+    LOG_TRACE(Properties, "Loading property set")
+    LOG_TRACE(Properties, "Merging property sets")
+    std::vector<const Property*>::iterator jp_iter;
+    for (jp_iter = props._prf->_allProperties.begin(); jp_iter != props._prf->_allProperties.end(); ++jp_iter) {
+        std::map<std::string, const Property*>::iterator p;
+        assert(*jp_iter != 0);
+        const Property* jp = *jp_iter;
+
+        p = _prf->_properties.find(jp->getID());
+        LOG_TRACE(Properties, "Merging '" << *jp << "'") 
+
+        // The property exists so override it's value
+        if (p != _prf->_properties.end()) {
+            Property* thep = const_cast<Property*>(p->second);
+            assert(thep != 0);
+            // override the value
+            if (thep->isReadOnly()) {
+                LOG_WARN(Properties, "ignoring attempt to override readonly property with id: " << thep->getID());
+            }
+            LOG_TRACE(Properties, "Overriding '" << *thep << "' with '" << *jp << "'") 
+            thep->override(jp);
+            LOG_TRACE(Properties, "New value '" << *thep << "' with '") 
+        } else {
+            LOG_TRACE(Properties, "Adding '" << *jp << "'") 
+            _prf->addProperty(jp->clone());
+        }
+    }
+    LOG_TRACE(Properties, "Done merging property sets, cleaning up")
+}
+
 const std::vector<const Property*>& Properties::getProperties() const
 {
     assert(_prf.get() != 0);

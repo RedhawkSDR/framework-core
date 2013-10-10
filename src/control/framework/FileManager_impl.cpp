@@ -169,59 +169,125 @@ throw (CORBA::SystemException, CF::FileManager::NonExistentMount)
 
 
 void
-FileManager_impl::remove (const char* fileName)
+FileManager_impl::remove (const char* pattern)
 throw (CORBA::SystemException, CF::FileException, CF::InvalidFileName)
 {
     TRACE_ENTER(FileManager_impl)
-    LOG_TRACE(FileManager_impl, "Entering remove with " << fileName)
+    LOG_TRACE(FileManager_impl, "Entering remove with " << pattern)
 
-    if (fileName[0] != '/' || !ossie::isValidFileName(fileName)) {
+    if (pattern[0] != '/' || !ossie::isValidFileName(pattern)) {
         LOG_ERROR(FileManager_impl, "remove passed bad filename, throwing exception.");
         throw CF::InvalidFileName (CF::CF_EINVAL, "[FileManager::remove] Invalid file name");
     }
 
+    std::string new_pattern;
+
+    if ((pattern[0] != '/') && (strlen(pattern) > 0)) {
+        if (pattern[0] == '?') {
+            new_pattern="/";
+            new_pattern.append(&pattern[1]);
+        } else if (pattern[0] == '*') {
+            new_pattern="/";
+            new_pattern.append(pattern);
+        } else {
+            throw CF::InvalidFileName(CF::CF_EINVAL, "[FileManager::remove] Relative path given.");
+        }
+    } else {
+        new_pattern = pattern;
+    }
+    
     long fileFS(0);
     std::string filePath;
-    CF::File_var file_var;
-
+    std::string searchPattern = new_pattern.c_str();
+    
     // see if file is on one of the mounted file systems
-    if (getFSandFSPath(fileName, fileFS, filePath)) {
-        LOG_TRACE(FileManager_impl, "[FileManager::remove] found mountPoint " << mount_table[fileFS].mountPoint << " and localPath " << filePath);
-
-        if (!mount_table[fileFS].fs->exists(filePath.c_str())) {
-            throw CF::FileException(CF::CF_NOTSET, "[FileManager::remove] File does not exist on requested File System");
+    if (getFSandFSPath(new_pattern.c_str(), fileFS, filePath)) {
+        LOG_TRACE(FileManager_impl, "[FileManager::remove] found mountPoint " << ossie::corba::returnString(mount_table[fileFS].mountPoint) << " and localPath " << filePath);
+        
+        std::string::size_type nextSlash = searchPattern.find("/", 1);   // see if there are any slashes after the initial one
+        if (nextSlash == std::string::npos) {   // there's no additional slashes
+            regularExpressionMountDelete(new_pattern);
+        } else {  // look into the contents of the mount point only if it has a trailing slash
+            try {
+                // invoke remove on the mounted file system
+                mount_table[fileFS].fs->remove(filePath.c_str());
+            } catch ( std::exception& ex ) {
+                std::ostringstream eout;
+                eout << "The following standard exception occurred: "<<ex.what()<<" While removing " << new_pattern;
+                LOG_ERROR(FileManager_impl, eout.str())
+                throw(CF::FileException());
+            } catch ( CF::FileException& ex ) {
+                throw;
+            } catch ( CORBA::Exception& ex ) {
+                std::ostringstream eout;
+                eout << "The following CORBA exception occurred: "<<ex._name()<<" While removing " << new_pattern;
+                LOG_ERROR(FileManager_impl, eout.str())
+                throw(CF::FileException());
+            } catch( ... ) {
+                LOG_ERROR(FileManager_impl, "[FileManager::remove] While removing " << new_pattern.c_str() << ": Unknown Exception\n");
+                throw(CF::FileException());
+            }
         }
-
+    }
+    // if not on a mounted file system, see if it's in the local file system
+    else {
+        LOG_TRACE(FileManager_impl, "[FileManager::remove] couldn't find file on mountPoint - removing local filesystem");
         try {
-            mount_table[fileFS].fs->remove(filePath.c_str());
+            FileSystem_impl::remove(new_pattern.c_str());
         } catch ( std::exception& ex ) {
             std::ostringstream eout;
-            eout << "The following standard exception occurred: "<<ex.what()<<" While opening file " << fileName;
+            eout << "The following standard exception occurred: "<<ex.what()<<" While removing " << new_pattern;
             LOG_ERROR(FileManager_impl, eout.str())
             throw(CF::FileException());
         } catch ( CF::FileException& ex ) {
             throw;
         } catch ( CORBA::Exception& ex ) {
             std::ostringstream eout;
-            eout << "The following CORBA exception occurred: "<<ex._name()<<" While opening file " << fileName;
+            eout << "The following CORBA exception occurred: "<<ex._name()<<" While removing " << new_pattern;
             LOG_ERROR(FileManager_impl, eout.str())
             throw(CF::FileException());
         } catch( ... ) {
-            LOG_ERROR(FileManager_impl, "[FileManager::remove] While opening file " << fileName << ": Unknown Exception\n");
+            LOG_ERROR(FileManager_impl, "[FileManager::remove] While removing " << new_pattern.c_str() << ": Unknown Exception\n");
             throw(CF::FileException());
         }
+        // only the FileManager can mount file systems, so the search for mount points applies only here
+        //  also assume that a single level of mounting is possible
+        if (searchPattern.size() > 1) {
+            std::string::size_type nextSlash = searchPattern.find("/", 1);   // see if there are any slashes after the initial one
+            if (nextSlash == std::string::npos) {   // there's no additional slashes
+                regularExpressionMountDelete(new_pattern);
+            } else if ((nextSlash == (searchPattern.size()-1))) {  // it's a trailing slash (list the mount's contents)
+                // this was done in getFSandFSPath
+            }
+        }
     }
-    // if not on a mounted file system, see if it's in the local file system
-    else if (FileSystem_impl::exists(fileName)) {
-        LOG_TRACE(FileManager_impl, "[FileManager::remove] Couldn't find file on mountPoint - removing " << fileName << " from local filesystem");
-        FileSystem_impl::remove(fileName);
-    }
-    // file can't be found
-    else {
-        throw CF::FileException(CF::CF_NOTSET, "[FileManager::remove] File does not exist on any mounted File System");
-    }
-
     TRACE_EXIT(FileManager_impl)
+}
+
+void FileManager_impl::regularExpressionMountDelete(std::string new_pattern)
+{
+    std::string initial_patternString = new_pattern.c_str();
+    std::string::iterator pattern_iter = initial_patternString.begin();
+    std::string patternString = "";
+    while (pattern_iter != initial_patternString.end()) {
+        const char value = *pattern_iter;
+        if (value == '*') {
+            patternString.append(".*");
+        } else if (value == '?') {
+            patternString.append(1, '.');
+        } else {
+            patternString.append(1, value);
+        }
+        pattern_iter++;
+    }
+    boost::regex expression(patternString);
+    for (unsigned int mount = 0; mount<mount_table->length(); mount++) {
+        std::string tmpMount = ossie::corba::returnString(mount_table[mount].mountPoint);
+        bool match = boost::regex_match(tmpMount, expression);
+        if (match) {
+            // delete the file
+        }
+    }
 }
 
 

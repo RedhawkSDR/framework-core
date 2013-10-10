@@ -402,6 +402,7 @@ void usage()
     std::cerr << "    --user <username>       Run as the specified user." << std::endl;
     std::cerr << "    --group <groupname>     Run as the specified group." << std::endl;
     std::cerr << "    --ORBport <portnumber>  Change the port number used by the Domain Manager to listen (only valid with the -D option)." << std::endl;
+    std::cerr << "    --ORBInitRef <ip address>  Change the ip address used by the Device Manager to find the naming service (only valid with the -d option)." << std::endl;
     std::cerr << "    --domainname <domain name> override the domain name specified in the configuration file." << std::endl << std::endl;
     std::cerr << std::endl;
 
@@ -419,7 +420,7 @@ void usage()
     std::cerr << "    nodeBooter -D /domain/DomainManager.dmd.xml -d /nodes/MyNode/DeviceManager.dcd.xml -sdrroot /opt/sdr -sdrcache /tmp" << std::endl;
     std::cerr << "    nodeBooter -D dom/domain/DomainManager.dmd.xml -d dev/nodes/DeviceManager.dcd.xml #(NOTE: see below for details)" << std::endl;
     std::cerr << "    nodeBooter -D -d DeviceManager.dcd.xml -debug 9" << std::endl;
-    std::cerr << "    nodeBooter -D -d DeviceManager.dcd.xml -ORBInitRef 127.0.0.1" << std::endl;
+    std::cerr << "    nodeBooter -D -d DeviceManager.dcd.xml --ORBInitRef 127.0.0.1" << std::endl;
     std::cerr << "    nodeBooter -d DeviceManager.dcd.xml --daemon --pidfile /var/run/domain.pid --user domainuser" << std::endl;
     std::cerr << "    nodeBooter --help" << std::endl << std::endl;
 
@@ -456,6 +457,7 @@ int main(int argc, char* argv[])
     string sdrCache;
     string logfile_uri;
     string db_uri;
+    string orb_init_ref;
     string domainName;
     string endPoint;
     int debugLevel = 3;
@@ -587,6 +589,17 @@ int main(int argc, char* argv[])
                 db_uri = argv[i+1];
             } else {
                 std::cerr << "[nodeBooter] ERROR: No DB URL provided\n";
+                usage();
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        if (( strcmp( argv[i], "--ORBInitRef" ) == 0 )) {
+            if( i + 1 < argc && strcmp( argv[i + 1], "--" ) != 0) {
+                orb_init_ref = "NameService=corbaname::";
+                orb_init_ref += argv[i+1];
+            } else {
+                std::cerr << "[nodeBooter] ERROR: No initial reference address provided\n";
                 usage();
                 exit(EXIT_FAILURE);
             }
@@ -984,7 +997,10 @@ int main(int argc, char* argv[])
             if (!logfile_uri.empty()) {
                 execParams["LOGGING_CONFIG_URI"] = logfile_uri;
             }
-
+            if (!orb_init_ref.empty()) {
+                execParams["-ORBInitRef"] = orb_init_ref;
+            }
+            
             if(execparams.size() > 0) {
                 for(unsigned int index = 0; index < execparams.size(); index++) {
                     string id = execparams[index];

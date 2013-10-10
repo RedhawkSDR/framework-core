@@ -92,32 +92,9 @@ class PropertyEventSupplier(CF__POA.Port):
                     self._last_property_event_state[prop_id] = copy.deepcopy(newValue)
                     eventable_ids.append(prop_id)
                 else:
-                    if type(prop_def) in (simple_property, simpleseq_property):
-                        if oldValue != newValue:
-                            self._component._log.debug("Issuing simple event for %s (%s != %s)", prop_id, oldValue, newValue)
-                            eventable_ids.append(prop_id)
-                    elif type(prop_def) == struct_property:
-                        if (oldValue == None and newValue != None) or \
-                           (oldValue != None and newValue == None):
-                            self._component._log.debug("Issuing struct event for %s (%s != %s)", prop_id, oldValue, newValue)
-                            eventable_ids.append(prop_id)
-                        elif oldValue.__dict__ != newValue.__dict__:
-                            self._component._log.debug("Issuing struct event for %s (%s != %s)", prop_id, oldValue.__dict__, newValue.__dict__)
-                            eventable_ids.append(prop_id)
-                    elif type(prop_def) == structseq_property:
-                        if (oldValue == None and newValue != None) or \
-                           (oldValue != None and newValue == None):
-                            self._component._log.debug("Issuing structseq event for %s (%s != %s)", prop_id, oldValue, newValue)
-                            eventable_ids.append(prop_id)
-                        elif len(oldValue) != len(newValue):
-                            self._component._log.debug("Issuing structseq length event for %s (%s != %s)", prop_id, len(oldValue), len(newValue))
-                            eventable_ids.append(prop_id)
-                        else:
-                            for i in xrange(len(oldValue)):
-                                if oldValue[i].__dict__ != newValue[i].__dict__:
-                                    self._component._log.debug("Issuing structseq event for %s[%s] (%s != %s)", prop_id, i, oldValue[i].__dict__, newValue[i].__dict__)
-                                    eventable_ids.append(prop_id)
-                                    break
+                    if prop_def.compareValues(oldValue, newValue):
+                        self._component._log.debug("Issuing event for %s (%s != %s)", prop_id, oldValue, newValue)
+                        eventable_ids.append(prop_id)
         self._component._log.debug("Eventing for properties %s", eventable_ids)
         self.sendPropertiesEvent(eventable_ids)
 

@@ -724,6 +724,7 @@ void DeviceManager_impl::createDeviceCacheLocation(
     bool retval = this->makeDirectory(devcache);
     if (not retval) {
         LOG_ERROR(DeviceManager_impl, "Unable to create the Device cache: " << devcache)
+        exit(-1);
     }
 }
 
@@ -2052,6 +2053,24 @@ bool DeviceManager_impl::checkWriteAccess(std::string &path)
     DIR *dp;
     struct dirent *ep;
     dp = opendir(path.c_str());
+    if (dp == NULL) {
+        if (errno == ENOENT) {
+            LOG_WARN(DeviceManager_impl, "Failed to create directory " << path <<".")
+        } else if (errno == EACCES) {
+            LOG_WARN(DeviceManager_impl, "Failed to create directory " << path <<". Please check your write permissions.")
+        } else if (errno == ENOTDIR) {
+            LOG_WARN(DeviceManager_impl, "Failed to create directory " << path <<". One of the components of the path is not a directory.")
+        } else if (errno == EMFILE) {
+            LOG_WARN(DeviceManager_impl, "Failed to create directory " << path <<". Too many file descriptors open by the process.")
+        } else if (errno == ENFILE) {
+            LOG_WARN(DeviceManager_impl, "Failed to create directory " << path <<". Too many file descriptors open by the system.")
+        } else if (errno == ENOMEM) {
+            LOG_WARN(DeviceManager_impl, "Failed to create directory " << path <<". Insufficient memory to complete the operation.")
+        } else {
+            LOG_WARN(DeviceManager_impl, "Attempt to create directory " << path <<" failed with the following error number: " << errno)
+        }
+        return false;
+    }
     while ((ep = readdir(dp)) != NULL) {
         std::string name = ep->d_name;
         if ((name == ".") or (name == "..")) continue;
@@ -2620,7 +2639,7 @@ void DeviceManager_impl::childExited (pid_t pid, int status)
         decrement_registeredServices(serviceNode->service, serviceNode->label.c_str());
     }
 
-    if (!deviceNode) {
+    if (deviceNode) {
         delete deviceNode;
     } else {
         delete serviceNode;

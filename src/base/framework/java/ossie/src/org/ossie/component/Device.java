@@ -322,8 +322,8 @@ public abstract class Device extends Resource implements DeviceOperations {
         }
 
         final Device device_i = (Device)clazz.newInstance();
-        final CF.Device device = device_i.setup(devMgr, compositeDevice, identifier, label, profile, orb, rootpoa);
         device_i.initializeProperties(execparams);
+        final CF.Device device = device_i.setup(devMgr, compositeDevice, identifier, label, profile, orb, rootpoa);
 
         // Get DomainManager incoming event channel and connect the device to it, where applicable
         if (execparams.containsKey("IDM_CHANNEL_IOR")){

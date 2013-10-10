@@ -74,7 +74,8 @@ private:
     bool getFSandFSPath(const char* path, long& mountTableIndex, std::string& FSPath);
     unsigned int pathMatches(const char* path, const char* mPoint, std::string& FSPath);
     void regularExpressionMountSearch(std::string new_pattern, CF::FileSystem::FileInformationSequence_var& fis);
-
+    void regularExpressionMountDelete(std::string new_pattern);
+    
     CF::FileManager::MountSequence_var mount_table;
 
     unsigned int numMounts;

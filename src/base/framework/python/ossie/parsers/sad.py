@@ -904,6 +904,7 @@ class componentinstantiation(GeneratedsSuper):
         self.usagename = usagename
         self.componentproperties = componentproperties
         self.findcomponent = findcomponent
+        self.startorder = None
     def factory(*args_, **kwargs_):
         if componentinstantiation.subclass:
             return componentinstantiation.subclass(*args_, **kwargs_)
@@ -936,6 +937,8 @@ class componentinstantiation(GeneratedsSuper):
             outfile.write(' />\n')
     def exportAttributes(self, outfile, level, namespace_='', name_='componentinstantiation'):
         outfile.write(' id=%s' % (self.format_string(quote_attrib(self.id_).encode(ExternalEncoding), input_name='id'), ))
+        if self.get_startorder() is not None:
+            outfile.write(' startorder=%s' % (self.format_string(quote_attrib(self.startorder).encode(ExternalEncoding), input_name='startorder'), ))
     def exportChildren(self, outfile, level, namespace_='', name_='componentinstantiation'):
         if self.usagename is not None:
             showIndent(outfile, level)
@@ -962,6 +965,8 @@ class componentinstantiation(GeneratedsSuper):
         if self.id_ is not None:
             showIndent(outfile, level)
             outfile.write('id_ = %s,\n' % (self.id_,))
+        if self.get_startorder() is not None:
+            outfile.write('startorder = %s,\n' % (self.startorder,))
     def exportLiteralChildren(self, outfile, level, name_):
         showIndent(outfile, level)
         outfile.write('usagename=%s,\n' % quote_python(self.usagename).encode(ExternalEncoding))
@@ -986,6 +991,8 @@ class componentinstantiation(GeneratedsSuper):
     def buildAttributes(self, attrs):
         if attrs.get('id'):
             self.id_ = attrs.get('id').value
+        if attrs.get('startorder') != None:
+            self.startorder = attrs.get('startorder').value
     def buildChildren(self, child_, nodeName_):
         if child_.nodeType == Node.ELEMENT_NODE and \
             nodeName_ == 'usagename':
@@ -1003,6 +1010,16 @@ class componentinstantiation(GeneratedsSuper):
             obj_ = findcomponent.factory()
             obj_.build(child_)
             self.set_findcomponent(obj_)
+    
+    def get_startorder(self):
+        try:
+            return self.startorder
+        except AttributeError:
+            return None
+    
+    def set_startorder(self, startorder):
+        self.startorder = startorder
+
 # end class componentinstantiation
 
 
@@ -3459,6 +3476,7 @@ def parse(inFileName):
     rootNode = doc.documentElement
     rootObj = softwareassembly.factory()
     rootObj.build(rootNode)
+    doc.unlink()
     # Enable Python to collect the space used by the DOM.
     doc = None
 ##     sys.stdout.write('<?xml version="1.0" ?>\n')
@@ -3472,6 +3490,7 @@ def parseString(inString):
     rootNode = doc.documentElement
     rootObj = softwareassembly.factory()
     rootObj.build(rootNode)
+    doc.unlink()
     # Enable Python to collect the space used by the DOM.
     doc = None
 ##     sys.stdout.write('<?xml version="1.0" ?>\n')
@@ -3485,6 +3504,7 @@ def parseLiteral(inFileName):
     rootNode = doc.documentElement
     rootObj = softwareassembly.factory()
     rootObj.build(rootNode)
+    doc.unlink()
     # Enable Python to collect the space used by the DOM.
     doc = None
 ##     sys.stdout.write('from sad import *\n\n')

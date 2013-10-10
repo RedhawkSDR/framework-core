@@ -322,10 +322,33 @@ def getInterfacesFromFileAsString(filename, includepath=None):
 
 def importStandardIdl(std_idl_path='/usr/local/share/idl/ossie', std_idl_include_path = '/usr/local/share/idl'):
 
-    # find where ossie is installed
-    if 'OSSIEHOME' in os.environ and os.path.exists(os.environ['OSSIEHOME']):
-        std_idl_path = os.path.join(os.environ['OSSIEHOME'], 'share/idl')
-        std_idl_include_path = os.path.join(os.environ['OSSIEHOME'], 'share/idl')
+    # list to hold any include paths the parser may need
+    includePaths = []
+
+    #Don't eat user supplied arguments
+    if std_idl_path == '/usr/local/share/idl/ossie' and std_idl_include_path == '/usr/local/share/idl':
+
+        # find where ossie is installed
+        if 'OSSIEHOME' in os.environ and os.path.exists(os.environ['OSSIEHOME']):
+            ossiehome_location = os.environ['OSSIEHOME']
+            std_idl_path = os.path.join(ossiehome_location, 'share/idl')
+            std_idl_include_path = os.path.join(ossiehome_location, 'share/idl')
+            includePaths.append(std_idl_include_path)
+
+            #In a local installation, omniORB idls are placed in $OSSIEHOME/share/idl
+            includePaths.append(os.path.join(ossiehome_location, 'share/idl/omniORB'))
+            includePaths.append(os.path.join(ossiehome_location, 'share/idl/omniORB/COS'))
+
+    if not std_idl_include_path in includePaths:
+        includePaths.append(std_idl_include_path)
+
+    #Append standard omniORB idl location
+    includePaths.append('/usr/share/idl/omniORB')
+    includePaths.append('/usr/share/idl/omniORB/COS')
+
+    #Append additional omniORB idl location
+    includePaths.append('/usr/local/share/idl/omniORB')
+    includePaths.append('/usr/local/share/idl/omniORB/COS')
 
 
     # normalize the path names
@@ -338,12 +361,6 @@ def importStandardIdl(std_idl_path='/usr/local/share/idl/ossie', std_idl_include
     # list to hold IDL files
     idlList = []
 
-    # list to hold any include paths the parser may need
-    includePaths = [std_idl_include_path]
-    includePaths.append('/usr/local/share/idl/omniORB')
-    includePaths.append('/usr/share/idl/omniORB')
-    includePaths.append('/usr/local/share/idl/omniORB/COS')
-    includePaths.append('/usr/share/idl/omniORB/COS')
     for (directory,sub,files) in os.walk(std_idl_include_path):
         includePaths.append(directory)
 
@@ -361,8 +378,10 @@ def importStandardIdl(std_idl_path='/usr/local/share/idl/ossie', std_idl_include
     # search for .idl files recursively
     for dirpath, dirs, files in os.walk(std_idl_path):
         for f in files:
-            if os.path.splitext(f)[1] == '.idl':
-                idlList.append(os.path.join(dirpath, f))
+            #Omit problematic IDLs
+            if not 'omniORB' in dirpath and not 'omniEvents' in dirpath:
+                if os.path.splitext(f)[1] == '.idl':
+                    idlList.append(os.path.join(dirpath, f))
 
     if len(idlList) <= 0:
         tmpstr = "Can't find any files in: " + std_idl_path

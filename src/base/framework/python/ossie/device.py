@@ -417,6 +417,9 @@ class Device(resource.Resource):
         """
         def _logRegisterFailure(msg = ""):
             self._log.error("Could not register with DeviceManager: %s", msg)
+
+        def _logRegisterWarning(msg = ""):
+            self._log.warn("May not have registered with DeviceManager: %s", msg)
                 
         def _registerThreadFunction():
             if self._devmgr:
@@ -433,10 +436,10 @@ class Device(resource.Resource):
         success = False
         queue = Queue(maxsize=1) 
 
-        success = resource.callOmniorbpyWithTimeout(_registerThreadFunction, queue)
+        success = resource.callOmniorbpyWithTimeout(_registerThreadFunction, queue, timeoutSeconds = 10)
 
         if not success:
-            _logRegisterFailure("timeout while attempting to register")
+            _logRegisterWarning("Threaded client call may have timed out while attempting to register")
 
     def __initialize(self):
         self._usageState = CF.Device.IDLE
@@ -699,10 +702,30 @@ class LoadableDevice(Device):
             pass
         # it matches no patterns. Assume that it's a set of libraries
         if not matchesPattern:
+            # Split the path up
             try:
-                os.environ['LD_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']+':'+localFilePath+':'
+                path = [ x for x in os.environ['LD_LIBRARY_PATH'].split(os.path.pathsep) if x != "" ]
             except KeyError:
-                os.environ['LD_LIBRARY_PATH'] = localFilePath+':'
+                path = []
+
+            # Get an absolute path for localFilePath; look for a duplicate of this path before appending
+            candidatePath = os.path.abspath(localFilePath)
+            foundPath = False
+            for pathEntry in path:
+                try:
+                    if os.path.samefile(pathEntry, localFilePath):
+                        foundPath = True
+                        break
+                except OSError:
+                    # If we can't find concrete files to compare, fall back to string compare
+                    if pathEntry == candidatePath:
+                        foundPath = True
+                        break
+            if not foundPath:
+                path.append(candidatePath)
+
+            # Write the new LD_LIBRARY_PATH
+            os.environ['LD_LIBRARY_PATH'] = os.path.pathsep.join(path)
 
     def _modTime(self, fileSystem, remotePath):
         try:

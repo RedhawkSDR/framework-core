@@ -42,7 +42,7 @@ bool ossie::compare_anys(CORBA::Any& a, CORBA::Any& b, std::string& action)
     CORBA::TypeCode_var typeB = b.type();
 
     // If the types don't match, the comparison will always be false
-    if (typeA != typeB) {
+    if (typeA->kind() != typeB->kind()) {
         return false;
     }
     bool result = false;

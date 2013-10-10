@@ -365,6 +365,34 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         domMgr.uninstallApplication(appFact._get_identifier())
 
+    def test_MalformedComponentFile(self):
+        # test basic operation of launching an application and checking allocation capacities
+
+        nodebooter, domMgr = self.launchDomainManager(debug=9)
+        self.assertNotEqual(domMgr, None)
+        
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        domMgr.installApplication("/waveforms/MalformedComponentFile/MalformedComponentFile.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        # Ensure the expected device is available
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        self.assertNotEqual(devMgr, None)
+        self.assertEqual(len(domMgr._get_deviceManagers()), 1)
+        self.assertEqual(len(devMgr._get_registeredDevices()), 1)
+        device = devMgr._get_registeredDevices()[0]
+
+        appFact = domMgr._get_applicationFactories()[0]
+        self.assertRaises(CF.ApplicationFactory.CreateApplicationError, appFact.create, appFact._get_name(), [], [])
+
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+        domMgr.uninstallApplication(appFact._get_identifier())
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
+
     def test_MultipleSubprocess(self):
         # test basic operation of launching an application and checking allocation capacities
 
@@ -1683,6 +1711,27 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
         appFact = domMgr._get_applicationFactories()[0]
         app = appFact.create(appFact._get_name(), [], [])
+        self.assertEqual(len(domMgr._get_applications()), 1)
+        app.releaseObject()
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        domMgr.uninstallApplication(appFact._get_identifier())
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
+
+    def test_softpkgDependency_processormatch(self):
+        dommgr_nb, domMgr = self.launchDomainManager(debug=9)
+        self.assertNotEqual(domMgr, None)
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication("/waveforms/CommandWrapperSPDDepProcessorMatch/CommandWrapperSPDDepProcessorMatch.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+        appFact = domMgr._get_applicationFactories()[0]
+        try:
+            app = appFact.create(appFact._get_name(), [], [])
+        except:
+            pass
         self.assertEqual(len(domMgr._get_applications()), 1)
         app.releaseObject()
         self.assertEqual(len(domMgr._get_applications()), 0)

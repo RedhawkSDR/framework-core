@@ -341,6 +341,7 @@ namespace ossie {
          * This will override values for any properties with the same id
          */
         void join(std::istream& input) throw (ossie::parser_error);
+        void join(ossie::Properties& props) throw (ossie::parser_error);
 
     protected:
         Properties(const Properties&) // Hide copy constructor

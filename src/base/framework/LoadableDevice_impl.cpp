@@ -185,6 +185,17 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
         LOG_DEBUG(LoadableDevice_impl, "Loading the file " << fileName)
         bool done = false;
         std::string initialDir("");
+        std::fstream fileStream;
+        std::ios_base::openmode mode;
+        mode = std::ios::out;
+        relativeFileName = workingFileName;
+        if (workingFileName[0] == '/') {
+            relativeFileName = workingFileName.substr(1);
+        }
+        fileStream.open(relativeFileName.c_str(), mode);
+        if (!fileStream.is_open()) {
+            LOG_ERROR(LoadableDevice_impl, "File " << relativeFileName.c_str() << " did not open succesfully.")
+        }
 
         std::string::size_type begin_pos = 0;
         std::string::size_type last_slash = workingFileName.find_last_of("/");
@@ -208,21 +219,31 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
         CF::File_var srcFile = fs->open (workingFileName.c_str(), true);
         CF::OctetSequence_var data;
         unsigned int srcSize = srcFile->sizeOf();
-        srcFile->read(data, srcSize);
-
-        std::fstream fileStream;
-        std::ios_base::openmode mode;
-        mode = std::ios::out;
-        relativeFileName = workingFileName;
-        if (workingFileName[0] == '/') {
-            relativeFileName = workingFileName.substr(1);
+        if (srcSize > ossie::corba::giopMaxMsgSize()) {
+            bool doneReading = false;
+            unsigned int maxReadSize = ossie::corba::giopMaxMsgSize() * 0.95;
+            LOG_DEBUG(LoadableDevice_impl, "File is longer than giopMaxMsgSize (" << ossie::corba::giopMaxMsgSize() << "), partitioning the copy into pieces of length " << maxReadSize)
+            unsigned int readSize = maxReadSize;
+            unsigned int leftoverSrcSize = srcSize;
+            while (not doneReading) {
+                CF::OctetSequence_var data;
+                if (readSize > leftoverSrcSize) {
+                    readSize = leftoverSrcSize;
+                }
+                srcFile->read(data, readSize);
+                fileStream.write((const char*)data->get_buffer(), data->length());
+                leftoverSrcSize -= readSize;
+                if (leftoverSrcSize == 0) {
+                    doneReading = true;
+                }
+            }
+            fileStream.close();
+        } else {
+            CF::OctetSequence_var data;
+            srcFile->read(data, srcSize);
+            fileStream.write((const char*)data->get_buffer(), data->length());
+            fileStream.close();
         }
-        fileStream.open(relativeFileName.c_str(), mode);
-        if (!fileStream.is_open()) {
-            LOG_ERROR(LoadableDevice_impl, "File " << relativeFileName.c_str() << " did not open succesfully.")
-        }
-        fileStream.write((const char*)data->get_buffer(), data->length());
-        fileStream.close();
         chmod(relativeFileName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         fileTypeTable[workingFileName] = CF::FileSystem::PLAIN;
     } else {

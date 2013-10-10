@@ -104,13 +104,8 @@ from ossie.utils.sca import importIDL as _importIDL
 import string as _string
 import struct as _struct
 
-_ossiehome = _os.getenv('OSSIEHOME')
-
-if _ossiehome == None:
-    _ossiehome = ''
-
-_std_idl_path=_ossiehome+'/share/idl/ossie'
-_std_idl_include_path = '/usr/local/share/idl'
+_std_idl_path="/usr/local/share/idl/ossie"
+_std_idl_include_path="/usr/local/share/idl"
 
 _interface_list = []
 _loadedInterfaceList = False
@@ -435,6 +430,8 @@ def overloadProperty(component, simples=None, simpleseq=None, struct=None, struc
     if len(component._propertySet) > 0:
         allProps = dict([(str(prop.id),prop) for prop in component._propertySet])
         for entry in component._propertySet:
+            if entry.mode == "readonly":
+                continue
             for overload in simples:
                 if overload.id == entry.id:
                     allProps.pop(overload.id)
@@ -520,7 +517,8 @@ def overloadProperty(component, simples=None, simpleseq=None, struct=None, struc
             dV = allProps[prop].defValue
             if dV == None:
                 continue
-            setattr(component, allProps[prop].clean_name, allProps[prop].defValue)
+            if allProps[prop].mode != "readonly":
+                setattr(component, allProps[prop].clean_name, allProps[prop].defValue)
 
 def loadSADFile(filename, props={}):
     '''
@@ -605,7 +603,10 @@ def loadSADFile(filename, props={}):
                 for prop_check in _prf.get_structsequence():
                     if prop_check.get_mode() == 'readwrite' or prop_check.get_mode() == 'writeonly':
                         configurable[instanceName].append(str(prop_check.get_id()))
-                simples = properties.get_simpleref()
+                if properties != None:
+                    simples = properties.get_simpleref()
+                else:
+                    simples = [] 
                 simple_exec_vals = {}
                 for simple in simples:
                     if not (simple.refid in execprops):
@@ -712,64 +713,65 @@ def loadSADFile(filename, props={}):
             if sandboxComponent != None and \
                componentProps != None:
                 properties=component.get_componentinstantiation()[0].get_componentproperties()
-                #simples
-                simples = properties.get_simpleref()
-                simple_vals = []
-                for simple in simples:
-                    if not (simple.refid in configurable[sandboxComponent._instanceName]):
-                        continue
-                    overload_value = str(simple.value)
-                    if simple.refid in props and assemblyController:
-                        overload_value = props[simple.refid]
-                        props.pop(simple.refid)
-                    simple_vals.append(overloadContainer(str(simple.refid),overload_value))
-                #simple sequences
-                simpleseqs = properties.get_simplesequenceref()
-                simpleseq_vals = []
-                if simpleseqs != None:
-                    for simpleseq in simpleseqs:
-                        if not (simpleseq.refid in configurable[sandboxComponent._instanceName]):
+                if properties != None:
+                    #simples
+                    simples = properties.get_simpleref()
+                    simple_vals = []
+                    for simple in simples:
+                        if not (simple.refid in configurable[sandboxComponent._instanceName]):
                             continue
-                        values_vals = [str(value) for value in simpleseq.get_values().get_value()]
-                        if simpleseq.refid in props and assemblyController:
-                            values_vals = props[simpleseq.refid]
-                            props.pop(simpleseq.refid)
-                        simpleseq_vals.append(overloadContainer(str(simpleseq.refid),values_vals))
-                #structs
-                structs = properties.get_structref()
-                struct_vals = []
-                if structs != None:
-                    for struct in structs:
-                        if not (struct.refid in configurable[sandboxComponent._instanceName]):
-                            continue
-                        simples = struct.get_simpleref()
-                        value = {}
-                        for simple in simples:
-                            value[str(simple.refid)] = str(simple.value)
-                        if struct.refid in props and assemblyController:
-                            value = props[struct.refid]
-                            props.pop(struct.refid)
-                        struct_vals.append(overloadContainer(str(struct.refid),value))
-                #struct sequences
-                structseqs = properties.get_structsequenceref()
-                structseq_vals = []
-                if structseqs != None:
-                    for structseq in structseqs:
-                        if not (structseq.refid in configurable[sandboxComponent._instanceName]):
-                            continue
-                        values_vals = []
-                        for struct_template in structseq.get_structvalue():
-                            simples = struct_template.get_simpleref()
+                        overload_value = str(simple.value)
+                        if simple.refid in props and assemblyController:
+                            overload_value = props[simple.refid]
+                            props.pop(simple.refid)
+                        simple_vals.append(overloadContainer(str(simple.refid),overload_value))
+                    #simple sequences
+                    simpleseqs = properties.get_simplesequenceref()
+                    simpleseq_vals = []
+                    if simpleseqs != None:
+                        for simpleseq in simpleseqs:
+                            if not (simpleseq.refid in configurable[sandboxComponent._instanceName]):
+                                continue
+                            values_vals = [str(value) for value in simpleseq.get_values().get_value()]
+                            if simpleseq.refid in props and assemblyController:
+                                values_vals = props[simpleseq.refid]
+                                props.pop(simpleseq.refid)
+                            simpleseq_vals.append(overloadContainer(str(simpleseq.refid),values_vals))
+                    #structs
+                    structs = properties.get_structref()
+                    struct_vals = []
+                    if structs != None:
+                        for struct in structs:
+                            if not (struct.refid in configurable[sandboxComponent._instanceName]):
+                                continue
+                            simples = struct.get_simpleref()
                             value = {}
                             for simple in simples:
                                 value[str(simple.refid)] = str(simple.value)
-                            values_vals.append(value)
-                        if structseq.refid in props and assemblyController:
-                            values_vals = props[structseq.refid]
-                            props.pop(structseq.refid)
-                        structseq_vals.append(overloadContainer(str(structseq.refid),values_vals))
-                if len(sandboxComponent._propertySet) > 0:
-                    overloadProperty(sandboxComponent, simple_vals, simpleseq_vals, struct_vals, structseq_vals)
+                            if struct.refid in props and assemblyController:
+                                value = props[struct.refid]
+                                props.pop(struct.refid)
+                            struct_vals.append(overloadContainer(str(struct.refid),value))
+                    #struct sequences
+                    structseqs = properties.get_structsequenceref()
+                    structseq_vals = []
+                    if structseqs != None:
+                        for structseq in structseqs:
+                            if not (structseq.refid in configurable[sandboxComponent._instanceName]):
+                                continue
+                            values_vals = []
+                            for struct_template in structseq.get_structvalue():
+                                simples = struct_template.get_simpleref()
+                                value = {}
+                                for simple in simples:
+                                    value[str(simple.refid)] = str(simple.value)
+                                values_vals.append(value)
+                            if structseq.refid in props and assemblyController:
+                                values_vals = props[structseq.refid]
+                                props.pop(structseq.refid)
+                            structseq_vals.append(overloadContainer(str(structseq.refid),values_vals))
+                    if len(sandboxComponent._propertySet) > 0:
+                        overloadProperty(sandboxComponent, simple_vals, simpleseq_vals, struct_vals, structseq_vals)
             if assemblyController:
                 prop_types = {}
                 prop_types['simple'] = []
@@ -1186,37 +1188,14 @@ class _componentBase(object):
         status, output = _commands.getstatusoutput('nm '+localFilePath)
         if status == 0:
             # This is a C library
-            currentdir = _os.getcwd()
-            subdirs = localFilePath.split('/')
-            currentIdx = 0
-            if len(subdirs) != 1:
-                aggregateChange = ''
-                while currentIdx != len(subdirs)-1:
-                    aggregateChange += subdirs[currentIdx]+'/'
-                    currentIdx += 1
-            foundRoot = False
-            for entry in _sys.path:
-                if entry == '.':
-                    foundRoot = True
-                    break
-            if not foundRoot:
-                _sys.path.append('.')
-            importFile = subdirs[-1]
+            libpath = _os.path.dirname(_os.path.abspath(localFilePath))
             try:
                 path = _os.environ['LD_LIBRARY_PATH'].split(':')
             except KeyError:
-                path = ""
-            candidatePath = currentdir+'/'+aggregateChange
-            foundValue = False
-            for entry in path:
-                if entry == candidatePath:
-                    foundValue = True
-                    break
-            if not foundValue:
-                try:
-                    _os.environ['LD_LIBRARY_PATH'] = _os.environ['LD_LIBRARY_PATH']+':'+candidatePath+':'
-                except KeyError:
-                    _os.environ['LD_LIBRARY_PATH'] = candidatePath+':'
+                path = []
+            if not libpath in path:
+                path.append(libpath)
+                _os.environ['LD_LIBRARY_PATH'] = ':'.join(path)
             matchesPattern = True
         else:
             # This is not a C library
@@ -1336,9 +1315,9 @@ class _componentBase(object):
                     if (entry_point[0] != '/'):
                         entry_point = _os.path.join(_os.path.dirname(self._profile), entry_point)
                     if _DEBUG == True:
-                        print "Component:_kick() Running Entry Point: %s", entry_point
-                        print "Component:_kick() Binding to Name: %s", self._instanceName
-                        print "Component:_kick() Simulated Naming Context IOR: %s", naming_context_ior
+                        print "Component:_kick() Running Entry Point: %s" % entry_point
+                        print "Component:_kick() Binding to Name: %s" % self._instanceName
+                        print "Component:_kick() Simulated Naming Context IOR: %s" % naming_context_ior
                     if not _os.path.exists(entry_point):
                         raise AssertionError, "Component:_kick() Component implementation %s is missing entry_point %s" % (self._impl, impl.get_code().get_entrypoint())
                     impl_found = True
@@ -1356,9 +1335,9 @@ class _componentBase(object):
                 if (entry_point[0] != '/'):
                     entry_point = _os.path.join(_os.path.dirname(self._profile), entry_point)
                 if _DEBUG == True:
-                    print "Component:_kick() Running Entry Point: %s", entry_point
-                    print "Component:_kick() Binding to Name: %s", self._instanceName
-                    print "Component:_kick() Simulated Naming Context IOR: %s", naming_context_ior
+                    print "Component:_kick() Running Entry Point: %s" % entry_point
+                    print "Component:_kick() Binding to Name: %s" % self._instanceName
+                    print "Component:_kick() Simulated Naming Context IOR: %s" % naming_context_ior
                 if _os.path.exists(entry_point):
                     impl_found = True
                     self.dependencies = impl.get_dependency()
@@ -1477,7 +1456,7 @@ class _componentBase(object):
             if self._scd.get_componenttype() in ("device", "loadabledevice", "executabledevice"):
                 while _DeviceManagerStub.device == None:
                     if _DEBUG == True:
-                        print "Component:_kick() Waiting for _DeviceManagerStub device %s", timeout
+                        print "Component:_kick() Waiting for _DeviceManagerStub device %s" % self._instanceName, timeout
                     _time.sleep(sleepIncrement)
                     timeout -= sleepIncrement
                     if timeout < 0:
@@ -1491,7 +1470,7 @@ class _componentBase(object):
             elif self._scd.get_componenttype() in ("resource",):
                 while _NamingContextStub.component == None:
                     if _DEBUG == True:
-                        print "Component:_kick() Waiting for _NamingContextStub component %s", timeout
+                        print "Component:_kick() Waiting for _NamingContextStub component %s" % self._instanceName, timeout
                     _time.sleep(sleepIncrement)
                     timeout -= sleepIncrement
                     if timeout < 0:
@@ -1501,7 +1480,7 @@ class _componentBase(object):
             elif self._scd.get_componenttype() in ("service",):
                 while _DeviceManagerStub.service == None:
                     if _DEBUG == True:
-                        print "Component:_kick() Waiting for _DeviceManagerStub service %s", timeout
+                        print "Component:_kick() Waiting for _DeviceManagerStub service %s" % self._instanceName, timeout
                     _time.sleep(sleepIncrement)
                     timeout -= sleepIncrement
                     if timeout < 0:
@@ -2624,8 +2603,9 @@ class Component(_componentBase):
         int_list = {}
 
         if not globals()["_loadedInterfaceList"]:
-            globals()["_interface_list"] = _importIDL.importStandardIdl(std_idl_path=_std_idl_path, std_idl_include_path = _std_idl_include_path)
-            globals()["_loadedInterfaceList"] = True
+            globals()["_interface_list"] = _importIDL.importStandardIdl(std_idl_path=_std_idl_path,std_idl_include_path=_std_idl_include_path)
+            if globals()["_interface_list"]:
+                globals()["_loadedInterfaceList"] = True
 
         for int_entry in globals()["_interface_list"]:
             int_list[int_entry.repoId]=int_entry

@@ -123,6 +123,14 @@ class PropertyChangeEventsTest(scatest.CorbaTestCase):
         structseq_prop = CF.DataType(id='structseq_prop',value=any.to_any([any.to_any([CF.DataType(id='some_number',value=any.to_any(7.0)),CF.DataType(id='some_string',value=any.to_any('second message'))])]))
         app.configure([structseq_prop])
         app.configure([structseq_prop])
+
+        # Ticket #1061: Ensure that eventable structs and struct sequences with
+        # 'None' values don't cause exceptions inside the port code.
+        results = app.runTest(1061, [])
+
+        # Convert test results into a dictionary
+        results = dict((r.id, any.from_any(r.value)) for r in results)
+
         time.sleep(1)
         self.assertEqual(self.received_myprop, True)
         self.assertEqual(self.received_anotherprop, False)
@@ -130,6 +138,7 @@ class PropertyChangeEventsTest(scatest.CorbaTestCase):
         self.assertEqual(self.received_some_struct, True)
         self.assertEqual(self.received_structseq_prop, True)
         self.assertEqual(self.successfullPropChange, True)
+        self.assertEqual(results['1061'], True)
         self._domMgr.unregisterFromEventChannel('some_id', 'propertyChanges')
 
     def test_PropertyChangeEvents_Cpp(self):

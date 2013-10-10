@@ -19,7 +19,7 @@
 #
 
 dnl Update this version number immedately after a release
-AC_INIT([ossie],[1.8.4])
+AC_INIT([ossie],[1.8.5])
 #AM_INIT_AUTOMAKE(nostdinc)
 # allows filenames over 99 characters long during dist
 AM_INIT_AUTOMAKE([1.9 tar-pax])
@@ -63,7 +63,8 @@ AX_BOOST_FILESYSTEM
 AX_BOOST_THREAD
 AX_BOOST_REGEX
 
-OSSIE_FIND_EXPAT
+AX_LIB_EXPAT([1.95.8])
+
 PKG_CHECK_MODULES([OMNIORB], [omniORB4 >= 4.0.0])
 PKG_CHECK_MODULES([OMNITHREAD], [omnithread3 >= 4.0.0])
 PKG_CHECK_MODULES([OMNIDYNAMIC], [omniDynamic4 >= 4.0.0])
@@ -113,6 +114,8 @@ OSSIE_PYTHON_INSTALL_SCHEME
 OSSIE_ENABLE_LOG4CXX
 OSSIE_ENABLE_TRACE
 OSSIE_ENABLE_PERSISTENCE
+
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 if test "$IDL" = no; then
   AC_MSG_ERROR([cannot find omniidl program])

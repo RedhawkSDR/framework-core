@@ -145,10 +145,12 @@ if __name__ == "__main__":
     parser.add_option("--gdb-file", dest="gdbfile", help="initial gdb commands", default=None)
     parser.add_option("--xml", dest="xmlfile", help="output to XML file", default=None)
     parser.add_option("--verbosity", dest="verbosity", help="verbosity of test output", default=2, type="int")
+    parser.add_option("--valgrind", dest="valgrind", help="run nodebooter through valgrind", default=False, action="store_true")
     (options, args) = parser.parse_args()
 
     scatest.DEBUG_NODEBOOTER = options.gdb
     scatest.GDB_CMD_FILE = options.gdbfile
+    scatest.VALGRIND = options.valgrind
 
     if len(args) == 0:
         files = getUnitTestFiles("tests")

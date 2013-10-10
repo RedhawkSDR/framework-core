@@ -537,6 +537,8 @@ class simpleProperty(Property):
             if self.type in ['boolean']:
                 return val == args[0]
             if self.type in ['char', 'string']:
+                if val == None:
+                    return val == args[0]
                 return str.__eq__(val, *args)
         except:
             raise

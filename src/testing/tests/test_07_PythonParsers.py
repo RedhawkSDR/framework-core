@@ -171,6 +171,25 @@ class PythonParserTestCase(scatest.OssieTestCase):
             except OSError:
                 pass
 
+    def test_startorder(self):
+        sad = parsers.SADParser.parse("sdr/dom/waveforms/CommandWrapperStartOrderTests/CommandWrapperWithOrder.sad.xml")
+        self.assertEqual(sad.get_id(), "DCE:e6b136d5-6bf2-48ee-b2ec-52ceb9b80194")
+        self.assertEqual(sad.get_name(), "CommandWrapperWithOrder")
+        self.assertEqual(len(sad.componentfiles.get_componentfile()), 1)
+        self.assertEqual(len(sad.partitioning.get_componentplacement()), 4)
+        self.assertEqual(sad.partitioning.get_componentplacement()[0].componentfileref.refid, "CommandWrapperStartCounter_bfbfc18d-206a-4432-8a71-e219882abff2")
+        self.assertEqual(sad.partitioning.get_componentplacement()[0].get_componentinstantiation()[0].id_, "myid1")
+        self.assertEqual(sad.partitioning.get_componentplacement()[0].get_componentinstantiation()[0].startorder, None)
+        self.assertEqual(sad.partitioning.get_componentplacement()[1].componentfileref.refid, "CommandWrapperStartCounter_bfbfc18d-206a-4432-8a71-e219882abff2")
+        self.assertEqual(sad.partitioning.get_componentplacement()[1].get_componentinstantiation()[0].id_, "myid2")
+        self.assertEqual(sad.partitioning.get_componentplacement()[1].get_componentinstantiation()[0].startorder, "1")
+        self.assertEqual(sad.partitioning.get_componentplacement()[2].componentfileref.refid, "CommandWrapperStartCounter_bfbfc18d-206a-4432-8a71-e219882abff2")
+        self.assertEqual(sad.partitioning.get_componentplacement()[2].get_componentinstantiation()[0].id_, "myid3")
+        self.assertEqual(sad.partitioning.get_componentplacement()[2].get_componentinstantiation()[0].startorder, "2")
+        self.assertEqual(sad.partitioning.get_componentplacement()[3].componentfileref.refid, "CommandWrapperStartCounter_bfbfc18d-206a-4432-8a71-e219882abff2")
+        self.assertEqual(sad.partitioning.get_componentplacement()[3].get_componentinstantiation()[0].id_, "myid4")
+        self.assertEqual(sad.partitioning.get_componentplacement()[3].get_componentinstantiation()[0].startorder, "3")
+
 
 if __name__ == "__main__":
   # Run the unittests

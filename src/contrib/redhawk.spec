@@ -25,8 +25,8 @@
 %define username redhawk
 
 Name:		redhawk
-Version:	1.8.4
-Release:	3%{?dist}
+Version:	1.8.5
+Release:        1%{?dist}
 Summary:	REDHAWK is a Software Defined Radio framework
 
 Group:		Applications/Engineering
@@ -73,7 +73,6 @@ BuildRequires: java-devel >= 1.6
 BuildRequires: jpackage-utils
 
 Prefix: %{_prefix}
-%define python_sitelib %{_prefix}/lib/python
 
 %description
 REDHAWK is a Software Defined Radio framework.
@@ -81,42 +80,41 @@ REDHAWK is a Software Defined Radio framework.
  * Source Date/Time: __DATETIME__
 
 %package sdrroot-dom-mgr
-Summary:  SDRROOT Domain Manager
-Group:    Communications/Framework
-Requires: %{name} = %{version}-%{release}
-Provides: DomainManager = %{version}-%{release}
+Summary:        SDRROOT Domain Manager
+Group:          Applications/Engineering
+Requires:       %{name} = %{version}-%{release}
+Provides:       DomainManager = %{version}-%{release}
 # Obsolete with the old packages of SDR ROOT
-Obsoletes: sdrroot redhawk-sdrroot-dom
+Obsoletes:      sdrroot redhawk-sdrroot-dom
 
 %description sdrroot-dom-mgr
 The SDDROOT Domain Manager software package
 
 %package sdrroot-dom-profile
-Summary:  Basic domain manager profile
-Group:    Communications/Framework
-Requires: %{name}-sdrroot-dom-mgr = %{version}-%{release}
+Summary:        Basic domain manager profile
+Group:          Applications/Engineering
+Requires:       %{name}-sdrroot-dom-mgr = %{version}-%{release}
 
 %description sdrroot-dom-profile
 A generic domain profile and domain profile template
 
 %package sdrroot-dev-mgr
-Summary:  SDRROOT Device Manager
-Group:    Communications/Framework
-Requires: %{name} = %{version}-%{release}
-Provides: DeviceManager = %{version}-%{release}
+Summary:        SDRROOT Device Manager
+Group:          Applications/Engineering
+Requires:       %{name} = %{version}-%{release}
+Provides:       DeviceManager = %{version}-%{release}
 # Obsolete with the old packages of SDR ROOT
-Obsoletes: sdrroot redhawk-sdrroot-dev
+Obsoletes:      sdrroot redhawk-sdrroot-dev
 
 %description sdrroot-dev-mgr
 The SDDROOT Device Manager software package
 
 %package devel
-Summary: The REDHAWK development package
-Group:   Applications/Engineering
+Summary:        The REDHAWK development package
+Group:          Applications/Engineering
 
-# REDHAWK and BULKIO
+# REDHAWK
 Requires:       redhawk = %{version}-%{release}
-Requires:       bulkioInterfaces
 
 # Base dependencies
 Requires:       autoconf automake libtool
@@ -195,8 +193,8 @@ fi
 %{_prefix}/lib/apache-commons-lang-2.4.jar
 %{_prefix}/lib/log4j-1.2.15.jar
 %{_prefix}/lib/ossie.jar
-%{python_sitelib}
-%exclude %{python_sitelib}/ossie/apps/qtbrowse
+%{_prefix}/lib/python
+%exclude %{_prefix}/lib/python/ossie/apps/qtbrowse
 %{_libdir}/libomnijni.*
 %{_libdir}/libossiecf.*
 %{_libdir}/libossiecfjni.*
@@ -245,7 +243,7 @@ fi
 %{_bindir}/qtbrowse
 %{_bindir}/prf2py.py
 %{_bindir}/py2prf
-%{python_sitelib}/ossie/apps/qtbrowse
+%{_prefix}/lib/python/ossie/apps/qtbrowse
 
 
 %post
@@ -256,7 +254,12 @@ fi
 
 
 %changelog
-* Fri Apr 12 2013 - 1.8.4-1
+* Fri May 24 2013 - 1.8.5-1
+- Stop overloading the python_sitelib macro
+- Don't create a circular dependency by requiring bulkio
+- Update groups
+
+* Fri Apr 12 2013 - 1.8.4-3
 - Package for REDHAWK development
 - Minor fixes for docs, licensing
 - Explicitly require Java for build

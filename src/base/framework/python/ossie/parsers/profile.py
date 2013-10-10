@@ -302,6 +302,7 @@ def parse(inFileName):
     rootNode = doc.documentElement
     rootObj = profile.factory()
     rootObj.build(rootNode)
+    doc.unlink()
     # Enable Python to collect the space used by the DOM.
     doc = None
 ##     sys.stdout.write('<?xml version="1.0" ?>\n')
@@ -315,6 +316,7 @@ def parseString(inString):
     rootNode = doc.documentElement
     rootObj = profile.factory()
     rootObj.build(rootNode)
+    doc.unlink()
     # Enable Python to collect the space used by the DOM.
     doc = None
 ##     sys.stdout.write('<?xml version="1.0" ?>\n')
@@ -328,6 +330,7 @@ def parseLiteral(inFileName):
     rootNode = doc.documentElement
     rootObj = profile.factory()
     rootObj.build(rootNode)
+    doc.unlink()
     # Enable Python to collect the space used by the DOM.
     doc = None
 ##     sys.stdout.write('from profile import *\n\n')

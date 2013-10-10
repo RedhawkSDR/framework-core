@@ -34,7 +34,10 @@ with this program.  If not, see http://www.gnu.org/licenses/.
       <componentfileref refid="BasicTestDevice_java_d515ddc1-c550-4a34-8ee5-03b1255f9f7b"/>
       <componentinstantiation id="test_BasicTestDevice_java_node:BasicTestDevice_java_1">
         <usagename>BasicTestDevice_java_1</usagename>
-      </componentinstantiation>
+        <componentproperties>
+          <simpleref refid="test_execparam" value="set"/>
+        </componentproperties>
+     </componentinstantiation>
     </componentplacement>
   </partitioning>
   <domainmanager>

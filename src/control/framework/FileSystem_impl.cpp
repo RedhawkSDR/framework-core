@@ -124,35 +124,88 @@ void FileSystem_impl::remove (const char* fileName) throw (CORBA::SystemExceptio
     _local_remove(fileName);
 }
 
-void FileSystem_impl::_local_remove (const char* fileName) throw (CORBA::SystemException, CF::FileException, CF::InvalidFileName)
+void FileSystem_impl::_local_remove (const char* pattern) throw (CORBA::SystemException, CF::FileException, CF::InvalidFileName)
 {
     TRACE_ENTER(FileSystem_impl);
 
-    if (!ossie::isValidFileName(fileName)) {
-        LOG_ERROR(FileSystem_impl, "remove passed bad filename, throwing exception.");
-        throw CF::InvalidFileName (CF::CF_EINVAL, "[FileSystem::remove] Invalid file name");
+    fs::path filePath(root / pattern);
+    fs::path dirPath(filePath.parent_path());
+    
+    std::string searchPattern;
+    if ((filePath.filename() == ".") && (fs::is_directory(filePath))) {
+        searchPattern = "*";
+    } else {
+        searchPattern = filePath.filename();
     }
-
-    fs::path fname(root / fileName);
-
-    LOG_TRACE(FileSystem_impl, "About to remove file " << fname.string());
-    bool rem_retval = false;
-    try {
-        rem_retval = fs::remove(fname);
-    } catch ( std::exception& ex ) {
-        std::ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" While removing file from file system";
-        LOG_ERROR(FileSystem_impl, eout.str())
-        throw (CF::FileException (CF::CF_EEXIST, eout.str().c_str()));
-    } catch (...) {
-        LOG_ERROR(FileSystem_impl, "Error removing file. Permissions may be wrong.");
-        throw (CF::FileException (CF::CF_EEXIST, "[FileSystem_impl::remove] Error removing file from file system"));
-        return;
+    
+    LOG_TRACE(FileSystem_impl, "[FileSystem::remove] using searchPattern " << searchPattern << " in " << filePath.parent_path());
+    
+    fs::directory_iterator end_itr; // an end iterator (by boost definition)
+    
+    int fsOpSuccessAttempts = 0;
+    bool fsOpSuccess = false;
+    std::string error_msg_out = "filesystem error";
+    while (!fsOpSuccess) {
+        try {
+            for (fs::directory_iterator itr(dirPath); itr != end_itr; ++itr) {
+                if (fnmatch(searchPattern.c_str(), itr->filename().c_str(), 0) == 0) {
+                    //remove the file
+                    LOG_TRACE(FileSystem_impl, "About to remove file " << itr->path().string());
+                    bool rem_retval = false;
+                    try {
+                        rem_retval = fs::remove(itr->path());
+                    } catch ( std::exception& ex ) {
+                        std::ostringstream eout;
+                        eout << "The following standard exception occurred: "<<ex.what()<<" While removing file from file system";
+                        LOG_ERROR(FileSystem_impl, eout.str())
+                        throw (CF::FileException (CF::CF_EEXIST, eout.str().c_str()));
+                    } catch (...) {
+                        LOG_ERROR(FileSystem_impl, "Error removing file. Permissions may be wrong.");
+                        throw (CF::FileException (CF::CF_EEXIST, "[FileSystem_impl::remove] Error removing file from file system"));
+                        return;
+                    }
+   
+                    if (!rem_retval) {
+                        LOG_ERROR(FileSystem_impl, "Attempt to remove non-existent file.");
+                        throw (CF::FileException (CF::CF_EEXIST, "[FileSystem_impl::remove] Error removing file from file system"));
+                    }
+                }
+            }
+            fsOpSuccess = true;
+        } catch ( const fs::filesystem_error& ex ) {
+            LOG_WARN(FileSystem_impl, "Error in filesystem: "<<ex.what()<<". Attempting again")
+            fsOpSuccessAttempts++;
+            error_msg_out = std::string("Error in filesystem: ")+ex.what();
+            if (fsOpSuccessAttempts == 10)
+            { break; }
+            usleep(10000);
+        } catch ( std::exception& ex ) {
+            LOG_WARN(FileSystem_impl, "The following standard exception occurred: "<<ex.what()<<". Attempting again")
+            fsOpSuccessAttempts++;
+            error_msg_out = std::string("The following standard exception occurred: ")+ex.what();
+            if (fsOpSuccessAttempts == 10)
+            { break; }
+            usleep(10000);
+        } catch ( CORBA::Exception& ex ) {
+            LOG_WARN(FileSystem_impl, "The following CORBA exception occurred: "<<ex._name()<<". Attempting again")
+            fsOpSuccessAttempts++;
+            error_msg_out = std::string("The following CORBA exception occurred: ")+ex._name();
+            if (fsOpSuccessAttempts == 10)
+            { break; }
+            usleep(10000);
+        } catch ( ... ) {
+            LOG_WARN(FileSystem_impl, "Caught an unhandled file system exception. Attempting again")
+            fsOpSuccessAttempts++;
+            error_msg_out = std::string("Caught an unhandled file system exception.");
+            if (fsOpSuccessAttempts == 10)
+            { break; }
+            usleep(10000);
+        }
     }
-
-    if (!rem_retval) {
-        LOG_ERROR(FileSystem_impl, "Attempt to remove non-existent file.");
-        throw (CF::FileException (CF::CF_EEXIST, "[FileSystem_impl::remove] Error removing file from file system"));
+    
+    if (!fsOpSuccess) {
+        LOG_ERROR(FileSystem_impl, "caught boost filesystem remove error");
+        throw CF::FileException(CF::CF_ENOENT, error_msg_out.c_str());
     }
     TRACE_EXIT(FileSystem_impl);
 }

@@ -192,115 +192,7 @@ class ScaComponentTestCase(unittest.TestCase):
 
         
     def launch(self, execparams={}, ossiehome=None):
-        if self.scd.get_componenttype() in ('resource',):
-            return self._launchResource(execparams, ossiehome)
-        
-        # get the implementation info
-        if self.impl == None:
-            chosen_impl = self.spd.get_implementation()[0]
-        else:
-            for impl in self.spd.get_implementation():
-                if impl.get_id() == self.impl:
-                    chosen_impl = impl
-       
-        # get the type
-        type = self.scd.get_componenttype()
-
-        # The id was not part of the SPD file
-        if chosen_impl == None:
-            raise ValueError("ID %s was not found" % self.impl)
-        
-        # Prepare the ORB
-        orb = CORBA.ORB_init()
-        obj_poa = orb.resolve_initial_references("RootPOA")
-        poaManager = obj_poa._get_the_POAManager()
-        poaManager.activate()
-    
-        # Prepare the NamingContext stub
-        nc_stub = NamingContextStub()
-        obj_poa.activate_object(nc_stub)
-        nc_stub_var = nc_stub._this()
-        dm_stub = DeviceManagerStub()
-          
-        # Prepare the exec params
-        naming_context_ior = orb.object_to_string(nc_stub_var)
-        name_binding = self.spd.get_name()
-        component_identifier = self.spd.get_id()
-       
-        entry_point = chosen_impl.get_code().get_entrypoint()
-        if (entry_point[0] != '/'):
-            entry_point = os.path.join(os.path.dirname(self.spd_file), entry_point)
-        logging.debug("Running Entry Point: %s", entry_point)
-        logging.debug("Binding to Name: %s", name_binding)
-        logging.debug("Simulated Naming Context IOR: %s", naming_context_ior)
-        if not os.path.exists(entry_point):
-            raise AssertionError, "Component implementation %s is missing entry_point %s" % (self.impl, chosen_impl.get_code().get_entrypoint())
-
-        if self.scd.get_componenttype() in ("device", "loadabledevice", "executabledevice"):
-            # Prepare a DeviceManager stub
-            #dm_stub = DeviceManagerStub()
-            dm_stub_var = dm_stub._this()
-            device_manager_ior = orb.object_to_string(dm_stub_var)
-              
-            # Prepare the exec params
-            args = [ entry_point,
-                     "DEVICE_ID", component_identifier, 
-                     "DEVICE_LABEL", self.spd.get_name(),
-                     "DEVICE_MGR_IOR", device_manager_ior,
-                     "PROFILE_NAME", self.spd_file ]
-        elif self.scd.get_componenttype() in ("service",):
-            dm_stub_var = dm_stub._this()
-            device_manager_ior = orb.object_to_string(dm_stub_var)
-            args = [ entry_point,
-                     "DEVICE_MGR_IOR", device_manager_ior, 
-                     "SERVICE_NAME", self.spd.get_name() ]
-        else:
-            raise ValueError("Unexpected component type")
-
-        for ex_id, ex_val in execparams.items():
-            if (ex_val != None):
-                args.append(ex_id)
-                args.append(str(ex_val))
-        
-        try:
-            sub_process = subprocess.Popen(args, 
-                                           executable=os.path.join(os.getcwd(), 
-                                                                   entry_point),
-                                           cwd=os.getcwd(),
-                                           preexec_fn=os.setpgrp)
-        except Exception, e:
-            raise AssertionError, "Failed to launch component implementation %s due to %s" % (self.impl, e)
-    
-        # Wait up to 10 seconds for the component to bind
-        timeout = 10
-        self.comp_obj = None
-        if self.scd.get_componenttype() in ("device", "loadabledevice", "executabledevice"):
-            while DeviceManagerStub.device == None:
-                logging.debug("Waiting for DeviceManagerStub device %s", timeout)
-                time.sleep(1)
-                timeout -= 1
-                if timeout < 0:
-                    raise AssertionError, "Device implementation %s did not register with device manager" % self.impl
-            self.comp_obj = DeviceManagerStub.device
-            self.comp_obj = self.comp_obj._narrow(CF.Device)
-            if self.comp_obj._narrow(CF.LoadableDevice):
-                self.comp_obj = self.comp_obj._narrow(CF.LoadableDevice)
-            if self.comp_obj._narrow(CF.ExecutableDevice):
-                self.comp_obj = self.comp_obj._narrow(CF.ExecutableDevice)
-            self.comp = sb.Component(componentDescriptor=self.spd_file,autoKick=False,componentObj=self.comp_obj)
-        elif self.scd.get_componenttype() in ("service",):
-            while DeviceManagerStub.service == None:
-                logging.debug("Waiting for DeviceManagerStub service %s", timeout)
-                time.sleep(1)
-                timeout -= 1
-                if timeout < 0:
-                    raise AssertionError, "Service implementation %s did not register with device manager" % self.impl
-            self.comp_obj = DeviceManagerStub.service
-            
-        pid = sub_process.pid
-        self._processes[pid] = sub_process
-        
-        logging.debug("Component is running (%d)...", pid)
+        return self._launchResource(execparams, ossiehome)
             
     def isMatch(self, prop, modes, kinds, actions):
         if prop.get_mode() == None:
@@ -410,7 +302,10 @@ class ScaComponentTestCase(unittest.TestCase):
                   for subfield in baseProp[-1]:
                       if subfield.id == entry.refid:
                         subfield.value = properties.to_tc_value(entry.get_value(), val_type)
-              p = CF.DataType(id=str(prop.get_id()), value=any.to_any(baseProp))
+              anybp = []
+              for bp in baseProp:
+                  anybp.append(properties.props_to_any(bp))
+              p = CF.DataType(id=str(prop.get_id()), value=any.to_any(anybp))
               propertySet.append(p)
         # Struct Sequence
 

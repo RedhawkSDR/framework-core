@@ -1199,14 +1199,15 @@ void createHelper::allocateComponent(ossie::ComponentInfo*  component,
             implUsesDeviceDepsMet = true;
 
             LOG_DEBUG(ApplicationFactory_impl, "Trying to find the device");
-            allocateComponentToDevice(component, impl, deviceAssignments, devCapacityAlloc );
+            ossie::Properties devicePRF;
+            allocateComponentToDevice(component, impl, deviceAssignments, devCapacityAlloc, devicePRF);
 
             if (CORBA::is_nil( devCapacityAlloc.device ))  {
                LOG_DEBUG(ApplicationFactory_impl, "Device Allocation Failed.. need to clean up");
                throw -1;
             }
 
-            foundSoftpkgDependencies = resolveSoftpkgDependencies(impl, devCapacityAlloc.device);
+            foundSoftpkgDependencies = resolveSoftpkgDependencies(impl, devCapacityAlloc.device, devicePRF);
 
             if (!foundSoftpkgDependencies) {
                 LOG_DEBUG(ApplicationFactory_impl, "Softpackage dependency failed.need to clean up");
@@ -1320,7 +1321,8 @@ void createHelper::allocateComponent(ossie::ComponentInfo*  component,
 void createHelper::allocateComponentToDevice( ossie::ComponentInfo* component,
                                               ossie::ImplementationInfo* implementation,
                                               const CF::DeviceAssignmentSequence& deviceAssignments,
-                                              CapacityAllocation &deviceCapacityAlloc )
+                                              CapacityAllocation &deviceCapacityAlloc,
+                                              ossie::Properties& devicePRF )
 {
     ossie::DeviceNode deviceNode;
     CF::Properties tmpProps;
@@ -1397,7 +1399,7 @@ void createHelper::allocateComponentToDevice( ossie::ComponentInfo* component,
             // capacity, then we will fail
             try {
                 std::vector<std::string> _tmpSoftpkgDependencies;
-                allocatedCapacity = allocateCapacity(component, implementation, deviceNode);
+                allocatedCapacity = allocateCapacity(component, implementation, deviceNode, devicePRF);
             } catch (CF::ApplicationFactory::CreateApplicationError& e) {
                 ostringstream eout;
                 std::string eMsg = "User-provided assignment (DAS) could not be completed; " + ossie::corba::returnString(e.msg);
@@ -1471,9 +1473,9 @@ void createHelper::allocateComponentToDevice( ossie::ComponentInfo* component,
         LOG_TRACE(ApplicationFactory_impl, "Trying to allocate capacities for " << deviceNodeIter->identifier);
 
         try {
-            allocatedCapacity = allocateCapacity(component, implementation, *deviceNodeIter);
+            allocatedCapacity = allocateCapacity(component, implementation, *deviceNodeIter, devicePRF);
             foundDevice = true;
-            deviceCapacityAlloc = AllocPropsInfo( deviceNodeIter->device, allocatedCapacity );
+            deviceCapacityAlloc = AllocPropsInfo( deviceNodeIter->device, allocatedCapacity);
             break;
         } catch(CF::ApplicationFactory::CreateApplicationError& e) {
             std::ostringstream iout;
@@ -1544,7 +1546,8 @@ void createHelper::errorMsgAllocate(
  */
 CF::Properties createHelper::allocateCapacity(ossie::ComponentInfo* component,
                                               ossie::ImplementationInfo* implementation,
-                                              ossie::DeviceNode &deviceNode)
+                                              ossie::DeviceNode &deviceNode,
+                                              ossie::Properties& devicePRF)
 throw (CF::ApplicationFactory::CreateApplicationError)
 {
     LOG_TRACE(ApplicationFactory_impl, "Device " << deviceNode.label << " software profile is " << deviceNode.softwareProfile)
@@ -1630,7 +1633,7 @@ throw (CF::ApplicationFactory::CreateApplicationError)
             }
         }
 
-
+        devicePRF.join(prf);
         if (!implementation->checkProcessorAndOs(prf)) {
             ostringstream eout;
             eout << "Failed to allocate match processor/os for component '" << component->getName() << "' - '" << component->getIdentifier();
@@ -1709,7 +1712,7 @@ throw (CF::ApplicationFactory::CreateApplicationError)
 }
 
 
-bool createHelper::resolveSoftpkgDependencies(ossie::ImplementationInfo* implementation, CF::Device_ptr device)
+bool createHelper::resolveSoftpkgDependencies(ossie::ImplementationInfo* implementation, CF::Device_ptr device,  ossie::Properties& devicePRF)
 throw (CF::ApplicationFactory::CreateApplicationError)
 {
     std::vector< std::pair<std::string, ossie::optional_value<std::string> > > implementationReference;
@@ -1746,13 +1749,15 @@ throw (CF::ApplicationFactory::CreateApplicationError)
 
             for (unsigned int implCount = 0; implCount < spd_i.size(); implCount++) {
                 if (requestedImplementation==spd_i[implCount].implementationID) {
-                    foundImplementation = checkImplementationDependencyMatch(*implementation, spd_i[implCount], device);
+                    foundImplementation = checkImplementationDependencyMatch(*implementation, spd_i[implCount], device, devicePRF);
                     if (foundImplementation) {
                         targetImplementation = implCount;
+                        break;
                     }
                 }
             }
             if (!foundImplementation) {
+                LOG_DEBUG(ApplicationFactory_impl, "resolveSoftpkgDependencies: implementation match not found between soft package dependency and device");
                 return false;
             }
         } else {
@@ -1760,13 +1765,14 @@ throw (CF::ApplicationFactory::CreateApplicationError)
             const std::vector <SPD::Implementation>& spd_i = spd.getImplementations();
 
             for (unsigned int implCount = 0; implCount < spd_i.size(); implCount++) {
-                foundImplementation = checkImplementationDependencyMatch(*implementation, spd_i[implCount], device);
+                foundImplementation = checkImplementationDependencyMatch(*implementation, spd_i[implCount], device, devicePRF);
                 if (foundImplementation) {
                     targetImplementation = implCount;
                     break;
                 }
             }
             if (!foundImplementation) {
+                LOG_DEBUG(ApplicationFactory_impl, "resolveSoftpkgDependencies: implementation match not found between soft package dependency and device");
                 return false;
             }
         }
@@ -1820,60 +1826,10 @@ throw (CF::ApplicationFactory::CreateApplicationError)
 bool createHelper::checkImplementationDependencyMatch(
     ossie::ImplementationInfo&       implementation_1, 
     const ossie::ImplementationInfo& implementation_2, 
-    CF::Device_ptr device)
+    CF::Device_ptr device,
+    ossie::Properties& devicePRF)
 {
-    // this just makes sure that the os and processor match
-    // Regarding softpkg dependencies, a decision was reached that they are to extend only one level (no dependencies on the dependencies)
-    //  it was also decided that softpkg that the softpkg dependency would itself not have any additional dependencies, so no
-    //  capacity allocation is done on the softpkg dependency
-    //
-    // If the softpkg dependency itself has dependencies that go beyond os and processor, they are currently not verified
-    if (implementation_1.getProcessorDeps().size() > 0) {
-        if (implementation_2.getProcessorDeps().size() > 0) {
-            unsigned int impl_1_Deps = implementation_1.getProcessorDeps().size();
-            unsigned int impl_2_Deps = implementation_2.getProcessorDeps().size();
-            std::vector< std::string > impl1_processors = implementation_1.getProcessorDeps();
-            std::vector< std::string > impl2_processors = implementation_2.getProcessorDeps();
-            bool foundProcessorMatch = false;
-            for (unsigned int i=0; i<impl_1_Deps; i++) {
-                for (unsigned int j=0; j<impl_2_Deps; j++) {
-                    if (impl1_processors[i] == impl2_processors[j]) {
-                        foundProcessorMatch = true;
-                    }
-                }
-            }
-            if (!foundProcessorMatch) {
-                return false;
-            }
-        } else {
-            return false;
-        }
-    } else if (implementation_2.getProcessorDeps().size() > 0) {
-        return false;
-    }
-    if (implementation_1.getOsDeps().size() > 0) {
-        if (implementation_2.getOsDeps().size() > 0) {
-            unsigned int impl_1_Deps = implementation_1.getOsDeps().size();
-            unsigned int impl_2_Deps = implementation_2.getOsDeps().size();
-            std::vector<ossie::SPD::NameVersionPair> impl1_os = implementation_1.getOsDeps();
-            std::vector<ossie::SPD::NameVersionPair> impl2_os = implementation_2.getOsDeps();
-            bool foundOsMatch = false;
-            for (unsigned int i=0; i<impl_1_Deps; i++) {
-                for (unsigned int j=0; j<impl_2_Deps; j++) {
-                    if (impl1_os[i].first == impl2_os[j].first) {
-                        if (impl1_os[i].second == impl2_os[j].second) {
-                            foundOsMatch = true;
-                        }
-                    }
-                }
-            }
-            if (!foundOsMatch) {
-                return false;
-            }
-        } else {
-            return false;
-        }
-    } else if (implementation_2.getOsDeps().size() > 0) {
+   if (!implementation_2.checkProcessorAndOs(devicePRF)) {
         return false;
     }
     
@@ -1883,7 +1839,7 @@ bool createHelper::checkImplementationDependencyMatch(
     bool retval = true;
     if (iterSoftpkg != tmpSoftpkg.end()) {
         ossie::ImplementationInfo* tmp_impl = const_cast<ossie::ImplementationInfo*>(&implementation_2);
-        retval = (resolveSoftpkgDependencies(tmp_impl, device));
+        retval = (resolveSoftpkgDependencies(tmp_impl, device, devicePRF));
     }
     return retval;
 }
@@ -1949,8 +1905,15 @@ void createHelper::getRequiredComponents()
 
         // Extract required data from SPD file
         ossie::ComponentInfo* newComponent = 0;
+        LOG_TRACE(ApplicationFactory_impl, "Getting the SPD Filename")
+        const char *spdFileName = _appFact._sadParser.getSPDById(component.getFileRefId());
+        if (spdFileName == NULL) {
+            ostringstream eout;
+            eout << "The SPD file reference for componentfile "<<component.getFileRefId()<<" is missing";
+            throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL, eout.str().c_str());
+        }
         LOG_TRACE(ApplicationFactory_impl, "Building Component Info From SPD File")
-        newComponent = ossie::ComponentInfo::buildComponentInfoFromSPDFile(_appFact._fileMgr, _appFact._sadParser.getSPDById(component.getFileRefId()));
+        newComponent = ossie::ComponentInfo::buildComponentInfoFromSPDFile(_appFact._fileMgr, spdFileName);
         if (newComponent == 0) {
             ostringstream eout;
             eout << "Error loading component information for file ref " << component.getFileRefId();

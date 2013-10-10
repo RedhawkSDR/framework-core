@@ -82,7 +82,7 @@ def getDEBUG():
     return _DEBUG
 
 def _cleanUpLaunchedApps():
-    for app in _launchedApps:
+    for app in _launchedApps[:]:
         app.releaseObject()
 
 _atexit.register(_cleanUpLaunchedApps)
@@ -1037,7 +1037,7 @@ class Component(_componentBase):
 
         if self._interface_list == None:
             if not globals()["_loadedInterfaceList"]:
-                globals()["_interface_list"] = _importIDL.importStandardIdl(std_idl_path=_ossiehome+'/share/idl/ossie')
+                globals()["_interface_list"] = _importIDL.importStandardIdl()
                 globals()["_loadedInterfaceList"] = True
             self._interface_list = globals()["_interface_list"]
 
@@ -1176,7 +1176,7 @@ class App(_CF__POA.Application, object):
 
         if self._interface_list == None:
             if not globals()["_loadedInterfaceList"]:
-                globals()["_interface_list"] = _importIDL.importStandardIdl(std_idl_path=_ossiehome+'/share/idl/ossie')
+                globals()["_interface_list"] = _importIDL.importStandardIdl()
                 globals()["_loadedInterfaceList"] = True
             self._interface_list = globals()["_interface_list"]
 
@@ -1629,7 +1629,7 @@ class Device(Component):
         self._propertySet = None
         if self._interface_list == None:
             if not globals()["_loadedInterfaceList"]:
-                globals()["_interface_list"] = _importIDL.importStandardIdl(std_idl_path=_ossiehome+'/share/idl/ossie')
+                globals()["_interface_list"] = _importIDL.importStandardIdl()
                 globals()["_loadedInterfaceList"] = True
             self._interface_list = globals()["_interface_list"]
         if domainMgr != None:
@@ -1802,7 +1802,7 @@ class DeviceManager(_CF__POA.DeviceManager, object):
 
         if self._interface_list == None:
             if not globals()["_loadedInterfaceList"]:
-                globals()["_interface_list"] = _importIDL.importStandardIdl(std_idl_path=_ossiehome+'/share/idl/ossie')
+                globals()["_interface_list"] = _importIDL.importStandardIdl()
                 globals()["_loadedInterfaceList"] = True
                 self._interface_list = globals()["_interface_list"]
     
@@ -2004,9 +2004,9 @@ class Domain(_CF__POA.DomainManager, object):
                 if _sys.argv[0] == '':
                     input_arguments = ['-ORBInitRef','NameService=corbaname::'+location]
                 else:
-                    input_arguments.append('-ORBInitRef','NameService=corbaname::'+location)
+                    input_arguments.extend(['-ORBInitRef','NameService=corbaname::'+location])
             else:
-                input_arguments.append('-ORBInitRef','NameService=corbaname::'+location)
+                input_arguments.extend(['-ORBInitRef','NameService=corbaname::'+location])
 
         self.orb = _CORBA.ORB_init(input_arguments, _CORBA.ORB_ID)
         obj = self.orb.resolve_initial_references("NameService")

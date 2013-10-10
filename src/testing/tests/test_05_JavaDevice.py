@@ -62,7 +62,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         short_id = "DCE:d3aa6040-b731-4110-b814-376967264728"
 
         res = device.query([])
-        self.assertEqual(len(res), 8)
+        self.assertEqual(len(res), 9)
         ids = []
         for r in res :
             ids.append(r.id)
@@ -166,6 +166,10 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
                 self.assertEqual(any.from_any(r.value), 10)
             elif r.id == short_id:
                 self.assertEqual(any.from_any(r.value), 22)
+
+        # Check that execparams are set in initialize (issue #561).
+        for prop in device.runTest(561, []):
+            self.assertNotEqual(any.from_any(prop.value), None, 'execparams not set in intialize()')
 
         device.releaseObject()
 

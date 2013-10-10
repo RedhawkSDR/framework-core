@@ -33,7 +33,7 @@ if _ossiehome == None:
     _ossiehome = ''
     _interface_list = []
 else:
-    _interface_list = _importIDL.importStandardIdl(std_idl_path=_ossiehome+'/share/idl/ossie')
+    _interface_list = _importIDL.importStandardIdl()
 
 class _envContainer(object):
     def __init__(self, domain, stdout):

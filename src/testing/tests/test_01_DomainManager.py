@@ -92,6 +92,9 @@ class DomainManagerTest(scatest.CorbaTestCase):
     
     def eventReceived(self, data):
             self.gotData = True
+    
+    def test_trivialCase(self):
+        pass
 
     def test_DeviceFailure(self):
         self.assertNotEqual(self._domMgr, None)

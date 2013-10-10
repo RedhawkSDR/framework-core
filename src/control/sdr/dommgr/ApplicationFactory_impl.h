@@ -215,22 +215,26 @@ private:
     void allocateComponentToDevice(ossie::ComponentInfo* component,
                                    ossie::ImplementationInfo* implementation,
                                    const CF::DeviceAssignmentSequence& deviceAssignments,
-                                   CapacityAllocation &deviceCapacityAlloc );
+                                   CapacityAllocation &deviceCapacityAlloc,
+                                   ossie::Properties& devicePRF );
 
     CF::Properties allocateCapacity(ossie::ComponentInfo* component,
                                     ossie::ImplementationInfo* implementation,
-                                    ossie::DeviceNode &deviceNode)
+                                    ossie::DeviceNode &deviceNode,
+                                    ossie::Properties& devicePRF)
     throw (CF::ApplicationFactory::CreateApplicationError);
     
     bool resolveSoftpkgDependencies(
         ossie::ImplementationInfo* implementation, 
-        CF::Device_ptr             device)
+        CF::Device_ptr             device,
+        ossie::Properties&         devicePRF)
             throw (CF::ApplicationFactory::CreateApplicationError);
     
     bool checkImplementationDependencyMatch(
         ossie::ImplementationInfo&       implementation_1, 
         const ossie::ImplementationInfo& implementation_2, 
-        CF::Device_ptr device);
+        CF::Device_ptr device,
+        ossie::Properties& devicePRF);
     
     void errorMsgAllocate(
         std::ostringstream&        eout, 
