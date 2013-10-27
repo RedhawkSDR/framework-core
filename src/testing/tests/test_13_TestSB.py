@@ -665,6 +665,15 @@ class SBTestTest(scatest.CorbaTestCase):
         comp = sb.Component('TestCppsoftpkgDeps')
         self.assert_(comp.ref != None)
 
+    def test_LaunchTimeout(self):
+        """
+        Test that the launch timeout can be adjusted to accomodate components
+        or devices that take longer than 10 seconds to register with the
+        sandbox.
+        """
+        comp = sb.Component('SlowComponent', execparams={'CREATE_DELAY':15}, timeout=20)
+        self.assert_(comp.ref != None)
+
         #TODO if BULKIO ever gets folded into core framework these tests can be used
         # to add them proper components must be created
         # 1 with multiple good connections

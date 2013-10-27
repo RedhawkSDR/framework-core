@@ -183,20 +183,10 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
         // create a local directory to copy the file to
         // The target file is a file
         LOG_DEBUG(LoadableDevice_impl, "Loading the file " << fileName)
+
+        // Create parent directories
         bool done = false;
         std::string initialDir("");
-        std::fstream fileStream;
-        std::ios_base::openmode mode;
-        mode = std::ios::out;
-        relativeFileName = workingFileName;
-        if (workingFileName[0] == '/') {
-            relativeFileName = workingFileName.substr(1);
-        }
-        fileStream.open(relativeFileName.c_str(), mode);
-        if (!fileStream.is_open()) {
-            LOG_ERROR(LoadableDevice_impl, "File " << relativeFileName.c_str() << " did not open succesfully.")
-        }
-
         std::string::size_type begin_pos = 0;
         std::string::size_type last_slash = workingFileName.find_last_of("/");
         if (last_slash != std::string::npos) {
@@ -214,6 +204,20 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                 begin_pos = pos + 1;
             }
         }
+
+        // Create the output file
+        std::fstream fileStream;
+        std::ios_base::openmode mode;
+        mode = std::ios::out;
+        relativeFileName = workingFileName;
+        if (workingFileName[0] == '/') {
+            relativeFileName = workingFileName.substr(1);
+        }
+        fileStream.open(relativeFileName.c_str(), mode);
+        if (!fileStream.is_open()) {
+            LOG_ERROR(LoadableDevice_impl, "Could not create file " << relativeFileName.c_str());
+        }
+
         // copy the file
         LOG_DEBUG(LoadableDevice_impl, "Copying " << workingFileName << " to the device's cache")
         CF::File_var srcFile = fs->open (workingFileName.c_str(), true);
@@ -265,6 +269,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
 
     // Update environment to use newly-loaded library
     if (loadKind == CF::LoadableDevice::SHARED_LIBRARY) {
+        LOG_DEBUG(LoadableDevice_impl, "Configuring shared library");
         bool CLibrary = false;
         bool PythonPackage = false;
         // Check to see if it's a C library
@@ -287,6 +292,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                 unsigned int filenameLocation = ld_library_path.rfind('/');
                 unsigned int ld_lib_path_length = ld_library_path.size();
                 ld_library_path.erase(filenameLocation, ld_lib_path_length-filenameLocation);
+                LOG_DEBUG(LoadableDevice_impl, "Adding " << additionalPath << " to LD_LIBRARY_PATH");
                 setenv("LD_LIBRARY_PATH", ld_library_path.c_str(), 1);
             }
             CLibrary = true;
@@ -329,6 +335,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                         } else {
                             pythonpath += std::string(":")+additionalPath;
                         }
+                        LOG_DEBUG(LoadableDevice_impl, "Adding " << additionalPath << " to PYTHONPATH");
                         setenv("PYTHONPATH", pythonpath.c_str(), 1);
                     }
                     PythonPackage = true;
@@ -374,6 +381,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                             } else {
                                 pythonpath += std::string(":")+additionalPath;
                             }
+                            LOG_DEBUG(LoadableDevice_impl, "Adding " << additionalPath << " to PYTHONPATH");
                             setenv("PYTHONPATH", pythonpath.c_str(), 1);
                         }
                         PythonPackage = true;
@@ -409,6 +417,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                         } else {
                             classpath += std::string(":")+additionalPath;
                         }
+                        LOG_DEBUG(LoadableDevice_impl, "Adding " << additionalPath << " to CLASSPATH");
                         setenv("CLASSPATH", classpath.c_str(), 1);
                     }
                 }

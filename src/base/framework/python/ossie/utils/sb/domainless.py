@@ -1450,7 +1450,10 @@ class _componentBase(object):
                 else:
                     print "debugger "+str(debugger)+" not supported"
             # Wait up to 10 seconds for the component to bind
-            timeout = 10.
+            if self._timeout is None:
+                timeout = 10.0
+            else:
+                timeout = self._timeout
             self.ref = None
             sleepIncrement = 0.1
             if self._scd.get_componenttype() in ("device", "loadabledevice", "executabledevice"):
@@ -1563,7 +1566,7 @@ class Component(_componentBase):
         Component.<property id> provides read/write access to component properties
     
     """
-    def __init__(self,componentDescriptor=None,instanceName=None,refid=None,autoKick=True,componentObj=None,impl=None,launchedFromSADFile=False,debugger=None,execparams={},*args,**kwargs):
+    def __init__(self,componentDescriptor=None,instanceName=None,refid=None,autoKick=True,componentObj=None,impl=None,launchedFromSADFile=False,debugger=None,execparams={},timeout=None,*args,**kwargs):
         self._profile = ''
         self._spd = None
         self._scd = None 
@@ -1578,6 +1581,7 @@ class Component(_componentBase):
         self._autoKick = autoKick
         self._fileManager = None
         self._debugger = debugger
+        self._timeout = timeout
         if connectedIDE == True and IDE_REF != None:
             self._fileManager = IDE_REF._get_fileManager()
 
