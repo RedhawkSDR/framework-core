@@ -36,6 +36,7 @@ import signal
 import os
 import stat
 import commands
+import subprocess
 import threading
 import exceptions
 from Queue import Queue
@@ -101,6 +102,7 @@ class Device(resource.Resource):
         self._compositeDevice = compositeDevice
         self._capacityLock = threading.Lock()
         self._proxy_consumer = None
+        self._cmdLock = threading.Lock()
 
         self.__initialize()
 
@@ -528,6 +530,10 @@ class LoadableDevice(Device):
         self.__cacheLock = threading.Lock()
 
     def releaseObject(self):
+        try:
+            self._cmdLock.release()
+        except:
+            pass
         self._unloadAll()
         Device.releaseObject(self)
 
@@ -535,69 +541,98 @@ class LoadableDevice(Device):
     # CF::LoadableDevice
     def load(self, fileSystem, fileName, loadType):
         loadedPaths = []
-        try:
-            self._log.debug("load(%s, %s)", fileName, loadType)
-            if not fileName.startswith("/"):
-                raise CF.InvalidFileName(CF.CF_EINVAL, "Filename must be absolute, given '%s'"%fileName)
-
-            # SR:429
-            if self.isLocked():   raise CF.Device.InvalidState("System is locked down, can not load '%s'"%fileName)
-            if self.isDisabled(): raise CF.Device.InvalidState("System is disabled, can not load '%s'"%fileName)
-
-
-            # SR:430
-            if loadType == CF.LoadableDevice.EXECUTABLE or loadType == CF.LoadableDevice.SHARED_LIBRARY:
-                localpath = os.path.join(os.getcwd(), fileName)
-
-                loadPoint = ""
-                head, tail = os.path.split(os.path.normpath(fileName))
-                dirs = head[1:].split("/")
-
-                self.__cacheLock.acquire()
-                try:
-                    for dir in dirs:
-                        if dir != "":
-                            self._log.debug("Creating dir %s", dir)
-                            loadPoint = os.path.join(loadPoint, dir)
-                            if not os.path.exists(loadPoint):
-                                os.mkdir(loadPoint)
-                    try:
-                        refCnt, loadedFiles = self._loadedFiles[fileName]
-                    except KeyError:
-                        refCnt = 0
-                        loadedFiles = []
-
-                    localFilePath = os.path.join(loadPoint, os.path.basename(fileName))
-                    exist = os.path.exists(localFilePath)
-                    self._log.debug("File %s has reference count %s and local file existence is %s", fileName, refCnt, exist)
-
-                    # Check if the remote file is newer than the local file, and if so, update the file
-                    # in the cache. No consideration is given to clock sync differences between systems.
-                    if exist and self._modTime(fileSystem, fileName) > os.path.getmtime(localFilePath):
-                        self._log.debug("Remote file is newer than local file")
-                        exist = False
-                    if refCnt == 0 or not exist:
-                        loadedFiles = self._loadTree(fileSystem, os.path.normpath(fileName), loadPoint)
-
-                    # SR:428
-                    self._loadedFiles[fileName] = (refCnt + 1, loadedFiles)
-                finally:
-                    self.__cacheLock.release()
-            else:
-                raise CF.LoadableDevice.InvalidLoadKind()
-
-            # If we're loading a shared library, try to set up any language-specific environment vars.
-            if loadType == CF.LoadableDevice.SHARED_LIBRARY:
-                self._loadSharedLibrary(localFilePath)
+        self._cmdLock.acquire()
+        self.__cacheLock.acquire()
+        
+        self._log.debug("LOAD (START) FILE:" + str(fileName )+ " CWD:" + os.getcwd() )
                 
-        except Exception, e:
-            self._log.exception(e)
-            raise CF.LoadableDevice.LoadFail(CF.CF_EINVAL, "Unknown Error loading '%s'"%fileName)
+        try:
+            try:
+                self._log.debug("load (%s, %s)", fileName, loadType)
+                if not fileName.startswith("/"):
+                    raise CF.InvalidFileName(CF.CF_EINVAL, "Filename must be absolute, given '%s'"%fileName)
+
+                # SR:429
+                if self.isLocked():   raise CF.Device.InvalidState("System is locked down, can not load '%s'"%fileName)
+                if self.isDisabled(): raise CF.Device.InvalidState("System is disabled, can not load '%s'"%fileName)
+
+
+                # SR:430
+                if loadType == CF.LoadableDevice.EXECUTABLE or loadType == CF.LoadableDevice.SHARED_LIBRARY:
+                    localpath = os.path.join(os.getcwd(), fileName)
+
+                    loadPoint = ""
+                    head, tail = os.path.split(os.path.normpath(fileName))
+                    dirs = head[1:].split("/")
+
+                    self._log.debug("LOAD (2) LOCAL PATH: " + str(localpath) + " CWD:" + os.getcwd())
+                    try:
+                        for dir in dirs:
+                            if dir != "":
+                                self._log.debug("Creating dir %s", dir)
+                                loadPoint = os.path.join(loadPoint, dir)
+                                if not os.path.exists(loadPoint):
+                                    os.mkdir(loadPoint)
+                        try:
+                            refCnt, loadedFiles = self._loadedFiles[fileName]
+                        except KeyError:
+                            refCnt = 0
+                            loadedFiles = []
+
+                        localFilePath = os.path.join(loadPoint, os.path.basename(fileName))
+                        exist = os.path.exists(localFilePath)
+                        self._log.debug("File %s has reference count %s and local file existence is %s", fileName, refCnt, exist)
+                        self._log.debug("LOAD (3) FILE: " + str(fileName) + " LOCAL FILE PATH: " + str(localFilePath) + " CWD:" + os.getcwd())
+
+                        # Check if the remote file is newer than the local file, and if so, update the file
+                        # in the cache. No consideration is given to clock sync differences between systems.
+                        if exist and self._modTime(fileSystem, fileName) > os.path.getmtime(localFilePath):
+                            self._log.debug("Remote file is newer than local file")
+                            exist = False
+                        if refCnt == 0 or not exist:                            
+                            loadedFiles = self._loadTree(fileSystem, os.path.normpath(fileName), loadPoint)
+                            self._log.debug("LOAD (4) FILE : " + str(fileName) + " CWD:" + os.getcwd())
+
+                        # SR:428
+                        self._loadedFiles[fileName] = (refCnt + 1, loadedFiles)
+                    finally:
+                        pass
+
+                else:
+                    raise CF.LoadableDevice.InvalidLoadKind()
+
+                # If we're loading a shared library, try to set up any language-specific environment vars.
+                if loadType == CF.LoadableDevice.SHARED_LIBRARY:
+                    try:
+                        try:
+                            self._loadSharedLibrary(localFilePath)
+                            self._log.debug("LOAD (5) FILE: " + str(fileName) + " LOCAL FILE PATH: " + str(localFilePath) + " CWD:" + os.getcwd())
+                        except:
+                            raise
+                    finally:
+                        pass
+
+            except Exception, e:
+                self._log.exception(e)
+                raise CF.LoadableDevice.LoadFail(CF.CF_EINVAL, "Unknown Error loading '%s'"%fileName)
+        finally:
+            self._log.debug("LOAD (END) FILE:" + str(fileName )+ " CWD:" + os.getcwd() )            
+            self.__cacheLock.release()
+            self._cmdLock.release()
+
 
     def _loadSharedLibrary(self, localFilePath):
+
+        self._log.debug("LOAD -SHARED (START)  FILE:" + str(localFilePath )+ " CWD:" + os.getcwd() )
         matchesPattern = False
         # check to see if it's a C shared library
-        status, output = commands.getstatusoutput('nm '+localFilePath)
+        #status, output = commands.getstatusoutput('nm '+localFilePath)
+        pipe = subprocess.Popen(['nm', localFilePath], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        status = pipe.returncode
+        if status == None:
+            status = pipe.wait()
+        output = pipe.communicate()[0]
+        self._log.debug("LOAD -SHARED (SI-1)  FILE:" + str(localFilePath )+ " CWD:" + os.getcwd() )                        
         if status == 0:
             # This is a C library
             currentdir=os.getcwd()
@@ -635,8 +670,11 @@ class LoadableDevice(Device):
         else:
             # This is not a C library
             pass
+        self._log.debug("LOAD -SHARED (SI-2)  FILE:" + str(localFilePath )+ " CWD:" + os.getcwd() )            
+
         # check to see if it's a python module
         try:
+            self._log.debug("LOAD -SHARED ( PY-1)  FILE:" + str(localFilePath )+ " CWD:" + os.getcwd() )                        
             currentdir=os.getcwd()
             subdirs = localFilePath.split('/')
             currentIdx = 0
@@ -676,9 +714,17 @@ class LoadableDevice(Device):
         except:
             # This is not a python module
             pass
+        self._log.debug("LOAD -SHARED (PY-2)  FILE:" + str(localFilePath )+ " CWD:" + os.getcwd() )            
+
+        self._log.debug("LOAD -SHARED (JAVA-1)  FILE:" + str(localFilePath )+ " CWD:" + os.getcwd() )                    
         os.chdir(currentdir)
         # check to see if it's a java package
-        status, output = commands.getstatusoutput('file '+localFilePath)
+        #status, output = commands.getstatusoutput('file '+localFilePath)
+        pipe = subprocess.Popen(['file', localFilePath], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        status = pipe.returncode
+        if status == None:
+            status = pipe.wait()
+        output = pipe.communicate()[0]
         if localFilePath[-4:] == '.jar' and 'Zip' in output:
             currentdir=os.getcwd()
             subdirs = localFilePath.split('/')
@@ -700,6 +746,8 @@ class LoadableDevice(Device):
         else:
             # This is not a Java package
             pass
+        self._log.debug("LOAD -SHARED (JAVA-2)  FILE:" + str(localFilePath )+ " CWD:" + os.getcwd() )
+
         # it matches no patterns. Assume that it's a set of libraries
         if not matchesPattern:
             # Split the path up
@@ -727,8 +775,11 @@ class LoadableDevice(Device):
             # Write the new LD_LIBRARY_PATH
             os.environ['LD_LIBRARY_PATH'] = os.path.pathsep.join(path)
 
+        self._log.debug("LOAD -SHARED (END)  FILE:" + str(localFilePath )+ " CWD:" + os.getcwd() )
+
     def _modTime(self, fileSystem, remotePath):
         try:
+            self._log.debug("_modTime: remotePath" + str(remotePath))
             fileInfo = fileSystem.list(remotePath)[0]
             for prop in fileInfo.fileProperties:
                 if prop.id == 'MODIFIED_TIME':
@@ -860,13 +911,18 @@ class LoadableDevice(Device):
             self.__cacheLock.release()
 
     def unload(self, fileName):
-        self._log.debug("unload(%s)", fileName)
-        self._log.debug("%s", self._applications)
-        # SR:435
-        if self.isLocked(): raise CF.Device.InvalidState("System is locked down")
-        if self.isDisabled(): raise CF.Device.InvalidState("System is disabled")
+        #self._cmdLock.acquire()
+        try:
+            self._log.debug("unload(%s)", fileName)
+            self._log.debug("%s", self._applications)
+            # SR:435
+            if self.isLocked(): raise CF.Device.InvalidState("System is locked down")
+            if self.isDisabled(): raise CF.Device.InvalidState("System is disabled")
 
-        self._unload(fileName)
+            self._unload(fileName)
+        finally:
+            pass
+            #self._cmdLock.release()
 
 class ExecutableDevice(LoadableDevice):
 
@@ -886,6 +942,10 @@ class ExecutableDevice(LoadableDevice):
         self._devnull = open('/dev/null')
 
     def releaseObject(self):
+        try:
+            self._cmdLock.release()
+        except:
+            pass
         for pid in self._applications.keys():
             self.terminate(pid)
         LoadableDevice.releaseObject(self)
@@ -893,52 +953,68 @@ class ExecutableDevice(LoadableDevice):
     ###########################################
     # CF::ExecutableDevice
     def execute(self, name, options, parameters):
-        self._log.debug("execute(%s, %s, %s)", name, options, parameters)
-        if not name.startswith("/"):
-            raise CF.InvalidFileName(CF.CF_EINVAL, "Filename must be absolute")
+        
+        self._log.debug("EXCUTE  (START)  NAME:" + str(name)+ " CWD:" + os.getcwd() )
+        
+        self._cmdLock.acquire()
+        try:
+            self._log.debug("execute(%s, %s, %s)", name, options, parameters)
+            if not name.startswith("/"):
+                raise CF.InvalidFileName(CF.CF_EINVAL, "Filename must be absolute")
 
-        if self.isLocked(): raise CF.Device.InvalidState("System is locked down")
-        if self.isDisabled(): raise CF.Device.InvalidState("System is disabled")
+            if self.isLocked(): raise CF.Device.InvalidState("System is locked down")
+            if self.isDisabled(): raise CF.Device.InvalidState("System is disabled")
 
-        # TODO SR:448
-        priority = 0
-        stack_size = 4096
-        invalidOptions = []
-        for option in options:
-            val = option.value.value()
-            if option.id == CF.ExecutableDevice.PRIORITY_ID:
-                if ((not isinstance(val, int)) and (not isinstance(val, long))):
-                    invalidOptions.append(option)
-                else:
-                    priority = val
-            elif option.id == CF.ExecutableDevice.STACK_SIZE_ID:
-                if ((not isinstance(val, int)) and (not isinstance(val, long))):
-                    invalidOptions.append(option)
-                else:
-                    stack_size = val
-        if len(invalidOptions) > 0:
-            self._log.error("execute() received invalid options %s", invalidOptions)
-            raise CF.ExecutableDevice.InvalidOptions(invalidOptions)
+            # TODO SR:448
+            priority = 0
+            stack_size = 4096
+            invalidOptions = []
+            for option in options:
+                val = option.value.value()
+                if option.id == CF.ExecutableDevice.PRIORITY_ID:
+                    if ((not isinstance(val, int)) and (not isinstance(val, long))):
+                        invalidOptions.append(option)
+                    else:
+                        priority = val
+                elif option.id == CF.ExecutableDevice.STACK_SIZE_ID:
+                    if ((not isinstance(val, int)) and (not isinstance(val, long))):
+                        invalidOptions.append(option)
+                    else:
+                        stack_size = val
+            if len(invalidOptions) > 0:
+                self._log.error("execute() received invalid options %s", invalidOptions)
+                raise CF.ExecutableDevice.InvalidOptions(invalidOptions)
 
-        command = name[1:] # This is relative to our CWD
-        self._log.debug("Running %s %s", command, os.getcwd())
+            command = name[1:] # This is relative to our CWD
+            self._log.debug("Running %s %s", command, os.getcwd())
 
-        # SR:452
-        # TODO should we also check the load file reference count?
-        # Workaround
-        if not os.path.isfile(command):
-            raise CF.InvalidFileName(CF.CF_EINVAL, "File could not be found %s" % command)
-        os.chmod(command, os.stat(command)[0] | stat.S_IEXEC | stat.S_IREAD | stat.S_IWRITE)
-
-        return self._execute(command, options, parameters)
+            # SR:452
+            # TODO should we also check the load file reference count?
+            # Workaround
+            if not os.path.isfile(command):
+                raise CF.InvalidFileName(CF.CF_EINVAL, "File could not be found %s" % command)
+            os.chmod(command, os.stat(command)[0] | stat.S_IEXEC | stat.S_IREAD | stat.S_IWRITE)
+            
+            
+            #return self._execute(command, options, parameters)
+            ret =  self._execute(command, options, parameters)
+            return ret
+        finally:
+            self._log.debug("EXCUTE (END)  NAME:" + str(name)+ " CWD:" + os.getcwd() )            
+            self._cmdLock.release()
 
     def terminate(self, pid):
-        self._log.debug("terminate(%s)", pid)
+        #self._cmdLock.acquire()
+        try:
+            self._log.debug("terminate(%s)", pid)
         # SR:457
-        if self.isLocked(): raise CF.Device.InvalidState("System is locked down")
-        if self.isDisabled(): raise CF.Device.InvalidState("System is disabled")
+            if self.isLocked(): raise CF.Device.InvalidState("System is locked down")
+            if self.isDisabled(): raise CF.Device.InvalidState("System is disabled")
 
-        self._terminate(pid)
+            self._terminate(pid)
+        finally:
+            pass
+            #self._cmdLock.release()
 
     def _execute(self, command, options, parameters):
         """
@@ -962,7 +1038,12 @@ class ExecutableDevice(LoadableDevice):
                     args.append(str(param.value.value()))
                 except:
                     raise CF.ExecutableDevice.InvalidParameters([param])
-        self._log.debug("Popen %s %s", command, args)
+        #self._log.debug("Popen %s %s", command, args)
+        self._log.debug("Popen CMD " + str(command))
+        cnt=0
+        for x in args:
+            self._log.debug("ARG: " + str(cnt) + "=" + str(x))
+            cnt +=1
 
         # SR:445
         try:

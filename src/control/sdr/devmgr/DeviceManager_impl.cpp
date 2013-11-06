@@ -1471,7 +1471,7 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
         throw (CF::InvalidObjectReference("[DeviceManager::registerDevice] Cannot register Device. registeringDevice is a nil reference."));
     }
 
-    LOG_INFO(DeviceManager_impl, "Registering device " << (CORBA::String_var)registeringDevice->label() << " on Device Manager " << _label)
+    LOG_INFO(DeviceManager_impl, "Registering device " << ossie::corba::returnString(registeringDevice->label()) << " on Device Manager " << _label)
 
     CORBA::String_var deviceLabel = registeringDevice->label();
 
@@ -1511,8 +1511,16 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
     }
 
     LOG_INFO(DeviceManager_impl, "Initializing device " << deviceLabel << " on Device Manager " << _label)
-    registeringDevice->initialize();
-
+    try {
+        registeringDevice->initialize();
+    } catch (CF::LifeCycle::InitializeError& ex) {
+        LOG_WARN(DeviceManager_impl, "Device "<< deviceLabel << " threw a CF::LifeCycle::InitializeError exception")
+    } catch ( std::exception& ex ) {
+        LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while attempting to initialize Device " << deviceLabel)
+    } catch ( const CORBA::Exception& ex ) {
+        LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while attempting to initialize Device " << deviceLabel)
+    }
+    
     //Get properties from SPD
     std::string spdFile = ossie::corba::returnString(registeringDevice->softwareProfile());
 

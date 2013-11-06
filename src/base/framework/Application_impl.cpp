@@ -154,7 +154,7 @@ throw (CORBA::SystemException, CF::Resource::StartError)
         // Start the rest of the components
         for (unsigned int i = 0; i < _appStartSeq.size(); i++){
             std::string msg = "Calling start for ";
-            msg = msg.append(_appStartSeq[i]->identifier());
+            msg = msg.append(ossie::corba::returnString(_appStartSeq[i]->identifier()));
             LOG_TRACE(Application_impl, msg)
 
             _appStartSeq[i]-> start();
@@ -177,7 +177,7 @@ throw (CORBA::SystemException, CF::Resource::StopError)
         // Stop the components in the reverse order they were started
         for (int i = (int)(_appStartSeq.size()-1); i >= 0; i--){
             std::string msg = "Calling stop for ";
-            msg = msg.append(_appStartSeq[i]->identifier());
+            msg = msg.append(ossie::corba::returnString(_appStartSeq[i]->identifier()));
             LOG_TRACE(Application_impl, msg)
 
             _appStartSeq[i]-> stop();
@@ -446,11 +446,13 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
                         // first check to see if device still exists
                         if (!ossie::corba::objectExists(_allocPropsTable[id][devCount].device)) {
                             LOG_WARN(Application_impl, "Not deallocating capacity on device " << 
-                                _allocPropsTable[id][devCount].device->identifier() << " because it no longer exists");
+                                ossie::corba::returnString(_allocPropsTable[id][devCount].device->identifier()) <<
+                                " because it no longer exists");
                             continue;
                         }
                         // deallocate capacity
-                        LOG_DEBUG(Application_impl, "deallocating on device " << _allocPropsTable[id][devCount].device->identifier());
+                        LOG_DEBUG(Application_impl, "deallocating on device " <<
+                                ossie::corba::returnString(_allocPropsTable[id][devCount].device->identifier()));
                         _allocPropsTable[id][devCount].device->deallocateCapacity(_allocPropsTable[id][devCount].properties);
                         LOG_DEBUG(Application_impl, "Finished deallocating")
                     } else {

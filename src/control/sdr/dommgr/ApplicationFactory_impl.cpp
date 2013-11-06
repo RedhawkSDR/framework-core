@@ -1015,7 +1015,7 @@ CF::Device_ptr createHelper::allocateUsesDeviceProperties(ossie::ComponentImplem
         if (CORBA::is_nil(fileSystem)) {
             LOG_ERROR(ApplicationFactory_impl, "Could not locate device manager filesystem ")
             ostringstream eout;
-            eout << "Could not locate device manager filesystem in Device Manager " << devMgr->label();
+            eout << "Could not locate device manager filesystem in Device Manager " << ossie::corba::returnString(devMgr->label());
             throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EIO, eout.str().c_str());
         }
 
@@ -1262,7 +1262,7 @@ void createHelper::allocateComponent(ossie::ComponentInfo*  component,
 
                 // check if we allocated against a device....
             if( !CORBA::is_nil(devCapacityAlloc.device)) {
-                LOG_DEBUG(ApplicationFactory_impl, "Deallocate capacities for Device: "<< devCapacityAlloc.device->identifier() );
+                LOG_DEBUG(ApplicationFactory_impl, "Deallocate capacities for Device: "<< ossie::corba::returnString(devCapacityAlloc.device->identifier()) );
                 CapacityAllocationList  _dealloc;
                 _dealloc.push_back( devCapacityAlloc );
             }

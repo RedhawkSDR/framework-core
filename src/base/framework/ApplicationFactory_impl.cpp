@@ -2306,7 +2306,7 @@ void createHelper::initializeComponents(CF::Resource_var& _assemblyController,
                     currID = currID.append(":");
                     currID = currID.append(waveform_context_name);
 
-                    if (strcmp(val->identifier(), currID.c_str()) == 0) {
+		    if (strcmp(ossie::corba::returnString(val->identifier()).c_str(), currID.c_str()) == 0) {
                         break;
                     }
                     pos++;

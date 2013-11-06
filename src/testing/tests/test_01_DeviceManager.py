@@ -209,6 +209,15 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         # NOTE These assert check must be kept in-line with the DeviceManager.dcd.xml
         self.assertEqual(len(self._domMgr._get_deviceManagers()), 1)
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
+
+    def test_DeviceInitializeFail(self):
+        # These two nodes use the same identifier, but have different names to distinguish them
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/bad_init_device_node/DeviceManager.dcd.xml", debug=9)
+        self.assertNotEqual(devMgr, None)
+
+        # NOTE These assert check must be kept in-line with the DeviceManager.dcd.xml
+        self.assertEqual(len(self._domMgr._get_deviceManagers()), 1)
+        self.assertEqual(len(devMgr._get_registeredDevices()), 1)
     
     def test_ReRegDevMgrDuplicate(self):
         # These two nodes use the same identifier, but have different names to distinguish them

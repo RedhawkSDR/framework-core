@@ -533,7 +533,7 @@ void DomainManager_impl::cleanupDomainNamingContext (CosNaming::NamingContext_pt
 void DomainManager_impl::releaseAllApplications()
 {
     while (_applicationFactories.length() > 0) {
-        std::string appFactoryId(_applicationFactories[0]->identifier());
+        std::string appFactoryId(ossie::corba::returnString(_applicationFactories[0]->identifier()));
         this->uninstallApplication(appFactoryId.c_str());
     }
     while (_applications.length() > 0) {
@@ -1743,7 +1743,7 @@ DomainManager_impl::addApplication(Application_impl* new_app)
     } catch (...) {
         ostringstream eout;
         eout << "Could not add new application to AppSeq; ";
-        eout << " application id: " << new_app->identifier() << "; ";
+        eout << " application id: " << ossie::corba::returnString(new_app->identifier()) << "; ";
         eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
         LOG_ERROR(DomainManager_impl, eout.str());
         throw CF::DomainManager::ApplicationInstallationError(CF::CF_EFAULT, eout.str().c_str());
