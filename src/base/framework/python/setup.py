@@ -66,6 +66,7 @@ setup(
                  'ossie/apps/scaclt', 
                  'ossie/apps/py2prf',
                  'ossie/apps/eventviewer',
+                 'ossie/apps/rh_net_diag', 
                  'ossie/apps/cleanns', 
                  'ossie/apps/cleanes', 
                  'ossie/apps/sdrlint'],
