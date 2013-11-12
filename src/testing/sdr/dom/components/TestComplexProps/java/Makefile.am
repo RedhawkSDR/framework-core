@@ -18,7 +18,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-TestComplexProps.jar: $(TestComplexProps_jar_SOURCES)
+TestComplexProps.jar$(EXEEXT): $(TestComplexProps_jar_SOURCES)
 	mkdir -p bin
 	$(JAVAC) -cp $(OSSIE_CLASSPATH) -d bin $(TestComplexProps_jar_SOURCES)
 	$(JAR) cf ./TestComplexProps.jar -C bin .

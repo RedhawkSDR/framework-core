@@ -20,7 +20,7 @@
 
 all-local: TestLegacyJavaProps.jar
 
-TestLegacyJavaProps.jar: TestLegacyJavaProps.java
+TestLegacyJavaProps.jar$(EXEEXT): TestLegacyJavaProps.java
 	mkdir -p bin
 	$(JAVAC) -source 1.5 -cp $(OSSIE_CLASSPATH) -d bin TestLegacyJavaProps.java
 	$(JAR) cf TestLegacyJavaProps.jar -C bin .

@@ -18,7 +18,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-INCLUDES = -I../include
+AM_CPPFLAGS = -I../include
 
 lib_LTLIBRARIES = libossiecf.la
 libossiecf_la_SOURCES = AggregateDevice_impl.cpp \

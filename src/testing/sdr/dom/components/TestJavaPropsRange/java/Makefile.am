@@ -19,7 +19,7 @@
 #
 
 
-TestJavaPropsRange.jar: $(TestJavaPropsRange_jar_SOURCES)
+TestJavaPropsRange.jar$(EXEEXT): $(TestJavaPropsRange_jar_SOURCES)
 	mkdir -p bin
 	$(JAVAC) -cp $(OSSIE_CLASSPATH) -d bin $(TestJavaPropsRange_jar_SOURCES)
 	$(JAR) cf ./TestJavaPropsRange.jar -C bin .

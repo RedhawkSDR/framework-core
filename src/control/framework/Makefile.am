@@ -18,7 +18,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-INCLUDES = -I../include -I$(top_srcdir)/base/include
+AM_CPPFLAGS = -I../include -I$(top_srcdir)/base/include
 
 noinst_LTLIBRARIES = libossiedomain.la
 libossiedomain_la_SOURCES = File_impl.cpp \

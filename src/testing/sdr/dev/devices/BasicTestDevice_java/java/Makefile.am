@@ -18,7 +18,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-BasicTestDevice_java.jar: $(BasicTestDevice_java_jar_SOURCES)
+BasicTestDevice_java.jar$(EXEEXT): $(BasicTestDevice_java_jar_SOURCES)
 	mkdir -p bin
 	$(JAVAC) -cp $(OSSIE_CLASSPATH) -d bin $(BasicTestDevice_java_jar_SOURCES)
 	$(JAR) cf ./BasicTestDevice_java.jar -C bin .

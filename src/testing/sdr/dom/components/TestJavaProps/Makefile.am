@@ -20,7 +20,7 @@
 
 all-local: TestJavaProps.jar
 
-TestJavaProps.jar: TestJavaProps.java
+TestJavaProps.jar$(EXEEXT): TestJavaProps.java
 	mkdir -p bin
 	$(JAVAC) -source 1.5 -cp $(OSSIE_CLASSPATH) -d bin TestJavaProps.java
 	$(JAR) cf TestJavaProps.jar -C bin .

@@ -68,7 +68,7 @@ libossieparser_la_CXXFLAGS = -Wall $(STDINTF_CFLAGS) $(EXPAT_CFLAGS)
 libossieparser_la_LIBADD = $(STDINTF_LIBS) $(EXPAT_LIBS)
 libossieparser_la_LDFLAGS = -Wall $(EXPAT_LDFLAGS)
 
-INCLUDES = -I../include -I. -I$(top_srcdir)/base/include
+AM_CPPFLAGS = -I../include -I. -I$(top_srcdir)/base/include
 
 XSDFLAGS = --hxx-suffix .h --cxx-suffix .cpp --xml-parser expat --output-dir internal $(OSSIE_XSDFLAGS)
 

@@ -19,7 +19,7 @@
 #
 
 CFDIR = ../../../../../base
-INCLUDES = -I$(CFDIR)/include -I../linkedLibraryTest
+AM_CPPFLAGS = -I$(CFDIR)/include -I../linkedLibraryTest
 
 noinst_PROGRAMS = TestCppsoftpkgDeps
 
