@@ -19,7 +19,7 @@
 #
 
 
-TestAllPropTypes.jar: $(TestAllPropTypes_jar_SOURCES)
+TestAllPropTypes.jar$(EXEEXT): $(TestAllPropTypes_jar_SOURCES)
 	mkdir -p bin
 	$(JAVAC) -cp $(OSSIE_CLASSPATH) -d bin $(TestAllPropTypes_jar_SOURCES)
 	$(JAR) cf ./TestAllPropTypes.jar -C bin .

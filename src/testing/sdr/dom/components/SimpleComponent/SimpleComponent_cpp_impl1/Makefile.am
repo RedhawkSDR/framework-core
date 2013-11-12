@@ -20,7 +20,7 @@
 
  
 CFDIR = ../../../../../../base
-INCLUDES = -I$(CFDIR)/include
+AM_CPPFLAGS = -I$(CFDIR)/include
 
 noinst_PROGRAMS = SimpleComponent_cpp_impl1
 

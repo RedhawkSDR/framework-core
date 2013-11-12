@@ -19,7 +19,7 @@
 #
 
 
-EventReceive_java_impl1.jar: $(EventReceive_java_impl1_jar_SOURCES)
+EventReceive_java_impl1.jar$(EXEEXT): $(EventReceive_java_impl1_jar_SOURCES)
 	mkdir -p bin
 	$(JAVAC) -cp $(OSSIE_CLASSPATH) -d bin $(EventReceive_java_impl1_jar_SOURCES)
 	$(JAR) cf ./EventReceive_java_impl1.jar -C bin .

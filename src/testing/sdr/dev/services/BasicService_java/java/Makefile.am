@@ -19,7 +19,7 @@
 #
 
 
-BasicService_java.jar: $(BasicService_java_jar_SOURCES)
+BasicService_java.jar$(EXEEXT): $(BasicService_java_jar_SOURCES)
 	mkdir -p bin
 	$(JAVAC) -cp $(OSSIE_CLASSPATH) -d bin $(BasicService_java_jar_SOURCES)
 	$(JAR) cf ./BasicService_java.jar -C bin .

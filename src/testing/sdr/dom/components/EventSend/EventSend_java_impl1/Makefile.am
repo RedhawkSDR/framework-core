@@ -19,7 +19,7 @@
 #
 
 
-EventSend_java_impl1.jar: $(EventSend_java_impl1_jar_SOURCES)
+EventSend_java_impl1.jar$(EXEEXT): $(EventSend_java_impl1_jar_SOURCES)
 	mkdir -p bin
 	$(JAVAC) -cp $(OSSIE_CLASSPATH) -d bin $(EventSend_java_impl1_jar_SOURCES)
 	$(JAR) cf ./EventSend_java_impl1.jar -C bin .

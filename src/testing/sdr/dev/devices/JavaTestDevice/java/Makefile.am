@@ -1,4 +1,4 @@
-JavaTestDevice.jar: $(JavaTestDevice_jar_SOURCES)
+JavaTestDevice.jar$(EXEEXT): $(JavaTestDevice_jar_SOURCES)
 	mkdir -p bin
 	$(JAVAC) -cp $(OSSIE_CLASSPATH) -d bin $(JavaTestDevice_jar_SOURCES)
 	$(JAR) cf ./JavaTestDevice.jar -C bin .

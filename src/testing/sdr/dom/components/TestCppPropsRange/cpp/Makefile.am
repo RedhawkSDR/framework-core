@@ -18,17 +18,10 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-INCLUDES = -I../../../../../../base/include -I../../../../../../base/parser
+AM_CPPFLAGS = -I../../../../../../base/include -I../../../../../../base/parser
 
 noinst_PROGRAMS = TestCppPropsRange
  
-#ossieName = TestCppPropsRange
-#bindir = $(prefix)/dom/components/TestCppPropsRange/cpp/
-#bin_PROGRAMS = TestCppPropsRange
-
-#xmldir = $(prefix)/dom/components/TestCppPropsRange/
-#dist_xml_DATA = ../TestCppPropsRange.prf.xml ../TestCppPropsRange.scd.xml ../TestCppPropsRange.spd.xml
-
 distclean-local:
 	rm -f config.*
 	rm -rf autom4te.cache

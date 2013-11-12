@@ -19,7 +19,7 @@
 #
 
 CFDIR = ../../../../../../base
-INCLUDES = -I$(CFDIR)/include
+AM_CPPFLAGS = -I$(CFDIR)/include
 
 ossieName = issue_111_cpp
 noinst_PROGRAMS = issue_111_cpp
