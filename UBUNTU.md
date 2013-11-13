@@ -1,8 +1,21 @@
 # REDHAWK Core Framework Ubuntu Instructions
-
-## Installing REDHAWK
-
 ## Configuring your terminal to load the REDHAWK environment
+
+## Configuring your system to support building components/devices
+
+If you plan on doing building REDHAWK components or devices, you will want to
+prepare your system with the proper build tools and libraries:
+
+    sudo apt-get install build-essential \
+                         libboost-dev \
+                         libboost-system-dev \
+                         libboost-filesystem-dev \
+                         libboost-regex-dev \
+                         libboost-thread-dev \
+                         libcos4-dev \
+                         libomnievents-dev \
+                         libomniorb4-dev \
+                         liblog4cxx10-dev
 
 Per REDHAWK conventions certian environment variables need to be defined.  When
 you install REDHAWK it creates scripts that will set these up for you, but by default
@@ -15,11 +28,45 @@ To have gnome-terminal start bash as a login shell do the following:
 3. enable "Run Command as a login shell".
 4. restart the gnome-terminal.
 
-Bash should now start as a login shell and thus will read /etc/profile.d.
-Alternatively, you can add the following lines to your ~/.bashrc
+## Building from source
+## --with-ossie becomes the path for OSSIEHIME
+## --with-sdr becomes the path for SDRROOT
 
-    . /etc/profile.d/redhawk.sh
-    . /etc/profile.d/redhawk-sdrroot.sh
+    cd src                     
+    ./reconf
+    ./configure --with-ossie=/usr/local/redhawk/core --with-sdr=/var/redhawk/sdr --sysconfdir=/etc
+    make
+
+Installation can be performed by running:
+
+    sudo make install
+
+However, you may prefer to use the checkinstall tool so that you can easily uninstall.
+
+    sudo checkinstall --provides=redhawk --pkgversion=1.9.0 --pkgname=redhawk make install
+
+Before running REDHAWK you will need to set the OSSIEHOME and SDRROOT environment
+variables.  This can be done in your ~/.bashrc.
+
+    export OSSIEHOME=/usr/local/redhawk/core
+    export SDRROOT=/var/redhawk/sdr
+    export PYTHONPATH=${OSSIEHOME}/lib/python
+    sudo checkinstall --provides=redhawk-bulkio --pkgversion=1.9.0 --pkgname=redhawk-bulkio make install
+
+The GPP project works as-is (if you use ./reconf; ./configure; make), installing it is simple:
+
+    sudo checkinstall --provides=redhawk-gpp --pkgversion=1.9.0 --pkgname=redhawk-gpp make install
+
+## Configuring a domain
+
+Requires a manually configured domain.
+The simply approach is: 
+
+    sudo cp /var/redhawk/sdr/dom/domain/DomainManager.dmd.xml.template /var/redhawk/sdr/dom/domain/DomainManager.dmd.xml
+
+Then replace @UUID@, @NAME@, and @DESCRIPTION@. 
+
+Follow the tutorial to configure a DeviceManager node that contains a GPP device.
 
 ## Setting up /etc/omniORB.cfg
 
@@ -37,25 +84,6 @@ The REDHAWK runtime and build process expect the JAVA_HOME environment variable
 to be set.  Set this to a JDK installed in /usr/lib/jvm. For example:
 
     export JAVA_HOME /usr/lib/jvm/java-6-openjdk-amd64
-
-You may prefer to set this in your ~/.bashrc or equivalent.
-
-
-## Configuring your system to support building components/devices
-
-If you plan on doing building REDHAWK components or devices, you will want to
-prepare your system with the proper build tools and libraries:
-
-    sudo apt-get install build-essential \
-                         libboost-dev \
-                         libboost-system-dev \
-                         libboost-filesystem-dev \
-                         libboost-regex-dev \
-                         libboost-thread-dev \
-                         libcos4-dev \
-                         libomnievents-dev \
-                         libomniorb4-dev \
-                         liblog4cxx10-dev
 
 ## Known Issues
 
@@ -78,40 +106,3 @@ Alternativly, you can symlink omniidl into the dist-packages folder:
 
 Finally, you can manually add /usr/lib/omniidl/omniidl to your PyDev interpreter configuration.
 
-## Building from source
-
-    cd src                     
-    ./reconf
-    ./configure --with-ossie=/usr/local/redhawk/core --with-sdr=/var/redhawk/sdr
-    make
-
-Installation can be performed by running:
-
-    sudo make install
-
-However, you may prefer to use the checkinstall tool so that you can easily uninstall.
-
-    sudo checkinstall --provides=redhawk --pkgversion=1.8.3 --pkgname=redhawk make install
-
-Before running REDHAWK you will need to set the OSSIEHOME and SDRROOT environment
-variables.  This can be done in your ~/.bashrc.
-
-    export OSSIEHOME=/usr/local/redhawk/core
-    export SDRROOT=/var/redhawk/sdr
-    export PYTHONPATH=${OSSIEHOME}/lib/python
-    sudo checkinstall --provides=redhawk-bulkio --pkgversion=1.8.3 --pkgname=redhawk-bulkio make install
-
-The GPP project works as-is (if you use ./reconf; ./configure; make), installing it is simple:
-
-    sudo checkinstall --provides=redhawk-gpp --pkgversion=1.8.3 --pkgname=redhawk-gpp make install
-
-## Configuring a domain
-
-Unlike the RPM (and soon to be .DEB) you need to manually configure a domain.
-The simply approach is: 
-
-    sudo cp /var/redhawk/sdr/dom/domain/DomainManager.dmd.xml.template /var/redhawk/sdr/dom/domain/DomainManager.dmd.xml
-
-Then replace @UUID@, @NAME@, and @DESCRIPTION@. 
-
-Follow the tutorial to configure a DeviceManager node that contains a GPP device.
