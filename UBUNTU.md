@@ -29,8 +29,9 @@ To have gnome-terminal start bash as a login shell do the following:
 4. restart the gnome-terminal.
 
 ## Building from source
-## --with-ossie becomes the path for OSSIEHIME
+## --with-ossie becomes the path for OSSIEHOME
 ## --with-sdr becomes the path for SDRROOT
+## --sysconfdir established the location for /etc/profile.d and ld.so
 
     cd src                     
     ./reconf
