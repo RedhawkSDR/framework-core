@@ -26,7 +26,7 @@ noinst_PROGRAMS = props_test_device_cpp_impl1
 
 props_test_device_cpp_impl1_SOURCES = props_test_device_cpp_impl1.cpp props_test_device_cpp_impl1_base.cpp props_test_device_cpp_impl1.h main.cpp port_impl.cpp port_impl.h
 props_test_device_cpp_impl1_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(OMNIORB_CFLAGS) $(OMNITHREAD_CFLAGS) $(OMNIDYNAMIC_CFLAGS)
-props_test_device_cpp_impl1_LDADD = $(BOOST_LDFLAGS) $(BOOST_THREAD_LIB) $(OMNICOS_LIBS) $(OMNITHREAD_LIBS) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la
+props_test_device_cpp_impl1_LDADD = $(BOOST_LDFLAGS) $(BOOST_SYSTEM_LIB) $(BOOST_THREAD_LIB) $(OMNICOS_LIBS) $(OMNITHREAD_LIBS) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la
 props_test_device_cpp_impl1_LDFLAGS = -Wall
 
 

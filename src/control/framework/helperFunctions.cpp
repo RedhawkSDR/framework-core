@@ -50,7 +50,11 @@ bool ossie::isValidFileName(const char* fileName)
     bool fsOpSuccess = false;
     while (!fsOpSuccess) {
         try {
-            fs::path testPath(fileName, fs::portable_posix_name);
+#if BOOST_FILESYSTEM_VERSION < 3            
+	    fs::path testPath(fileName, fs::portable_posix_name);
+#else
+	    fs::path testPath(fileName);
+#endif
             fsOpSuccess = true;
         } catch ( ... ) {
             fsOpSuccessAttempts++;

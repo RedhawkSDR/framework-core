@@ -25,4 +25,4 @@ noinst_PROGRAMS = TestCppProps
 
 TestCppProps_SOURCES = TestCppProps.cpp main.cpp
 TestCppProps_CXXFLAGS = $(BOOST_CPPFLAGS)
-TestCppProps_LDADD = $(BOOST_LDFLAGS) $(BOOST_THREAD_LIB) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la
+TestCppProps_LDADD = $(BOOST_LDFLAGS) $(BOOST_SYSTEM_LIB) $(BOOST_THREAD_LIB) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la

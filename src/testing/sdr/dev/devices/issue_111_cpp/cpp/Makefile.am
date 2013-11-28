@@ -26,5 +26,5 @@ noinst_PROGRAMS = issue_111_cpp
 
 issue_111_cpp_SOURCES = issue_111_cpp.cpp issue_111_cpp_base.cpp main.cpp port_impl.cpp port_impl.h
 issue_111_cpp_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(OMNIORB_CFLAGS) $(OMNITHREAD_CFLAGS) $(OMNIDYNAMIC_CFLAGS) 
-issue_111_cpp_LDADD = $(BOOST_LDFLAGS) $(BOOST_THREAD_LIB) $(OMNICOS_LIBS) $(OMNITHREAD_LIBS) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la
+issue_111_cpp_LDADD = $(BOOST_LDFLAGS) $(BOOST_SYSTEM_LIB) $(BOOST_THREAD_LIB) $(OMNICOS_LIBS) $(OMNITHREAD_LIBS) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la
 issue_111_cpp_LDFLAGS = -Wall

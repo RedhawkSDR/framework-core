@@ -26,5 +26,5 @@ noinst_PROGRAMS = BasicDevWithExecParam_cpp_impl1
 
 BasicDevWithExecParam_cpp_impl1_SOURCES = BasicDevWithExecParam_cpp_impl1.cpp BasicDevWithExecParam_cpp_impl1_base.cpp BasicDevWithExecParam_cpp_impl1_base.h BasicDevWithExecParam_cpp_impl1.h main.cpp port_impl.cpp port_impl.h
 BasicDevWithExecParam_cpp_impl1_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(OMNIORB_CFLAGS) $(OMNITHREAD_CFLAGS) $(OMNIDYNAMIC_CFLAGS)
-BasicDevWithExecParam_cpp_impl1_LDADD = $(BOOST_LDFLAGS) $(BOOST_THREAD_LIB) $(OMNICOS_LIBS) $(OMNITHREAD_LIBS) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la
+BasicDevWithExecParam_cpp_impl1_LDADD = $(BOOST_LDFLAGS) $(BOOST_SYSTEM_LIB) $(BOOST_THREAD_LIB) $(OMNICOS_LIBS) $(OMNITHREAD_LIBS) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la
 BasicDevWithExecParam_cpp_impl1_LDFLAGS = -Wall

@@ -25,4 +25,4 @@ noinst_PROGRAMS = BasicAC_cpp_impl1
 
 BasicAC_cpp_impl1_SOURCES = BasicAC_cpp_impl1.cpp BasicAC_cpp_impl1_base.cpp  BasicAC_cpp_impl1_base.h  BasicAC_cpp_impl1.h  main.cpp  port_impl.cpp  port_impl.h  struct_props.h
 BasicAC_cpp_impl1_CXXFLAGS = $(BOOST_CPPFLAGS)
-BasicAC_cpp_impl1_LDADD = $(BOOST_LDFLAGS) $(BOOST_THREAD_LIB) $(OMNIORB_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la
+BasicAC_cpp_impl1_LDADD = $(BOOST_LDFLAGS) $(BOOST_SYSTEM_LIB) $(BOOST_THREAD_LIB) $(OMNIORB_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la
