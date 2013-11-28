@@ -973,14 +973,26 @@ int main(int argc, char* argv[])
         // Loops to find the sdr root from given path
         for (bool foundSdr = false ; !foundSdr; ){
             if (fs::exists(path)){
+#if BOOST_FILESYSTEM_VERSION < 3
                 if (path.filename().compare(SDR_FOLDER) == 0){
+#else
+                if (path.filename().string().compare(SDR_FOLDER) == 0){
+#endif
                     sdrRootPath = path.string();
                     foundSdr = true;
+#if BOOST_FILESYSTEM_VERSION < 3
                 } else if (path.filename().compare(DOM_FOLDER) == 0){
+#else
+                } else if (path.filename().string().compare(DOM_FOLDER) == 0){
+#endif
                     dmdPath = "/" + DOM_FOLDER + temp;
                 }
+#if BOOST_FILESYSTEM_VERSION < 3
                 temp = "/" + path.filename() + temp;
-                path = path.parent_path();
+#else 
+                temp = "/" + path.filename().string() + temp;               
+#endif	
+		path = path.parent_path();
             } else {
                 std::cerr << "[nodeBooter] ERROR: can't find relative dmd.xml path" << std::endl;
                 exit(EXIT_FAILURE);
@@ -1005,14 +1017,25 @@ int main(int argc, char* argv[])
         // Loops to find the sdr root from given path
         for (bool foundSdr = false; !foundSdr; ){
             if (fs::exists(path)){
+#if BOOST_FILESYSTEM_VERSION < 3
                 if (path.filename().compare(SDR_FOLDER) == 0){
-                    sdrRootPath = path.string();
+#else
+                if (path.filename().string().compare(SDR_FOLDER) == 0){
+#endif                    
+		    sdrRootPath = path.string();
                     foundSdr = true;
+#if BOOST_FILESYSTEM_VERSION < 3
                 } else if (path.filename().compare(NODE_FOLDER) == 0){
-                    dcdPath = "/" + NODE_FOLDER + temp;
+#else
+                } else if (path.filename().string().compare(NODE_FOLDER) == 0){
+#endif                    
+		    dcdPath = "/" + NODE_FOLDER + temp;
                 }
-
+#if BOOST_FILESYSTEM_VERSION < 3
                 temp = "/" + path.filename() + temp;
+#else
+                temp = "/" + path.filename().string() + temp;
+#endif
                 path = path.parent_path();
             } else {
                 std::cerr << "[nodeBooter] ERROR: can't find relative dcd.xml path" << std::endl;

@@ -40,5 +40,5 @@ distclean-local:
 # you wish to manually control these options.
 TestCppPropsRange_SOURCES = main.cpp port_impl.cpp TestCppPropsRange_base.cpp TestCppPropsRange.cpp port_impl.h struct_props.h TestCppPropsRange_base.h TestCppPropsRange.h
 TestCppPropsRange_CXXFLAGS = -Wall $(OMNIORB_CFLAGS) $(OMNITHREAD_CFLAGS) $(OMNIDYNAMIC_CFLAGS) $(BOOST_CPPFLAGS)
-TestCppPropsRange_LDADD = $(BOOST_LDFLAGS) $(BOOST_THREAD_LIB) $(BOOST_REGEX_LIB) $(OMNIDYNAMIC_LIBS) $(BOOST_DATE_TIME_LIB) ../../../../../../base/framework/libossiecf.la ../../../../../../base/parser/libossieparser.la ../../../../../../base/framework/idl/libossieidl.la
+TestCppPropsRange_LDADD = $(BOOST_LDFLAGS) $(BOOST_THREAD_LIB) $(BOOST_SYSTEM_LIB) $(OMNIDYNAMIC_LIBS) $(BOOST_DATE_TIME_LIB) ../../../../../../base/framework/libossiecf.la ../../../../../../base/parser/libossieparser.la ../../../../../../base/framework/idl/libossieidl.la
 TestCppPropsRange_LDFLAGS = -Wall

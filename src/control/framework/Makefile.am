@@ -34,7 +34,7 @@ libossiedomain_la_LDFLAGS = -Wall
 
 bin_PROGRAMS = nodeBooter
 nodeBooter_SOURCES = nodebooter.cpp
-nodeBooter_CXXFLAGS = $(BOOST_CPPFLAGS)
+nodeBooter_CXXFLAGS = $(BOOST_CPPFLAGS) 
 nodeBooter_LDADD = $(BOOST_LDFLAGS) $(BOOST_FILESYSTEM_LIB) $(BOOST_SYSTEM_LIB) ../parser/libossieparser.la ./libossiedomain.la $(top_builddir)/base/framework/libossiecf.la $(top_builddir)/base/framework/idl/libossieidl.la
 nodeBooter_LDFLAGS = -static
 bin_SCRIPTS = nodeCleanup.py

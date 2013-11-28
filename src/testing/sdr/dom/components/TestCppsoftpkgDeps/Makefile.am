@@ -25,4 +25,4 @@ noinst_PROGRAMS = TestCppsoftpkgDeps
 
 TestCppsoftpkgDeps_SOURCES = TestCppsoftpkgDeps.cpp main.cpp
 TestCppsoftpkgDeps_CXXFLAGS = $(BOOST_CPPFLAGS)
-TestCppsoftpkgDeps_LDADD = $(BOOST_REGEX_LIB) $(CFDIR)/framework/libossiecf.la $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/idl/libossieidl.la ../linkedLibraryTest/.libs/liblinkedLibraryTest.so
+TestCppsoftpkgDeps_LDADD = $(BOOST_SYSTEM_LIB) $(CFDIR)/framework/libossiecf.la $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/idl/libossieidl.la ../linkedLibraryTest/.libs/liblinkedLibraryTest.so

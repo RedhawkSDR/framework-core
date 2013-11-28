@@ -26,4 +26,4 @@ noinst_PROGRAMS = MessageSenderCpp
 
 MessageSenderCpp_SOURCES = MessageSenderCpp.cpp main.cpp
 MessageSenderCpp_CXXFLAGS = $(BOOST_CPPFLAGS)
-MessageSenderCpp_LDADD = $(BOOST_REGEX_LIB) $(CFDIR)/framework/libossiecf.la $(OMNICOS_LIBS) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/idl/libossieidl.la
+MessageSenderCpp_LDADD = $(BOOST_SYSTEM_LIB) $(CFDIR)/framework/libossiecf.la $(OMNICOS_LIBS) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/idl/libossieidl.la

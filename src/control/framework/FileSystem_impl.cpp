@@ -174,17 +174,23 @@ void FileSystem_impl::remove (const char* fileName) throw (CF::FileException, CF
     } else if (!fsops.exists(fname)) {
         throw CF::FileException(CF::CF_EEXIST, "File does not exist");
     }
-    
+#if BOOST_FILESYSTEM_VERSION < 3    
     std::string searchPattern = fname.filename();
-    
+#else
+    std::string searchPattern = fname.filename().string();
+#endif     
     LOG_TRACE(FileSystem_impl, "Remove using search pattern " << searchPattern << " in " << dirPath);
     
     const fs::directory_iterator end_itr; // an end iterator (by boost definition)
     for (fs::directory_iterator itr = fsops.begin(dirPath); itr != end_itr; fsops.increment(itr)) {
+#if BOOST_FILESYSTEM_VERSION < 3    
         const std::string& filename = itr->filename();
+#else
+        const std::string& filename = itr->path().filename().string();
+#endif     
         if (fnmatch(searchPattern.c_str(), filename.c_str(), 0) == 0) {
-            LOG_TRACE(FileSystem_impl, "Removing file " << itr->path().string());
-            if (!fsops.remove(itr->path())) {
+            LOG_TRACE(FileSystem_impl, "Removing file " << itr->path().string());  
+	    if (!fsops.remove(itr->path())) {
                 throw CF::FileException(CF::CF_EEXIST, "File does not exist");
             }
         }
@@ -311,20 +317,31 @@ CF::FileSystem::FileInformationSequence* FileSystem_impl::list (const char* patt
     }
 
     std::string searchPattern;
+#if BOOST_FILESYSTEM_VERSION < 3    
     if ((filePath.filename() == ".") && (fsops.is_directory(filePath))) {
         searchPattern = "*";
     } else {
         searchPattern = filePath.filename();
     }
-
+#else
+    if ((filePath.filename().string() == ".") && (fsops.is_directory(filePath))) {
+        searchPattern = "*";
+    } else {
+        searchPattern = filePath.filename().string();
+    }
+#endif
     LOG_TRACE(FileSystem_impl, "List using search pattern " << searchPattern << " in " << dirPath);
 
     CF::FileSystem::FileInformationSequence_var result = new CF::FileSystem::FileInformationSequence;
 
     const fs::directory_iterator end_itr; // an end iterator (by boost definition)
     for (fs::directory_iterator itr = fsops.begin(dirPath); itr != end_itr; fsops.increment(itr)) {
+#if BOOST_FILESYSTEM_VERSION < 3    
         const std::string& filename = itr->filename();
-        if (fnmatch(searchPattern.c_str(), filename.c_str(), 0) == 0) {
+#else
+        const std::string& filename = itr->path().filename().string();
+#endif     
+	 if (fnmatch(searchPattern.c_str(), filename.c_str(), 0) == 0) {
             if ((filename.length() > 0) && (filename[0] == '.') && (filename != searchPattern)) {
                 LOG_TRACE(FileSystem_impl, "Ignoring hidden match " << filename);
                 continue;
@@ -366,7 +383,12 @@ CF::FileSystem::FileInformationSequence* FileSystem_impl::list (const char* patt
             prop[3].id = CORBA::string_dup("READ_ONLY");
             prop[3].value <<= CORBA::Any::from_boolean(readonly);
             prop[4].id = CORBA::string_dup("IOR_AVAILABLE");
-            std::string localFilename = itr->string();
+#if BOOST_FILESYSTEM_VERSION < 3            
+	    std::string localFilename = itr->string();
+#else
+	    std::string localFilename = itr->path().string();
+
+#endif
             prop[4].value = ossie::strings_to_any(getFileIOR(localFilename), CORBA::tk_string);
             result[index].fileProperties = prop;
         }
