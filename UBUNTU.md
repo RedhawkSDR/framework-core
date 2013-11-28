@@ -4,18 +4,49 @@
 ## Configuring your system to support building components/devices
 
 If you plan on doing building REDHAWK components or devices, you will want to
-prepare your system with the proper build tools and libraries:
+prepare your system with the proper build tools and libraries: 
 
-    sudo apt-get install build-essential \
-                         libboost-dev \
-                         libboost-system-dev \
-                         libboost-filesystem-dev \
-                         libboost-regex-dev \
-                         libboost-thread-dev \
-                         libcos4-dev \
-                         libomnievents-dev \
-                         libomniorb4-dev \
-                         liblog4cxx10-dev
+##NOTE: If running ubuntu 13.10 the default boost installed will be 1.53 (boost filesystem v3). 
+##      The default installation location for boost is not in the default PATH. 
+##      When running configure you will need to specify the new boost install location.
+##      To install boost 1.49( boost filesystem v2) specify libboost1.49 instead of libboost
+
+    sudo apt-get install -y build-essential \
+                            openmpi-bin \
+                            libopenmpi-dev \
+                            python2.7 \
+                            python2.7-dev \
+                            uuid \
+                            uuid-dev \
+                            openjdk-7-jdk \
+                            libtool \
+                            autotools-dev \
+                            autoconf \
+                            automake \
+                            python-omniorb \
+                            omnievents \
+                            omniidl \
+                            omniidl-python \
+                            omniorb \
+                            omniorb-idl \
+                            omniorb-nameserver \
+                            libcos4-dev \
+                            libomnievents-dev \
+                            libomniorb4-dev \
+                            python-numpy \
+                            python-omniorb \
+                            liblog4cxx10-dev \
+                            xsdcxx \
+                            libboost-dev \
+                            libboost-system-dev \
+                            libboost-filesystem-dev \
+                            libboost-regex-dev \
+                            libboost-thread-dev \
+                            vim
+
+To create a writable location for the compiled REDHAWK source, enter the following commands.	
+    mkdir -p  /var/lib/redhawk/core
+    mkdir -p  /var/lib/redhawk/sdr
 
 Per REDHAWK conventions certian environment variables need to be defined.  When
 you install REDHAWK it creates scripts that will set these up for you, but by default
@@ -28,14 +59,20 @@ To have gnome-terminal start bash as a login shell do the following:
 3. enable "Run Command as a login shell".
 4. restart the gnome-terminal.
 
-## Building from source
+##Check out the Source Code from github.com
+   mkdir git
+   cd git
+   git clone https://github.com/RedhawkSDR/framework-core
+   cd framework-core/src
+
+## Building the core framework from source
 ## --with-ossie becomes the path for OSSIEHOME
 ## --with-sdr becomes the path for SDRROOT
 ## --sysconfdir established the location for /etc/profile.d and ld.so
-
+## if you installed libboost1.1.49 not libboost remove the --with-boost-libdir=/usr/lib/x86_64-linux-gnu  
     cd src                     
     ./reconf
-    ./configure --with-ossie=/usr/local/redhawk/core --with-sdr=/var/redhawk/sdr --sysconfdir=/etc
+    ./configure --with-boost-libdir=/usr/lib/x86_64-linux-gnu --with-ossie=/usr/local/redhawk/core --with-sdr=/var/redhawk/sdr --sysconfdir=/etc
     make
 
 Installation can be performed by running:
@@ -46,18 +83,38 @@ However, you may prefer to use the checkinstall tool so that you can easily unin
 
     sudo checkinstall --provides=redhawk --pkgversion=1.9.0 --pkgname=redhawk make install
 
+   cd ../..
+
+#Build the GPP 
+   git clone https://github.com/RedhawkSDR/framework-GPP.git
+   cd framework-gpp/python
+   ./reconf;./configure;make;make install
+   sudo checkinstall --provides=redhawk-gpp --pkgversion=1.9.0 --pkgname=redhawk-gpp make install
+   cd ../..
+
+#Build the bulkioInterfaces 
+   git clone https://github.com/RedhawkSDR/framework-bulkioInterfaces.git
+   cd framework-bulkioInterfaces
+   ./reconf;./configure;make;make install
+   sudo checkinstall --provides=redhawk-bulkioInterfaces --pkgversion=1.9.0 --pkgname=redhawk-bulkioInterfaces make install
+   cd ../../
+
+#Build the code generators  
+   git clone https://github.com/RedhawkSDR/framework-codegen.git
+   cd framework-codegen
+   python setup.py install
+   sudo checkinstall --provides=redhawk-codegen --pkgversion=1.9.0 --pkgname=redhawk-codegen make install
+   cd ..
+
 Before running REDHAWK you will need to set the OSSIEHOME and SDRROOT environment
-variables.  This can be done in your ~/.bashrc.
-
-    export OSSIEHOME=/usr/local/redhawk/core
-    export SDRROOT=/var/redhawk/sdr
-    export PYTHONPATH=${OSSIEHOME}/lib/python
-    sudo checkinstall --provides=redhawk-bulkio --pkgversion=1.9.0 --pkgname=redhawk-bulkio make install
-
-The GPP project works as-is (if you use ./reconf; ./configure; make), installing it is simple:
-
-    sudo checkinstall --provides=redhawk-gpp --pkgversion=1.9.0 --pkgname=redhawk-gpp make install
-
+Add the following to .bashrc to set OSSIEHOME, SDRROOT, PYTHONPATH, JAVA_HOME, and PATH.
+    echo "export OSSIEHOME=/var/lib/redhawk/core" >> ~/.bashrc
+    echo "export SDRROOT=/var/lib/redhawk/sdr" >> ~/.bashrc
+    echo "export PYTHONPATH=\${OSSIEHOME}/lib/python" >> ~/.bashrc
+    echo "export JAVA_HOME=/usr/bin/java" >> ~/.bashrc
+    echo "export PATH=\${OSSIEHOME}/bin:\{$JAVA_HOME}/bin:\$PATH" >> ~/.bashrc
+    source ~/.bashrc    
+    
 ## Configuring a domain
 
 Requires a manually configured domain.
@@ -84,21 +141,18 @@ REDHAWK framework.
 The REDHAWK runtime and build process expect the JAVA_HOME environment variable
 to be set.  Set this to a JDK installed in /usr/lib/jvm. For example:
 
-    export JAVA_HOME /usr/lib/jvm/java-6-openjdk-amd64
+    export JAVA_HOME /usr/lib/jvm/java-7-openjdk-amd64
 
 ## Known Issues
 
-1. The omnievent server has a bug in it that causes it to crash while running the
-associated unittests (i.e. test_08_*).
-
-2. Ubuntu uses 'dash' for /bin/sh while many of the REDHAWK build scripts expect /bin/sh to
+1. Ubuntu uses 'dash' for /bin/sh while many of the REDHAWK build scripts expect /bin/sh to
 be 'bash'.  You have two choices:
 
    sudo dpkg-reconfigure dash # Answer no
 
 This will make bash your /bin/sh shell; this may make your system boot ever so slightly slower.
 
-3. Ubuntu places the omniidl library outside of the Python Path.  When using the IDE code
+2. Ubuntu places the omniidl library outside of the Python Path.  When using the IDE code
 generators this must be importable.  You have a a few choices to fix this issue:
 
 Alternativly, you can symlink omniidl into the dist-packages folder:
