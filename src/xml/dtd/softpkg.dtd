@@ -30,7 +30,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 <!ATTLIST softpkg
 	id		ID	#REQUIRED
 	name		CDATA	#REQUIRED
-	type		(sca_compliant | sca_non_compliant)  "sca_compliant"
+	type		CDATA   #IMPLIED
 	version	CDATA	#IMPLIED >
 
 <!ELEMENT localfile EMPTY>

@@ -73,6 +73,10 @@ prefixes = [
     ('CORBA', 'org.omg'),
 ]
 
+def nonnull_set (iterable):
+    # Returns the set of non-null items in iterable
+    return set(i for i in iterable if i is not None)
+
 def qualifiedJavaName (name, separator='.'):
     if not isinstance(name, str):
         name = separator.join(name)
@@ -113,6 +117,18 @@ def classDescriptor (itype, isOut=False):
     if isOut:
         desc += 'Holder'
     return qualifiedJavaName(desc, '/')
+
+def dependencyClass (itype, isOut=False):
+    if isinstance(itype, idlast.Typedef):
+        itype = itype.aliasType()
+    if isPrimitiveType(itype) or isString(itype):
+        return None
+    elif isSequence(itype) and not isOut:
+        return dependencyClass(itype.unalias().seqType())
+    name = helperName(itype)
+    if isOut:
+        name += 'Holder'
+    return name
 
 def methodDescriptor (retType, argList):
     desc = '('
@@ -212,6 +228,10 @@ def mangleUnderscores (name):
 def jniFunctionName (name):
     return 'Java_' + '_'.join(map(mangleUnderscores, name.split('.')))
 
+def jniScopedName (name):
+    scopedName = name.scopedName()
+    return scopedName[:-1] + ['jni'] + scopedName[-1:]
+
 def helperName (itype):
     if isAny(itype):
         scopedName = ['CORBA', 'Any']
@@ -280,13 +300,20 @@ class HelperBase(object):
 
         # Class object
         body = clazz.Function('static jclass getJClass (JNIEnv* env)')
-        body.append('OnLoad(env);')
         body.append('return cls_;')
         clazz.append()
 
         self.generateMethodDecls(clazz, node)
 
         # Load/Unload
+        # The Load method is intended to be the "public" interface, as it
+        # serializes access to the omnijni classloader. OnLoad needs to be
+        # public so that other JNI helpers can call it, but it should only be
+        # called with the classloader mutex held.
+        load = clazz.Function('static void Load (JNIEnv* env)')
+        load.append('omni_mutex_lock lock_(omnijni::sharedMutex());')
+        load.append('OnLoad(env);')
+        clazz.append()
         clazz.append('static void OnLoad (JNIEnv* env);')
         clazz.append('static void OnUnload (JNIEnv* env);')
         clazz.append()
@@ -317,6 +344,10 @@ class HelperBase(object):
         body.append('if (cls_) return;')
         body.append()
 
+        # Ensure all dependencies are loaded
+        for dep in sorted(self.dependencies(node)):
+            body.append('%s::OnLoad(env);', dep)
+
         # Get class object
         javaName = self.javaClass(node)
         body.append('cls_ = omnijni::loadClass(env, "%s");', javaName)
@@ -332,13 +363,11 @@ class HelperBase(object):
         if isinstance(self, PeerHelper):
             # Conversion from Java object
             body = code.Function('void %s::fromJObject (%s& out, JNIEnv* env, jobject obj)', qualName, self.outType(node))
-            body.append('OnLoad(env);')
             self.generateFromJObject(body, node)
             code.append()
 
             # Conversion to Java object
             body = code.Function('jobject %s::toJObject (%s in, JNIEnv* env)', qualName, self.inType(node))
-            body.append('OnLoad(env);')
             self.generateToJObject(body, node)
             code.append()
 
@@ -346,6 +375,9 @@ class HelperBase(object):
         self.generateMethodImpls(code, node)
 
         return code
+
+    def dependencies (self, node):
+        return []
 
     def generateChildDecls (self, body, node):
         pass
@@ -426,6 +458,9 @@ class EnumHelper(PeerHelper):
 
 class HolderHelper(PeerHelper):
 
+    def dependencies (self, node):
+        return nonnull_set([dependencyClass(node)])
+
     def name (self, node):
         return HelperBase.name(self, node) + 'Holder'
 
@@ -472,7 +507,6 @@ class HolderHelper(PeerHelper):
     def generateMethodImpls (self, body, node):
         qualName = self.qualifiedName(node)
         code = body.Function('void %s::setValue (JNIEnv* env, jobject holder, %s value)', qualName, self.inType(node))
-        code.append('OnLoad(env);')
         if isPrimitiveType(node):
             jtype = jniType(node)
             mtype = jtype[1].upper() + jtype[2:]
@@ -501,11 +535,17 @@ class HolderHelper(PeerHelper):
 
 class StructHelper (PeerHelper):
 
+    def dependencies (self, node):
+        return nonnull_set(dependencyClass(m.memberType()) for m in node.members())
+
     def byValue (self, node):
         return False
 
     def generateToJObject(self, body, node):
         ctorArgs = ['cls_', 'ctor_']
+        pre = body.Code()
+        body.append()
+        post = body.Code()
         for index, m in enumerate(node.members()):
             idlType = m.memberType()
             decl = m.declarators()[0]
@@ -518,16 +558,20 @@ class StructHelper (PeerHelper):
                 continue
             argName = 'arg%d__' % (index,)
             if isString(idlType):
-                body.append('jstring %s = env->NewStringUTF(in.%s);', argName, fieldName)
+                pre.append('jstring %s = env->NewStringUTF(in.%s);', argName, fieldName)
             elif isSequence(idlType):
-                body.append('jobject %s = omnijni::toJObject(in.%s, env);', argName, fieldName)
+                pre.append('jobject %s = omnijni::toJObject(in.%s, env);', argName, fieldName)
             else:
                 qualName = helperName(idlType)
-                body.append('jobject %s = %s::toJObject(in.%s, env);', argName, qualName, fieldName);
+                pre.append('jobject %s = %s::toJObject(in.%s, env);', argName, qualName, fieldName);
             ctorArgs.append(argName)
+            post.append('env->DeleteLocalRef(%s);', argName)
 
-        # Finish constructor call
-        body.append('return env->NewObject(%s);', ', '.join(ctorArgs))
+        # Call constructor at end of preamble
+        pre.append('jobject retval__ = env->NewObject(%s);', ', '.join(ctorArgs))
+
+        # Add return statement to the end of the postamble
+        post.append('return retval__;')
 
     def generateFromJObject(self, body, node):
         for index, m in enumerate(node.members()):
@@ -576,7 +620,6 @@ class ExceptionHelper(StructHelper):
     def generateMethodImpls (self, body, node):
         StructHelper.generateMethodImpls(self, body, node)
         code = body.Function('void %s::throwIf (JNIEnv* env, jobject obj)', self.qualifiedName(node))
-        code.append('OnLoad(env);')
         inner = code.If('env->IsInstanceOf(obj, cls_)')
         inner.append('%s exc;', self.typeName(node))
         inner.append('fromJObject(exc, env, obj);')
@@ -586,6 +629,18 @@ class ExceptionHelper(StructHelper):
 
 
 class POAHelper (HelperBase):
+
+    def dependencies (self, node):
+        deps = set()
+        for method in self.__methods:
+            deps.update(self.methodDeps(method))
+        return deps
+
+    def methodDeps (self, method):
+        deps = [dependencyClass(method.returnType())]
+        deps.extend(dependencyClass(p.paramType(), p.is_out()) for p in method.parameters())
+        deps.extend(dependencyClass(e) for e in method.exceptions())
+        return nonnull_set(deps)
 
     def name (self, node):
         return HelperBase.name(self, node) + 'POA'
@@ -623,12 +678,18 @@ class POAHelper (HelperBase):
             name = qualName+'::'+method.name()
             self._generateWrapper(body, index, name, method)
 
-        javaName = qualName.replace('::', '.')
+        # Get the Java peer class with the correct JNI package path
+        javaName = qualifiedJavaName(jniScopedName(node)) + 'POA'
 
         # JNI ctor
         newServant = jniFunctionName(javaName + '.new_servant')
         code = body.Function('extern "C" JNIEXPORT jlong JNICALL %s (JNIEnv* env, jclass)', newServant)
-        code.append('%s::OnLoad(env);', qualName)
+        # Load all JNI helpers required for this POA. Because methods invoked
+        # via CORBA run on non-Java threads, we need to load any class that
+        # might be used before any CORBA calls can be received; this function
+        # is always invoked from a Java context, which should ensure that all
+        # loads are successful.
+        code.append('%s::Load(env);', qualName)
         code.append('%s* servant = new %s();', qualName, qualName)
         code.append('CORBA::release(servant->_this());')
         code.append('servant->_remove_ref();')
@@ -639,6 +700,7 @@ class POAHelper (HelperBase):
         delServant = jniFunctionName(javaName + '.del_servant')
         code = body.Function('extern "C" JNIEXPORT void JNICALL %s (JNIEnv* env, jclass, jlong jservant)', delServant)
         code.append('%s* servant = reinterpret_cast<%s*>(jservant);', qualName, qualName)
+        code.append('servant->_set_delegate(env, NULL);')
         code.append('PortableServer::POA_var poa = servant->_default_POA();')
         code.append('PortableServer::ObjectId_var oid = poa->servant_to_id(servant);')
         code.append('poa->deactivate_object(oid);')
@@ -793,9 +855,20 @@ class POAHelper (HelperBase):
 
 class StubHelper (PeerHelper):
 
+    def dependencies (self, node):
+        deps = set()
+        for method in MethodVisitor().getMethods(node):
+            deps.update(self.methodDeps(method))
+        return deps
+
+    def methodDeps (self, method):
+        deps = [dependencyClass(method.returnType())]
+        deps.extend(dependencyClass(p.paramType(), p.is_out()) for p in method.parameters())
+        deps.extend(dependencyClass(e) for e in method.exceptions())
+        return nonnull_set(deps)
+
     def javaClass (self, node):
-        name = node.scopedName()[:-1]
-        name.insert(1, 'jni')
+        name = jniScopedName(node)[:-1]
         name.append('_' + node.identifier() + 'Stub')
         return qualifiedJavaName(name)
 
@@ -839,7 +912,10 @@ class StubHelper (PeerHelper):
         stubClass = self.javaClass(node)
         ptrType = self.inType(node)
         jniName = jniFunctionName(stubClass + '._narrow_object_ref')
-        code = body.Function('extern "C" JNIEXPORT jlong JNICALL %s (JNIEnv *, jobject, jlong ref)', jniName)
+        code = body.Function('extern "C" JNIEXPORT jlong JNICALL %s (JNIEnv* env, jobject, jlong ref)', jniName)
+        # Load all JNI helpers required for this stub; this function must be
+        # called before making any native CORBA calls.
+        code.append('%s::Load(env);', self.qualifiedName(node))
         code.append('CORBA::Object_ptr obj = reinterpret_cast<CORBA::Object_ptr>(ref);')
         code.append('%s ptr = %s::_narrow(obj);', ptrType, self.typeName(node))
         code.append('return reinterpret_cast<jlong>(ptr);')
@@ -895,8 +971,7 @@ class StubHelper (PeerHelper):
                 if param.is_out():
                     post.append('// TODO: StringHolder')
                 else:
-                    pre.append('const char *%s = env__->GetStringUTFChars(%s, NULL);', localname, argname)
-                    post.append('env__->ReleaseStringUTFChars(%s, %s);', argname, localname)
+                    pre.append('omnijni::StringWrapper %s(%s, env__);', localname, argname)
             elif isSequence(paramType):
                 seqType = paramType.unalias().seqType()
 
@@ -904,15 +979,12 @@ class StubHelper (PeerHelper):
                 # skip conversion and borrow the underlying buffer.
                 borrowBuffer = isPrimitiveType(seqType) and seqType.unalias().kind() != idltype.tk_char
                 if borrowBuffer and not param.is_out():
-                    localSize = 'sz_' + localname
-                    localElem = 'el_' + localname
+                    wrapper = 'wrap%d__' % (index,)
                     primType = jniType(seqType)
-                    elemType = primType[1].upper() + primType[2:]
-                    pre.append('jint %s = env__->GetArrayLength(%s);', localSize, argname)
-                    pre.append('%s *%s = env__->Get%sArrayElements(%s, NULL);', primType, localElem, elemType, argname)
+                    elemType = primType[1:].title()
+                    pre.append('omnijni::%sArrayWrapper %s(%s, env__);', elemType, wrapper, argname)
                     cppType = '::'.join(paramType.scopedName())
-                    pre.append('%s %s(%s, %s, (%s*)%s, 0);', cppType, localname, localSize, localSize, typeString(seqType), localElem)
-                    post.append('env__->Release%sArrayElements(%s, %s, JNI_ABORT);', elemType, argname, localElem)
+                    pre.append('%s %s(%s.size(), %s.size(), (%s*)%s.data(), 0);', cppType, localname, wrapper, wrapper, typeString(seqType), wrapper)
                 else:
                     cppType = '::'.join(paramType.scopedName())
                     if param.is_in():
@@ -976,13 +1048,26 @@ class StubHelper (PeerHelper):
 
         tryscope = body.Try()
         tryscope.append(objcall)
+
+        # Determine default value for return on exception; this avoids warnings
+        # about uninitialized variables, but depends on automatic cleanup from
+        # the scope-based wrappers (e.g., StringWrapper).
+        if rtype == 'void':
+            errRet = 'return;'
+        elif isPrimitiveType(retType):
+            errRet = 'return 0;'
+        else:
+            errRet = 'return NULL;'
+
         for excType in method.exceptions():
             excName = '::'.join(excType.scopedName())
             clause = tryscope.Catch('const '+excName+'& ex')
             clause.append('jthrowable jexc = (jthrowable)%s::toJObject(ex, env__);', helperName(excType))
             clause.append('env__->Throw(jexc);')
+            clause.append(errRet)
         clause = tryscope.Catch('const CORBA::SystemException& ex')
         clause.append('CORBA::jni::SystemException::throwJava(ex, env__);')
+        clause.append(errRet)
 
         if rtype != 'void':
             retType = retType.unalias()

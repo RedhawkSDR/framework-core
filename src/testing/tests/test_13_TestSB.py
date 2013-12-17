@@ -21,8 +21,10 @@
 import unittest
 import scatest
 from ossie.cf import CF
+from ossie.cf import StandardEvent
 from omniORB import CORBA, any
 import os
+import Queue
 from ossie.utils import sb
 from ossie.utils import type_helpers
 globalsdrRoot = os.environ['SDRROOT']
@@ -70,9 +72,20 @@ class SBTestTest(scatest.CorbaTestCase):
         
         # Restore sdrroot
         os.environ['SDRROOT'] = sdrRoot
+
+    def test_softpkgDepSingle(self):
+        c = sb.launch('ticket_490_single')
+        self.assertNotEquals(c, None)
+
+    def test_softpkgDepNone(self):
+        c = sb.launch('ticket_490_none')
+        self.assertNotEquals(c, None)
         
-    
-    def test_setSDRROOT(self):        
+    def test_softpkgDepDouble(self):
+        c = sb.launch('ticket_490_double')
+        self.assertNotEquals(c, None)
+
+    def test_setSDRROOT(self):
         # None type
         self.assertRaises(TypeError, sb.setSDRROOT, None)
         
@@ -703,6 +716,100 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEqual(d["PARAM4"], False)
         self.assertEqual(d["PARAM5"], "Hello World")
         self.assertEqual(d.has_key("PARAM6"), False)
+
+
+    def test_IDMChannel(self):
+        device_spd = sb.getSDRROOT() + '/dev/devices/BasicTestDevice/BasicTestDevice.spd.xml'
+        device = sb.launch(device_spd)
+
+        channel = sb.getEventChannel('IDM_Channel')
+
+        # Push all events onto a queue
+        event_queue = Queue.Queue()
+        channel.eventReceived.addListener(event_queue.put)
+
+        # Lock and unlock the device; this should create an event
+        device._set_adminState(CF.Device.LOCKED)
+
+        # Wait up to a second, just in case
+        try:
+            event = event_queue.get(True, 1.0)
+        except Queue.Empty:
+            self.fail('Device admin state change message was never received')
+
+        # Unpack the event and check that it matches our expectations
+        event = event.value()
+        self.assertEqual(event.producerId, device._refid)
+        self.assertEqual(event.sourceId, device._refid)
+        self.assertEqual(event.stateChangeCategory, StandardEvent.ADMINISTRATIVE_STATE_EVENT)
+        self.assertEqual(event.stateChangeFrom, StandardEvent.UNLOCKED)
+        self.assertEqual(event.stateChangeTo, StandardEvent.LOCKED)
+
+    def test_EventChannels(self):
+        channel_name = 'properties'
+
+        # Check that getEventChannel raises an exception when the channel
+        # doesn't exist (and it shouldn't yet)
+        self.assertRaises(NameError, sb.getEventChannel, channel_name)
+
+        # Create the event channel and ensure that a duplicate create call
+        # raises an exception if exclusive is True
+        channel = sb.createEventChannel(channel_name)
+        self.assertRaises(NameError, sb.createEventChannel, channel_name, True)
+
+        # Make sure getEventChannel works now
+        self.assertEqual(channel, sb.getEventChannel(channel_name))
+
+        # Push all events onto a queue
+        event_queue = Queue.Queue()
+        channel.eventReceived.addListener(event_queue.put)
+
+        # Connect a component that emits events to the channel
+        comp = sb.launch('PropertyChangeEvents')
+        comp.connect(channel)
+        self.assertEqual(channel.supplier_count, 1)
+
+        # Trigger a property event and wait up to a second for it to be
+        # received
+        comp.myprop = 2
+        try:
+            event = event_queue.get(True, 1.0)
+        except Queue.Empty:
+            self.fail('Property change event not received')
+
+        # Check that the event matches our expectations
+        event = event.value()
+        self.assertEqual(event.sourceId, comp._refid)
+        self.assertEqual(event.sourceName, comp._instanceName)
+        self.assertEqual(len(event.properties), 1)
+        prop = event.properties[0]
+        self.assertEqual(prop.id, 'myprop')
+        self.assertEqual(any.from_any(prop.value), 2)
+
+        # Disconnect the event channel
+        comp.disconnect(channel)
+        self.assertEqual(channel.supplier_count, 0)
+
+        # Clean up the channel
+        channel.destroy()
+
+        # Should no longer be able to use the channel--even a simple attribute
+        # reference throws an exception
+        self.assertRaises(ReferenceError, getattr, channel, 'destroy')
+
+        # Check that the channel is really gone from the sandbox
+        self.assertRaises(NameError, sb.getEventChannel, channel_name)
+
+    def test_LaunchTimeout(self):
+        """
+        Test that the launch timeout can be adjusted to accomodate components
+        or devices that take longer than 10 seconds to register with the
+        sandbox.
+        """
+        try:
+            comp = sb.launch('SlowComponent', execparams={'CREATE_DELAY': 15}, timeout=20)
+        except RuntimeError:
+            self.fail('Launch timeout was not honored')
 
 
         #TODO if BULKIO ever gets folded into core framework these tests can be used

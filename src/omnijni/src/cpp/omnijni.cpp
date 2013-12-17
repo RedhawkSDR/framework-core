@@ -22,6 +22,12 @@
 
 #include <omnijni/orb.h>
 
+namespace {
+    // Internal pointer to shared mutex; using a pointer gives predictable
+    // instantiation by deferring creation to JNI_OnLoad.
+    static omni_mutex* sharedMutex_ = 0;
+}
+
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad (JavaVM* jvm, void* reserved)
 {
     // Map to the JVM enviroment.
@@ -33,5 +39,16 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad (JavaVM* jvm, void* reserved)
     // Must initialize the CORBA ORB before anything else happens.
     omnijni::ORB::Init(env);
 
+    // Create the shared mutex at JNI initialization time (rather than whenever
+    // static initializers are called)
+    sharedMutex_ = new omni_mutex();
+
     return JNI_VERSION_1_2;
+}
+
+namespace omnijni {
+    omni_mutex& sharedMutex ()
+    {
+        return *sharedMutex_;
+    }
 }

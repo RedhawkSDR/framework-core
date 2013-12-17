@@ -39,10 +39,13 @@ def prependPythonPath(thepath):
     else:
         os.environ['PYTHONPATH'] = "%s" % (theabspath) 
 
+def appendPath(varname, path):
+    varpath = os.environ.get(varname, '').split(':')
+    varpath.append(os.path.abspath(path))
+    os.environ[varname] = ':'.join(varpath)
+
 def appendClassPath(path):
-    classpath = os.environ.get('CLASSPATH', '').split(':')
-    classpath.append(os.path.abspath(path))
-    os.environ['CLASSPATH'] = ':'.join(classpath)
+    appendPath('CLASSPATH', path)
 
 if sys.hexversion < 0x020400F0:
     # Python 2.3 requires us to import the backports module
@@ -64,10 +67,14 @@ appendClassPath('../base/framework/java/apache-commons-lang-2.4.jar')
 appendClassPath('../base/framework/java/log4j-1.2.15.jar')
 appendClassPath('../base/framework/java/ossie/ossie.jar')
 
+# Add path to libomnijni.so to LD_LIBRARY_PATH for Java components
+appendPath('LD_LIBRARY_PATH', '../omnijni/src/cpp/.libs')
+
 # Set the model IDL paths to point to the (uninstalled) REDHAWK IDLs.
 from ossie.utils import model
-model._std_idl_path = '../idl/'
-model._std_idl_include_path = '../idl'
+from ossie.utils.idllib import IDLLibrary
+model._idllib = IDLLibrary()
+model._idllib.addSearchPath('../idl')
 
 def loadModule(filename):
     if filename == '':

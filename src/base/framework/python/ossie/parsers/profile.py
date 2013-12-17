@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*- 
 
 #
-# Generated Fri Jun 21 14:33:58 2013 by generateDS.py version 2.7c.
+# Generated Thu Sep 12 14:49:30 2013 by generateDS.py version 2.7c.
 #
 
 import sys
@@ -388,8 +388,10 @@ class profile(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def get_filename(self): return self.filename
     def set_filename(self, filename): self.filename = filename
+    filenameProp = property(get_filename, set_filename)
     def export(self, outfile, level, namespace_='', name_='profile', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'

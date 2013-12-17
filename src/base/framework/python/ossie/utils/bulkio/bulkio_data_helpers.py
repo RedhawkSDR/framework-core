@@ -25,11 +25,15 @@ import array
 import threading
 import bulkio_helpers
 import time
+import logging
 from new import classobj
 try:
     from bulkio.bulkioInterfaces import BULKIO, BULKIO__POA
 except:
     pass
+
+logging.basicConfig()
+log = logging.getLogger(__name__)
 
 class ArraySource(object):
     """
@@ -80,7 +84,7 @@ class ArraySource(object):
             except Exception, e:
                 msg = "The call to pushSRI failed with %s " % e
                 msg += "connection %s instance %s" % (connId, port)
-                print(msg)
+                log.warn(msg)
         finally:
             self.port_lock.release()
             self.refreshSRI = False
@@ -98,7 +102,7 @@ class ArraySource(object):
             except Exception, e:
                 msg = "The call to pushPacket failed with %s " % e
                 msg += "connection %s instance %s" % (connId, port)
-                print(msg)
+                log.warn(msg)
         finally:
             self.port_lock.release()
             
@@ -428,7 +432,7 @@ class ProbeSink(object):
         self.port_lock.acquire()
         try:
             if not self.valid_streams.has_key(stream_id):
-                print "the received packet has the invalid stream ID: "+stream_id+". Valid stream IDs are:"+str(self.valid_streams.keys())
+                log.warn("the received packet has the invalid stream ID: "+stream_id+". Valid stream IDs are:"+str(self.valid_streams.keys()))
             self.received_data[stream_id] = (self.received_data[stream_id][0] + len(data), self.received_data[stream_id][1] + 1)
             if EOS:
                 self.invalid_streams[H.streamID] = self.valid_streams[H.streamID]
@@ -525,7 +529,7 @@ class XmlArraySource(ArraySource):
             except Exception, e:
                 msg = "The call to pushPacket failed with %s " % e
                 msg += "connection %s instance %s" % (connId, port)
-                print(msg)
+                log.warn(msg)
         finally:
             self.port_lock.release()
 
@@ -658,7 +662,7 @@ class FileSource(object):
             except Exception, e:
                 msg = "The call to pushSRI failed with %s " % e
                 msg += "connection %s instance %s" % (connId, port)
-                print(msg)
+                log.warn(msg)
         finally:
             self.port_lock.release()
             self.refreshSRI = False
@@ -675,7 +679,7 @@ class FileSource(object):
             except Exception, e:
                 msg = "The call to pushPacket failed with %s " % e
                 msg += "connection %s instance %s" % (connId, port)
-                print(msg)
+                log.warn(msg)
         finally:
             self.port_lock.release()
 
@@ -737,7 +741,7 @@ class FileSource(object):
             self.EOS = False
 
         if self.file_d.closed:
-            print "FileSource:run() file data has been exhausted!"
+            log.info("file data has been exhausted!")
 
         currentSampleTime = self.sri.xstart 
         while not self.EOS and not run_complete:
@@ -796,7 +800,7 @@ class FileSink(object):
         """
         # If output file already exists, remove it
         if outputFilename != None and os.path.isfile(outputFilename):
-            print "FileSink:__init__() WARNING - overwriting output file " + str(outputFilename) + " since it already exists "
+            log.warn("overwriting output file " + str(outputFilename) + " since it already exists ")
             os.remove(outputFilename)
 
         # Make sure if path is provided, it is valid
@@ -805,7 +809,7 @@ class FileSink(object):
             (len(path) > 0 and os.path.isdir(path)):
             self.outFile = open(outputFilename, "wb")
         else:
-            print "FileSink:__init__() ERROR - invalid filename path"
+            log.error("invalid filename path")
             self.outFile = None
 
         self.port_type = porttype

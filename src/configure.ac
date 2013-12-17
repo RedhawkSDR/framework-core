@@ -19,7 +19,7 @@
 #
 
 dnl Update this version number immedately after a release
-AC_INIT([ossie],[1.9.0])
+AC_INIT([ossie],[1.10.0])
 #AM_INIT_AUTOMAKE(nostdinc)
 # allows filenames over 99 characters long during dist
 AM_INIT_AUTOMAKE([1.9 tar-pax])
@@ -283,6 +283,7 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dev/devices/issue_111_cpp/cpp/Makefile \
                 testing/sdr/dev/devices/issue_111_java/java/Makefile \
                 testing/sdr/dev/services/BasicService_java/java/Makefile \
+                testing/sdr/dom/components/CppCallbacks/cpp/Makefile \
                 testing/sdr/dom/components/TestCppProps/Makefile \
                 testing/sdr/dom/components/TestJavaProps/Makefile \
                 testing/sdr/dom/components/TestLegacyJavaProps/Makefile \

@@ -181,6 +181,7 @@ int main(int argc, char* argv[])
         } else if (scheme == "sca") {
             LoggingConfigurator::configure((char*)fs::path(domRootPath / path).string().c_str());
         }
+        // This log statement is exempt from the "NO LOG STATEMENTS" warning below
         LOG_INFO(DomainManager, "Loading log configuration from " << logfile_uri);
     }
 

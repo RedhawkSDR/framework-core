@@ -36,4 +36,9 @@ pkginclude_HEADERS = AggregateDevice_impl.h \
              PropertyInterface.h \
              ComplexProperties.h \
              Service_impl.h \
-             MessageInterface.h
+             MessageInterface.h \
+             type_traits.h \
+             AnyUtils.h \
+             exceptions.h
+
+nobase_pkginclude_HEADERS = internal/equals.h

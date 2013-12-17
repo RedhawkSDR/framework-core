@@ -112,6 +112,15 @@ namespace ossie {
         // Set up a handler for retrying calls to the provided object on a COMM_FAILURE exception.
         void setObjectCommFailureRetries (CORBA::Object_ptr obj, int numRetries);
 
+        // Append to a CORBA sequence
+        template <typename T>
+        inline void push_back (_CORBA_Sequence<T>& sequence, const T& element)
+        {
+            CORBA::ULong index = sequence.length();
+            sequence.length(index+1);
+            sequence[index] = element;
+        }
+
         // Mapping of C++ types to type codes.
         template <typename T>
         static CORBA::TypeCode_ptr TypeCode (void)
@@ -207,6 +216,76 @@ namespace ossie {
             void operator=(const POACreator&);
         }; // class POACreator
 
+        // Vector insertion/extraction operator helpers
+        template <class T, class SeqT>
+        inline bool vector_extract (const CORBA::Any& _a, std::vector<T>& _s)
+        {
+            SeqT* seq;
+            if (_a >>= seq) {
+                size_t length = seq->length();
+                if (length == 0) {
+                    _s.clear();
+                } else {
+                    T* begin = (T*)&(*seq)[0];
+                    _s.assign(begin, begin+length);
+                }
+                return true;
+            }
+            return false;
+        }
+
+        template <class T, class SeqT, class ElemT>
+        inline void vector_insert (CORBA::Any& _a, const std::vector<T>& _s)
+        {
+            SeqT seq(_s.size(), _s.size(), (ElemT*)&_s[0], 0);
+            _a <<= seq;
+        }
+
+        inline bool element_convert(bool in) {
+            return in;
+        }
+
+        inline char element_convert(CORBA::Char in) {
+            return in;
+        }
+
+        inline CORBA::Char element_convert(char in) {
+            return in;
+        }
+
+        inline std::string element_convert(_CORBA_String_element in) {
+            return static_cast<const char*>(in);
+        }
+        
+        inline const char* element_convert(const std::string& in) {
+            return in.c_str();
+        }
+        
+        template <class T, class SeqT>
+        inline bool vector_extract_convert (const CORBA::Any& _a, std::vector<T>& _s)
+        {
+            SeqT* seq;
+            if (_a >>= seq) {
+                _s.resize(seq->length());
+                for (size_t ii = 0; ii < _s.size(); ++ii) {
+                    _s[ii] = element_convert((*seq)[ii]);
+                }
+                return true;
+            }
+            return false;
+        }
+
+        template <class T, class SeqT>
+        inline void vector_insert_convert (CORBA::Any& _a, const std::vector<T>& _s)
+        {
+            SeqT seq;
+            seq.length(_s.size());
+            for (size_t ii = 0; ii < _s.size(); ++ii) {
+                seq[ii] = element_convert(_s[ii]);
+            }
+            _a <<= seq;
+        }
+
     }; // namespace corba
 
 }; // namespace ossie
@@ -241,5 +320,43 @@ inline void operator <<= (CORBA::Any& _a, const bool _b)
 {
     _a <<= CORBA::Any::from_boolean(_b);
 }
+
+// Vector insertion/exctraction operators
+#define ANY_VECTOR_OPERATORS(T,SEQ)                                 \
+inline bool operator >>= (const CORBA::Any& _a, std::vector<T>& _s) \
+{                                                                   \
+    return ossie::corba::vector_extract<T,SEQ>(_a, _s);             \
+}                                                                   \
+inline void operator <<= (CORBA::Any& _a, const std::vector<T>& _s) \
+{                                                                   \
+    ossie::corba::vector_insert<T,SEQ,T>(_a, _s);                   \
+}                                                                   \
+
+ANY_VECTOR_OPERATORS(CORBA::Octet, CORBA::OctetSeq);
+ANY_VECTOR_OPERATORS(CORBA::Short, CORBA::ShortSeq);
+ANY_VECTOR_OPERATORS(CORBA::UShort, CORBA::UShortSeq);
+ANY_VECTOR_OPERATORS(CORBA::Long, CORBA::LongSeq);
+ANY_VECTOR_OPERATORS(CORBA::ULong, CORBA::ULongSeq);
+ANY_VECTOR_OPERATORS(CORBA::LongLong, CORBA::LongLongSeq);
+ANY_VECTOR_OPERATORS(CORBA::ULongLong, CORBA::ULongLongSeq);
+ANY_VECTOR_OPERATORS(CORBA::Float, CORBA::FloatSeq);
+ANY_VECTOR_OPERATORS(CORBA::Double, CORBA::DoubleSeq);
+#undef ANY_VECTOR_OPERATORS
+
+#define ANY_VECTOR_CONVERT_OPERATORS(T,SEQ)                         \
+inline bool operator >>= (const CORBA::Any& _a, std::vector<T>& _s) \
+{                                                                   \
+    return ossie::corba::vector_extract_convert<T,SEQ>(_a, _s);     \
+}                                                                   \
+inline void operator <<= (CORBA::Any& _a, const std::vector<T>& _s) \
+{                                                                   \
+    ossie::corba::vector_insert_convert<T,SEQ>(_a, _s);             \
+}
+
+ANY_VECTOR_CONVERT_OPERATORS(bool, CORBA::BooleanSeq);
+ANY_VECTOR_CONVERT_OPERATORS(char, CORBA::CharSeq);
+ANY_VECTOR_CONVERT_OPERATORS(std::string, CORBA::StringSeq);
+
+#undef ANY_VECTOR_CONVERT_OPERATORS
 
 #endif // OSSIE_CORBAUTILS_H

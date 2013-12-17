@@ -40,15 +40,9 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 		</xs:sequence>
 		<xs:attribute ecore:id="true" name="id" use="required" type="xs:string"/>
 		<xs:attribute name="name" use="required" type="xs:string"/>
-		<xs:attribute name="type" type="scaComplianceType" default="sca_compliant"/>
+		<xs:attribute name="type" type="xs:string"/>
 		<xs:attribute name="version" type="xs:string"/>
 	</xs:complexType>
-	<xs:simpleType name="scaComplianceType" ecore:name="SCAComplianceType">
-		<xs:restriction base="xs:NMTOKEN">
-			<xs:enumeration value="sca_compliant"/>
-			<xs:enumeration value="sca_non_compliant"/>
-		</xs:restriction>
-	</xs:simpleType>
 	<xs:element name="softpkg" type="softPkg"/>
 	<xs:complexType name="localFile">
 		<xs:attribute name="name" use="required" type="xs:string"/>

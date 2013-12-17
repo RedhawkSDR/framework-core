@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*- 
 
 #
-# Generated Fri Jun 21 14:33:58 2013 by generateDS.py version 2.7c.
+# Generated Thu Sep 12 14:49:30 2013 by generateDS.py version 2.7c.
 #
 
 import sys
@@ -408,20 +408,27 @@ class devicepkg(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_title(self): return self.title
     def set_title(self, title): self.title = title
+    titleProp = property(get_title, set_title)
     def get_author(self): return self.author
     def set_author(self, author): self.author = author
     def add_author(self, value): self.author.append(value)
     def insert_author(self, index, value): self.author[index] = value
+    authorProp = property(get_author, set_author)
     def get_description(self): return self.description
     def set_description(self, description): self.description = description
+    descriptionProp = property(get_description, set_description)
     def get_hwdeviceregistration(self): return self.hwdeviceregistration
     def set_hwdeviceregistration(self, hwdeviceregistration): self.hwdeviceregistration = hwdeviceregistration
+    hwdeviceregistrationProp = property(get_hwdeviceregistration, set_hwdeviceregistration)
     def get_version(self): return self.version
     def set_version(self, version): self.version = version
+    versionProp = property(get_version, set_version)
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='devicepkg', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -574,10 +581,13 @@ class author(GeneratedsSuper):
     def set_name(self, name): self.name = name
     def add_name(self, value): self.name.append(value)
     def insert_name(self, index, value): self.name[index] = value
+    nameProp = property(get_name, set_name)
     def get_company(self): return self.company
     def set_company(self, company): self.company = company
+    companyProp = property(get_company, set_company)
     def get_webpage(self): return self.webpage
     def set_webpage(self, webpage): self.webpage = webpage
+    webpageProp = property(get_webpage, set_webpage)
     def export(self, outfile, level, namespace_='', name_='author', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -699,24 +709,33 @@ class hwdeviceregistration(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_propertyfile(self): return self.propertyfile
     def set_propertyfile(self, propertyfile): self.propertyfile = propertyfile
+    propertyfileProp = property(get_propertyfile, set_propertyfile)
     def get_description(self): return self.description
     def set_description(self, description): self.description = description
+    descriptionProp = property(get_description, set_description)
     def get_manufacturer(self): return self.manufacturer
     def set_manufacturer(self, manufacturer): self.manufacturer = manufacturer
+    manufacturerProp = property(get_manufacturer, set_manufacturer)
     def get_modelnumber(self): return self.modelnumber
     def set_modelnumber(self, modelnumber): self.modelnumber = modelnumber
+    modelnumberProp = property(get_modelnumber, set_modelnumber)
     def get_deviceclass(self): return self.deviceclass
     def set_deviceclass(self, deviceclass): self.deviceclass = deviceclass
+    deviceclassProp = property(get_deviceclass, set_deviceclass)
     def get_childhwdevice(self): return self.childhwdevice
     def set_childhwdevice(self, childhwdevice): self.childhwdevice = childhwdevice
     def add_childhwdevice(self, value): self.childhwdevice.append(value)
     def insert_childhwdevice(self, index, value): self.childhwdevice[index] = value
+    childhwdeviceProp = property(get_childhwdevice, set_childhwdevice)
     def get_version(self): return self.version
     def set_version(self, version): self.version = version
+    versionProp = property(get_version, set_version)
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='hwdeviceregistration', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -887,8 +906,10 @@ class propertyfile(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_localfile(self): return self.localfile
     def set_localfile(self, localfile): self.localfile = localfile
+    localfileProp = property(get_localfile, set_localfile)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def export(self, outfile, level, namespace_='', name_='propertyfile', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -972,6 +993,7 @@ class localfile(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='localfile', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1049,6 +1071,7 @@ class deviceclass(GeneratedsSuper):
     def set_class(self, classxx): self.classxx = classxx
     def add_class(self, value): self.classxx.append(value)
     def insert_class(self, index, value): self.classxx[index] = value
+    classProp = property(get_class, set_class)
     def export(self, outfile, level, namespace_='', name_='deviceclass', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1138,8 +1161,10 @@ class childhwdevice(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_hwdeviceregistration(self): return self.hwdeviceregistration
     def set_hwdeviceregistration(self, hwdeviceregistration): self.hwdeviceregistration = hwdeviceregistration
+    hwdeviceregistrationProp = property(get_hwdeviceregistration, set_hwdeviceregistration)
     def get_devicepkgref(self): return self.devicepkgref
     def set_devicepkgref(self, devicepkgref): self.devicepkgref = devicepkgref
+    devicepkgrefProp = property(get_devicepkgref, set_devicepkgref)
     def export(self, outfile, level, namespace_='', name_='childhwdevice', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1228,8 +1253,10 @@ class devicepkgref(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_localfile(self): return self.localfile
     def set_localfile(self, localfile): self.localfile = localfile
+    localfileProp = property(get_localfile, set_localfile)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def export(self, outfile, level, namespace_='', name_='devicepkgref', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'

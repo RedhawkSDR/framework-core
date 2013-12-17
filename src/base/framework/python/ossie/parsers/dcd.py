@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*- 
 
 #
-# Generated Fri Jun 21 14:33:58 2013 by generateDS.py version 2.7c.
+# Generated Thu Sep 12 14:49:30 2013 by generateDS.py version 2.7c.
 #
 
 import sys
@@ -403,22 +403,31 @@ class deviceconfiguration(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_description(self): return self.description
     def set_description(self, description): self.description = description
+    descriptionProp = property(get_description, set_description)
     def get_devicemanagersoftpkg(self): return self.devicemanagersoftpkg
     def set_devicemanagersoftpkg(self, devicemanagersoftpkg): self.devicemanagersoftpkg = devicemanagersoftpkg
+    devicemanagersoftpkgProp = property(get_devicemanagersoftpkg, set_devicemanagersoftpkg)
     def get_componentfiles(self): return self.componentfiles
     def set_componentfiles(self, componentfiles): self.componentfiles = componentfiles
+    componentfilesProp = property(get_componentfiles, set_componentfiles)
     def get_partitioning(self): return self.partitioning
     def set_partitioning(self, partitioning): self.partitioning = partitioning
+    partitioningProp = property(get_partitioning, set_partitioning)
     def get_connections(self): return self.connections
     def set_connections(self, connections): self.connections = connections
+    connectionsProp = property(get_connections, set_connections)
     def get_domainmanager(self): return self.domainmanager
     def set_domainmanager(self, domainmanager): self.domainmanager = domainmanager
+    domainmanagerProp = property(get_domainmanager, set_domainmanager)
     def get_filesystemnames(self): return self.filesystemnames
     def set_filesystemnames(self, filesystemnames): self.filesystemnames = filesystemnames
+    filesystemnamesProp = property(get_filesystemnames, set_filesystemnames)
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='deviceconfiguration', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -588,6 +597,7 @@ class devicemanagersoftpkg(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_localfile(self): return self.localfile
     def set_localfile(self, localfile): self.localfile = localfile
+    localfileProp = property(get_localfile, set_localfile)
     def export(self, outfile, level, namespace_='', name_='devicemanagersoftpkg', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -667,6 +677,7 @@ class componentfiles(GeneratedsSuper):
     def set_componentfile(self, componentfile): self.componentfile = componentfile
     def add_componentfile(self, value): self.componentfile.append(value)
     def insert_componentfile(self, index, value): self.componentfile[index] = value
+    componentfileProp = property(get_componentfile, set_componentfile)
     def export(self, outfile, level, namespace_='', name_='componentfiles', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -749,10 +760,13 @@ class componentfile(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_localfile(self): return self.localfile
     def set_localfile(self, localfile): self.localfile = localfile
+    localfileProp = property(get_localfile, set_localfile)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def export(self, outfile, level, namespace_='', name_='componentfile', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -847,6 +861,7 @@ class localfile(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='localfile', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -920,6 +935,7 @@ class partitioning(GeneratedsSuper):
     def set_componentplacement(self, componentplacement): self.componentplacement = componentplacement
     def add_componentplacement(self, value): self.componentplacement.append(value)
     def insert_componentplacement(self, index, value): self.componentplacement[index] = value
+    componentplacementProp = property(get_componentplacement, set_componentplacement)
     def export(self, outfile, level, namespace_='', name_='partitioning', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1007,16 +1023,21 @@ class componentplacement(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_componentfileref(self): return self.componentfileref
     def set_componentfileref(self, componentfileref): self.componentfileref = componentfileref
+    componentfilerefProp = property(get_componentfileref, set_componentfileref)
     def get_deployondevice(self): return self.deployondevice
     def set_deployondevice(self, deployondevice): self.deployondevice = deployondevice
+    deployondeviceProp = property(get_deployondevice, set_deployondevice)
     def get_compositepartofdevice(self): return self.compositepartofdevice
     def set_compositepartofdevice(self, compositepartofdevice): self.compositepartofdevice = compositepartofdevice
+    compositepartofdeviceProp = property(get_compositepartofdevice, set_compositepartofdevice)
     def get_devicepkgfile(self): return self.devicepkgfile
     def set_devicepkgfile(self, devicepkgfile): self.devicepkgfile = devicepkgfile
+    devicepkgfileProp = property(get_devicepkgfile, set_devicepkgfile)
     def get_componentinstantiation(self): return self.componentinstantiation
     def set_componentinstantiation(self, componentinstantiation): self.componentinstantiation = componentinstantiation
     def add_componentinstantiation(self, value): self.componentinstantiation.append(value)
     def insert_componentinstantiation(self, index, value): self.componentinstantiation[index] = value
+    componentinstantiationProp = property(get_componentinstantiation, set_componentinstantiation)
     def export(self, outfile, level, namespace_='', name_='componentplacement', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1154,6 +1175,7 @@ class componentfileref(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def export(self, outfile, level, namespace_='', name_='componentfileref', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1226,6 +1248,7 @@ class deployondevice(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def export(self, outfile, level, namespace_='', name_='deployondevice', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1300,6 +1323,7 @@ class compositepartofdevice(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def export(self, outfile, level, namespace_='', name_='compositepartofdevice', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1371,8 +1395,10 @@ class devicepkgfile(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_localfile(self): return self.localfile
     def set_localfile(self, localfile): self.localfile = localfile
+    localfileProp = property(get_localfile, set_localfile)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def export(self, outfile, level, namespace_='', name_='devicepkgfile', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1461,10 +1487,13 @@ class componentinstantiation(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_usagename(self): return self.usagename
     def set_usagename(self, usagename): self.usagename = usagename
+    usagenameProp = property(get_usagename, set_usagename)
     def get_componentproperties(self): return self.componentproperties
     def set_componentproperties(self, componentproperties): self.componentproperties = componentproperties
+    componentpropertiesProp = property(get_componentproperties, set_componentproperties)
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def export(self, outfile, level, namespace_='', name_='componentinstantiation', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1575,18 +1604,22 @@ class componentproperties(GeneratedsSuper):
     def set_simpleref(self, simpleref): self.simpleref = simpleref
     def add_simpleref(self, value): self.simpleref.append(value)
     def insert_simpleref(self, index, value): self.simpleref[index] = value
+    simplerefProp = property(get_simpleref, set_simpleref)
     def get_simplesequenceref(self): return self.simplesequenceref
     def set_simplesequenceref(self, simplesequenceref): self.simplesequenceref = simplesequenceref
     def add_simplesequenceref(self, value): self.simplesequenceref.append(value)
     def insert_simplesequenceref(self, index, value): self.simplesequenceref[index] = value
+    simplesequencerefProp = property(get_simplesequenceref, set_simplesequenceref)
     def get_structref(self): return self.structref
     def set_structref(self, structref): self.structref = structref
     def add_structref(self, value): self.structref.append(value)
     def insert_structref(self, index, value): self.structref[index] = value
+    structrefProp = property(get_structref, set_structref)
     def get_structsequenceref(self): return self.structsequenceref
     def set_structsequenceref(self, structsequenceref): self.structsequenceref = structsequenceref
     def add_structsequenceref(self, value): self.structsequenceref.append(value)
     def insert_structsequenceref(self, index, value): self.structsequenceref[index] = value
+    structsequencerefProp = property(get_structsequenceref, set_structsequenceref)
     def export(self, outfile, level, namespace_='', name_='componentproperties', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1725,6 +1758,7 @@ class devicethatloadedthiscomponentref(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def export(self, outfile, level, namespace_='', name_='devicethatloadedthiscomponentref', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1795,8 +1829,10 @@ class deviceusedbythiscomponentref(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_usesrefid(self): return self.usesrefid
     def set_usesrefid(self, usesrefid): self.usesrefid = usesrefid
+    usesrefidProp = property(get_usesrefid, set_usesrefid)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def export(self, outfile, level, namespace_='', name_='deviceusedbythiscomponentref', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1878,8 +1914,10 @@ class simpleref(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def get_value(self): return self.value
     def set_value(self, value): self.value = value
+    valueProp = property(get_value, set_value)
     def export(self, outfile, level, namespace_='', name_='simpleref', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1960,8 +1998,10 @@ class simplesequenceref(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_values(self): return self.values
     def set_values(self, values): self.values = values
+    valuesProp = property(get_values, set_values)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def export(self, outfile, level, namespace_='', name_='simplesequenceref', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2050,8 +2090,10 @@ class structref(GeneratedsSuper):
     def set_simpleref(self, simpleref): self.simpleref = simpleref
     def add_simpleref(self, value): self.simpleref.append(value)
     def insert_simpleref(self, index, value): self.simpleref[index] = value
+    simplerefProp = property(get_simpleref, set_simpleref)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def export(self, outfile, level, namespace_='', name_='structref', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2146,8 +2188,10 @@ class structsequenceref(GeneratedsSuper):
     def set_structvalue(self, structvalue): self.structvalue = structvalue
     def add_structvalue(self, value): self.structvalue.append(value)
     def insert_structvalue(self, index, value): self.structvalue[index] = value
+    structvalueProp = property(get_structvalue, set_structvalue)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def export(self, outfile, level, namespace_='', name_='structsequenceref', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2241,6 +2285,7 @@ class structvalue(GeneratedsSuper):
     def set_simpleref(self, simpleref): self.simpleref = simpleref
     def add_simpleref(self, value): self.simpleref.append(value)
     def insert_simpleref(self, index, value): self.simpleref[index] = value
+    simplerefProp = property(get_simpleref, set_simpleref)
     def export(self, outfile, level, namespace_='', name_='structvalue', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2326,6 +2371,7 @@ class values(GeneratedsSuper):
     def set_value(self, value): self.value = value
     def add_value(self, value): self.value.append(value)
     def insert_value(self, index, value): self.value[index] = value
+    valueProp = property(get_value, set_value)
     def export(self, outfile, level, namespace_='', name_='values', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2405,6 +2451,7 @@ class componentinstantiationref(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def export(self, outfile, level, namespace_='', name_='componentinstantiationref', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2476,8 +2523,10 @@ class domainmanager(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_namingservice(self): return self.namingservice
     def set_namingservice(self, namingservice): self.namingservice = namingservice
+    namingserviceProp = property(get_namingservice, set_namingservice)
     def get_stringifiedobjectref(self): return self.stringifiedobjectref
     def set_stringifiedobjectref(self, stringifiedobjectref): self.stringifiedobjectref = stringifiedobjectref
+    stringifiedobjectrefProp = property(get_stringifiedobjectref, set_stringifiedobjectref)
     def export(self, outfile, level, namespace_='', name_='domainmanager', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2565,10 +2614,13 @@ class findby(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_namingservice(self): return self.namingservice
     def set_namingservice(self, namingservice): self.namingservice = namingservice
+    namingserviceProp = property(get_namingservice, set_namingservice)
     def get_stringifiedobjectref(self): return self.stringifiedobjectref
     def set_stringifiedobjectref(self, stringifiedobjectref): self.stringifiedobjectref = stringifiedobjectref
+    stringifiedobjectrefProp = property(get_stringifiedobjectref, set_stringifiedobjectref)
     def get_domainfinder(self): return self.domainfinder
     def set_domainfinder(self, domainfinder): self.domainfinder = domainfinder
+    domainfinderProp = property(get_domainfinder, set_domainfinder)
     def export(self, outfile, level, namespace_='', name_='findby', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2668,6 +2720,7 @@ class namingservice(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='namingservice', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2738,8 +2791,10 @@ class domainfinder(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='domainfinder', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2826,6 +2881,7 @@ class filesystemnames(GeneratedsSuper):
     def set_filesystemname(self, filesystemname): self.filesystemname = filesystemname
     def add_filesystemname(self, value): self.filesystemname.append(value)
     def insert_filesystemname(self, index, value): self.filesystemname[index] = value
+    filesystemnameProp = property(get_filesystemname, set_filesystemname)
     def export(self, outfile, level, namespace_='', name_='filesystemnames', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2908,8 +2964,10 @@ class filesystemname(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_mountname(self): return self.mountname
     def set_mountname(self, mountname): self.mountname = mountname
+    mountnameProp = property(get_mountname, set_mountname)
     def get_deviceid(self): return self.deviceid
     def set_deviceid(self, deviceid): self.deviceid = deviceid
+    deviceidProp = property(get_deviceid, set_deviceid)
     def export(self, outfile, level, namespace_='', name_='filesystemname', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -3004,6 +3062,7 @@ class connections(GeneratedsSuper):
     def set_connectinterface(self, connectinterface): self.connectinterface = connectinterface
     def add_connectinterface(self, value): self.connectinterface.append(value)
     def insert_connectinterface(self, index, value): self.connectinterface[index] = value
+    connectinterfaceProp = property(get_connectinterface, set_connectinterface)
     def export(self, outfile, level, namespace_='', name_='connections', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -3088,14 +3147,19 @@ class connectinterface(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_usesport(self): return self.usesport
     def set_usesport(self, usesport): self.usesport = usesport
+    usesportProp = property(get_usesport, set_usesport)
     def get_providesport(self): return self.providesport
     def set_providesport(self, providesport): self.providesport = providesport
+    providesportProp = property(get_providesport, set_providesport)
     def get_componentsupportedinterface(self): return self.componentsupportedinterface
     def set_componentsupportedinterface(self, componentsupportedinterface): self.componentsupportedinterface = componentsupportedinterface
+    componentsupportedinterfaceProp = property(get_componentsupportedinterface, set_componentsupportedinterface)
     def get_findby(self): return self.findby
     def set_findby(self, findby): self.findby = findby
+    findbyProp = property(get_findby, set_findby)
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def export(self, outfile, level, namespace_='', name_='connectinterface', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -3221,14 +3285,19 @@ class usesport(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_usesidentifier(self): return self.usesidentifier
     def set_usesidentifier(self, usesidentifier): self.usesidentifier = usesidentifier
+    usesidentifierProp = property(get_usesidentifier, set_usesidentifier)
     def get_componentinstantiationref(self): return self.componentinstantiationref
     def set_componentinstantiationref(self, componentinstantiationref): self.componentinstantiationref = componentinstantiationref
+    componentinstantiationrefProp = property(get_componentinstantiationref, set_componentinstantiationref)
     def get_devicethatloadedthiscomponentref(self): return self.devicethatloadedthiscomponentref
     def set_devicethatloadedthiscomponentref(self, devicethatloadedthiscomponentref): self.devicethatloadedthiscomponentref = devicethatloadedthiscomponentref
+    devicethatloadedthiscomponentrefProp = property(get_devicethatloadedthiscomponentref, set_devicethatloadedthiscomponentref)
     def get_deviceusedbythiscomponentref(self): return self.deviceusedbythiscomponentref
     def set_deviceusedbythiscomponentref(self, deviceusedbythiscomponentref): self.deviceusedbythiscomponentref = deviceusedbythiscomponentref
+    deviceusedbythiscomponentrefProp = property(get_deviceusedbythiscomponentref, set_deviceusedbythiscomponentref)
     def get_findby(self): return self.findby
     def set_findby(self, findby): self.findby = findby
+    findbyProp = property(get_findby, set_findby)
     def export(self, outfile, level, namespace_='', name_='usesport', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -3357,14 +3426,19 @@ class providesport(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_providesidentifier(self): return self.providesidentifier
     def set_providesidentifier(self, providesidentifier): self.providesidentifier = providesidentifier
+    providesidentifierProp = property(get_providesidentifier, set_providesidentifier)
     def get_componentinstantiationref(self): return self.componentinstantiationref
     def set_componentinstantiationref(self, componentinstantiationref): self.componentinstantiationref = componentinstantiationref
+    componentinstantiationrefProp = property(get_componentinstantiationref, set_componentinstantiationref)
     def get_devicethatloadedthiscomponentref(self): return self.devicethatloadedthiscomponentref
     def set_devicethatloadedthiscomponentref(self, devicethatloadedthiscomponentref): self.devicethatloadedthiscomponentref = devicethatloadedthiscomponentref
+    devicethatloadedthiscomponentrefProp = property(get_devicethatloadedthiscomponentref, set_devicethatloadedthiscomponentref)
     def get_deviceusedbythiscomponentref(self): return self.deviceusedbythiscomponentref
     def set_deviceusedbythiscomponentref(self, deviceusedbythiscomponentref): self.deviceusedbythiscomponentref = deviceusedbythiscomponentref
+    deviceusedbythiscomponentrefProp = property(get_deviceusedbythiscomponentref, set_deviceusedbythiscomponentref)
     def get_findby(self): return self.findby
     def set_findby(self, findby): self.findby = findby
+    findbyProp = property(get_findby, set_findby)
     def export(self, outfile, level, namespace_='', name_='providesport', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -3491,10 +3565,13 @@ class componentsupportedinterface(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_supportedidentifier(self): return self.supportedidentifier
     def set_supportedidentifier(self, supportedidentifier): self.supportedidentifier = supportedidentifier
+    supportedidentifierProp = property(get_supportedidentifier, set_supportedidentifier)
     def get_componentinstantiationref(self): return self.componentinstantiationref
     def set_componentinstantiationref(self, componentinstantiationref): self.componentinstantiationref = componentinstantiationref
+    componentinstantiationrefProp = property(get_componentinstantiationref, set_componentinstantiationref)
     def get_findby(self): return self.findby
     def set_findby(self, findby): self.findby = findby
+    findbyProp = property(get_findby, set_findby)
     def export(self, outfile, level, namespace_='', name_='componentsupportedinterface', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'

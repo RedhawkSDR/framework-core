@@ -36,7 +36,8 @@ SUBDIRS = sdr/dev/devices/ExecutableDevice \
           sdr/dom/components/CommandWrapperEmptyDir \
           sdr/dom/components/TestCppPropsRange/cpp \
           sdr/dom/components/TestComplexProps/cpp \
-          sdr/dom/components/TestAllPropTypes/cpp
+          sdr/dom/components/TestAllPropTypes/cpp \
+          sdr/dom/components/CppCallbacks/cpp
 
 if HAVE_JAVASUPPORT
 SUBDIRS += sdr/dev/devices/BasicTestDevice_java/java \

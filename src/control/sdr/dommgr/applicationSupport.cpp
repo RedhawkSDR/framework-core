@@ -788,7 +788,11 @@ ComponentInfo* ComponentInfo::buildComponentInfoFromSPDFile(CF::FileManager_ptr 
     }
 
     newComponent->setName(newComponent->spd.getSoftPkgName());
-    newComponent->setIsScaCompliant(newComponent->spd.isScaCompliant());
+    if (newComponent->spd.isScaNonCompliant()) {
+        newComponent->setIsScaCompliant(false);
+    } else {
+        newComponent->setIsScaCompliant(true);
+    }
 
     // Extract implementation data from SPD file
     const std::vector <SPD::Implementation>& spd_i = newComponent->spd.getImplementations();

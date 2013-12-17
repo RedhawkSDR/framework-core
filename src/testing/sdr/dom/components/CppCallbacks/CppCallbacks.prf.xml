@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties PUBLIC "-//JTRS//DTD SCA V2.2.2 PRF//EN" "properties.dtd">
+<properties>
+  <simple id="count" mode="readwrite" type="ulong">
+    <value>0</value>
+    <kind kindtype="configure"/>
+    <action type="external"/>
+  </simple>
+  <simplesequence id="constellation" mode="readwrite" type="float" complex="true">
+    <values>
+      <value>1+j0</value>
+      <value>0+j1</value>
+      <value>-1+j0</value>
+      <value>0-j1</value>
+    </values>
+    <kind kindtype="configure"/>
+    <action type="external"/>
+  </simplesequence>
+  <struct id="station" mode="readwrite">
+    <simple id="name" type="string">
+      <value>WBJC</value>
+    </simple>
+    <simple id="frequency" mode="readwrite" type="float">
+      <value>91.7</value>
+      <units>MHz</units>
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <configurationkind kindtype="configure"/>
+  </struct>
+  <structsequence id="servers" mode="readwrite">
+    <struct id="endpoint">
+      <simple id="host" type="string"/>
+      <simple id="port" type="short"/>
+    </struct>
+    <configurationkind kindtype="configure"/>
+  </structsequence>
+  <simplesequence id="callbacks_run" mode="readwrite" type="string">
+    <kind kindtype="configure"/>
+    <action type="external"/>
+  </simplesequence>
+</properties>

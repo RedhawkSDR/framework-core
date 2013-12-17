@@ -24,6 +24,7 @@ import scatest
 from ossie.cf import CF
 from omniORB import CORBA
 import struct
+from ossie.utils import sb
 
 class CppPropertiesTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -53,7 +54,7 @@ class CppPropertiesTest(scatest.CorbaTestCase):
         self.assertNotEqual(self._devMgr, None, "DeviceManager not available")
         self.assertNotEqual(self._app, None, "Application not created")
 
-    def test_PropertyCallbacks(self):
+    def test_LegacyPropertyCallbacks(self):
         self.preconditions()
 
         # The TestCppProps component is also the assembly controller, so we can
@@ -451,11 +452,11 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
         self.checkPropValues(11, 22, 33, 44)    
         
         # Make sure correct exceptions are raised
-        bad_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_long, 66))
-        bad_long = CF.DataType(id='my_long' , value=CORBA.Any(CORBA.TC_short, 66))
+        bad_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_string, 'invalid'))
+        bad_long = CF.DataType(id='my_long' , value=CORBA.Any(CORBA.TC_string, 'invalid'))
         bad_struct = CF.DataType(id='my_struct', value=any.to_any([
-                                CF.DataType(id='struct_short', value=CORBA.Any(CORBA.TC_long, 77)),
-                                CF.DataType(id='struct_long', value=CORBA.Any(CORBA.TC_short, 77))]))
+                                CF.DataType(id='struct_short', value=CORBA.Any(CORBA.TC_string, 'invalid')),
+                                CF.DataType(id='struct_long', value=CORBA.Any(CORBA.TC_string, 'invalid'))]))
         
         # Properties should not have changed
         self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_short])
@@ -528,8 +529,41 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
                 self.assertEquals(r.value.value()[0], 11)
                 self.assertEquals(r.value.value()[1], 22)
 
+
+class CppCallbacksTest(scatest.CorbaTestCase):
+    def test_Callbacks(self):
+        comp = sb.launch('CppCallbacks')
+        self.assertEqual(comp.callbacks_run, [])
+
+        # Simple
+        count = comp.count + 1
+        comp.count = count
+        self.assertEqual(comp.callbacks_run.count('count'), 1)
+
+        # Simple sequence
+        constellation = comp.constellation[::2]
+        comp.constellation = constellation
+        self.assertEqual(comp.callbacks_run.count('constellation'), 1)
+
+        # Struct
+        station = {'name': 'WYPR', 'frequency': 88.1}
+        comp.station = station
+        self.assertEqual(comp.callbacks_run.count('station'), 1)
+
+        # Struct sequence
+        servers = comp.servers + [{'host': 'localhost', 'port':8080}]
+        comp.servers = servers
+        self.assertEqual(comp.callbacks_run.count('servers'), 1)
+
+        # Clear callback tracking and set the same values to ensure that the
+        # callbacks do not get triggered
+        comp.callbacks_run = []
+        comp.count = count
+        comp.constellation = constellation
+        comp.station = station
+        comp.servers = servers
+        self.assertEqual(comp.callbacks_run, [])
         
-                        
 if __name__ == "__main__":
   # Run the unittests
   unittest.main()

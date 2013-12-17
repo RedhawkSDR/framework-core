@@ -429,6 +429,9 @@ class Device(resource.Resource):
         """
         def _logRegisterFailure(msg = ""):
             self._log.error("Could not register with DeviceManager: %s", msg)
+
+        def _logRegisterWarning(msg = ""):
+            self._log.warn("May not have registered with DeviceManager: %s", msg)
                 
         def _registerThreadFunction():
             if self._devmgr:
@@ -445,10 +448,10 @@ class Device(resource.Resource):
         success = False
         queue = Queue(maxsize=1) 
 
-        success = resource.callOmniorbpyWithTimeout(_registerThreadFunction, queue)
+        success = resource.callOmniorbpyWithTimeout(_registerThreadFunction, queue, timeoutSeconds = 10)
 
         if not success:
-            _logRegisterFailure("timeout while attempting to register")
+            _logRegisterWarning("Threaded client call may have timed out while attempting to register")
 
     def __initialize(self):
         self._usageState = CF.Device.IDLE
@@ -597,53 +600,65 @@ class LoadableDevice(Device):
 
             # If we're loading a shared library, try to set up any language-specific environment vars.
             if loadType == CF.LoadableDevice.SHARED_LIBRARY:
-                self._loadSharedLibrary(localFilePath)
-                
+                self._setEnvVars(localFilePath)
+
         except Exception, e:
             self._log.exception(e)
             raise CF.LoadableDevice.LoadFail(CF.CF_EINVAL, "Unknown Error loading '%s'"%fileName)
 
-    def _loadSharedLibrary(self, localFilePath):
+    def _getEnvVarAsList(self, var):
+        # Split the path up
+        if os.environ.has_key(var):
+            path = os.environ[var].split(os.path.pathsep)
+        else:
+            path = []
+        return path
+
+    def _prependToEnvVar(self, newVal, envVar):
+        path = self._getEnvVarAsList(envVar)
+        foundValue = False
+        for entry in path:
+            # Search to determine if the new value is already in the path
+            try:
+                if os.path.samefile(entry, newVal):
+                    # The value is already in the path
+                    foundValue = True
+                    break
+            except OSError:
+                # If we can't find concrete files to compare, fall back to string compare
+                if entry == newVal:
+                    # The value is already in the path
+                    foundValue = True
+                    break
+
+        if not foundValue:
+            # The value does not already exist
+            if os.environ.has_key(envVar):
+                os.environ[envVar] = newVal+os.path.pathsep + os.environ[envVar]+os.path.pathsep
+            else:
+                os.environ[envVar] = newVal+os.path.pathsep
+
+    def _setEnvVars(self, localFilePath):
         matchesPattern = False
         # check to see if it's a C shared library
         status, output = commands.getstatusoutput('nm '+localFilePath)
         if status == 0:
-            # This is a C library
-            currentdir=os.getcwd()
-            subdirs = localFilePath.split('/')
-            currentIdx = 0
-            if len(subdirs) != 1:
-                aggregateChange = ''
-                while currentIdx != len(subdirs)-1:
-                    aggregateChange += subdirs[currentIdx]+'/'
-                    currentIdx += 1
-            foundRoot = False
-            for entry in sys.path:
-                if entry == '.':
-                    foundRoot = True
-                    break
-            if not foundRoot:
-                sys.path.append('.')
-            importFile = subdirs[-1]
-            try:
-                path = os.environ['LD_LIBRARY_PATH'].split(':')
-            except KeyError:
-                path = ""
-            candidatePath = currentdir+'/'+aggregateChange
-            foundValue = False
-            for entry in path:
-                if entry == candidatePath:
-                    foundValue = True
-                    break
-            if not foundValue:
-                try:
-                    os.environ['LD_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']+':'+candidatePath+':'
-                except KeyError:
-                    os.environ['LD_LIBRARY_PATH'] = candidatePath+':'
+            # Assume this is a C library
+
+            subdirs = os.path.abspath(localFilePath).split('/')
+
+            # strip off .so filename
+            subdirs = subdirs[:-1]
+
+            # reconstruct the string from the list
+            pathToAdd = ""
+            for substring in subdirs:
+                pathToAdd += substring + '/'
+
+            self._prependToEnvVar(pathToAdd, 'LD_LIBRARY_PATH')
+
             matchesPattern = True
-        else:
-            # This is not a C library
-            pass
+
         # check to see if it's a python module
         try:
             currentdir=os.getcwd()
@@ -663,7 +678,8 @@ class LoadableDevice(Device):
             if not foundRoot:
                 sys.path.append('.')
             importFile = subdirs[-1]
-            path = os.environ['PYTHONPATH'].split(':')
+
+            path = self._getEnvVarAsList('PYTHONPATH')
             newFileValue = ''
             if importFile[-3:] == '.py':
                 exec('import '+importFile[:-3])
@@ -674,67 +690,35 @@ class LoadableDevice(Device):
             else:
                 exec('import '+importFile)
                 newFileValue = importFile
-            foundValue = False
-            for entry in path:
-                if entry == newFileValue:
-                    foundValue = True
-                    break
-            if not foundValue:
-                os.environ['PYTHONPATH'] = os.environ['PYTHONPATH']+':'+currentdir+'/'+aggregateChange+':'
+            candidatePath = currentdir+'/'+aggregateChange
+            self._prependToEnvVar(candidatePath, 'PYTHONPATH')
+
             matchesPattern = True
         except:
             # This is not a python module
             pass
+
         os.chdir(currentdir)
         # check to see if it's a java package
         status, output = commands.getstatusoutput('file '+localFilePath)
         if localFilePath[-4:] == '.jar' and 'Zip' in output:
             currentdir=os.getcwd()
             subdirs = localFilePath.split('/')
-            path = ''
-            if os.environ.has_key('CLASSPATH'):
-                path = os.environ['CLASSPATH'].split(':')
             candidatePath = currentdir+'/'+localFilePath
-            foundValue = False
-            for entry in path:
-                if entry == candidatePath:
-                    foundValue = True
-                    break
-            if not foundValue:
-                if os.environ.has_key('CLASSPATH'):
-                    os.environ['CLASSPATH'] = os.environ['CLASSPATH']+':'+candidatePath+':'
-                else:
-                    os.environ['CLASSPATH'] = candidatePath+':'
+            self._prependToEnvVar(candidatePath, 'CLASSPATH')
             matchesPattern = True
-        else:
-            # This is not a Java package
-            pass
+
         # it matches no patterns. Assume that it's a set of libraries
         if not matchesPattern:
-            # Split the path up
-            try:
-                path = [ x for x in os.environ['LD_LIBRARY_PATH'].split(os.path.pathsep) if x != "" ]
-            except KeyError:
-                path = []
 
-            # Get an absolute path for localFilePath; look for a duplicate of this path before appending
+            path = self._getEnvVarAsList('LD_LIBRARY_PATH')
+
+            # Get an absolute path for localFilePath; look for a duplicate of
+            # this path before appending
             candidatePath = os.path.abspath(localFilePath)
-            foundPath = False
-            for pathEntry in path:
-                try:
-                    if os.path.samefile(pathEntry, localFilePath):
-                        foundPath = True
-                        break
-                except OSError:
-                    # If we can't find concrete files to compare, fall back to string compare
-                    if pathEntry == candidatePath:
-                        foundPath = True
-                        break
-            if not foundPath:
-                path.append(candidatePath)
 
-            # Write the new LD_LIBRARY_PATH
-            os.environ['LD_LIBRARY_PATH'] = os.path.pathsep.join(path)
+            self._prependToEnvVar(candidatePath, 'LD_LIBRARY_PATH')
+            self._prependToEnvVar(candidatePath, 'OCTAVE_PATH')
 
     def _modTime(self, fileSystem, remotePath):
         try:

@@ -41,6 +41,7 @@ import os as _os
 import subprocess as _subprocess
 import Queue as _Queue
 import struct as _struct
+import logging as _logging
 from omniORB import any as _any
 from omniORB import CORBA as _CORBA
 
@@ -50,6 +51,8 @@ from ossie.utils.uuid import uuid4
 
 # Use orb reference from domainless
 import domainless
+
+log = _logging.getLogger(__name__)
 
 __all__ = ('DataSink', 'DataSource', 'FileSink', 'FileSource', 'MessageSink',
            'MessageSource','Plot', 'SRIKeyword', 'compareSRI', 'helperBase',
@@ -140,7 +143,7 @@ class MessageSink(helperBase, PortSupplier):
                                          self._messageFormat, self._messageCallback)
             return self._messagePort._this()
         except Exception, e:
-            print "MessageSink:getPort(): failed " + str(e)
+            log.error("MessageSink:getPort(): failed " + str(e))
         return None
 
     def api(self):
@@ -198,7 +201,7 @@ class MessageSource(helperBase, PortSupplier):
             self._messagePort = _events.MessageSupplierPort()
             return self._messagePort._this()
         except Exception, e:
-            print "MessageSource:getPort(): failed " + str(e)
+            log.error("MessageSource:getPort(): failed " + str(e))
         return None
 
     def connectPort(self, connection, connectionId):
@@ -214,7 +217,7 @@ class MessageSource(helperBase, PortSupplier):
             else:
                 return self._messagePort._this()
         except Exception, e:
-            print "MessageSource:getUsesPort(): failed " + str(e)
+            log.error("MessageSource:getUsesPort(): failed " + str(e))
         return None
 
     def api(self):
@@ -380,7 +383,7 @@ class _SourceBase(_DataPortBase):
         self.bytesPerPush = int(bytesPerPush)
 
         if data != None:
-            print "WARNING: predicting data source format type by data argument is deprecated.  This will be removed in the next version"
+            log.warn("Predicting data source format type by data argument is deprecated.  This will be removed in the next version")
 
         if dataFormat != None:
             # add support for format byte (which is the same as char)
@@ -388,6 +391,8 @@ class _SourceBase(_DataPortBase):
                 dataFormat = 'char'
             if self.supportedPorts.has_key(dataFormat.lower()):
                 self._dataFormat = dataFormat.lower()
+            else:
+                self._dataFormat = None
         else:
             self._dataFormat = None
  
@@ -571,7 +576,7 @@ class FileSource(_SourceBase):
                 dataFormat = 'double'
 
         if dataFormat == None:
-            print "WARNING: dataFormat not provided for FileSource; defaulting to " + self._defaultDataFormat
+            log.warn("dataFormat not provided for FileSource; defaulting to " + self._defaultDataFormat)
             dataFormat = self._defaultDataFormat 
         if self.supportedPorts.has_key(dataFormat):
             self._srcPortType = self.supportedPorts[dataFormat]["portType"]
@@ -628,7 +633,7 @@ class FileSource(_SourceBase):
                 self._sri.blocking = self._blocking
 
         except Exception, e:
-            print self.className + ":setupFileReader(): failed " + str(e)
+            log.error(self.className + ":setupFileReader(): failed " + str(e))
 
     def getUsesPort(self):
         try:
@@ -636,7 +641,7 @@ class FileSource(_SourceBase):
                 self._srcPortObject = self._src.getPort()
                 return self._srcPortObject
         except Exception, e:
-            print self.className + ":getUsesPort(): failed " + str(e)
+            log.error(self.className + ":getUsesPort(): failed " + str(e))
         return None
 
     def start(self):
@@ -685,7 +690,7 @@ class FileSink(_SinkBase):
             else:
                 return None
         except Exception, e:
-            print self.className + ":getPort(): failed " + str(e)
+            log.error(self.className + ":getPort(): failed " + str(e))
         return None
 
     def waitForEOS(self):
@@ -710,7 +715,7 @@ class FileSink(_SinkBase):
                         self._sink.port_lock.acquire()
 
                 except Exception, e:
-                    print self.className + ": " + str(e)
+                    log.error(self.className + ": " + str(e))
 
             finally:
                 # If this thread dies for some reason, need to release
@@ -719,7 +724,7 @@ class FileSink(_SinkBase):
         else:
             # If the user has yet to call getPort(), the the file sink may
             # not yet exist.
-            print "No file writer present, therefore not waiting for EOS.  Is the " + self.className + " module connected?"
+            log.warn("No file writer present, therefore not waiting for EOS.  Is the " + self.className + " module connected?")
 
 class DataSource(_SourceBase):
     def __init__(self, 
@@ -901,7 +906,7 @@ class DataSource(_SourceBase):
                                                       streamID)
                 self._packetSent()
             except Exception, e:
-                print self.className + ":pushData() failed " + str(e)
+                log.warn(self.className + ":pushData() failed " + str(e))
         self.threadExited = True
 
     def _pushPacketsAllConnectedPorts(self, 
@@ -975,11 +980,11 @@ class DataSource(_SourceBase):
 
         if srcPortType == "_BULKIO__POA.dataXML" or srcPortType == "_BULKIO__POA.dataFile":
             if type(data) != str:
-                print "data must be a string for the specified data type"
+                log.error("data must be a string for the specified data type")
                 return
         else:
             if type(data) != list:
-                print "data must be a list of values for the specified data type"
+                log.error("data must be a list of values for the specified data type")
                 return
         if len(data)>0:
                 data = _bulkio_helpers.formatData(data, 
@@ -1060,7 +1065,7 @@ class DataSink(_SinkBase):
                 return None
             pass
         except Exception, e:
-            print self.className + ":getPort(): failed " + str(e)
+            log.error(self.className + ":getPort(): failed " + str(e))
         return None
 
     def getData(self, length=None, eos_block=False, tstamps=False):
@@ -1133,7 +1138,7 @@ class _OutputBase(helperBase):
                     print "_OutputBase: __terminate () making killpg call on pid " + str(pid) + " with signal " + str(sig)
                 _os.killpg(pid, sig)
             except OSError:
-                print "_OutputBase: __terminate() OSERROR ==============="
+                log.error("_OutputBase: __terminate() OSERROR ===============")
                 pass
             if timeout != None:
                 giveup_time = _time.time() + timeout
@@ -1223,7 +1228,7 @@ class probeBULKIO(_OutputBase):
                 return None
 
         except Exception, e:
-            print "probeBULKIO:getPort(): failed " + str(e)
+            log.error("probeBULKIO:getPort(): failed " + str(e))
         return None
 
     def start(self):

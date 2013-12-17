@@ -78,7 +78,7 @@ def getCurrentDateTimeString():
     return _time.strftime("%j_%H%M%S",dt.timetuple()) + microseconds_str[:3]
 
 def _cleanUpLaunchedApps():
-    for app in _launchedApps:
+    for app in _launchedApps[:]:
         app.releaseObject()
 
 _atexit.register(_cleanUpLaunchedApps)

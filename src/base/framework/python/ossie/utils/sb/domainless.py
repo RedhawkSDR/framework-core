@@ -114,7 +114,8 @@ from ossie.utils.sandbox import LocalSandbox, IDESandbox
 __all__ = ('show', 'loadSADFile', 'IDELocation', 'connectedIDE', 'getIDE_REF',
            'start', 'getSDRROOT', 'setSDRROOT', 'Component', 'generateSADXML',
            'getDEBUG', 'setDEBUG', 'getComponent', 'IDE_REF', 'setIDE_REF',
-           'stop', 'catalog', 'redirectSTDOUT', 'orb', 'reset', 'launch')
+           'stop', 'catalog', 'redirectSTDOUT', 'orb', 'reset', 'launch',
+           'createEventChannel', 'getEventChannel')
 
 # Set up logging
 log = logging.getLogger(__name__)
@@ -284,6 +285,13 @@ def show():
                                       provides.getName(), provides.getInterface())
     
     print "\n"
+    print "Event Channels:"
+    print "--------------"
+    for channel in sandbox.getEventChannels():
+        print '%s (%d supplier(s), %d consumer(s))' % (channel.name, channel.supplier_count,
+                                                       channel.consumer_count)
+    print "\n"
+
     print "SDRROOT:"
     print "-------"
     print sandbox.getSdrRoot().getLocation()
@@ -824,7 +832,7 @@ def stop():
 
 def launch(descriptor, instanceName=None, refid=None, impl=None,
            debugger=None, window=None, execparams={}, configure={},
-           initialize=True):
+           initialize=True, timeout=None):
     """
     Execute a softpkg, returning a proxy object. This is a factory function
     that may return a component, device or service depending on the SPD.
@@ -855,6 +863,24 @@ def launch(descriptor, instanceName=None, refid=None, impl=None,
                      caller (generally used by loadSADFile).
       initialize   - If true, call initialize() after launching the component.
                      If false, defer initialization to ther caller.
+      timeout      - Time, in seconds, to wait for launch to complete. If not
+                     given, the default is 10 seconds, except when running with
+                     a debugger, in which case the default is 60 seconds.
     """
     return _getSandbox().launch(descriptor, instanceName, refid, impl, debugger,
-                                window, execparams, configure, initialize)
+                                window, execparams, configure, initialize, timeout)
+
+def createEventChannel(name, exclusive=False):
+    """
+    Create a sandbox event channel 'name'. If the channel already exists,
+    return a handle to the existing channel when 'exclusive' is False, or 
+    raise a NameError otherwise.
+    """
+    return _getSandbox().createEventChannel(name, exclusive)
+
+def getEventChannel(name):
+    """
+    Get the sandbox event channel 'name'. If it does not exist,
+    throw a NameError.
+    """
+    return _getSandbox().getEventChannel(name)

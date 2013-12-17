@@ -43,19 +43,6 @@ class log4cxx
 
 #endif
 
-#ifndef HAVE_LOG4CXX
-
-class log4cxx
-{
-    public:
-        static std::string __logger;
-        typedef std::string LoggerPtr;
-};
-
-#define LOG4CXX_WARN(classname, expression) ;
-
-#endif
-
 namespace ossie {
 
     void sendStateChangeEvent(log4cxx::LoggerPtr logger, const char* producerId, const char* sourceId,

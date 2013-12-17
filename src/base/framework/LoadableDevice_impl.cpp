@@ -180,29 +180,20 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
     }
 
     if (fileInfo->kind != CF::FileSystem::DIRECTORY) {
-        // create a local directory to copy the file to
         // The target file is a file
         LOG_DEBUG(LoadableDevice_impl, "Loading the file " << fileName)
-        bool done = false;
-        std::string initialDir("");
 
-        std::string::size_type begin_pos = 0;
-        std::string::size_type last_slash = workingFileName.find_last_of("/");
-        if (last_slash != std::string::npos) {
-            while (!done) {
-                std::string::size_type pos = workingFileName.find_first_of("/", begin_pos);
-                if (pos == begin_pos) {
-                    begin_pos++;
-                    continue;
-                }
-                if (pos == std::string::npos)
-                    { break; }
-                initialDir += workingFileName.substr(begin_pos, (pos - begin_pos)) + std::string("/");
-                mkdir(initialDir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-                LOG_DEBUG(LoadableDevice_impl, "Creating directory (from " << workingFileName << ") " << initialDir)
-                begin_pos = pos + 1;
+        // Create a local directory to copy the file to
+        fs::path parentDir = fs::path(workingFileName).parent_path().relative_path();
+        try {
+            if (fs::create_directories(parentDir)) {
+                LOG_DEBUG(LoadableDevice_impl, "Created parent directory " << parentDir.string());
             }
+        } catch (const fs::filesystem_error& ex) {
+            LOG_ERROR(LoadableDevice_impl, "Unable to create parent directory " << parentDir.string() << ": " << ex.what());
+            throw CF::LoadableDevice::LoadFail(CF::CF_NOTSET, "Device SDR cache write error");
         }
+
         // copy the file
         LOG_DEBUG(LoadableDevice_impl, "Copying " << workingFileName << " to the device's cache")
         std::fstream fileStream;
@@ -214,7 +205,8 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
         }
         fileStream.open(relativeFileName.c_str(), mode);
         if (!fileStream.is_open()) {
-            LOG_ERROR(LoadableDevice_impl, "File " << relativeFileName.c_str() << " did not open succesfully.")
+            LOG_ERROR(LoadableDevice_impl, "Could not create file " << relativeFileName.c_str());
+            throw CF::LoadableDevice::LoadFail(CF::CF_NOTSET, "Device SDR cache write error");
         }
         
         CF::File_var srcFile = fs->open (workingFileName.c_str(), true);
@@ -463,6 +455,7 @@ void LoadableDevice_impl::_deleteTree(std::string fileKey)
         fs::remove(((*p.second).second).c_str());
     }
 
+    copiedFiles.erase(fileKey);
 }
 
 void LoadableDevice_impl::_copyFile(CF::FileSystem_ptr fs, std::string remotePath, std::string localPath, std::string fileKey)

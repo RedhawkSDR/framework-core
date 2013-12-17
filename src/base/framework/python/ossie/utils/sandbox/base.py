@@ -21,13 +21,16 @@
 import os
 import logging
 import copy
+import weakref
 
 from ossie import parsers
 from ossie.cf import CF
 from ossie.utils import log4py
-from ossie.utils.model import PortSupplier, PropertySet, ComponentBase
+from ossie.utils.model import PortSupplier, PropertySet, ComponentBase, CorbaObject
 from ossie.utils.model.connect import ConnectionManager
 from ossie.utils.uuid import uuid4
+
+from ossie.utils.sandbox.events import EventChannel
 
 log = logging.getLogger(__name__)
 
@@ -80,6 +83,44 @@ class SdrRoot(object):
 class Sandbox(object):
     def __init__(self, autoInit=True):
         self._autoInit = autoInit
+        self._eventChannels = {}
+
+    def createEventChannel(self, name, exclusive=False):
+        """
+        Create a sandbox event channel 'name'. If the channel already exists,
+        return a handle to the existing channel when 'exclusive' is False, or 
+        raise a NameError otherwise.
+        """
+        if name not in self._eventChannels:
+            # Channel does not exist and can be safely created
+            channel = SandboxEventChannel(name, self)
+            # NB: Temporary hack to ensure ref is set
+            channel.ref = channel._this()
+            self._eventChannels[name] = channel
+        elif exclusive:
+            raise NameError("Event channel '%s' already exists" % name)
+
+        # Pass on to getEventChannel to ensure that the same type of reference
+        # (i.e., weak proxy) is returned.
+        return self.getEventChannel(name)
+
+    def getEventChannel(self, name):
+        """
+        Get the sandbox event channel 'name'. If it does not exist,
+        throw a NameError.
+        """
+        if name not in self._eventChannels:
+            raise NameError("No event channel '%s'" % name)
+        else:
+            # Return a weak proxy so that destroy() can fully delete the
+            # object in normal usage and ensure that it stays destroyed.
+            return weakref.proxy(self._eventChannels[name])
+
+    def getEventChannels(self):
+        return self._eventChannels.values()
+    
+    def _removeEventChannel(self, name):
+        del self._eventChannels[name]
 
     def start(self):
         log.debug('start()')
@@ -107,7 +148,7 @@ class Sandbox(object):
 
     def launch(self, descriptor, instanceName=None, refid=None, impl=None,
                debugger=None, window=None, execparams={}, configure={},
-               initialize=True):
+               initialize=True, timeout=None):
         sdrRoot = self.getSdrRoot()
 
         # Parse the component XML profile.
@@ -127,13 +168,13 @@ class Sandbox(object):
             refid = str(uuid4())
         elif not self._checkInstanceId(refid):
             raise ValueError, "User-specified identifier '%s' already in use" % (refid,)
-        
+
         # Determine the class for the component type and create a new instance.
         comptype = scd.get_componenttype()
         if comptype not in self.__comptypes__:
             raise NotImplementedError, "No support for component type '%s'" % comptype
         clazz = self.__comptypes__[comptype]
-        comp = clazz(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window)
+        comp = clazz(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window, timeout)
 
         # Services don't get initialized or configured
         if comptype == 'service':
@@ -156,6 +197,12 @@ class Sandbox(object):
             except:
                 log.exception('Failure in component configuration')
         return comp
+
+    def shutdown(self):
+        # Clean up any event channels created by this sandbox instance.
+        for channel in self._eventChannels.values():
+            channel.destroy()
+        self._eventChannels = {}
 
 
 class SandboxComponent(ComponentBase):
@@ -213,3 +260,21 @@ class SandboxComponent(ComponentBase):
         print "Component [" + str(self._componentName) + "]:"
         PortSupplier.api(self)
         PropertySet.api(self)
+
+
+class SandboxEventChannel(EventChannel, CorbaObject):
+    def __init__(self, name, sandbox):
+        EventChannel.__init__(self, name)
+        CorbaObject.__init__(self)
+        self._sandbox = sandbox
+        self._instanceName = name
+
+    def destroy(self):
+        # Break any connections involving this event channel.
+        manager = ConnectionManager.instance()
+        for identifier, (uses, provides) in manager.getConnections().items():
+            if provides.hasComponent(self):
+                manager.breakConnection(identifier)
+                manager.unregisterConnection(identifier)
+        self._sandbox._removeEventChannel(self._instanceName)
+        EventChannel.destroy(self)

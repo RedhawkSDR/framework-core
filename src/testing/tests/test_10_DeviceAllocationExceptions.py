@@ -23,39 +23,43 @@ import scatest
 from omniORB import CORBA, any
 from ossie.cf import CF
 
-class DeviceExceptionsTest(scatest.CorbaTestCase):
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        scatest.CorbaTestCase.tearDown(self)
-
-    def test_InvalidPropertyExceptionPy (self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=9)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node/DeviceManager.dcd.xml", debug=9)
-        self.assertEqual(len(self._devMgr._get_registeredDevices()), 1)
-        self._device = self._devMgr._get_registeredDevices()[0]
-        bad_prop = CF.DataType(id='bad_cap',value=any.to_any('foo'))
-        self.assertRaises(CF.Device.InvalidCapacity, self._device.allocateCapacity, [bad_prop])
-        self._device.start()
-        self.assertRaises(CF.Device.InvalidCapacity, self._device.deallocateCapacity, [bad_prop])
-
-    def test_InvalidPropertyExceptionCpp (self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=9)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node_cpp/DeviceManager.dcd.xml", debug=9)
-        self.assertEqual(len(self._devMgr._get_registeredDevices()), 1)
-        self._device = self._devMgr._get_registeredDevices()[0]
-        bad_prop = CF.DataType(id='bad_cap',value=any.to_any('foo'))
-        self.assertRaises(CF.Device.InvalidCapacity, self._device.allocateCapacity, [bad_prop])
-        self._device.start()
-        self.assertRaises(CF.Device.InvalidCapacity, self._device.deallocateCapacity, [bad_prop])
-        
-    def test_InvalidPropertyExceptionJava(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=9)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node_java/DeviceManager.dcd.xml", debug=9)
-        self.assertEqual(len(self._devMgr._get_registeredDevices()), 1)
-        self._device = self._devMgr._get_registeredDevices()[0]
+class DeviceExceptionsTest(object):
+    def test_InvalidPropertyException(self):
         bad_prop = CF.DataType(id='bad_cap', value=any.to_any('foo'))
         self.assertRaises(CF.Device.InvalidCapacity, self._device.allocateCapacity, [bad_prop])
         self._device.start()
         self.assertRaises(CF.Device.InvalidCapacity, self._device.deallocateCapacity, [bad_prop])
+
+    def test_InvalidStateException(self):
+        test_prop = CF.DataType('test_cap', value=any.to_any('foo'))
+
+        self._device._set_adminState(CF.Device.LOCKED)
+        self.assertRaises(CF.Device.InvalidState, self._device.allocateCapacity, [test_prop])
+        self.assertRaises(CF.Device.InvalidState, self._device.deallocateCapacity, [test_prop])
+
+        self._device._set_adminState(CF.Device.SHUTTING_DOWN)
+        self.assertRaises(CF.Device.InvalidState, self._device.allocateCapacity, [test_prop])
+
+        self._device._set_adminState(CF.Device.UNLOCKED)
+
+
+class JavaDeviceExceptionsTest(DeviceExceptionsTest, scatest.CorbaTestCase):
+    def setUp(self):
+        domBooter, self._domMgr = self.launchDomainManager(debug=9)
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node_java/DeviceManager.dcd.xml", debug=9)
+        self.assertEqual(len(self._devMgr._get_registeredDevices()), 1)
+        self._device = self._devMgr._get_registeredDevices()[0]
+
+class CppDeviceExceptionsTest(DeviceExceptionsTest, scatest.CorbaTestCase):
+    def setUp (self):
+        domBooter, self._domMgr = self.launchDomainManager(debug=9)
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node_cpp/DeviceManager.dcd.xml", debug=9)
+        self.assertEqual(len(self._devMgr._get_registeredDevices()), 1)
+        self._device = self._devMgr._get_registeredDevices()[0]
+
+class PythonDeviceExceptionsTest(DeviceExceptionsTest, scatest.CorbaTestCase):
+    def setUp (self):
+        domBooter, self._domMgr = self.launchDomainManager(debug=9)
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node/DeviceManager.dcd.xml", debug=9)
+        self.assertEqual(len(self._devMgr._get_registeredDevices()), 1)
+        self._device = self._devMgr._get_registeredDevices()[0]

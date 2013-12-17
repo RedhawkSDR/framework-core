@@ -101,8 +101,8 @@ class DebuggerProcess(object):
         self.__child.terminate()
 
 class LocalLauncher(object):
-    def __init__(self, profile, identifier, name, sdrroot):
-        self._sdrroot = sdrroot
+    def __init__(self, profile, identifier, name, sandbox):
+        self._sandbox = sandbox
         self._profile = profile
         self._xmlpath = os.path.dirname(self._profile)
         self._identifier = identifier
@@ -127,7 +127,7 @@ class LocalLauncher(object):
             entry_point = os.path.join(self._xmlpath, entry_point)
         return entry_point
 
-    def execute(self, spd, impl, execparams, debugger, window):
+    def execute(self, spd, impl, execparams, debugger, window, timeout=None):
         # Find a suitable implementation.
         if impl:
             implementation = self._getImplementation(spd, impl)
@@ -144,7 +144,7 @@ class LocalLauncher(object):
         # Process softpkg dependencies and modify the child environment.
         environment = dict(os.environ.items())
         for dependency in implementation.get_dependency():
-            for varname, pathname in self._resolveDependency(dependency):
+            for varname, pathname in self._resolveDependency(implementation, dependency):
                 self._extendEnvironment(environment, varname, pathname)
 
         for varname in ('LD_LIBRARY_PATH', 'PYTHONPATH', 'CLASSPATH'):
@@ -178,7 +178,7 @@ class LocalLauncher(object):
         if debugger and debugger.modifiesCommand():
             # Run the command in the debugger.
             command, arguments = debugger.wrap(entry_point, arguments)
-            timeout = 60.0
+            default_timeout = 60.0
             if debugger.isInteractive() and not debugger.canAttach():
                 if not window:
                     window = XTerm()
@@ -186,7 +186,11 @@ class LocalLauncher(object):
         else:
             # Run the command directly.
             command = entry_point
-            timeout = 10.0
+            default_timeout = 10.0
+
+        # Provided timeout takes precedence
+        if timeout is None:
+            timeout = default_timeout
 
         stdout = None
         if window_mode == 'monitor':
@@ -233,32 +237,97 @@ class LocalLauncher(object):
 
         return process, ref
 
-    def _resolveDependency(self, dependency):
+    # this function checks that the base dependencies match an impl exactly
+    def _equalDeps(self, base, impl):
+        if len(base[0]) != len(impl[0]):
+            return False
+        if len(base[1]) != len(impl[1]):
+            return False
+        for val in base[0]:
+            if not val in impl[0]:
+                return False
+        for val in base[1]:
+            if not val in impl[1]:
+                return False
+        return True
+        
+    # this function checks if the base has a dependency not supported by impl for non-zero impls
+    def _subsetDeps(self, base, impl):
+        if len(impl[0]) != 0:
+            for val in base[0]:
+                if not val in impl[0]:
+                    return False
+        if len(impl[1]) != 0:
+            for val in base[1]:
+                if not val in impl[1]:
+                    return False
+        return True
+
+    def _assembleOsProc(self, depimpl):
+        impl_os = []
+        impl_proc = []
+        for operating_system in depimpl.get_os():
+            impl_os.append(operating_system.get_name())
+        for proc in depimpl.get_processor():
+            impl_proc.append(proc.get_name())
+        return impl_os, impl_proc
+        
+    
+    def _findExactMatch(self, dep_spd, dep_base):
+        impl = None
+        for depimpl in dep_spd.get_implementation():
+            impl_os, impl_proc = self._assembleOsProc(depimpl)
+            if self._equalDeps(dep_base,(impl_os,impl_proc)):
+                impl = depimpl
+                break
+        return impl
+
+    def _findGenericMatch(self, dep_spd, dep_base):
+        impl = None
+        for depimpl in dep_spd.get_implementation():
+            impl_os, impl_proc = self._assembleOsProc(depimpl)
+            if self._subsetDeps(dep_base,(impl_os,impl_proc)):
+                impl = depimpl
+                break
+        return impl
+
+    def _resolveDependency(self, implementation, dependency):
         softpkg = dependency.get_softpkgref()
         if not softpkg:
             return []
         filename = softpkg.get_localfile().get_name()
         log.trace("Resolving softpkg dependency '%s'", filename)
-        local_filename = self._sdrroot._sdrPath('dom' + filename)
+        local_filename = self._sandbox.getSdrRoot()._sdrPath('dom' + filename)
         dep_spd = parsers.spd.parse(local_filename)
         dep_impl = softpkg.get_implref()
         if dep_impl:
             impl = self._getImplementation(dep_spd, dep_impl.get_refid())
-        else:
+        else: # no implementation requested. Search for a matching implementation
             try:
-                impl = dep_spd.get_implementation()[0]
+                dep_base_os = []
+                dep_base_proc = []
+                for operating_system in implementation.get_os():
+                    dep_base_os.append(operating_system.get_name())
+                for proc in implementation.get_processor():
+                    dep_base_proc.append(proc.get_name())
+                impl = self._findExactMatch(dep_spd, (dep_base_os, dep_base_proc))
+                if impl == None:
+                    impl = self._findGenericMatch(dep_spd, (dep_base_os, dep_base_proc))
             except:
                 raise RuntimeError, "Softpkg '%s' has no implementation" % dep_spd.get_name()
-        log.trace("Using implementation '%s'", impl.get_id())
-        dep_localfile = impl.get_code().get_localfile().name
-
-        # Resolve nested dependencies.
         envvars = []
-        for dep in impl.dependency:
-            envvars.extend(self._resolveDependency(dep))
+        if impl != None:
+            log.trace("Using implementation '%s'", impl.get_id())
+            dep_localfile = impl.get_code().get_localfile().name
 
-        localfile = os.path.join(os.path.dirname(local_filename), dep_localfile)
-        envvars.append(self._getDependencyConfiguration(localfile))
+            # Resolve nested dependencies.
+            for dep in impl.dependency:
+                envvars.extend(self._resolveDependency(implementation, dep))
+
+            localfile = os.path.join(os.path.dirname(local_filename), dep_localfile)
+            envvars.insert(0, self._getDependencyConfiguration(localfile))
+        if not self._isSharedLibrary(localfile) and not self._isPythonLibrary(localfile) and not self._isJarfile(localfile):
+            envvars.insert(0, ('OCTAVE_PATH', localfile))
 
         return envvars
 
@@ -300,7 +369,7 @@ class LocalLauncher(object):
             if value in oldvalue:
                 # Path is already in list.
                 return
-            oldvalue.append(value)
+            oldvalue.insert(0,value)
             env[keyname] = ':'.join(oldvalue)
 
 class ResourceLauncher(LocalLauncher):
@@ -346,10 +415,14 @@ class DeviceLauncher(LocalLauncher):
     def _getRequiredExecparams(self):
         devmgr_stub = DeviceManagerStub.instance()
         devmgr_ior = orb.object_to_string(devmgr_stub._this())
+        # Create (or reuse) IDM channel.
+        idm_channel = self._sandbox.createEventChannel('IDM_Channel')
+        idm_ior = orb.object_to_string(idm_channel.ref)
 
         return {'DEVICE_ID': self._identifier,
                 'DEVICE_LABEL': self._name,
                 'DEVICE_MGR_IOR': devmgr_ior,
+                'IDM_CHANNEL_IOR': idm_ior,
                 'PROFILE_NAME': self._profile}
 
     def _getType(self):

@@ -72,7 +72,7 @@ ossiepy = ['ossie',
            'ossie/utils/tools',
            'redhawk']
 
-version='1.9.0'
+version='1.10.0'
 
 setup(
         name='ossiepy',
@@ -84,7 +84,9 @@ setup(
                  'ossie/apps/scaclt', 
                  'ossie/apps/py2prf',
                  'ossie/apps/eventviewer',
+                 'ossie/apps/rh_net_diag', 
                  'ossie/apps/cleanns', 
                  'ossie/apps/cleanes', 
+                 'ossie/apps/cleanomni',
                  'ossie/apps/sdrlint'],
     )

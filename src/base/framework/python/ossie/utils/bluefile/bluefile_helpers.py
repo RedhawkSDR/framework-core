@@ -42,10 +42,14 @@ import ossie.utils.bulkio.bulkio_helpers as bulkio_helpers
 import os
 import threading
 import time
+import logging
 try:
     from bulkio.bulkioInterfaces import BULKIO, BULKIO__POA
 except:
     pass
+
+logging.basicConfig()
+log = logging.getLogger(__name__)
 
 arch = platform.machine()
 
@@ -173,7 +177,7 @@ def compare_bluefiles(file1=None, file2=None):
         msg = '\nThe file %s is either invalid or it does not exists\n' % file2
 
     if msg != None:
-        print msg
+        log.error(msg)
         return False
     
     hdr1, data1 = bluefile.read(file1)
@@ -190,14 +194,14 @@ def compare_bluefiles(file1=None, file2=None):
       
     # check the number of elements
     if sz1 != sz2:
-        print "Files does not contain the same amount of items"
+        log.error("Files does not contain the same amount of items")
         return False
     
     are_the_same = True
     # check each element in the data
     for i, item1, item2 in zip(range(0, sz1), data1, data2):
         if item1 != item2:
-            print ("Item[%d]:\t%s  <==>   %s are not the same" % 
+            log.error("Item[%d]:\t%s  <==>   %s are not the same" % 
                                             (i, str(item1), str(item2)))
             are_the_same = False
     
@@ -254,7 +258,7 @@ class BlueFileReader(object):
             except Exception, e:
                 msg = "The call to pushSRI failed with %s " % e
                 msg += "connection %s instance %s" % (connId, port)
-                print(msg)
+                log.warn(msg)
         finally:
             self.port_lock.release()
 
@@ -269,7 +273,7 @@ class BlueFileReader(object):
             except Exception, e:
                 msg = "The call to pushPacket failed with %s " % e
                 msg += "connection %s instance %s" % (connId, port)
-                print(msg)
+                log.warn(msg)
         finally:
             self.port_lock.release()
 

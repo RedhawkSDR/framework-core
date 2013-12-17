@@ -225,16 +225,27 @@ class POAClass:
         classdef.implements(interface)
 
         ctor = classdef.Function('public %s ()', name)
-        ctor.append('this.servant_ = new_servant();')
-        ctor.append('set_delegate(this.servant_, this);')
         classdef.append()
 
         body = classdef.Function('public org.omg.CORBA.Object _this_object (org.omg.CORBA.ORB orb)')
+        body.append('this._activate();')
         body.append('long ref = %s.new_reference(this.servant_);', name)
         stubClass = self.__package + '.' + stubName(node)
         body.append('%s stub = new %s(ref);', stubClass, stubClass)
         body.append('String ior = omnijni.ORB.object_to_string(stub);')
         body.append('return orb.string_to_object(ior);')
+        classdef.append()
+
+        body = classdef.Function('public synchronized void _activate ()')
+        clause = body.If('this.servant_ == 0')
+        clause.append('this.servant_ = %s.new_servant();', name)
+        clause.append('set_delegate(this.servant_, this);')
+        classdef.append()
+
+        body = classdef.Function('public synchronized void _deactivate ()')
+        clause = body.If('this.servant_ != 0')
+        clause.append('%s.del_servant(this.servant_);', name)
+        clause.append('this.servant_ = 0;')
         classdef.append()
 
         # Static initializer, must load library

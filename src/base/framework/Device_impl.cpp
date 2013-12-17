@@ -30,6 +30,50 @@
 
 PREPARE_LOGGING(Device_impl)
 
+//
+// Helper class for performing cleanup when an allocation partially succeeds
+//
+class DeallocationHelper {
+public:
+    DeallocationHelper (Device_impl* device):
+        device(device),
+        capacities()
+    {
+
+    }
+
+    // Destructor deallocates all registered allocations
+    ~DeallocationHelper ()
+    {
+        try {
+            if (capacities.length() > 0) {
+                device->deallocateCapacity(capacities);
+            }
+        } catch (...) {
+            // Exceptions cannot propgate out of a dtor
+        }
+    }
+
+    // Add the given capacity to the list of successful allocations
+    void add (const CF::DataType& capacity)
+    {
+        const CORBA::ULong index = capacities.length();
+        capacities.length(index + 1);
+        capacities[index] = capacity;
+    }
+
+    // Mark that the allocation was successful, so that the capacities are not
+    // deallocated at destruction
+    void clear ()
+    {
+        capacities.length(0);
+    }
+
+private:
+    Device_impl* device;
+    CF::Properties capacities;
+};
+
 
 void Device_impl::initResources (char* devMgr_ior, char* _id, 
                           char* lbl, char* sftwrPrfl)
@@ -44,6 +88,8 @@ void Device_impl::initResources (char* devMgr_ior, char* _id,
     _operationalState = CF::Device::ENABLED;
     _adminState = CF::Device::UNLOCKED;
     initialConfiguration = true;
+
+    useNewAllocation = false;
 }                          
 
 
@@ -175,11 +221,6 @@ throw (CORBA::SystemException, CF::Device::InvalidCapacity, CF::Device::InvalidS
 {
     LOG_TRACE(Device_impl, "in allocateCapacity");
 
-    CF::Properties currentCapacities;
-
-    bool extraCap = false;  /// Flag to check remaining extra capacity to allocate
-    bool foundProperty;     /// Flag to indicate if the requested property was found
-
     if (capacities.length() == 0) {
         // Nothing to do, return
         LOG_TRACE(Device_impl, "no capacities to configure.");
@@ -187,10 +228,57 @@ throw (CORBA::SystemException, CF::Device::InvalidCapacity, CF::Device::InvalidS
     }
 
     // Verify that the device is in a valid state
-    if (!isUnlocked () || isDisabled ()) {
-        LOG_WARN(Device_impl, "Cannot allocate capacity: System is either LOCKED, SHUTTING DOWN, or DISABLED.");
-        throw (CF::Device::InvalidState("Cannot allocate capacity. System is either LOCKED, SHUTTING DOWN or DISABLED."));
+    if (!isUnlocked() || isDisabled()) {
+        const char* invalidState;
+        if (isLocked()) {
+            invalidState = "LOCKED";
+        } else if (isDisabled()) {
+            invalidState = "DISABLED";
+        } else {
+            invalidState = "SHUTTING_DOWN";
+        }
+        LOG_DEBUG(Device_impl, "Cannot allocate capacity: System is " << invalidState);
+        throw CF::Device::InvalidState(invalidState);
     }
+
+    if (useNewAllocation) {
+        return allocateCapacityNew(capacities);
+    } else {
+        return allocateCapacityLegacy(capacities);
+    }
+}
+
+void Device_impl::validateCapacities (const CF::Properties& capacities)
+{
+    CF::Properties unknownProperties;
+    CF::Properties nonAllocProperties;
+    for (size_t ii = 0; ii < capacities.length(); ++ii) {
+        const CF::DataType& capacity = capacities[ii];
+        const std::string id = static_cast<const char*>(capacity.id);
+        PropertyInterface* property = getPropertyFromId(id);
+        if (!property) {
+            ossie::corba::push_back(unknownProperties, capacity);
+        } else if (!property->isAllocatable()) {
+            ossie::corba::push_back(nonAllocProperties, capacity);
+        }
+    }
+
+    if (unknownProperties.length() > 0) {
+        throw CF::Device::InvalidCapacity("Unknown properties", unknownProperties);
+    } else if (nonAllocProperties.length() > 0) {
+        throw CF::Device::InvalidCapacity("Not allocatable", nonAllocProperties);
+    }
+}
+
+bool Device_impl::allocateCapacityLegacy (const CF::Properties& capacities)
+{
+    LOG_TRACE(Device_impl, "Using legacy capacity allocation");
+    
+    CF::Properties currentCapacities;
+
+    bool extraCap = false;  /// Flag to check remaining extra capacity to allocate
+    bool foundProperty;     /// Flag to indicate if the requested property was found
+
     if (!isBusy ()) {
         // The try is just a formality in this case
         try {
@@ -260,23 +348,70 @@ throw (CORBA::SystemException, CF::Device::InvalidCapacity, CF::Device::InvalidS
     }
 }
 
+bool Device_impl::allocateCapacityNew (const CF::Properties& capacities)
+{
+    LOG_TRACE(Device_impl, "Using callback-based capacity allocation");
+
+    validateCapacities(capacities);
+
+    DeallocationHelper allocations(this);
+
+    for (size_t ii = 0; ii < capacities.length(); ++ii) {
+        const CF::DataType& capacity = capacities[ii];
+        const std::string id = static_cast<const char*>(capacity.id);
+        PropertyInterface* property = getPropertyFromId(id);
+        LOG_TRACE(Device_impl, "Allocating property '" << id << "'");
+        try {
+            if (property->allocate(capacity.value)) {
+                allocations.add(capacity);
+            } else {
+                LOG_DEBUG(Device_impl, "Cannot allocate capacity. Insufficent capacity for property '" << id << "'");
+                return false;
+            }
+        } catch (const ossie::not_implemented_error& ex) {
+            LOG_WARN(Device_impl, "No allocation implementation for property '" << id << "'");
+            return false;
+        }
+    }
+
+    // All allocations were successful, clear 
+    allocations.clear();
+
+    updateUsageState();
+    return true;
+}
 
 void Device_impl::deallocateCapacity (const CF::Properties& capacities)
 throw (CORBA::SystemException, CF::Device::InvalidCapacity, CF::Device::InvalidState)
 {
+    // Verify that the device is in a valid state
+    if (isLocked() || isDisabled()) {
+        const char* invalidState;
+        if (isLocked()) {
+            invalidState = "LOCKED";
+        } else {
+            invalidState = "DISABLED";
+        }
+        LOG_DEBUG(Device_impl, "Cannot deallocate capacity: System is " << invalidState);
+        throw CF::Device::InvalidState(invalidState);
+    }
+
+    if (useNewAllocation) {
+        deallocateCapacityNew(capacities);
+    } else {
+        deallocateCapacityLegacy(capacities);
+    }
+}
+
+void Device_impl::deallocateCapacityLegacy (const CF::Properties& capacities)
+{
+    LOG_TRACE(Device_impl, "Using legacy capacity deallocation");
+
     CF::Properties currentCapacities;
 
     bool totalCap = true;                         /* Flag to check remaining extra capacity to allocate */
     bool foundProperty;                           /* Flag to indicate if the requested property was found */
     AnyComparisonType compResult;
-
-    /* Verify that the device is in a valid state */
-    if (isLocked () or isDisabled ()) {
-        LOG_ERROR(Device_impl, "Cannot deallocate capacity. System is not DISABLED and UNLOCKED.");
-        LOG_DEBUG(Device_impl, this->_adminState<<" "<<this->_operationalState<<" "<<this->_usageState);
-        throw (CF::Device::InvalidState("Cannot deallocate capacity. System is not DISABLED and UNLOCKED."));
-        return;
-    }
 
     /* Now verify that there is capacity currently being used */
     if (!isIdle ()) {
@@ -343,6 +478,35 @@ throw (CORBA::SystemException, CF::Device::InvalidCapacity, CF::Device::InvalidS
     }
 }
 
+void Device_impl::deallocateCapacityNew (const CF::Properties& capacities)
+{
+    LOG_TRACE(Device_impl, "Using callback-based capacity deallocation");
+
+    validateCapacities(capacities);
+
+    for (size_t ii = 0; ii < capacities.length(); ++ii) {
+        const CF::DataType& capacity = capacities[ii];
+        const std::string id = static_cast<const char*>(capacity.id);
+        PropertyInterface* property = getPropertyFromId(id);
+        LOG_TRACE(Device_impl, "Deallocating property '" << id << "'");
+        try {
+            property->deallocate(capacity.value);
+        } catch (const ossie::not_implemented_error& ex) {
+            LOG_WARN(Device_impl, "No deallocation implementation for property '" << id << "'");
+        } catch (const std::exception& ex) {
+            CF::Properties invalidProps;
+            ossie::corba::push_back(invalidProps, capacity);
+            throw CF::Device::InvalidCapacity(ex.what(), invalidProps);
+        }
+    }
+
+    updateUsageState();
+}
+
+void Device_impl::updateUsageState ()
+{
+    // Default implementation does nothing
+}
 
 bool Device_impl::allocate (CORBA::Any& deviceCapacity, const CORBA::Any& resourceRequest)
 {
@@ -830,9 +994,7 @@ void Device_impl::connectSupplierToIncomingEventChannel(CosEventChannelAdmin::Ev
 
     IDM_Channel_Supplier_i* supplier_servant = new IDM_Channel_Supplier_i(this);
 
-    PortableServer::POA_var poa = root_poa->find_POA("DomainManager", 1);
-    PortableServer::POA_var event_poa = poa->find_POA("EventChannels", 1);
-    PortableServer::ObjectId_var oid = event_poa->activate_object(supplier_servant);
+    PortableServer::ObjectId_var oid = root_poa->activate_object(supplier_servant);
 
     CosEventComm::PushSupplier_var sptr = supplier_servant->_this();
     

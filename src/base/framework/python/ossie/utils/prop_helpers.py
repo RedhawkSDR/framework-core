@@ -36,6 +36,7 @@ import copy as _copy
 import struct as _struct
 import string as _string
 import operator as _operator
+import warnings as _warnings
 from ossie.utils.type_helpers import OutOfRangeException
 
 SCA_TYPES = globals()['_SCA_TYPES']
@@ -251,7 +252,7 @@ def _parseEnumerations(prop):
     enums = {}
     propType = prop.get_type()
     for en in prop.get_enumerations().get_enumeration():
-        if str(en.get_value()) == str(None):
+        if en.get_value() is None:
             value = None
         elif propType in ['long', 'longlong', 'octet', 'short', 'ulong', 'ulonglong', 'ushort']: 
             if en.get_value().find('x') != -1:
@@ -346,7 +347,7 @@ class Property(object):
     """
     MODES = ['readwrite', 'writeonly', 'readonly']
     
-    def __init__(self, id, type, compRef, mode='readwrite', action='external', parent=None):
+    def __init__(self, id, type, compRef, mode='readwrite', action='external', parent=None, defValue=None):
         """ 
         compRef - (domainless.componentBase) - pointer to the component that owns this property
         type - (string): type of property (SCA Type or 'struct' or 'structSequence')
@@ -364,6 +365,7 @@ class Property(object):
             self.mode = mode
         self.action = action
         self._parent = parent
+        self.defValue = defValue
 
     def _isNested(self):
         return self._parent is not None
@@ -378,14 +380,36 @@ class Property(object):
             return self._parent._checkWrite()
         return self.mode != 'readonly'
 
+    def _getItemKey(self):
+        raise AssertionError(self.__class__.__name__ + ' cannot be nested')
+
+    def _queryItem(self, key):
+        raise AssertionError(self.__class__.__name__ + ' cannot contain other properties')
+
+    def _configureItem(self, key, value):
+        raise AssertionError(self.__class__.__name__ + ' cannot contain other properties')
+
     def _queryValue(self):
-        results = self.compRef.query([_CF.DataType(str(self.id), _any.to_any(None))])
-        if results is None:
-            return None
-        return results[0].value
+        if self._isNested():
+            return self._parent._queryItem(self._getItemKey())
+        else:
+            results = self.compRef.query([_CF.DataType(str(self.id), _any.to_any(None))])
+            if results is None:
+                return None
+            else:
+                return results[0].value
             
     def _configureValue(self, value):
-        self.compRef.configure([_CF.DataType(str(self.id), value)])
+        if self._isNested():
+            self._parent._configureItem(self._getItemKey(), value)
+        else:
+            self.compRef.configure([_CF.DataType(str(self.id), value)])
+
+    @property
+    def propRef(self):
+        # DEPRECATED: create the CF.DataType reference, change value to the correct type
+        _warnings.warn("'propRef' is deprecated; use 'toAny' to create Any value", DeprecationWarning)
+        return _CF.DataType(id=str(self.id), value=_CORBA.Any(self.typecode, None))
 
     def queryValue(self):
         '''
@@ -568,51 +592,35 @@ def _convertToComplex(value):
     return value
  
 class simpleProperty(Property):
-    def __init__(self, id, valueType, compRef, defValue=None, parent=None, structRef=None, structSeqRef=None, structSeqIdx=None, mode='readwrite', action='external'):
+    def __init__(self, id, valueType, compRef, defValue=None, parent=None, mode='readwrite', action='external',
+                 structRef=None, structSeqRef=None, structSeqIdx=None):
         """ 
-        id - (string): the property ID
-        valueType - (string): type of the property, must be in VALUE_TYPES
-        compRef - (domainless.componentBase) - pointer to the component that owns this property
-        structRef - (string): name of the struct that this simple is a member of, or None
-        structSeqRef - (string): name of the struct sequence the above struct is a member of, or None
-        structSeqIdx - (int): index of the above struct in the struct sequence, or None
-        mode - (string): mode for the property, must be in MODES
+        Create a new simple property.
+
+        Arguments:
+          id        - The property ID
+          valueType - Type of the property, must be in VALUE_TYPES
+          compRef   - Reference to the PropertySet that owns this property
+          defValue  - Default Python value for this property (default: None)
+          parent    - Parent property that contains this property (default: None)
+          mode      - Mode for the property, must be in MODES (default: 'readwrite')
+          action    - Allocation action type (default: 'external')
+
+        Deprecated arguments:
+          structRef, structSeqRef, structSeqIdx
         """
         if valueType not in SCA_TYPES:
             raise('"' + str(valueType) + '"' + ' is not a valid valueType, choose from\n ' + str(SCA_TYPES))
         
         # Initialize the parent
-        Property.__init__(self, id, type=valueType, compRef=compRef, mode=mode, action=action, parent=parent)
+        Property.__init__(self, id, type=valueType, compRef=compRef, mode=mode, action=action, parent=parent,
+                          defValue=defValue)
         
         self.valueType = valueType
-        self.defValue = defValue
-        
         self.typecode = getTypeCode(self.valueType)
 
-        #used when the simple is part of a struct
-        self.structRef = structRef
-        
-        # DEPRECATED: used when the struct is part of a struct sequence
-        self.structSeqRef = structSeqRef
-        self.structSeqIdx = structSeqIdx
-        
-        # DEPRECATED: create the CF.DataType reference, change value to the correct type
-        self.propRef = _CF.DataType(id=str(self.id), value=_any.to_any(None))
-        self.propRef.value._t = self.typecode
-
-        
-    def _queryValue(self):
-        if self._isNested():
-            results = self._parent._queryValue()
-            if results is None:
-                return None
-            for simple in results.value():
-                if simple.id == self.id:
-                    return simple.value
-            return None
-        else:
-            # Standalone simple, do standard query.
-            return super(simpleProperty,self)._queryValue()
+    def _getItemKey(self):
+        return self.id
             
     def _enumValue(self, value):
         for enumLabel, enumValue in _enums[self.id].iteritems():
@@ -620,6 +628,32 @@ class simpleProperty(Property):
                 return enumValue
         raise ValueError, "Invalid enumeration value '%s'" % (value,)
 
+    @property
+    def structRef(self):
+        if self._isNested():
+            return self._parent.id
+        else:
+            return None
+
+    @property
+    def structSeqRef(self):
+        # DEPRECATED: used when the struct is part of a struct sequence
+        try:
+            # NB: Deprecation warning issued by parent
+            return self._parent.structSeqRef
+        except:
+            _warnings.warn("'structSeqRef' is deprecated", DeprecationWarning)
+            return None
+
+    @property
+    def structSeqIdx(self):
+        # DEPRECATED: used when the struct is part of a struct sequence
+        _warnings.warn("'structSeqIdx' is deprecated for simple properties", DeprecationWarning)
+        try:
+            return self._parent.structSeqIdx
+        except:
+            return None
+        
     def fromAny(self, value):
         '''
         Converts the input value in CORBA Any format to Python.
@@ -658,20 +692,6 @@ class simpleProperty(Property):
 
         return _CORBA.Any(self.typecode, value)
 
-    def _configureValue(self, value):
-        if self._isNested():
-            # The simple is part of a struct.
-            structValue = self._parent._queryValue()
-            if structValue is None:
-                return
-            for simple in structValue._v:
-                if simple.id == self.id:
-                    simple.value = value
-            self._parent._configureValue(structValue)
-        else:
-            # Standalone simple, do standard configure.
-            super(simpleProperty,self)._configureValue(value)
-
     def __repr__(self, *args):
         value = self.queryValue()
         if value != None:
@@ -694,22 +714,23 @@ class simpleProperty(Property):
 
 class sequenceProperty(Property):
     def __init__(self, id, valueType, compRef, defValue=None, mode='readwrite'):
-        """ 
-        id - (string): the property ID
-        valueType - (string): type of the property, must be in VALUE_TYPES, or can be struct
-        compRef - (domainless.componentBase) - pointer to the component that owns this property 
-        mode - (string): mode for the property, must be in MODES
-        
-        This class inherits from list so that the property will behave
-        as a list when the user wishes to manipulate it
+        """
+        Create a new sequence property. Instances behave like list objects.
+
+        Arguments:
+          id        - The property ID
+          valueType - Type of the property, must be in VALUE_TYPES, or can be struct
+          compRef   - Reference to the PropertySet that owns this property
+          defValue  - Default Python value for this property (default: None)
+          mode      - Mode for the property, must be in MODES (default: 'readwrite')
         """
         if valueType not in SCA_TYPES and valueType != 'structSeq':
             raise('"' + str(valueType) + '"' + ' is not a valid valueType, choose from\n ' + str(SCA_TYPES))
         
         # Initialize the parent Property
-        Property.__init__(self, id, type=valueType, compRef=compRef, mode=mode, action='external')
+        Property.__init__(self, id, type=valueType, compRef=compRef, mode=mode, action='external',
+                          defValue=defValue)
         
-        self.defValue = defValue
         self.complex = False
         
         #try to set the value type in ref unless this is a sequence of structs
@@ -746,10 +767,6 @@ class sequenceProperty(Property):
                 # to determine complexity, as in the case of a struct sequence,
                 # the value of self.valueType may not be a string.
                 self.complex = True
-    
-            # DEPRECATED: create the CF.DataType reference, change value to the correct type
-            self.propRef = _CF.DataType(id=str(self.id), value=_any.to_any(None))
-            self.propRef.value._t = self.typecode
 
     def _mapCFtoComplex(self, CFVal):
         return complex(CFVal.real, CFVal.imag)
@@ -846,52 +863,85 @@ class structProperty(Property):
     # All structs have the same CORBA typecode.
     typecode = _CORBA.TypeCode("IDL:CF/Properties:1.0")
 
-    def __init__(self, id, valueType, compRef, defValue=None, parent=None, structSeqRef=None, structSeqIdx=None, mode='readwrite'):
+    def __init__(self, id, valueType, compRef, defValue=None, parent=None, structSeqIdx=None, mode='readwrite',
+                 structSeqRef=None):
         """ 
-        id - (string): the property ID
-        valueType - (list): each entry in the list is a tuple defined in the following fashion:
-                                (id, valueType(as defined for simples), defValue)
-        compRef - (domainless.componentBase) - pointer to the component that owns this property
-        structSeqRef - (string) - name of the struct sequence that this struct is a part of, or None
-        structSeqIdx - (int) - index of the struct  int the struct sequence, or None
-        mode - (string): mode for the property, must be in MODES
+        Create a struct property.
+
+        Arguments:
+          id           - The property ID
+          valueType    - List of tuples describing members, in the following format:
+                         (id, valueType(as defined for simples), defValue, name)
+          compRef      - Reference to the PropertySet that owns this property
+          defValue     - Default Python value for this property (default: None)
+          parent       - Parent property that contains this property (default: None)
+          structSeqIdx - Index of the struct in parent struct sequence (default: None)
+          mode         - Mode for the property, must be in MODES (default: 'readwrite')
+
+        Deprecated arguments:
+          structSeqRef
         """
-        if type(valueType) != list:
-            raise('valueType must be provided as a list')
-        self.valueType = valueType
-        self.defValue = defValue
-        
-        #used when the struct is part of a struct sequence
-        self.structSeqRef = structSeqRef
-        self.structSeqIdx = structSeqIdx
+        if not isinstance(valueType, list):
+            raise TypeError('valueType must be provided as a list')
+
+        # Since members is used for attribute lookup, initialize it first
+        self.members = {}
         
         #initialize the parent
-        Property.__init__(self, id, type='struct', compRef=compRef, mode=mode, action='external', parent=parent)
+        Property.__init__(self, id, type='struct', compRef=compRef, mode=mode, action='external', parent=parent,
+                          defValue=defValue)
         
-        #each of these members is itself a simple property
-        self.members = {}
-        for _id, _type, _defValue, _clean_name in valueType:
-            if self.structSeqRef:
-                simpleProp = simpleProperty(_id, _type, compRef=compRef, defValue=_defValue, parent=self, structRef=id, structSeqRef=self.structSeqRef, structSeqIdx=self.structSeqIdx)
-                simpleProp.clean_name = _clean_name
-            else:
-                simpleProp = simpleProperty(_id, _type, compRef=compRef, defValue=_defValue, parent=self, structRef=id)
-                simpleProp.clean_name = _clean_name
-            self.members[_id] = (simpleProp)
+        self.valueType = valueType
         
-        # DEPRECATED: create the CF.DataType reference        
-        self.propRef = _CF.DataType(id=str(self.id), value=_CORBA.Any(self.typecode, None))
+        #used when the struct is part of a struct sequence
+        self.structSeqIdx = structSeqIdx
 
-    def _queryValue(self):
+        #each of these members is itself a simple property
+        for _id, _type, _defValue, _clean_name in valueType:
+            simpleProp = simpleProperty(_id, _type, compRef=compRef, defValue=_defValue, parent=self)
+            simpleProp.clean_name = _clean_name
+            self.members[_id] = simpleProp
+
+    def _getItemKey(self):
+        return self.structSeqIdx
+
+    def _queryItem(self, propId):
+        results = self._queryValue()
+        if results is None:
+            return None
+        for item in results.value():
+            if item.id == propId:
+                return item.value
+        return None
+
+    def _configureItem(self, propId, value):
+        structValue = self._queryValue()
+        if structValue is None:
+            return
+        for simple in structValue._v:
+            if simple.id == propId:
+                simple.value = value
+        self._configureValue(structValue)
+
+    def _checkValue(self, value):
+        for memberId in value:
+            if memberId not in self.members:
+                raise TypeError, "'%s' is not a member of '%s'" % (memberId, self.id)
+
+    def _getMember(self, name):
+        for member in self.members.itervalues():
+            if name == member.clean_name:
+                return member
+        return None
+
+    @property
+    def structSeqRef(self):
+        # DEPRECATED: used when the struct is part of a struct sequence
+        _warnings.warn("'structSeqRef' is deprecated", DeprecationWarning)
         if self._isNested():
-            # Get the full struct sequence value.
-            results = self._parent._queryValue()
-            if results is None:
-                return None
-            return results.value()[self.structSeqIdx]
+            return self._parent.id
         else:
-            # Standalone struct, do standard query.
-            return super(structProperty,self)._queryValue()
+            return None
 
     def fromAny(self, value):
         '''
@@ -928,28 +978,6 @@ class structProperty(Property):
 
         return _CORBA.Any(self.typecode, props)
 
-    def _checkValue(self, value):
-        for memberId in value:
-            if memberId not in self.members:
-                raise TypeError, "'%s' is not a member of '%s'" % (memberId, self.id)
-
-    def _configureValue(self, value):
-        # Check if this struct is a member of a struct sequence
-        if self._isNested():
-            # Get the full struct sequence value.
-            results = self._parent._queryValue()
-            if results is None:
-                return
-
-            # Replace the struct in the list.
-            results._v[self.structSeqIdx] = value
-
-            # Configure the complete, updated struct sequence.
-            self._parent._configureValue(results)
-        else:
-            # Standalone struct, do standard configure.
-            super(structProperty,self)._configureValue(value)
-
     def configureValue(self, value):
         '''
         Helper function for configuring a struct property, using a
@@ -977,17 +1005,18 @@ class structProperty(Property):
             structView = structView + '\n  ' + str(self.members[key].clean_name) + ": " + str(currValue[key])
         print structView,
         return ''
-    
+
     def __getattr__(self, name):
         '''
         If the attribute being looked up is actually a member of the struct,
         then return that simple property, otherwise default to the normal
         getattribute function
         '''
-        try:
-           return object.__getattribute__(self, "members")[_displayNames[self.compRef._refid][name]]
-        except:
-           return object.__getattribute__(self,name)
+        member = self._getMember(name)
+        if member is not None:
+            return member
+        else:
+            return super(structProperty, self).__getattribute__(name)
     
     def __setattr__(self, name, value):
         '''
@@ -995,12 +1024,12 @@ class structProperty(Property):
         then try to configure the simple property.  This will result in a
         configure of the entire struct in the simpleProperty class
         '''
-        try:
-            self.members[_displayNames[self.compRef._refid][name]].configureValue(value)
-        except AttributeError:
-            return object.__setattr__(self, name, value)
-        except KeyError:
-            return object.__setattr__(self, name, value)
+        if name != 'members':
+            member = self._getMember(name)
+            if member is not None:
+                member.configureValue(value)
+                return
+        super(structProperty, self).__setattr__(name, value)
             
         
 class structSequenceProperty(sequenceProperty):
@@ -1009,39 +1038,68 @@ class structSequenceProperty(sequenceProperty):
 
     def __init__(self, id, structID, valueType, compRef, defValue=[], mode='readwrite'):
         """ 
-        id - (string): the property ID
-        valueType - (list): each entry in the list is a tuple defined in the following fashion:
-                                (id, valueType(as defined for simples), defValue)
-        compRef - (domainless.componentBase) - pointer to the component that owns this property
-        mode - (string): mode for the property, must be in MODES
+        Create a struct sequence property.
+
+        Arguments:
+          id           - The property ID
+          structID     - The struct definition ID
+          valueType    - List of tuples describing members, in the following format:
+                         (id, valueType(as defined for simples), defValue, name)
+          compRef      - Reference to the PropertySet that owns this property
+          defValue     - Default Python value for this property (default: [])
+          mode         - Mode for the property, must be in MODES (default: 'readwrite')
         """
-        if type(valueType) != list:
-            raise('valueType must be provided as a list')
-        self.valueType = valueType
-        self.structID = structID
-        self.defValue = defValue
+        if not isinstance(valueType, list):
+            raise TypeError('valueType must be provided as a list')
         
         #initialize the parent
-        sequenceProperty.__init__(self, id, valueType='structSeq', compRef=compRef, defValue=self.defValue, mode=mode)
+        sequenceProperty.__init__(self, id, valueType='structSeq', compRef=compRef, defValue=defValue, mode=mode)
+        self.valueType = valueType
 
         # Create a property for the struct definition.
-        self.structDef = structProperty(id=self.structID, valueType=self.valueType, compRef=self.compRef, mode=self.mode)
+        self.structDef = structProperty(id=structID, valueType=self.valueType, compRef=self.compRef, mode=self.mode)
 
+    @property
+    def propRef(self):
         # DEPRECATED: Create the CF.DataType reference
-        self.propRef = _CF.DataType(id=str(self.id), value=_CORBA.Any(self.typecode, []))
+        # NB: Use the superclass propRef property to issue the deprecation
+        #     warning, then alter the returned value to match old behavior
+        value = super(structSequenceProperty, self).propRef
+        value.value._v = []
+        return value
+
+    @property
+    def structID(self):
+        return self.structDef.id
 
     def __getitem__(self, index):
-        #the actual struct property doesn't exist, so create it and return it
-        newProp = structProperty(id=self.structID, valueType=self.valueType, compRef=self.compRef, \
-                                 parent=self, structSeqRef=self.id, structSeqIdx=index, mode=self.mode)
-        return newProp
+        # The actual struct property doesn't exist, so create and return it
+        return structProperty(id=self.structDef.id, valueType=self.valueType, compRef=self.compRef,
+                              parent=self, structSeqIdx=index, mode=self.mode)
     
     def __setitem__(self, index, value):
-        #the actual struct property doesn't exist, so create it and configure it,
-        #this will trigure a configure of the entire sequence from within structProperty
-        newProp = structProperty(id=self.structID, valueType=self.valueType, compRef=self.compRef, \
-                                 parent=self, structSeqRef=self.id, structSeqIdx=index, mode=self.mode)
-        structProperty.configureValue(newProp, value)
+        # Use __getitem__ to get a struct property, then configure it; this
+        # will trigger a configure of the entire sequence
+        self[index].configureValue(value)
+
+    def _queryItem(self, index):
+        # Get the full struct sequence value.
+        results = self._queryValue()
+        if results is None:
+            return None
+        return results.value()[index]
+
+    def _configureItem(self, index, value):
+        # Get the full struct sequence value.
+        results = self._queryValue()
+        if results is None:
+            return
+
+        # Replace the struct in the list.
+        results._v[index] = value
+
+        # Configure the complete, updated struct sequence.
+        self._configureValue(results)
 
     def fromAny(self, value):
         '''

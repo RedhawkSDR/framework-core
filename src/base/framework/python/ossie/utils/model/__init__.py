@@ -31,27 +31,21 @@ import string as _string
 import struct as _struct
 from ossie.utils import log4py as _log4py
 from ossie.utils import prop_helpers as _prop_helpers
+from ossie.utils import idllib
 from ossie import parsers as _parsers
 from ossie import properties as _properties
 from ossie.properties import getCFType 
 from ossie.properties import getMemberType
-from ossie.utils.sca import importIDL as _importIDL
 from ossie.cf import ExtendedCF as _ExtendedCF
+from ossie.utils.formatting import TablePrinter
 
 from connect import *
 
 _DEBUG = False 
 
-_ossiehome = _os.getenv('OSSIEHOME')
-
-if _ossiehome == None:
-    _ossiehome = ''
-
-_std_idl_path=_ossiehome+'/share/idl'
-_std_idl_include_path = '/usr/local/share/idl'
-
-_interface_list = []
-_loadedInterfaceList = False
+_idllib = idllib.IDLLibrary()
+if 'OSSIEHOME' in _os.environ:
+    _idllib.addSearchPath(_os.path.join(_os.environ['OSSIEHOME'], 'share/idl'))
 
 __MIDAS_TYPE_MAP = {'char'  : ('/SB/8t'),
                     'octet' : ('/SO/8o'),
@@ -128,6 +122,20 @@ def _readProfile(spdFilename, fileSystem):
     
     return spd, scd, prf
 
+def _formatSimple(prop, value):
+    currVal = str(value)
+
+    # Checks if current prop is an enum
+    if prop.clean_name in _prop_helpers._enums:
+        for enumLabel, enumValue in _prop_helpers._enums[prop.clean_name].iteritems():
+            if value == enumValue:
+                currVal += " (enum=" + enumLabel + ")"
+    return currVal
+
+def _formatType(propType):
+    return propType + __MIDAS_TYPE_MAP.get(propType, '')
+
+
 def maxLength(iterable, default=0):
     try:
         return max(len(item) for item in iterable)
@@ -148,6 +156,9 @@ class CorbaObject(object):
     def __init__(self, ref=None):
         self.ref = ref
 
+    def _matchInterface(self, repid):
+        return self.ref._is_a(repid)
+
 class PortSupplier(object):
     log = log.getChild('PortSupplier')
 
@@ -156,13 +167,11 @@ class PortSupplier(object):
         self._usesPortDict = {}
 
     def _showPorts(self, ports):
-        # Determine the maximum length of port names for print formatting
-        maxNameLen = maxLength(port['Port Name'] for port in ports.itervalues())
-        print "%-*s\tPort Interface" % (maxNameLen, 'Port Name')
-        print "%-*s\t--------------" % (maxNameLen, '---------')
         if ports:
+            table = TablePrinter('Port Name', 'Port Interface')
             for port in ports.itervalues():
-                print '%-*s\t%s' % (maxNameLen, port['Port Name'], port['Port Interface'])
+                table.append(port['Port Name'], port['Port Interface'])
+            table.write()
         else:
             print "None"
 
@@ -271,20 +280,22 @@ class PortSupplier(object):
             # Underlying connection is handled by OutputBase object, so return early.
             # NB: OutputBase interface does not currently support connection management.
             return
-        elif isinstance(providesComponent, Service):
-            log.debug('Provides side is Service')
-            # Use usesPortName if provided
-            # Try to find a uses interface to connect to the service otherwise
+        elif isinstance(providesComponent, CorbaObject):
+            log.debug('Provides side is CORBA object')
             if usesPortName:
-                usesPort = self._getUsesPort(usesPortName)
-            else:  
-                for usesPort in self._usesPortDict.values():
-                    if providesComponent._repid == usesPort['Port Interface']:
-                        providesEndpoint = ServiceEndpoint(providesComponent, providesComponent._repid)
-                        if usesPort['Port Interface'] == 'IDL:CF/Resource:1.0':
-                            usesEndpoint =  [ComponentEndpoint(self)]
-                        else:
-                            usesEndpoint = PortEndpoint(self, usesPort)
+                # Use usesPortName if provided
+                usesPorts = [self._getUsesPort(usesPortName)]
+            else:
+                usesPorts = self._usesPortDict.values()
+            # Try to find a uses interface to connect to the object
+            usesEndpoint = None
+            for usesPort in self._usesPortDict.values():
+                if providesComponent._matchInterface(usesPort['Port Interface']):
+                    usesEndpoint = PortEndpoint(self, usesPort)
+                    providesEndpoint = ObjectEndpoint(providesComponent, usesPort['Port Interface'])
+                    break
+            if not usesEndpoint:
+                raise RuntimeError, 'No port matches provides object'
         else:
             # No support for provides side, throw an exception so the user knows
             # that the connection failed.
@@ -348,160 +359,61 @@ class PropertySet(object):
             return None
     
     def api(self, externalPropInfo=None):
-        if globals().has_key('__MIDAS_TYPE_MAP'):  
-            midasTypeMap = globals()['__MIDAS_TYPE_MAP']
-        maxNameLen = len("Property Name")
-        maxSCATypeLen = len("(Data Type)")
-        maxDefaultValueLen = len("[Default Value]") 
-        propList = []
-        for prop in self._propertySet:
-            clean_name = str(prop.clean_name)
-            mode = str(prop.mode)
-            propType = str(prop.type)
-            defValue = _copy.deepcopy(prop.defValue)
-            valueType = _copy.deepcopy(prop.valueType)
+        if not self._propertySet:
+            return
+ 
+        table = TablePrinter('Property Name', '(Data Type)', '[Default Value]', 'Current Value')
 
-            if mode != "writeonly":
-                if propType == 'struct':
-                    currentValue = prop.members
-                else:
-                    currentValue = prop.queryValue()
+        # Limit the amount of space between columns of data for display
+        table.limit_column(1, 32)
+        table.limit_column(2, 24)
+
+        if externalPropInfo:
+            # For external props, extract their information
+            extId, propId = externalPropInfo
+            table.enable_header(False)
+        else:
+            print "Properties =============="
+
+        for prop in self._propertySet:
+            if externalPropInfo:
+                # Searching for a particular external property
+                if prop.clean_name != propId:
+                    continue
+                name = extId
+            else:
+                name = prop.clean_name
+
+            if prop.mode != "writeonly":
+                currentValue = prop.queryValue()
             else:
                 currentValue = "N/A"
 
-            scaType = propType
-            if midasTypeMap.has_key(scaType):
-                scaType += midasTypeMap[scaType]
+            if prop.type == 'structSeq':
+                table.append(name, '('+scaType+')')
+                for item_count, item in enumerate(currentValue):
+                    for member in prop.valueType:
+                        _id = str(member[0])
+                        scaType = str(member[1])
+                        defVal = str(member[2])
+                        currVal = str(item[member[0]])
 
-            propList.append([clean_name,scaType,defValue,currentValue,valueType]) 
-            # Keep track of the maximum length of strings in each column for print formatting
-            maxNameLen = max(len(clean_name), maxNameLen)
-            maxSCATypeLen = max(len(scaType), maxSCATypeLen)
-            maxDefaultValueLen = max(len(str(defValue)), maxDefaultValueLen)
-
-        # Limit the amount of space between columns of data for display
-        maxSCATypeLen = min(maxSCATypeLen, len("\t\t\t\t".expandtabs()))
-        maxDefaultValueLen = min(maxDefaultValueLen, len("\t\t\t".expandtabs()))
-        if len(propList) > 0:
-            # Create format string based on column width.
-            line = "%%-%ds\t%%-%ds\t\t%%-%ds\t%%s" % (maxNameLen, maxSCATypeLen, maxDefaultValueLen)
-
-            # Only print headers for non external props
-            if externalPropInfo == None:
-                print "Properties =============="
-                print line % ('Property Name', '(Data Type)', '[Default Value]', 'Current Value')
-                print line % ('-------------', '-----------', '---------------', '-------------')
+                        name = ' [%d] %s' % (item_count, _id)
+                        scaType = _formatType(scaType)
+                        table.append(name, '('+scaType+')', defVal, currVal)
+            elif prop.type == 'struct':
+                table.append(name, '('+scaType+')')
+                for member in prop.members.itervalues():
+                    name = ' ' + member.clean_name
+                    scaType = _formatType(member.type)
+                    _currentValue = _formatSimple(member, currentValue[member.id])
+                    table.append(' '+name, '('+scaType+')', str(member.defValue), _currentValue)
             else:
-                # For external props, extract their information
-                extId, propId = externalPropInfo
-            for clean_name, propType, defValue, currentValue, valueType in propList:
-                name = str(clean_name)
+                scaType = _formatType(prop.type)
+                currentValue = _formatSimple(prop, currentValue)
+                table.append(name, '('+scaType+')', str(prop.defValue), currentValue)
 
-                # If this is an external prop display, check if this is the prop we are looking for
-                if externalPropInfo != None and propId == name:
-                    name = extId
-                    foundExtProp = True
-                else:
-                    foundExtProp = False
-
-                # Only print prop information for standard api() calls, or if current prop is the desired external prop
-                if externalPropInfo == None or foundExtProp == True:
-                    printProperty = True
-                else:
-                    printProperty = False
-
-                if len(name) > maxNameLen:
-                    name = str(name)[0:maxNameLen-3] + '...'
-
-                scaType = str(propType)
-                if len(scaType) > maxSCATypeLen:
-                    scaType = scaType[0:maxSCATypeLen-3] + '...'
-
-                if scaType == 'structSeq':
-                    if printProperty:
-                        print line % (name, '('+scaType+')', '', '')
-                    for item_count, item in enumerate(currentValue):
-                        for member in valueType:
-                            _id = str(member[0])
-                            scaType = str(member[1])
-                            defVal = str(member[2])
-                            currVal = str(item[member[0]])
-
-                            name = ' [%d] %s' % (item_count, _id)
-                            if len(name) > maxNameLen:
-                                 name = name[0:maxNameLen-3] + '...'
-
-                            if midasTypeMap.has_key(scaType):
-                                scaType = scaType + midasTypeMap[scaType]
-                            if len(scaType) > maxSCATypeLen+1:
-                                scaType = scaType[0:maxSCATypeLen-3] + '...'
-
-                            if len(defVal) > maxDefaultValueLen:
-                                defVal = defVal[0:maxDefaultValueLen-3] + '...'
-
-                            if len(currVal) > maxDefaultValueLen:
-                                currVal = currVal[0:maxDefaultValueLen-3] + '...'
-
-                            if printProperty:
-                                print line % (name, '('+scaType+')', defVal, currVal)
-                elif scaType == 'struct':
-                    if printProperty:
-                        print line % (name, '('+scaType+')', '', '')
-                    for member in currentValue.values():
-                        scaType = str(member.type)
-                        defVal = str(member.defValue)
-                        _currentValue = member.queryValue()
-
-                        name = ' '+str(member.clean_name)
-                        if len(name) > maxNameLen:
-                             name = name[0:maxNameLen-3] + '...'
-
-                        if midasTypeMap.has_key(scaType):
-                            scaType = scaType + midasTypeMap[scaType]
-                        if len(scaType) > maxSCATypeLen+1:
-                            scaType = scaType[0:maxSCATypeLen-3] + '...'
-
-                        if len(defVal) > maxDefaultValueLen:
-                            defVal = defVal[0:maxDefaultValueLen-3] + '...'
-
-                        currVal = str(_currentValue)
-                        if len(currVal) > maxDefaultValueLen:
-                            currVal = currVal[0:maxDefaultValueLen-3] + '...'
-
-                        # Checks if the current prop is an enum
-                        if member.id in _prop_helpers._enums:
-                            for enumLabel, enumValue in _prop_helpers._enums[member.id].iteritems():
-                                if _currentValue == enumValue:
-                                    currVal += " (enum=" + enumLabel + ")"
-                            
-                        if printProperty:
-                            print line % (name, '('+scaType+')', defVal, currVal)
-                else:     
-                    defVal = str(defValue)    
-                    # If this prop is stored as a string and is of type octet or char, 
-                    # that means it is an octet or char sequence
-                    # Convert from string to list value for display
-                    if type(defValue) == str:
-                        if propType.find('octet') != -1:
-                            defVal = str(list([ord(x) for x in defValue]))
-                        elif propType.find('char') != -1:
-                            defVal = str(list([x for x in defValue]))
-
-                    if defVal != None and len(defVal) > maxDefaultValueLen:
-                        defVal = defVal[0:maxDefaultValueLen-3] + '...'
-
-                    currVal = str(currentValue)
-                    if currVal != None and len(currVal) > maxDefaultValueLen:
-                        currVal = currVal[0:maxDefaultValueLen-3] + '...'
-
-                    # Checks if current prop is an enum
-                    if clean_name in _prop_helpers._enums:
-                        for enumLabel, enumValue in _prop_helpers._enums[clean_name].iteritems():
-                            if currentValue == enumValue:
-                                currVal += " (enum=" + enumLabel + ")"
-                    
-                    if printProperty:
-                        print line % (name, '('+scaType+')', defVal, currVal)
+        table.write()
 
 
 class Service(CorbaObject):
@@ -515,27 +427,23 @@ class Service(CorbaObject):
         self._impl = impl
         self._instanceName = instanceName
         
-        # Load IDL list if it hasn't already been done
-        global _loadedInterfaceList, _interface_list
-        if not _loadedInterfaceList:
-            _interface_list = _importIDL.importStandardIdl(std_idl_path=_std_idl_path, std_idl_include_path = _std_idl_include_path)
-            _loadedInterfaceList = True
-            
          # Add mapping of services operations and attributes
         found = False
         self._repid = self._scd.get_interfaces().interface[0].repid
-        for interface in _interface_list:
-            if self._repid == interface.repoId:
-                self._operations = interface.operations
-                self._attributes = interface.attributes
-                self._namespace = interface.nameSpace
-                self._interface = interface.name
-                found = True
-        
-        if not found:
+        try:
+            interface = _idllib.getInterface(self._repid)
+        except idllib.IDLError:
             log.error("Can't find IDL repo: " + str(self._repid) + " for service: " + str(self._instanceName))
+        else:
+            self._operations = interface.operations
+            self._attributes = interface.attributes
+            self._namespace = interface.nameSpace
+            self._interface = interface.name
             
         self.populateMemberFunctions()
+    
+    def _matchInterface(self, repid):
+        return repid == self._repid
             
     def populateMemberFunctions(self):
         objMembers = inspect.getmembers(self.ref)
@@ -682,20 +590,21 @@ class Device(Resource):
 
     def api(self):
         print 'Allocation Properties ======'
-        print 'Property Name\t\t(Data Type)\tAction'
-        print '-------------\t\t-----------\t------'
+        if not self._allocProps:
+            print 'None'
+            return
+
+        table = TablePrinter('Property Name', '(Data Type)', 'Action')
         for prop in self._allocProps:
-            name = prop.clean_name
-            if len(name) > 23:
-                name = name[:20] + '...'
-            print '%-24s%-16s%s' % (prop.clean_name, '('+prop.type+')', prop.action)
+            table.append(prop.clean_name, '('+prop.type+')', prop.action)
             if prop.type in ('struct', 'structSeq'):
                 if prop.type == 'structSeq':
                     structdef = prop.structDef
                 else:
                     structdef = prop
                 for member in structdef.members.itervalues():
-                    print '  %-22s(%s)' % (member.clean_name, member.type)
+                    table.append('  '+member.clean_name, member.type)
+        table.write()
             
 
 class LoadableDevice(Device):
@@ -1038,25 +947,16 @@ class ComponentBase(object):
         """Add all port descriptions to the component instance"""
         interface_modules = ['BULKIO', 'BULKIO__POA']
         
-        int_list = {}
-
-        global _loadedInterfaceList, _interface_list
-        if not _loadedInterfaceList:
-            _interface_list = _importIDL.importStandardIdl(std_idl_path=_std_idl_path, std_idl_include_path = _std_idl_include_path)
-            _loadedInterfaceList = True
-
         scdPorts = self._scd.componentfeatures.ports
         ports = []
 
-        for int_entry in _interface_list:
-            int_list[int_entry.repoId]=int_entry
         for uses in scdPorts.uses:
             idl_repid = str(uses.repid)
-            if not int_list.has_key(idl_repid):
-                if _DEBUG == True:
-                    print "Invalid port descriptor in scd for " + idl_repid
+            try:
+                int_entry = _idllib.getInterface(idl_repid)
+            except idllib.IDLError:
+                log.error("Invalid port descriptor in scd for %s", idl_repid)
                 continue
-            int_entry = int_list[idl_repid]
 
             new_port = _Port(str(uses.usesname), interface=None, direction="Uses", using=int_entry)
             try:
@@ -1067,11 +967,11 @@ class ComponentBase(object):
                 new_port.extendPort()
     
                 idl_repid = new_port.ref._NP_RepositoryId
-                if not int_list.has_key(idl_repid):
-                    if _DEBUG == True:
-                        print "Unable to find port description for " + idl_repid
+                try:
+                    int_entry = _idllib.getInterface(idl_repid)
+                except idllib.IDLError:
+                    log.error("Unable to find port description for %s", idl_repid)
                     continue
-                int_entry = int_list[idl_repid]
                 new_port._interface = int_entry
 
                 ports.append(new_port)
@@ -1080,11 +980,11 @@ class ComponentBase(object):
                     print "getPort failed for port name: ", str(new_port._name)
         for provides in scdPorts.provides:
             idl_repid = str(provides.repid)
-            if not int_list.has_key(idl_repid):
-                if _DEBUG == True:
-                    print "Invalid port descriptor in scd for " + idl_repid
+            try:
+                int_entry = _idllib.getInterface(idl_repid)
+            except idllib.IDLError:
+                log.error("Invalid port descriptor in scd for %s", idl_repid)
                 continue
-            int_entry = int_list[idl_repid]
             new_port = _Port(str(provides.providesname), interface=int_entry, direction="Provides")
             try:
                 new_port.generic_ref = object.__getattribute__(self,'ref').getPort(str(new_port._name))
@@ -1138,7 +1038,7 @@ class ComponentBase(object):
     def _matchUsesPort(self, usesPort, connectionId):
         # Assume the connection is directly to this component.
         if usesPort['Port Interface'] == 'IDL:CF/Resource:1.0':
-            return [ComponentEndpoint(self)]
+            return [ObjectEndpoint(self, 'IDL:CF/Resource:1.0')]
         return super(ComponentBase,self)._matchUsesPort(usesPort, connectionId)
 
 

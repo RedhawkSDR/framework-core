@@ -42,8 +42,8 @@ from ossie import properties
 from ossie.utils import model
 from ossie.utils import prop_helpers
 from ossie.utils import sb
+from ossie.utils.idllib import IDLLibrary
 import getopt
-from ossie.utils.sca import importIDL
 
 # These global methods are here to allow other modules to modify the global variables IMPL_ID and SOFT_PKG
 # TestCase setUp() method doesn't allow passing in arguments to the test case so global values are needed
@@ -159,9 +159,8 @@ class ScaComponentTestCase(unittest.TestCase):
         """
         if IDE_REF_ENV == None:
             if ossiehome:
-                model._ossiehome = str(ossiehome)
-                model._interface_list = importIDL.importStandardIdl(std_idl_path=str(ossiehome)+'/idl', std_idl_include_path=str(ossiehome)+'/idl')
-                model._loadedInterfaceList = True
+                model._idllib = IDLLibrary()
+                model._idllib.addSearchPath(str(ossiehome)+'/idl')
             component = sb.launch(self.spd_file, impl=self.impl, execparams=execparams,
                                   configure=configure, initialize=initialize)
         else:

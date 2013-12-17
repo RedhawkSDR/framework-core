@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*- 
 
 #
-# Generated Fri Jun 21 14:33:58 2013 by generateDS.py version 2.7c.
+# Generated Thu Sep 12 14:49:31 2013 by generateDS.py version 2.7c.
 #
 
 import sys
@@ -384,16 +384,22 @@ class softwarecomponent(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_corbaversion(self): return self.corbaversion
     def set_corbaversion(self, corbaversion): self.corbaversion = corbaversion
+    corbaversionProp = property(get_corbaversion, set_corbaversion)
     def get_componentrepid(self): return self.componentrepid
     def set_componentrepid(self, componentrepid): self.componentrepid = componentrepid
+    componentrepidProp = property(get_componentrepid, set_componentrepid)
     def get_componenttype(self): return self.componenttype
     def set_componenttype(self, componenttype): self.componenttype = componenttype
+    componenttypeProp = property(get_componenttype, set_componenttype)
     def get_componentfeatures(self): return self.componentfeatures
     def set_componentfeatures(self, componentfeatures): self.componentfeatures = componentfeatures
+    componentfeaturesProp = property(get_componentfeatures, set_componentfeatures)
     def get_interfaces(self): return self.interfaces
     def set_interfaces(self, interfaces): self.interfaces = interfaces
+    interfacesProp = property(get_interfaces, set_interfaces)
     def get_propertyfile(self): return self.propertyfile
     def set_propertyfile(self, propertyfile): self.propertyfile = propertyfile
+    propertyfileProp = property(get_propertyfile, set_propertyfile)
     def export(self, outfile, level, namespace_='', name_='softwarecomponent', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -530,8 +536,10 @@ class propertyFile(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_localfile(self): return self.localfile
     def set_localfile(self, localfile): self.localfile = localfile
+    localfileProp = property(get_localfile, set_localfile)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def export(self, outfile, level, namespace_='', name_='propertyFile', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -615,6 +623,7 @@ class localFile(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='localFile', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -684,6 +693,7 @@ class componentRepId(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_repid(self): return self.repid
     def set_repid(self, repid): self.repid = repid
+    repidProp = property(get_repid, set_repid)
     def export(self, outfile, level, namespace_='', name_='componentRepId', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -758,8 +768,10 @@ class componentFeatures(GeneratedsSuper):
     def set_supportsinterface(self, supportsinterface): self.supportsinterface = supportsinterface
     def add_supportsinterface(self, value): self.supportsinterface.append(value)
     def insert_supportsinterface(self, index, value): self.supportsinterface[index] = value
+    supportsinterfaceProp = property(get_supportsinterface, set_supportsinterface)
     def get_ports(self): return self.ports
     def set_ports(self, ports): self.ports = ports
+    portsProp = property(get_ports, set_ports)
     def export(self, outfile, level, namespace_='', name_='componentFeatures', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -855,8 +867,10 @@ class supportsInterface(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_supportsname(self): return self.supportsname
     def set_supportsname(self, supportsname): self.supportsname = supportsname
+    supportsnameProp = property(get_supportsname, set_supportsname)
     def get_repid(self): return self.repid
     def set_repid(self, repid): self.repid = repid
+    repidProp = property(get_repid, set_repid)
     def export(self, outfile, level, namespace_='', name_='supportsInterface', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -945,10 +959,12 @@ class ports(GeneratedsSuper):
     def set_provides(self, provides): self.provides = provides
     def add_provides(self, value): self.provides.append(value)
     def insert_provides(self, index, value): self.provides[index] = value
+    providesProp = property(get_provides, set_provides)
     def get_uses(self): return self.uses
     def set_uses(self, uses): self.uses = uses
     def add_uses(self, value): self.uses.append(value)
     def insert_uses(self, index, value): self.uses[index] = value
+    usesProp = property(get_uses, set_uses)
     def export(self, outfile, level, namespace_='', name_='ports', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1055,10 +1071,13 @@ class provides(GeneratedsSuper):
     def set_porttype(self, porttype): self.porttype = porttype
     def add_porttype(self, value): self.porttype.append(value)
     def insert_porttype(self, index, value): self.porttype[index] = value
+    porttypeProp = property(get_porttype, set_porttype)
     def get_providesname(self): return self.providesname
     def set_providesname(self, providesname): self.providesname = providesname
+    providesnameProp = property(get_providesname, set_providesname)
     def get_repid(self): return self.repid
     def set_repid(self, repid): self.repid = repid
+    repidProp = property(get_repid, set_repid)
     def export(self, outfile, level, namespace_='', name_='provides', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1165,10 +1184,13 @@ class uses(GeneratedsSuper):
     def set_porttype(self, porttype): self.porttype = porttype
     def add_porttype(self, value): self.porttype.append(value)
     def insert_porttype(self, index, value): self.porttype[index] = value
+    porttypeProp = property(get_porttype, set_porttype)
     def get_usesname(self): return self.usesname
     def set_usesname(self, usesname): self.usesname = usesname
+    usesnameProp = property(get_usesname, set_usesname)
     def get_repid(self): return self.repid
     def set_repid(self, repid): self.repid = repid
+    repidProp = property(get_repid, set_repid)
     def export(self, outfile, level, namespace_='', name_='uses', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1269,6 +1291,7 @@ class portType(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def export(self, outfile, level, namespace_='', name_='portType', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1342,6 +1365,7 @@ class interfaces(GeneratedsSuper):
     def set_interface(self, interface): self.interface = interface
     def add_interface(self, value): self.interface.append(value)
     def insert_interface(self, index, value): self.interface[index] = value
+    interfaceProp = property(get_interface, set_interface)
     def export(self, outfile, level, namespace_='', name_='interfaces', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1429,10 +1453,13 @@ class interface(GeneratedsSuper):
     def set_inheritsinterface(self, inheritsinterface): self.inheritsinterface = inheritsinterface
     def add_inheritsinterface(self, value): self.inheritsinterface.append(value)
     def insert_inheritsinterface(self, index, value): self.inheritsinterface[index] = value
+    inheritsinterfaceProp = property(get_inheritsinterface, set_inheritsinterface)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def get_repid(self): return self.repid
     def set_repid(self, repid): self.repid = repid
+    repidProp = property(get_repid, set_repid)
     def export(self, outfile, level, namespace_='', name_='interface', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1533,6 +1560,7 @@ class inheritsInterface(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_repid(self): return self.repid
     def set_repid(self, repid): self.repid = repid
+    repidProp = property(get_repid, set_repid)
     def export(self, outfile, level, namespace_='', name_='inheritsInterface', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'

@@ -437,7 +437,6 @@ void usage()
 void signal_catcher( int sig )
 {
     // IMPORTANT Don't call exit(...) in this function
-    LOG_DEBUG(nodebooter, "Signal " << sig << " received");
     if ((( sig == SIGINT ) || (sig == SIGQUIT) || (sig == SIGTERM))) {
         if (devPid) {
             kill(devPid, sig);

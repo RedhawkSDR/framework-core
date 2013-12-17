@@ -20,7 +20,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 -->
 
 <!DOCTYPE softpkg PUBLIC '-//JTRS//DTD SCA V2.2.2 SPD//EN' 'softpkg.dtd'>
-<softpkg id="DCE:458872f6-a316-4082-b1eb-ce5704f5c49d" name="CommandWrapper">
+<softpkg id="DCE:458872f6-a316-4082-b1eb-ce5704f5c49d" name="CommandWrapper" type="123">
     <title/>
     <author>
         <name>OSSIE Project</name> 

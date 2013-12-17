@@ -263,6 +263,12 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         // These loops deactivate the port objects so that they can be destroyed without incident
         synchronized (this) {
             try {
+                // Deactivate all native ports; this will delete the omniORB servant.
+                for (final omnijni.Servant s : this.nativePorts.values()) {
+                    s._deactivate();
+                }
+                this.nativePorts.clear();
+
                 for (final org.omg.CORBA.Object p : this.ports.values()) {
                     this.poa.deactivate_object(this.poa.reference_to_id(p));
                 }
@@ -641,6 +647,9 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         } catch (InterruptedException e) {
             // PASS
         }
+
+        // Shut down native ORB, if it's running
+        omnijni.ORB.shutdown();
 
         // Explicitly call exit to ensure that process terminates. In some
         // cases, especially if a CORBA request came in after ORB.shutdown(),

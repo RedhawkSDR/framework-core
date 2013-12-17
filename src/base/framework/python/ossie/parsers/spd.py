@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*- 
 
 #
-# Generated Fri Jun 21 14:33:58 2013 by generateDS.py version 2.7c.
+# Generated Thu Sep 12 14:49:31 2013 by generateDS.py version 2.7c.
 #
 
 import sys
@@ -369,7 +369,7 @@ def _cast(typ, value):
 class softPkg(GeneratedsSuper):
     subclass = None
     superclass = None
-    def __init__(self, version=None, type_='sca_compliant', id_=None, name=None, title=None, author=None, description=None, propertyfile=None, descriptor=None, implementation=None, usesdevice=None):
+    def __init__(self, version=None, type_=None, id_=None, name=None, title=None, author=None, description=None, propertyfile=None, descriptor=None, implementation=None, usesdevice=None):
         self.version = _cast(None, version)
         self.type_ = _cast(None, type_)
         self.id_ = _cast(None, id_)
@@ -398,35 +398,43 @@ class softPkg(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_title(self): return self.title
     def set_title(self, title): self.title = title
+    titleProp = property(get_title, set_title)
     def get_author(self): return self.author
     def set_author(self, author): self.author = author
     def add_author(self, value): self.author.append(value)
     def insert_author(self, index, value): self.author[index] = value
+    authorProp = property(get_author, set_author)
     def get_description(self): return self.description
     def set_description(self, description): self.description = description
+    descriptionProp = property(get_description, set_description)
     def get_propertyfile(self): return self.propertyfile
     def set_propertyfile(self, propertyfile): self.propertyfile = propertyfile
+    propertyfileProp = property(get_propertyfile, set_propertyfile)
     def get_descriptor(self): return self.descriptor
     def set_descriptor(self, descriptor): self.descriptor = descriptor
+    descriptorProp = property(get_descriptor, set_descriptor)
     def get_implementation(self): return self.implementation
     def set_implementation(self, implementation): self.implementation = implementation
     def add_implementation(self, value): self.implementation.append(value)
     def insert_implementation(self, index, value): self.implementation[index] = value
+    implementationProp = property(get_implementation, set_implementation)
     def get_usesdevice(self): return self.usesdevice
     def set_usesdevice(self, usesdevice): self.usesdevice = usesdevice
     def add_usesdevice(self, value): self.usesdevice.append(value)
     def insert_usesdevice(self, index, value): self.usesdevice[index] = value
+    usesdeviceProp = property(get_usesdevice, set_usesdevice)
     def get_version(self): return self.version
     def set_version(self, version): self.version = version
+    versionProp = property(get_version, set_version)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
-    def validate_scaComplianceType(self, value):
-        # Validate type scaComplianceType, a restriction on xs:NMTOKEN.
-        pass
+    typeProp = property(get_type, set_type)
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='softPkg', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -449,7 +457,7 @@ class softPkg(GeneratedsSuper):
             outfile.write(' version=%s' % (self.gds_format_string(quote_attrib(self.version).encode(ExternalEncoding), input_name='version'), ))
         if self.type_ is not None and 'type_' not in already_processed:
             already_processed.append('type_')
-            outfile.write(' type=%s' % (quote_attrib(self.type_), ))
+            outfile.write(' type=%s' % (self.gds_format_string(quote_attrib(self.type_).encode(ExternalEncoding), input_name='type'), ))
         if self.id_ is not None and 'id' not in already_processed:
             already_processed.append('id')
             outfile.write(' id=%s' % (self.gds_format_string(quote_attrib(self.id_).encode(ExternalEncoding), input_name='id'), ))
@@ -581,7 +589,6 @@ class softPkg(GeneratedsSuper):
         if value is not None and 'type' not in already_processed:
             already_processed.append('type')
             self.type_ = value
-            self.validate_scaComplianceType(self.type_)    # validate type scaComplianceType
         value = find_attr_value_('id', node)
         if value is not None and 'id' not in already_processed:
             already_processed.append('id')
@@ -636,6 +643,7 @@ class localFile(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='localFile', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -705,8 +713,10 @@ class propertyFile(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_localfile(self): return self.localfile
     def set_localfile(self, localfile): self.localfile = localfile
+    localfileProp = property(get_localfile, set_localfile)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def export(self, outfile, level, namespace_='', name_='propertyFile', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -796,10 +806,13 @@ class author(GeneratedsSuper):
     def set_name(self, name): self.name = name
     def add_name(self, value): self.name.append(value)
     def insert_name(self, index, value): self.name[index] = value
+    nameProp = property(get_name, set_name)
     def get_company(self): return self.company
     def set_company(self, company): self.company = company
+    companyProp = property(get_company, set_company)
     def get_webpage(self): return self.webpage
     def set_webpage(self, webpage): self.webpage = webpage
+    webpageProp = property(get_webpage, set_webpage)
     def export(self, outfile, level, namespace_='', name_='author', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -901,8 +914,10 @@ class descriptor(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_localfile(self): return self.localfile
     def set_localfile(self, localfile): self.localfile = localfile
+    localfileProp = property(get_localfile, set_localfile)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='descriptor', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1009,38 +1024,51 @@ class implementation(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_description(self): return self.description
     def set_description(self, description): self.description = description
+    descriptionProp = property(get_description, set_description)
     def get_propertyfile(self): return self.propertyfile
     def set_propertyfile(self, propertyfile): self.propertyfile = propertyfile
+    propertyfileProp = property(get_propertyfile, set_propertyfile)
     def get_code(self): return self.code
     def set_code(self, code): self.code = code
+    codeProp = property(get_code, set_code)
     def get_compiler(self): return self.compiler
     def set_compiler(self, compiler): self.compiler = compiler
+    compilerProp = property(get_compiler, set_compiler)
     def get_programminglanguage(self): return self.programminglanguage
     def set_programminglanguage(self, programminglanguage): self.programminglanguage = programminglanguage
+    programminglanguageProp = property(get_programminglanguage, set_programminglanguage)
     def get_humanlanguage(self): return self.humanlanguage
     def set_humanlanguage(self, humanlanguage): self.humanlanguage = humanlanguage
+    humanlanguageProp = property(get_humanlanguage, set_humanlanguage)
     def get_runtime(self): return self.runtime
     def set_runtime(self, runtime): self.runtime = runtime
+    runtimeProp = property(get_runtime, set_runtime)
     def get_os(self): return self.os
     def set_os(self, os): self.os = os
     def add_os(self, value): self.os.append(value)
     def insert_os(self, index, value): self.os[index] = value
+    osProp = property(get_os, set_os)
     def get_processor(self): return self.processor
     def set_processor(self, processor): self.processor = processor
     def add_processor(self, value): self.processor.append(value)
     def insert_processor(self, index, value): self.processor[index] = value
+    processorProp = property(get_processor, set_processor)
     def get_dependency(self): return self.dependency
     def set_dependency(self, dependency): self.dependency = dependency
     def add_dependency(self, value): self.dependency.append(value)
     def insert_dependency(self, index, value): self.dependency[index] = value
+    dependencyProp = property(get_dependency, set_dependency)
     def get_usesdevice(self): return self.usesdevice
     def set_usesdevice(self, usesdevice): self.usesdevice = usesdevice
     def add_usesdevice(self, value): self.usesdevice.append(value)
     def insert_usesdevice(self, index, value): self.usesdevice[index] = value
+    usesdeviceProp = property(get_usesdevice, set_usesdevice)
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def get_aepcompliance(self): return self.aepcompliance
     def set_aepcompliance(self, aepcompliance): self.aepcompliance = aepcompliance
+    aepcomplianceProp = property(get_aepcompliance, set_aepcompliance)
     def export(self, outfile, level, namespace_='', name_='implementation', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1290,14 +1318,19 @@ class code(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_localfile(self): return self.localfile
     def set_localfile(self, localfile): self.localfile = localfile
+    localfileProp = property(get_localfile, set_localfile)
     def get_entrypoint(self): return self.entrypoint
     def set_entrypoint(self, entrypoint): self.entrypoint = entrypoint
+    entrypointProp = property(get_entrypoint, set_entrypoint)
     def get_stacksize(self): return self.stacksize
     def set_stacksize(self, stacksize): self.stacksize = stacksize
+    stacksizeProp = property(get_stacksize, set_stacksize)
     def get_priority(self): return self.priority
     def set_priority(self, priority): self.priority = priority
+    priorityProp = property(get_priority, set_priority)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def validate_codeFileType(self, value):
         # Validate type codeFileType, a restriction on xs:NMTOKEN.
         pass
@@ -1427,8 +1460,10 @@ class compiler(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_version(self): return self.version
     def set_version(self, version): self.version = version
+    versionProp = property(get_version, set_version)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='compiler', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1510,8 +1545,10 @@ class programmingLanguage(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_version(self): return self.version
     def set_version(self, version): self.version = version
+    versionProp = property(get_version, set_version)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='programmingLanguage', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1592,6 +1629,7 @@ class humanLanguage(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='humanLanguage', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1662,8 +1700,10 @@ class os(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_version(self): return self.version
     def set_version(self, version): self.version = version
+    versionProp = property(get_version, set_version)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='os', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1744,6 +1784,7 @@ class processor(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='processor', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1818,18 +1859,25 @@ class dependency(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_softpkgref(self): return self.softpkgref
     def set_softpkgref(self, softpkgref): self.softpkgref = softpkgref
+    softpkgrefProp = property(get_softpkgref, set_softpkgref)
     def get_propertyref(self): return self.propertyref
     def set_propertyref(self, propertyref): self.propertyref = propertyref
+    propertyrefProp = property(get_propertyref, set_propertyref)
     def get_simpleref(self): return self.simpleref
     def set_simpleref(self, simpleref): self.simpleref = simpleref
+    simplerefProp = property(get_simpleref, set_simpleref)
     def get_simplesequenceref(self): return self.simplesequenceref
     def set_simplesequenceref(self, simplesequenceref): self.simplesequenceref = simplesequenceref
+    simplesequencerefProp = property(get_simplesequenceref, set_simplesequenceref)
     def get_structref(self): return self.structref
     def set_structref(self, structref): self.structref = structref
+    structrefProp = property(get_structref, set_structref)
     def get_structsequenceref(self): return self.structsequenceref
     def set_structsequenceref(self, structsequenceref): self.structsequenceref = structsequenceref
+    structsequencerefProp = property(get_structsequenceref, set_structsequenceref)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def export(self, outfile, level, namespace_='', name_='dependency', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1979,8 +2027,10 @@ class runtime(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_version(self): return self.version
     def set_version(self, version): self.version = version
+    versionProp = property(get_version, set_version)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='runtime', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2062,8 +2112,10 @@ class propertyRef(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def get_value(self): return self.value
     def set_value(self, value): self.value = value
+    valueProp = property(get_value, set_value)
     def export(self, outfile, level, namespace_='', name_='propertyRef', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2144,8 +2196,10 @@ class softPkgRef(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_localfile(self): return self.localfile
     def set_localfile(self, localfile): self.localfile = localfile
+    localfileProp = property(get_localfile, set_localfile)
     def get_implref(self): return self.implref
     def set_implref(self, implref): self.implref = implref
+    implrefProp = property(get_implref, set_implref)
     def export(self, outfile, level, namespace_='', name_='softPkgRef', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2234,6 +2288,7 @@ class implRef(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def export(self, outfile, level, namespace_='', name_='implRef', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2325,26 +2380,33 @@ class usesDevice(GeneratedsSuper):
     def set_propertyref(self, propertyref): self.propertyref = propertyref
     def add_propertyref(self, value): self.propertyref.append(value)
     def insert_propertyref(self, index, value): self.propertyref[index] = value
+    propertyrefProp = property(get_propertyref, set_propertyref)
     def get_simpleref(self): return self.simpleref
     def set_simpleref(self, simpleref): self.simpleref = simpleref
     def add_simpleref(self, value): self.simpleref.append(value)
     def insert_simpleref(self, index, value): self.simpleref[index] = value
+    simplerefProp = property(get_simpleref, set_simpleref)
     def get_simplesequenceref(self): return self.simplesequenceref
     def set_simplesequenceref(self, simplesequenceref): self.simplesequenceref = simplesequenceref
     def add_simplesequenceref(self, value): self.simplesequenceref.append(value)
     def insert_simplesequenceref(self, index, value): self.simplesequenceref[index] = value
+    simplesequencerefProp = property(get_simplesequenceref, set_simplesequenceref)
     def get_structref(self): return self.structref
     def set_structref(self, structref): self.structref = structref
     def add_structref(self, value): self.structref.append(value)
     def insert_structref(self, index, value): self.structref[index] = value
+    structrefProp = property(get_structref, set_structref)
     def get_structsequenceref(self): return self.structsequenceref
     def set_structsequenceref(self, structsequenceref): self.structsequenceref = structsequenceref
     def add_structsequenceref(self, value): self.structsequenceref.append(value)
     def insert_structsequenceref(self, index, value): self.structsequenceref[index] = value
+    structsequencerefProp = property(get_structsequenceref, set_structsequenceref)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def export(self, outfile, level, namespace_='', name_='usesDevice', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2522,8 +2584,10 @@ class simpleref(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def get_value(self): return self.value
     def set_value(self, value): self.value = value
+    valueProp = property(get_value, set_value)
     def export(self, outfile, level, namespace_='', name_='simpleref', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2604,8 +2668,10 @@ class simplesequenceref(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_values(self): return self.values
     def set_values(self, values): self.values = values
+    valuesProp = property(get_values, set_values)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def export(self, outfile, level, namespace_='', name_='simplesequenceref', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2694,8 +2760,10 @@ class structref(GeneratedsSuper):
     def set_simpleref(self, simpleref): self.simpleref = simpleref
     def add_simpleref(self, value): self.simpleref.append(value)
     def insert_simpleref(self, index, value): self.simpleref[index] = value
+    simplerefProp = property(get_simpleref, set_simpleref)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def export(self, outfile, level, namespace_='', name_='structref', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2790,8 +2858,10 @@ class structsequenceref(GeneratedsSuper):
     def set_structvalue(self, structvalue): self.structvalue = structvalue
     def add_structvalue(self, value): self.structvalue.append(value)
     def insert_structvalue(self, index, value): self.structvalue[index] = value
+    structvalueProp = property(get_structvalue, set_structvalue)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def export(self, outfile, level, namespace_='', name_='structsequenceref', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2885,6 +2955,7 @@ class structvalue(GeneratedsSuper):
     def set_simpleref(self, simpleref): self.simpleref = simpleref
     def add_simpleref(self, value): self.simpleref.append(value)
     def insert_simpleref(self, index, value): self.simpleref[index] = value
+    simplerefProp = property(get_simpleref, set_simpleref)
     def export(self, outfile, level, namespace_='', name_='structvalue', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2970,6 +3041,7 @@ class values(GeneratedsSuper):
     def set_value(self, value): self.value = value
     def add_value(self, value): self.value.append(value)
     def insert_value(self, index, value): self.value[index] = value
+    valueProp = property(get_value, set_value)
     def export(self, outfile, level, namespace_='', name_='values', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'

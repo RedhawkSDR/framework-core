@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*- 
 
 #
-# Generated Fri Jun 21 14:33:58 2013 by generateDS.py version 2.7c.
+# Generated Thu Sep 12 14:49:30 2013 by generateDS.py version 2.7c.
 #
 
 import sys
@@ -380,6 +380,7 @@ class action(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def validate_ActionType(self, value):
         # Validate type ActionType, a restriction on xs:string.
         pass
@@ -453,6 +454,7 @@ class configurationKind(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_kindtype(self): return self.kindtype
     def set_kindtype(self, kindtype): self.kindtype = kindtype
+    kindtypeProp = property(get_kindtype, set_kindtype)
     def validate_StructPropertyConfigurationType(self, value):
         # Validate type StructPropertyConfigurationType, a restriction on PropertyConfigurationType.
         pass
@@ -527,8 +529,10 @@ class enumeration(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_value(self): return self.value
     def set_value(self, value): self.value = value
+    valueProp = property(get_value, set_value)
     def get_label(self): return self.label
     def set_label(self, label): self.label = label
+    labelProp = property(get_label, set_label)
     def export(self, outfile, level, namespace_='', name_='enumeration', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -613,6 +617,7 @@ class enumerations(GeneratedsSuper):
     def set_enumeration(self, enumeration): self.enumeration = enumeration
     def add_enumeration(self, value): self.enumeration.append(value)
     def insert_enumeration(self, index, value): self.enumeration[index] = value
+    enumerationProp = property(get_enumeration, set_enumeration)
     def export(self, outfile, level, namespace_='', name_='enumerations', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -698,6 +703,7 @@ class inputValue(GeneratedsSuper):
     def set_simple(self, simple): self.simple = simple
     def add_simple(self, value): self.simple.append(value)
     def insert_simple(self, index, value): self.simple[index] = value
+    simpleProp = property(get_simple, set_simple)
     def export(self, outfile, level, namespace_='', name_='inputValue', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -779,6 +785,7 @@ class kind(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_kindtype(self): return self.kindtype
     def set_kindtype(self, kindtype): self.kindtype = kindtype
+    kindtypeProp = property(get_kindtype, set_kindtype)
     def validate_PropertyConfigurationType(self, value):
         # Validate type PropertyConfigurationType, a restriction on xs:string.
         pass
@@ -877,26 +884,32 @@ class properties(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_description(self): return self.description
     def set_description(self, description): self.description = description
+    descriptionProp = property(get_description, set_description)
     def get_simple(self): return self.simple
     def set_simple(self, simple): self.simple = simple
     def add_simple(self, value): self.simple.append(value)
     def insert_simple(self, index, value): self.simple[index] = value
+    simpleProp = property(get_simple, set_simple)
     def get_simplesequence(self): return self.simplesequence
     def set_simplesequence(self, simplesequence): self.simplesequence = simplesequence
     def add_simplesequence(self, value): self.simplesequence.append(value)
     def insert_simplesequence(self, index, value): self.simplesequence[index] = value
+    simplesequenceProp = property(get_simplesequence, set_simplesequence)
     def get_test(self): return self.test
     def set_test(self, test): self.test = test
     def add_test(self, value): self.test.append(value)
     def insert_test(self, index, value): self.test[index] = value
+    testProp = property(get_test, set_test)
     def get_struct(self): return self.struct
     def set_struct(self, struct): self.struct = struct
     def add_struct(self, value): self.struct.append(value)
     def insert_struct(self, index, value): self.struct[index] = value
+    structProp = property(get_struct, set_struct)
     def get_structsequence(self): return self.structsequence
     def set_structsequence(self, structsequence): self.structsequence = structsequence
     def add_structsequence(self, value): self.structsequence.append(value)
     def insert_structsequence(self, index, value): self.structsequence[index] = value
+    structsequenceProp = property(get_structsequence, set_structsequence)
     def export(self, outfile, level, namespace_='', name_='properties', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1066,8 +1079,10 @@ class range_(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_max(self): return self.max
     def set_max(self, max): self.max = max
+    maxProp = property(get_max, set_max)
     def get_min(self): return self.min
     def set_min(self, min): self.min = min
+    minProp = property(get_min, set_min)
     def export(self, outfile, level, namespace_='', name_='range', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1152,6 +1167,7 @@ class resultValue(GeneratedsSuper):
     def set_simple(self, simple): self.simple = simple
     def add_simple(self, value): self.simple.append(value)
     def insert_simple(self, index, value): self.simple[index] = value
+    simpleProp = property(get_simple, set_simple)
     def export(self, outfile, level, namespace_='', name_='resultValue', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1267,39 +1283,51 @@ class simple(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_description(self): return self.description
     def set_description(self, description): self.description = description
+    descriptionProp = property(get_description, set_description)
     def get_value(self): return self.value
     def set_value(self, value): self.value = value
+    valueProp = property(get_value, set_value)
     def get_units(self): return self.units
     def set_units(self, units): self.units = units
+    unitsProp = property(get_units, set_units)
     def validate_Unit(self, value):
         # Validate type Unit, a restriction on xs:string.
         pass
     def get_range(self): return self.range_
     def set_range(self, range_): self.range_ = range_
+    rangeProp = property(get_range, set_range)
     def get_enumerations(self): return self.enumerations
     def set_enumerations(self, enumerations): self.enumerations = enumerations
+    enumerationsProp = property(get_enumerations, set_enumerations)
     def get_kind(self): return self.kind
     def set_kind(self, kind): self.kind = kind
     def add_kind(self, value): self.kind.append(value)
     def insert_kind(self, index, value): self.kind[index] = value
+    kindProp = property(get_kind, set_kind)
     def get_action(self): return self.action
     def set_action(self, action): self.action = action
+    actionProp = property(get_action, set_action)
     def get_complex(self): return self.complex
     def set_complex(self, complex): self.complex = complex
+    complexProp = property(get_complex, set_complex)
     def validate_IsComplex(self, value):
         # Validate type IsComplex, a restriction on xs:string.
         pass
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def validate_PropertyValueType(self, value):
         # Validate type PropertyValueType, a restriction on xs:string.
         pass
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def get_mode(self): return self.mode
     def set_mode(self, mode): self.mode = mode
+    modeProp = property(get_mode, set_mode)
     def validate_AccessType(self, value):
         # Validate type AccessType, a restriction on xs:string.
         pass
@@ -1513,8 +1541,10 @@ class simpleRef(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_refid(self): return self.refid
     def set_refid(self, refid): self.refid = refid
+    refidProp = property(get_refid, set_refid)
     def get_value(self): return self.value
     def set_value(self, value): self.value = value
+    valueProp = property(get_value, set_value)
     def export(self, outfile, level, namespace_='', name_='simpleRef', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1607,37 +1637,48 @@ class simpleSequence(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_description(self): return self.description
     def set_description(self, description): self.description = description
+    descriptionProp = property(get_description, set_description)
     def get_values(self): return self.values
     def set_values(self, values): self.values = values
+    valuesProp = property(get_values, set_values)
     def get_units(self): return self.units
     def set_units(self, units): self.units = units
+    unitsProp = property(get_units, set_units)
     def validate_Unit(self, value):
         # Validate type Unit, a restriction on xs:string.
         pass
     def get_range(self): return self.range_
     def set_range(self, range_): self.range_ = range_
+    rangeProp = property(get_range, set_range)
     def get_kind(self): return self.kind
     def set_kind(self, kind): self.kind = kind
     def add_kind(self, value): self.kind.append(value)
     def insert_kind(self, index, value): self.kind[index] = value
+    kindProp = property(get_kind, set_kind)
     def get_action(self): return self.action
     def set_action(self, action): self.action = action
+    actionProp = property(get_action, set_action)
     def get_complex(self): return self.complex
     def set_complex(self, complex): self.complex = complex
+    complexProp = property(get_complex, set_complex)
     def validate_IsComplex(self, value):
         # Validate type IsComplex, a restriction on xs:string.
         pass
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def validate_PropertyValueType(self, value):
         # Validate type PropertyValueType, a restriction on xs:string.
         pass
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def get_mode(self): return self.mode
     def set_mode(self, mode): self.mode = mode
+    modeProp = property(get_mode, set_mode)
     def validate_AccessType(self, value):
         # Validate type AccessType, a restriction on xs:string.
         pass
@@ -1849,20 +1890,26 @@ class struct(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_description(self): return self.description
     def set_description(self, description): self.description = description
+    descriptionProp = property(get_description, set_description)
     def get_simple(self): return self.simple
     def set_simple(self, simple): self.simple = simple
     def add_simple(self, value): self.simple.append(value)
     def insert_simple(self, index, value): self.simple[index] = value
+    simpleProp = property(get_simple, set_simple)
     def get_configurationkind(self): return self.configurationkind
     def set_configurationkind(self, configurationkind): self.configurationkind = configurationkind
     def add_configurationkind(self, value): self.configurationkind.append(value)
     def insert_configurationkind(self, index, value): self.configurationkind[index] = value
+    configurationkindProp = property(get_configurationkind, set_configurationkind)
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def get_mode(self): return self.mode
     def set_mode(self, mode): self.mode = mode
+    modeProp = property(get_mode, set_mode)
     def validate_AccessType(self, value):
         # Validate type AccessType, a restriction on xs:string.
         pass
@@ -2019,22 +2066,29 @@ class structSequence(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_description(self): return self.description
     def set_description(self, description): self.description = description
+    descriptionProp = property(get_description, set_description)
     def get_struct(self): return self.struct
     def set_struct(self, struct): self.struct = struct
+    structProp = property(get_struct, set_struct)
     def get_structvalue(self): return self.structvalue
     def set_structvalue(self, structvalue): self.structvalue = structvalue
     def add_structvalue(self, value): self.structvalue.append(value)
     def insert_structvalue(self, index, value): self.structvalue[index] = value
+    structvalueProp = property(get_structvalue, set_structvalue)
     def get_configurationkind(self): return self.configurationkind
     def set_configurationkind(self, configurationkind): self.configurationkind = configurationkind
     def add_configurationkind(self, value): self.configurationkind.append(value)
     def insert_configurationkind(self, index, value): self.configurationkind[index] = value
+    configurationkindProp = property(get_configurationkind, set_configurationkind)
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def get_mode(self): return self.mode
     def set_mode(self, mode): self.mode = mode
+    modeProp = property(get_mode, set_mode)
     def validate_AccessType(self, value):
         # Validate type AccessType, a restriction on xs:string.
         pass
@@ -2197,6 +2251,7 @@ class structValue(GeneratedsSuper):
     def set_simpleref(self, simpleref): self.simpleref = simpleref
     def add_simpleref(self, value): self.simpleref.append(value)
     def insert_simpleref(self, index, value): self.simpleref[index] = value
+    simplerefProp = property(get_simpleref, set_simpleref)
     def export(self, outfile, level, namespace_='', name_='structValue', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2280,12 +2335,16 @@ class test(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_description(self): return self.description
     def set_description(self, description): self.description = description
+    descriptionProp = property(get_description, set_description)
     def get_inputvalue(self): return self.inputvalue
     def set_inputvalue(self, inputvalue): self.inputvalue = inputvalue
+    inputvalueProp = property(get_inputvalue, set_inputvalue)
     def get_resultvalue(self): return self.resultvalue
     def set_resultvalue(self, resultvalue): self.resultvalue = resultvalue
+    resultvalueProp = property(get_resultvalue, set_resultvalue)
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def export(self, outfile, level, namespace_='', name_='test', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -2397,6 +2456,7 @@ class values(GeneratedsSuper):
     def set_value(self, value): self.value = value
     def add_value(self, value): self.value.append(value)
     def insert_value(self, index, value): self.value[index] = value
+    valueProp = property(get_value, set_value)
     def export(self, outfile, level, namespace_='', name_='values', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'

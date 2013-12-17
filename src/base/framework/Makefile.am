@@ -38,7 +38,10 @@ libossiecf_la_SOURCES = AggregateDevice_impl.cpp \
                         ORB.cpp \
                         prop_helpers.cpp \
                         MessageInterface.cpp \
-                        Service_impl.cpp
+                        PropertyInterface.cpp \
+                        Service_impl.cpp \
+                        type_traits.cpp \
+                        AnyUtils.cpp
 
 if ENABLE_EVENTS
 libossiecf_la_SOURCES += EventChannelSupport.cpp

@@ -157,9 +157,8 @@ public:
                     CosEventChannelAdmin::EventChannel_var idm_channel = CosEventChannelAdmin::EventChannel::_narrow(IDM_channel_obj);
                     (*devPtr)->connectSupplierToIncomingEventChannel(idm_channel);
                 }
-            } catch (...) {
-                LOG_WARN(Device_impl, "Unable to connect to IDM channel");
             }
+            CATCH_LOG_WARN(Device_impl, "Unable to connect to IDM channel");
         }
 #endif
 
@@ -304,10 +303,67 @@ public:
     Device_impl(Device_impl&); // No copying
 
 protected:
+    void updateUsageState ();
+
+    template <typename T>
+    void setAllocationImpl (const std::string& id, typename PropertyWrapper<T>::Allocator allocator,
+                        typename PropertyWrapper<T>::Deallocator deallocator)
+    {
+        useNewAllocation = true;
+        try {
+            PropertyWrapper<T>* wrapper = getAllocationPropertyById<T>(id);
+            wrapper->setAllocator(allocator); 
+            wrapper->setDeallocator(deallocator); 
+       } catch (const std::invalid_argument& error) {
+            LOG_WARN(Device_impl, "Cannot set allocation implementation: " << error.what());
+        }
+    }
+
+    template <typename T>
+    void setAllocationImpl (const std::string& id, bool (*alloc)(const T&), void (*dealloc)(const T&))
+    {
+        typename PropertyWrapper<T>::Allocator allocator = alloc;
+        typename PropertyWrapper<T>::Deallocator deallocator = dealloc;
+        setAllocationImpl<T>(id, allocator, deallocator);
+    }
+
+    template <class C, typename T>
+    void setAllocationImpl (const std::string& id, C* target, bool (C::*alloc)(const T&),
+                        void (C::*dealloc)(const T&))
+    {
+        typename PropertyWrapper<T>::Allocator allocator;
+        allocator = boost::bind(alloc, target, _1);
+        typename PropertyWrapper<T>::Deallocator deallocator;
+        deallocator = boost::bind(dealloc, target, _1);
+        setAllocationImpl<T>(id, allocator, deallocator);
+    }
+
+    template <typename T>
+    PropertyWrapper<T>* getAllocationPropertyById (const std::string& id)
+    {
+        PropertyWrapper<T>* property = getPropertyWrapperById<T>(id);
+        if (!property->isAllocatable()) {
+            throw std::invalid_argument("Property '" + id + "' is not allocatable");
+        }
+        return property;
+    }
+
     std::string _devMgr_ior;
 private:
     friend class IDM_Channel_Supplier_i;
     void initResources(char*, char*, char*, char*);
+
+    // Check for valid allocation properties
+    void validateCapacities (const CF::Properties& capacities);
+
+    // New per-property callback-based capacity management
+    bool useNewAllocation;
+    bool allocateCapacityNew (const CF::Properties& capacities);
+    void deallocateCapacityNew (const CF::Properties& capacities);
+
+    // Legacy capacity management
+    bool allocateCapacityLegacy (const CF::Properties& capacities);
+    void deallocateCapacityLegacy (const CF::Properties& capacities);
 };
 
 

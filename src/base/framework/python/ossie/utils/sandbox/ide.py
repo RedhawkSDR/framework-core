@@ -67,7 +67,7 @@ class IDEMixin(object):
 
 
 class IDESandboxComponent(SandboxComponent, IDEMixin):
-    def __init__(self, sandbox, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window):
+    def __init__(self, sandbox, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window, timeout):
         SandboxComponent.__init__(self, sandbox, profile, spd, scd, prf, instanceName, refid, impl)
         IDEMixin.__init__(self)
 

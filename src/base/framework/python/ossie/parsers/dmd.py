@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*- 
 
 #
-# Generated Fri Jun 21 14:33:58 2013 by generateDS.py version 2.7c.
+# Generated Thu Sep 12 14:49:30 2013 by generateDS.py version 2.7c.
 #
 
 import sys
@@ -386,14 +386,19 @@ class domainmanagerconfiguration(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_description(self): return self.description
     def set_description(self, description): self.description = description
+    descriptionProp = property(get_description, set_description)
     def get_domainmanagersoftpkg(self): return self.domainmanagersoftpkg
     def set_domainmanagersoftpkg(self, domainmanagersoftpkg): self.domainmanagersoftpkg = domainmanagersoftpkg
+    domainmanagersoftpkgProp = property(get_domainmanagersoftpkg, set_domainmanagersoftpkg)
     def get_services(self): return self.services
     def set_services(self, services): self.services = services
+    servicesProp = property(get_services, set_services)
     def get_id(self): return self.id_
     def set_id(self, id): self.id_ = id
+    idProp = property(get_id, set_id)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='domainmanagerconfiguration', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -511,6 +516,7 @@ class domainmanagersoftpkg(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_localfile(self): return self.localfile
     def set_localfile(self, localfile): self.localfile = localfile
+    localfileProp = property(get_localfile, set_localfile)
     def export(self, outfile, level, namespace_='', name_='domainmanagersoftpkg', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -586,6 +592,7 @@ class localfile(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='localfile', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -659,6 +666,7 @@ class services(GeneratedsSuper):
     def set_service(self, service): self.service = service
     def add_service(self, value): self.service.append(value)
     def insert_service(self, index, value): self.service[index] = value
+    serviceProp = property(get_service, set_service)
     def export(self, outfile, level, namespace_='', name_='services', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -740,8 +748,10 @@ class service(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_usesidentifier(self): return self.usesidentifier
     def set_usesidentifier(self, usesidentifier): self.usesidentifier = usesidentifier
+    usesidentifierProp = property(get_usesidentifier, set_usesidentifier)
     def get_findby(self): return self.findby
     def set_findby(self, findby): self.findby = findby
+    findbyProp = property(get_findby, set_findby)
     def export(self, outfile, level, namespace_='', name_='service', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -829,10 +839,13 @@ class findby(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_namingservice(self): return self.namingservice
     def set_namingservice(self, namingservice): self.namingservice = namingservice
+    namingserviceProp = property(get_namingservice, set_namingservice)
     def get_stringifiedobjectref(self): return self.stringifiedobjectref
     def set_stringifiedobjectref(self, stringifiedobjectref): self.stringifiedobjectref = stringifiedobjectref
+    stringifiedobjectrefProp = property(get_stringifiedobjectref, set_stringifiedobjectref)
     def get_domainfinder(self): return self.domainfinder
     def set_domainfinder(self, domainfinder): self.domainfinder = domainfinder
+    domainfinderProp = property(get_domainfinder, set_domainfinder)
     def export(self, outfile, level, namespace_='', name_='findby', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -932,6 +945,7 @@ class namingservice(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='namingservice', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
@@ -1002,8 +1016,10 @@ class domainfinder(GeneratedsSuper):
     factory = staticmethod(factory)
     def get_type(self): return self.type_
     def set_type(self, type_): self.type_ = type_
+    typeProp = property(get_type, set_type)
     def get_name(self): return self.name
     def set_name(self, name): self.name = name
+    nameProp = property(get_name, set_name)
     def export(self, outfile, level, namespace_='', name_='domainfinder', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'

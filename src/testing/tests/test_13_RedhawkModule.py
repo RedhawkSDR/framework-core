@@ -55,7 +55,7 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
             self.fail('App.api() raised an exception')
         
         app2 = self._rhDom.createApplication("TestCppProps")
-        self.assertNotEqual(app, None, "Application not created")
+        self.assertNotEqual(app2, None, "Application not created")
         self.assertEquals(len(self._rhDom._get_applications()), 2)
         self.assertEquals(len(self._rhDom.apps), 2)
         
@@ -64,6 +64,28 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertEquals(len(self._rhDom.apps), 1)
         
         # Use exit functions from module to release other launched app
+        redhawk.core._cleanUpLaunchedApps()
+        self.assertEquals(len(self._rhDom.apps), 0)
+        self.assertEquals(len(self._rhDom._get_applications()), 0)
+
+    def test_cleanup_multiple_waves(self):
+        # Create Application from $SDRROOT path
+        app = self._rhDom.createApplication("/waveforms/TestCppProps/TestCppProps.sad.xml")
+        self.assertNotEqual(app, None, "Application not created")
+        self.assertEquals(len(self._rhDom._get_applications()), 1)
+        self.assertEquals(len(self._rhDom.apps), 1)
+        
+        app2 = self._rhDom.createApplication("TestCppProps")
+        self.assertNotEqual(app2, None, "Application not created")
+        self.assertEquals(len(self._rhDom._get_applications()), 2)
+        self.assertEquals(len(self._rhDom.apps), 2)
+
+        app3 = self._rhDom.createApplication("TestCppProps")
+        self.assertNotEqual(app3, None, "Application not created")
+        self.assertEquals(len(self._rhDom._get_applications()), 3)
+        self.assertEquals(len(self._rhDom.apps), 3)
+        
+        # Use exit functions from module to release launched apps
         redhawk.core._cleanUpLaunchedApps()
         self.assertEquals(len(self._rhDom.apps), 0)
         self.assertEquals(len(self._rhDom._get_applications()), 0)

@@ -75,25 +75,34 @@ class ComponentEndpoint(Endpoint):
     def getPortName(self):
         return None
 
-class ServiceEndpoint(Endpoint):
-    def __init__(self, service, interface):
-        self.service = service
+class ObjectEndpoint(Endpoint):
+    def __init__(self, objref, interface):
+        self.objref = objref
         self.interface = interface
 
     def getReference(self):
-        return self.service.ref
+        return self.objref.ref
 
     def getName(self):
-        return self.service._instanceName
+        try:
+            return self.objref._instanceName
+        except AttributeError:
+            return "(unnamed object)"
 
     def getInterface(self):
         return self.interface
 
     def hasComponent(self, component):
-        return self.service._refid == component._refid
+        try:
+            return self.objref._refid == component._refid
+        except AttributeError:
+            return self.objref.ref._is_equivalent(component.ref)
 
     def getRefid(self):
-        return self.service._refid
+        try:
+            return self.objref._refid
+        except AttributeError:
+            return "(no refid)"
 
 class ConnectionManager(object):
     __instance__ = None
