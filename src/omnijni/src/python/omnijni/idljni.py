@@ -506,6 +506,9 @@ class StructHelper (PeerHelper):
 
     def generateToJObject(self, body, node):
         ctorArgs = ['cls_', 'ctor_']
+        pre = body.Code()
+        body.append()
+        post = body.Code()
         for index, m in enumerate(node.members()):
             idlType = m.memberType()
             decl = m.declarators()[0]
@@ -518,16 +521,20 @@ class StructHelper (PeerHelper):
                 continue
             argName = 'arg%d__' % (index,)
             if isString(idlType):
-                body.append('jstring %s = env->NewStringUTF(in.%s);', argName, fieldName)
+                pre.append('jstring %s = env->NewStringUTF(in.%s);', argName, fieldName)
             elif isSequence(idlType):
-                body.append('jobject %s = omnijni::toJObject(in.%s, env);', argName, fieldName)
+                pre.append('jobject %s = omnijni::toJObject(in.%s, env);', argName, fieldName)
             else:
                 qualName = helperName(idlType)
-                body.append('jobject %s = %s::toJObject(in.%s, env);', argName, qualName, fieldName);
+                pre.append('jobject %s = %s::toJObject(in.%s, env);', argName, qualName, fieldName);
             ctorArgs.append(argName)
+            post.append('env->DeleteLocalRef(%s);', argName)
 
-        # Finish constructor call
-        body.append('return env->NewObject(%s);', ', '.join(ctorArgs))
+        # Call constructor at end of preamble
+        pre.append('jobject retval__ = env->NewObject(%s);', ', '.join(ctorArgs))
+
+        # Add return statement to the end of the postamble
+        post.append('return retval__;')
 
     def generateFromJObject(self, body, node):
         for index, m in enumerate(node.members()):

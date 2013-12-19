@@ -25,8 +25,8 @@
 %define username redhawk
 
 Name:		redhawk
-Version:	1.8.5
-Release:        3%{?dist}
+Version:	1.8.6
+Release:        1%{?dist}
 Summary:	REDHAWK is a Software Defined Radio framework
 
 Group:		Applications/Engineering

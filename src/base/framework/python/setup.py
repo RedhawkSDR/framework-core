@@ -54,7 +54,7 @@ ossiepy = ['ossie', 'ossie/cf', \
            'ossie/parsers', 'ossie/utils/tools', 'ossie/utils/log4py', 'ossie/utils/testing',
            'redhawk']
 
-version='1.8.5'
+version='1.8.6'
 
 setup(
         name='ossiepy',

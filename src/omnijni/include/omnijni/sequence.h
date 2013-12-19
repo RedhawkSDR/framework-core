@@ -87,6 +87,7 @@ namespace omnijni {
         for (jsize ii = 0; ii < size; ++ii) {
             jobject item = toJObject(sequence[ii], env);
             env->SetObjectArrayElement(array, ii, item);
+            env->DeleteLocalRef(item);
         }
         return array;
     }
