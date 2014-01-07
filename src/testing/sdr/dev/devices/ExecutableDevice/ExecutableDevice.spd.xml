@@ -23,9 +23,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 <softpkg id="DCE:6be771f4-4ce3-4b4c-9e7c-10e88eeece7f" name="ExecutableDevice" type="sca_compliant" version="">
     <title />
     <author>
-        <name>OSSIE</name>
-        <company>MPRG</company>
-        <webpage>www.mprg.org</webpage>
+        <name>REDHAWK test author</name>
     </author>
     <propertyfile>
         <localfile name="ExecutableDevice.prf.xml" />

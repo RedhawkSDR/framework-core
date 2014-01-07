@@ -358,6 +358,3 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(self._getBogoMips(device1), 100000000)
 
         self._domMgr.uninstallApplication(appFact._get_identifier())
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

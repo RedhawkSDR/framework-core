@@ -158,6 +158,3 @@ class CppPropertiesTest(scatest.CorbaTestCase):
         propVal = self._app.query([prop])[0]
         self.assertNotEqual(propVal.value.value(), None)
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

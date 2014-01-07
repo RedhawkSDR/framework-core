@@ -44,7 +44,7 @@ class PythonParserTestCase(scatest.OssieTestCase):
         spd = parsers.SPDParser.parse(spdPath)
         self.assertEqual(spd.get_id(), "DCE:458872f6-a316-4082-b1eb-ce5704f5c49d")
         self.assertEqual(spd.get_name(), "CommandWrapper")
-        self.assertEqual(str(spd.get_author()[0].get_name()[0]), "OSSIE Project")
+        self.assertEqual(str(spd.get_author()[0].get_name()[0]), "REDHAWK test author")
         self.assertEqual(spd.get_propertyfile().get_type(), "PRF")
         self.assertEqual(spd.get_propertyfile().get_localfile().get_name(), "CommandWrapper.prf.xml")
 
@@ -191,6 +191,3 @@ class PythonParserTestCase(scatest.OssieTestCase):
         self.assertEqual(sad.partitioning.get_componentplacement()[3].get_componentinstantiation()[0].startorder, "3")
 
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

@@ -122,7 +122,3 @@ class DeviceManagerTest(scatest.CorbaTestCase):
 
     def test_PyBasicAggregateDeviceShutdownChild(self):
         self._test_ShutdownChild("BasicChildDevice_python")
-    
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

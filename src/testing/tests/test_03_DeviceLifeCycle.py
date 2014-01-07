@@ -45,6 +45,3 @@ class DeviceLifeCycleTest(scatest.CorbaTestCase):
     def test_DeviceLifeCycleNoKill(self):
         pass
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

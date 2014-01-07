@@ -31,6 +31,3 @@ class ValidateTestDomainTest(scatest.OssieTestCase):
         self.assertFileExists("sdr/dev/devices/BasicChildDevice/BasicChildDevice.py")
         self.assertFileExists("sdr/dev/devices/ExecutableDevice/ExecutableDevice")
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

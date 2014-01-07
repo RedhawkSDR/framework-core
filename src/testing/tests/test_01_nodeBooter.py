@@ -190,6 +190,3 @@ class NodeBooterTest(scatest.CorbaTestCase):
         except CosNaming.NamingContext.NotFound:
             pass # This exception is expected
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

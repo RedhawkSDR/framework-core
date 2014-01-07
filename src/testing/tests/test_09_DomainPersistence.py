@@ -690,7 +690,3 @@ class DomainPersistenceTest(scatest.CorbaTestCase):
 if not scatest.persistenceEnabled():
     del DomainPersistenceTest
 
-if __name__ == "__main__":
-    # Run the unittests
-    print "Running the unittests" 
-    unittest.main()

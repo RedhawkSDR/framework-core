@@ -2157,7 +2157,3 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         
         app.stop()
         app.releaseObject()                
-                
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

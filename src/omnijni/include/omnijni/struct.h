@@ -29,8 +29,9 @@ namespace omnijni {
     inline void fromJObject (_CORBA_String_member& str, JNIEnv* env, jobject obj)
     {
         jstring jstr = (jstring)obj;
-        str = env->GetStringUTFChars(jstr, NULL);
-        env->ReleaseStringUTFChars(jstr, NULL);
+        const char* utf = env->GetStringUTFChars(jstr, NULL);
+        str = utf;
+        env->ReleaseStringUTFChars(jstr, utf);
     }
 
     inline void fromJObject (CORBA::Object_Member& member, JNIEnv* env, jobject obj)
@@ -49,6 +50,7 @@ namespace omnijni {
     void getObjectField (T& out, JNIEnv* env, jobject obj, jfieldID fid) {
         jobject field = env->GetObjectField(obj, fid);
         fromJObject(out, env, field);
+        env->DeleteLocalRef(field);
     }
 
 }

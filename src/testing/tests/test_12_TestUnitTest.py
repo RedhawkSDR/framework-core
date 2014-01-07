@@ -176,7 +176,3 @@ class UnitTestTest(scatest.OssieTestCase):
             self.fail("Component process did not die")
 
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()
-

@@ -264,6 +264,3 @@ class StressTest(scatest.CorbaTestCase):
         domMgr.uninstallApplication(appFact._get_identifier())
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

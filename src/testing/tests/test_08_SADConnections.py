@@ -263,6 +263,3 @@ class SADConnectionsTest(scatest.CorbaTestCase):
         self.assertEqual(expectedId, actualId)
 
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

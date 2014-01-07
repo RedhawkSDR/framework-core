@@ -516,6 +516,3 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
     def test_py_FileChanged(self):
         self._test_FileChanged("BasicTestDevice_node", "BasicTestDevice1")
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

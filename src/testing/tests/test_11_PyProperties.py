@@ -149,6 +149,3 @@ class PyPropertiesTest(scatest.CorbaTestCase):
         self.assertEqual(v1[0], value[1])
 
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

@@ -422,7 +422,3 @@ class HardFailTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 1)
         self.assertNotEqual(devInfo[devMgrToRelaunchOn]['dev'].query(prop)[0].value.value(),devInfo[devMgrToRelaunchOn]['dev_BogoMipsCapacity'])
 
-        
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

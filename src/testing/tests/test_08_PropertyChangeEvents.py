@@ -235,6 +235,3 @@ class PropertyChangeEventsTest(scatest.CorbaTestCase):
 if scatest.getBuildDefineValue("ENABLE_EVENTS") in (None, "0"):
     del ODMEventsTest
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

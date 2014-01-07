@@ -1323,6 +1323,3 @@ class TestPythonFramework(scatest.OssieTestCase):
             self.assertEqual(type(e), str)
 
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

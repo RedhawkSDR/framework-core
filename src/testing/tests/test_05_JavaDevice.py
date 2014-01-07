@@ -180,6 +180,3 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         self.assertEqual(len(domMgr._get_deviceManagers()), 0)
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

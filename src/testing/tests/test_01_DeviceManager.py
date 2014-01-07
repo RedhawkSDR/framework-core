@@ -1026,7 +1026,3 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         # Makes sure that all children are dead
         self.assertEquals(len(getChildren(devmgr_nb.pid)), 0)
 
-                
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

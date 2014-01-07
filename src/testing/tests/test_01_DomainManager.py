@@ -242,6 +242,3 @@ class DomainManagerTest(scatest.CorbaTestCase):
         self.assertEqual(self.gotData, True)
         self._domMgr.unregisterFromEventChannel('some_id', channelName)
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

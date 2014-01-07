@@ -150,6 +150,3 @@ class DCDConnectionsTest(scatest.CorbaTestCase):
                 self.fail('Device manager test_BasicService_node did not unregister')
 
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

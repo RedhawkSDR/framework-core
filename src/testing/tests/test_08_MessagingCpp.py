@@ -146,6 +146,3 @@ if scatest.getBuildDefineValue("ENABLE_EVENTS") in (None, "0"):
     del EventPortConnectionsTest
 
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

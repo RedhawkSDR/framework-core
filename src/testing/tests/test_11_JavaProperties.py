@@ -116,6 +116,3 @@ class JavaPropertiesTest(scatest.CorbaTestCase):
         value = self._anyToDicts(prop.value)
         self.assertEqual(value, newvalue)
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

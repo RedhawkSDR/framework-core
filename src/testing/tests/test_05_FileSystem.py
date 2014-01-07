@@ -575,6 +575,3 @@ class FileManagerTest(scatest.CorbaTestCase):
         # Issue #533
         self.assertRaises(CF.DomainManager.ApplicationInstallationError, self._domMgr.installApplication, '/waveforms')      
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

@@ -342,6 +342,3 @@ class LoggingConfigTest(scatest.CorbaTestCase):
         self.assert_(devMgr._get_fileSys()._is_equivalent(execparamObj))
 
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

@@ -845,7 +845,7 @@ class FileSink(object):
         finally:
             self.port_lock.release()
         
-    def pushPacket(self, data, EOS, stream_id):
+    def pushPacketXML(self, data, EOS, stream_id):
         """
         Deals with XML data
         
