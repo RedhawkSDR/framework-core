@@ -135,7 +135,11 @@ void FileSystem_impl::_local_remove (const char* pattern) throw (CORBA::SystemEx
     if ((filePath.filename() == ".") && (fs::is_directory(filePath))) {
         searchPattern = "*";
     } else {
+#if BOOST_FILESYSTEM_VERSION < 3
         searchPattern = filePath.filename();
+#else
+        searchPattern = filePath.filename().string();
+#endif
     }
     
     LOG_TRACE(FileSystem_impl, "[FileSystem::remove] using searchPattern " << searchPattern << " in " << filePath.parent_path());
@@ -148,7 +152,7 @@ void FileSystem_impl::_local_remove (const char* pattern) throw (CORBA::SystemEx
     while (!fsOpSuccess) {
         try {
             for (fs::directory_iterator itr(dirPath); itr != end_itr; ++itr) {
-                if (fnmatch(searchPattern.c_str(), itr->filename().c_str(), 0) == 0) {
+                if (fnmatch(searchPattern.c_str(), itr->path().filename().c_str(), 0) == 0) {
                     //remove the file
                     LOG_TRACE(FileSystem_impl, "About to remove file " << itr->path().string());
                     bool rem_retval = false;
