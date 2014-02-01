@@ -180,6 +180,9 @@ public:
 
     CF::FileManager_var _fileMgr;
 
+    std::string getLastDeviceUsedForDeployment();
+    void setLastDeviceUsedForDeployment(const std::string& identifier);
+
 /////////////////////////////
 // Internal Helper Functions
 /////////////////////////////
@@ -268,6 +271,9 @@ private:
     
     CF::DomainManager::ApplicationSequence _applications;
     CF::DomainManager::ApplicationFactorySequence _applicationFactories;
+
+    // Identifier of last device that was successfully used for deployment
+    std::string _lastDeviceUsedForDeployment;
 
     std::string logging_config_uri;
     StringProperty* logging_config_prop;

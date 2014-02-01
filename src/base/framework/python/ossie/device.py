@@ -800,6 +800,7 @@ class LoadableDevice(Device):
                 os.rename(localPath, modifiedName)
                 f = open(localPath, "w+")
             else:
+                fileToLoad.close();
                 raise
         fileSize = fileToLoad.sizeOf()
         floorFileTransferSize=1024*1024

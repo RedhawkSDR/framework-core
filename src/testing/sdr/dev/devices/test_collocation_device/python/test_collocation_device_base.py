@@ -170,3 +170,11 @@ class test_collocation_device_base(CF__POA.ExecutableDevice, ExecutableDevice):
                                           action="eq",
                                           kinds=("configure","allocation")
                                           )
+        allocation_attempts = simple_property(id_="allocation_attempts",
+                                          name="allocation_attempts", 
+                                          type_="ulong",
+                                          defvalue=0,
+                                          mode="readonly",
+                                          action="external",
+                                          kinds=("configure",)
+                                          )

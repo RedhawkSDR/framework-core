@@ -512,17 +512,37 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
             ///////////////////////////////////////////////////
             // Get a list of all device currently in the domain
             _registeredDevices = _appFact._domainManager->getRegisteredDevices();
-            if (_registeredDevices.size() == 0) {
+            _executableDevices.clear();
+
+            std::string lastExecutableDevice = _appFact._domainManager->getLastDeviceUsedForDeployment();
+
+            // Get the executable devices from the registered devices list
+            for (DeviceList::const_iterator devNode = _registeredDevices.begin(); devNode != _registeredDevices.end(); ++devNode) {
+                try {
+                    if (devNode->device->_is_a("IDL:CF/ExecutableDevice:1.0")) {
+                        _executableDevices.push_back(*devNode);
+                    }
+                } catch (...) {
+                    // Ignore devices that throw exceptions, which implies that
+                    // they are unreachable anyway
+                }
+            }
+
+            if (_executableDevices.size() == 0) {
                 ostringstream eout;
-                eout << "The domain has no devices (and therefore cannot support the creation of waveform " << name << ")";
+                eout << "The domain has no executable devices (and therefore cannot support the creation of waveform " << name << ")";
                 LOG_WARN(ApplicationFactory_impl, eout.str());
                 throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL, eout.str().c_str());
             }
 
+            // Rotate the executable device list to put the last successful
+            // device first
+            LOG_DEBUG(ApplicationFactory_impl, "Rotating executable device list to put \"" << lastExecutableDevice << "\" first");
+            rotateDeviceList(_executableDevices, lastExecutableDevice);
+            
             // create list of device IDs for allocation collocations
             DeviceIDList  _regDeviceIDs;
-            std::transform( _registeredDevices.begin(), _registeredDevices.end(), std::back_inserter< DeviceIDList >(_regDeviceIDs), DeviceInfoToStr() );
-            _regDeviceIDs.sort();
+            std::transform(_executableDevices.begin(), _executableDevices.end(), std::back_inserter(_regDeviceIDs), DeviceInfoToStr());
 
             //////////////////////////////////////////////////
             // Load the components to instantiate from the SAD
@@ -629,10 +649,13 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
                 }
 #endif
 
-                // Create list of devices that are available to use for placement, registeredDevices minus assignedDevices
-                assignedDevices.sort();
+                // Create list of devices that are available to use for placement, executableDevices minus assignedDevices
                 DeviceIDList  _availableDevices;
-                std::set_difference( _regDeviceIDs.begin(), _regDeviceIDs.end(), assignedDevices.begin(), assignedDevices.end(), std::back_inserter< DeviceIDList  >(_availableDevices) );
+                for (DeviceIDList::const_iterator devIter = _regDeviceIDs.begin(); devIter != _regDeviceIDs.end(); ++devIter) {
+                    if (!std::count(assignedDevices.begin(), assignedDevices.end(), *devIter)) {
+                        _availableDevices.push_back(*devIter);
+                    }
+                }
 
 #ifdef DEBUG
                 LOG_TRACE(ApplicationFactory_impl, "AVAILABLE DEVICES:");
@@ -690,7 +713,7 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
                                 }
                             }
 
-                            if ( !component->isAssignedToDevice() ){
+                            if ( !c_placed ){
                                 throw 0;
                             }
 
@@ -883,6 +906,11 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
                 poa->deactivate_object(oid);
                 throw CF::ApplicationFactory::CreateApplicationError(ex.errorNumber, ex.msg);
             }
+
+            // After all components have been deployed, we know that the first
+            // executable device in the list was used for the last deployment,
+            // so update the domain manager
+            _appFact._domainManager->setLastDeviceUsedForDeployment(_executableDevices.front().identifier);
 
             LOG_TRACE(ApplicationFactory_impl, "Cleaning up");
             _deleteRequiredComponents();
@@ -1413,6 +1441,10 @@ void createHelper::allocateComponentToDevice( ossie::ComponentInfo* component,
             }
 
             deviceCapacityAlloc = AllocPropsInfo( deviceNode.device, allocatedCapacity );
+
+            // Move the device used for this deployment to the front of the list
+            LOG_TRACE(ApplicationFactory_impl, "Putting device \"" << deviceNode.identifier << "\" at the front of the list");
+            rotateDeviceList(_executableDevices, deviceNode.identifier);
             return;
             //return deviceNode.device._retn();
         }
@@ -1423,8 +1455,8 @@ void createHelper::allocateComponentToDevice( ossie::ComponentInfo* component,
     // Ideally we will try IDLE devices first
     bool foundDevice = false;
     DeviceList::iterator deviceNodeIter;
-    LOG_TRACE(ApplicationFactory_impl, "Searching for a place to deploy component amongst " << _registeredDevices.size() << " devices");
-    for (deviceNodeIter = _registeredDevices.begin(); deviceNodeIter != _registeredDevices.end(); deviceNodeIter++) {
+    LOG_TRACE(ApplicationFactory_impl, "Searching for a place to deploy component amongst " << _executableDevices.size() << " executable devices");
+    for (deviceNodeIter = _executableDevices.begin(); deviceNodeIter != _executableDevices.end(); deviceNodeIter++) {
         foundDevice = false; // make sure this is false
         if (!ossie::corba::objectExists(deviceNodeIter->device)) {
             LOG_WARN(ApplicationFactory_impl,
@@ -1476,6 +1508,12 @@ void createHelper::allocateComponentToDevice( ossie::ComponentInfo* component,
             allocatedCapacity = allocateCapacity(component, implementation, *deviceNodeIter, devicePRF);
             foundDevice = true;
             deviceCapacityAlloc = AllocPropsInfo( deviceNodeIter->device, allocatedCapacity);
+
+            // Move the device used for this deployment to the front of the list
+            LOG_TRACE(ApplicationFactory_impl, "Putting device \"" << deviceNodeIter->identifier << "\" at the front of the list");
+            if (deviceNodeIter != _executableDevices.begin()) {
+                std::rotate(_executableDevices.begin(), deviceNodeIter, _executableDevices.end());
+            }
             break;
         } catch(CF::ApplicationFactory::CreateApplicationError& e) {
             std::ostringstream iout;
@@ -2257,7 +2295,7 @@ void createHelper::loadAndExecuteComponents(
             // Naming Context IOR, Name Binding, and component identifier
             CF::DataType ncior;
             ncior.id = "NAMING_CONTEXT_IOR";
-            ncior.value <<= (CORBA::String_var)ossie::corba::Orb()->object_to_string(WaveformContext);
+            ncior.value <<= ossie::corba::objectToString(WaveformContext);
             component->addExecParameter(ncior);
 
             CF::DataType ci;
@@ -2948,4 +2986,19 @@ CF::Device_ptr createHelper::lookupDeviceUsedByComponentInstantiationId(const st
     std::string deviceId = usesdevice->getAssignedDeviceId();
     LOG_TRACE(ApplicationFactory_impl, "[DeviceLookup] Assigned device id " << deviceId);
     return find_device_from_id(deviceId.c_str());
+}
+
+/** Rotates a device list to put the device with the given identifier first
+ */
+void createHelper::rotateDeviceList(DeviceList& devices, const std::string& identifier)
+{
+    const DeviceList::iterator begin = devices.begin();
+    for (DeviceList::iterator node = begin; node != devices.end(); ++node) {
+        if (node->identifier == identifier) {
+            if (node != begin) {
+                std::rotate(devices.begin(), node, devices.end());
+            }
+            return;
+        }
+    }
 }

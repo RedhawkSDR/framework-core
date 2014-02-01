@@ -45,4 +45,9 @@ with this program.  If not, see http://www.gnu.org/licenses/.
     <kind kindtype="allocation"/>
     <action type="eq"/>
   </simple>
+  <simple id="allocation_attempts" mode="readonly" name="allocation_attempts" type="ulong">
+    <value>0</value>
+    <kind kindtype="configure"/>
+    <action type="external"/>
+  </simple>
 </properties>

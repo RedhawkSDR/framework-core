@@ -331,6 +331,7 @@ def load_logging_config_uri(orb, uri, binding=None):
                     buf = scaFile.read(fileSize)
                     tf.write(buf)
                     tf.close()
+                    scaFile.close()
 
                     ossie.utils.log4py.config.fileConfig(t)
                 finally:

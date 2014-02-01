@@ -61,6 +61,7 @@ class test_collocation_device_i(test_collocation_device_base):
     # CF::Device
     ###########################################
     def allocateCapacity(self, properties):
+        self.allocation_attempts += 1
         result = test_collocation_device_base.allocateCapacity(self, properties)
         # After the allocation send an event for all properties
         try:

@@ -158,6 +158,7 @@ private:
     CapacityAllocationTable _appCapacityTable;
 
     ossie::DeviceList _registeredDevices;
+    ossie::DeviceList _executableDevices;
     PlacementList     _requiredComponents;
 
     //
@@ -310,5 +311,7 @@ private:
     CF::Device_ptr lookupDeviceUsedByComponentInstantiationId(
         const std::string& componentId, 
         const std::string& usesId);
+
+    void rotateDeviceList (ossie::DeviceList& devices, const std::string& identifier);
 };
 #endif

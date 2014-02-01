@@ -1324,6 +1324,11 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
     TRACE_ENTER(DomainManager_impl)
     boost::recursive_mutex::scoped_lock lock(stateAccess);
 
+    // Reset the last successful device pointer for deployments
+    if (deviceNode->identifier == _lastDeviceUsedForDeployment) {
+        _lastDeviceUsedForDeployment = "";
+    }
+
     // Break any connections depending on the device.
     _connectionManager.deviceUnregistered(deviceNode->identifier);
     try {
@@ -2586,6 +2591,23 @@ ossie::DeviceList::iterator DomainManager_impl::findDeviceByObject (CF::Device_p
 ossie::DeviceList DomainManager_impl::getRegisteredDevices() {
     boost::recursive_mutex::scoped_lock lock(stateAccess);
     return _registeredDevices;
+}
+
+std::string DomainManager_impl::getLastDeviceUsedForDeployment ()
+{
+    boost::recursive_mutex::scoped_lock lock(stateAccess);
+    if (_lastDeviceUsedForDeployment.empty()) {
+        if (!_registeredDevices.empty()) {
+            _lastDeviceUsedForDeployment = _registeredDevices.front().identifier;
+        }
+    }
+    return _lastDeviceUsedForDeployment;
+}
+
+void DomainManager_impl::setLastDeviceUsedForDeployment (const std::string& identifier)
+{
+    boost::recursive_mutex::scoped_lock lock(stateAccess);
+    _lastDeviceUsedForDeployment = identifier;
 }
 
 
