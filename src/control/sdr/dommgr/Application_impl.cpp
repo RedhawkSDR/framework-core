@@ -61,16 +61,13 @@ void Application_impl::populateApplication(CF::Resource_ptr _controller,
                                            CF::Application::ComponentProcessIdSequence* _pidSeq,
                                            std::vector<ConnectionNode>& connections,
                                            std::map<std::string, std::string>& fileTable,
-                                           std::map<std::string, std::vector<ossie::AllocPropsInfo> >& allocPropsTable,
-                                           std::vector<AllocPropsInfo>& _usesDevCap)
+                                           CF::AllocationManager::AllocationResponseSequence* _allocationResponses)
 {
     TRACE_ENTER(Application_impl)
     _fileTable = fileTable;
-    _allocPropsTable = allocPropsTable;
     _connections = connections;
     _componentDevices = _devSeq;
     _appStartSeq = _startSeq;
-    _usesDeviceCapacities = _usesDevCap;
     
     _registeredComponents.length(0);
 
@@ -113,6 +110,16 @@ void Application_impl::populateApplication(CF::Resource_ptr _controller,
             _pidTable[static_cast<const char*>((*_pidSeq)[i].componentId)] = (*_pidSeq)[i].processId;
         }
     } 
+
+    LOG_DEBUG(Application_impl, "Creating allocation sequence")
+    if (_allocationResponses != NULL) {
+        this->appAllocationResponses.length (_allocationResponses->length ());
+
+        for (unsigned int i = 0; i < _allocationResponses->length (); i++) {
+            appAllocationResponses[i] = (*_allocationResponses)[i];
+            //_pidTable[static_cast<const char*>((*_pidSeq)[i].componentId)] = (*_pidSeq)[i].processId;
+        }
+    }
 
     LOG_DEBUG(Application_impl, "Assigning the assembly controller")
     // Assume _controller is NIL implies that the assembly controller component is Non SCA-Compliant
@@ -740,59 +747,16 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
                 }
             }
         }
-        
-        // deallocate capacity
-        LOG_DEBUG(Application_impl, "Determining if we need to deallocate capacities")
-        try {
-            LOG_DEBUG(Application_impl, "Entering deallocation function " << _allocPropsTable.count(id));
-            if (_allocPropsTable.count(id) > 0) {
-                LOG_DEBUG(Application_impl, "Entering deallocation function " << _allocPropsTable[id].size());
-                for (unsigned int devCount = 0; devCount < _allocPropsTable[id].size(); devCount++) {
-                    if (_allocPropsTable[id][devCount].properties.length() > 0) {
-                        // first check to see if device still exists
-                        if (!ossie::corba::objectExists(_allocPropsTable[id][devCount].device)) {
-                            LOG_WARN(Application_impl, "Not deallocating capacity on device " << 
-                                ossie::corba::returnString(_allocPropsTable[id][devCount].device->identifier()) <<
-                                " because it no longer exists");
-                            continue;
-                        }
-                        // deallocate capacity
-                        LOG_DEBUG(Application_impl, "deallocating on device " <<
-                                ossie::corba::returnString(_allocPropsTable[id][devCount].device->identifier()));
-                        _allocPropsTable[id][devCount].device->deallocateCapacity(_allocPropsTable[id][devCount].properties);
-                        LOG_DEBUG(Application_impl, "Finished deallocating")
-                    } else {
-                        LOG_DEBUG(Application_impl, "No capacity to deallocate")
-                    }
-                }
-            }
-        } catch ( ... ) {
-            LOG_WARN(Application_impl, "Deallocation on component " << id << " failed on device " << _devId << ". Continuing the App release")
-            continue;
-        }
-
         LOG_DEBUG(Application_impl, "Next component")
     }
 
-    // deallocate uses device capacities
-    for (unsigned int i = 0; i < _usesDeviceCapacities.size(); ++i) {
-        if (_usesDeviceCapacities[i].properties.length() > 0) {
-            // first check to see if device still exists
-            if (!ossie::corba::objectExists(_usesDeviceCapacities[i].device)) {
-                LOG_WARN(Application_impl, "Not deallocating capacity on device " <<
-                        ossie::corba::returnString(_usesDeviceCapacities[i].device->identifier()) <<
-                        " because it no longer exists");
-                continue;
-            }
-            // deallocate capacity
-            LOG_DEBUG(Application_impl, "deallocating on device " <<
-                    ossie::corba::returnString(_usesDeviceCapacities[i].device->identifier()));
-            _usesDeviceCapacities[i].device->deallocateCapacity(_usesDeviceCapacities[i].properties);
-            LOG_DEBUG(Application_impl, "Finished deallocating")
-        } else {
-            LOG_DEBUG(Application_impl, "No capacity to deallocate")
-        }
+    // deallocate capacities
+    CF::AllocationManager::allocationIDSequence seq;
+    seq.length(this->appAllocationResponses.length());
+    for (unsigned int dealloc=0; dealloc<appAllocationResponses.length(); dealloc++) {
+        seq[dealloc] = CORBA::string_dup(this->appAllocationResponses[dealloc].allocationID);
     }
+    this->_domainManager->_allocationMgr->deallocate(seq);
 
     // Unbind the application's naming context using the fully-qualified name.
     LOG_TRACE(Application_impl, "Unbinding application naming context " << _waveformContextName);
@@ -824,10 +788,8 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
 
 
     // Send an event with the Application releaseObject
-#if ENABLE_EVENTS
     ossie::sendObjectRemovedEvent(Application_impl::__logger, _identifier.c_str(), _identifier.c_str(), appName.c_str(), 
         StandardEvent::APPLICATION, _domainManager->proxy_consumer);
-#endif
 
     // Deactivate this servant from the POA.
     PortableServer::POA_var dm_poa = ossie::corba::RootPOA()->find_POA("DomainManager", 0);
@@ -846,6 +808,12 @@ throw (CORBA::SystemException)
 
 
 char* Application_impl::profile ()
+throw (CORBA::SystemException)
+{
+    return CORBA::string_dup(sadProfile.c_str());
+}
+
+char* Application_impl::softwareProfile ()
 throw (CORBA::SystemException)
 {
     return CORBA::string_dup(sadProfile.c_str());

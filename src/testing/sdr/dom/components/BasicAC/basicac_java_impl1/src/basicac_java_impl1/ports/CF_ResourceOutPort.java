@@ -280,6 +280,29 @@ public class CF_ResourceOutPort extends UsesPort<ResourceOperations> implements 
     /**
      * @generated
      */
+    public String softwareProfile() 
+    {
+        String retval = "";
+        
+        synchronized(this.updatingPortsLock) {    // don't want to process while command information is coming in
+            if (this.active) {
+                //begin-user-code
+                //end-user-code
+                
+                for (ResourceOperations p : this.outConnections.values()) {
+                       retval = p.softwareProfile();
+                }
+            }
+        }    // don't want to process while command information is coming in
+        
+        //begin-user-code
+        //end-user-code
+        
+        return retval;
+    }
+    /**
+     * @generated
+     */
     public void stop() throws CF.ResourcePackage.StopError
     {
         synchronized(this.updatingPortsLock) {    // don't want to process while command information is coming in

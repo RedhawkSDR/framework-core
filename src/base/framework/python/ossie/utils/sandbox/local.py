@@ -87,7 +87,6 @@ class LocalMixin(object):
         self._debugger = debugger
         self._window = window
         self._timeout = timeout
-
     def _launch(self):
         launchFactory = self.__launcher__(self._profile, self._refid, self._instanceName, self._sandbox)
         execparams = dict((str(ep.id), ep.defValue) for ep in self._getPropertySet(kinds=('execparam',), includeNil=False))
@@ -131,7 +130,6 @@ class LocalComponent(LocalSandboxComponent, Resource):
     def __init__(self, *args, **kwargs):
         Resource.__init__(self)
         LocalSandboxComponent.__init__(self, *args, **kwargs)
-
     def __repr__(self):
         return "<local component '%s' at 0x%x>" % (self._instanceName, id(self))
 

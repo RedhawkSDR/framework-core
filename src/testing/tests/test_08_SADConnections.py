@@ -1,33 +1,33 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
 import unittest
-import scatest
+from _unitTestHelpers import scatest
 from omniORB import CORBA, URI, any
 from ossie.cf import CF
 import CosNaming
 
 class SADConnectionsTest(scatest.CorbaTestCase):
     def setUp(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=9)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_PortTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_PortTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
         self._app = None
 
     def tearDown(self):
@@ -201,7 +201,7 @@ class SADConnectionsTest(scatest.CorbaTestCase):
     def test_ExternalPortsRename(self):
         # Makes sure that duplicate external port name throws an error
         self.assertRaises(CF.DomainManager.ApplicationInstallationError, self._createApp, 'ExternalPortRenameDuplicate')
-        
+
         self._createApp('ExternalPortRename')
         components = self._getComponents()
 
@@ -218,16 +218,16 @@ class SADConnectionsTest(scatest.CorbaTestCase):
         # Connect the application's external ports together.
         connectionId = 'test_connection'
         usesPort.connectPort(providesPort, connectionId)
-        
+
         # Disconnect the test connection.
         usesPort.disconnectPort(connectionId)
-        
+
         # Makes sure that the components can still get ports based of their orig name
         usesPort = components['PortTest1'].getPort('resource_out')
         providesPort = components['PortTest1'].getPort('resource_in')
         usesPort = components['PortTest2'].getPort('resource_out')
         providesPort = components['PortTest2'].getPort('resource_in')
-    
+
     def _test_Service(self, connection):
         svcBooter, svcMgr = self.launchDeviceManager("/nodes/test_BasicService_node/DeviceManager.dcd.xml")
         self.assertNotEqual(svcMgr, None)
@@ -293,6 +293,3 @@ class SADConnectionsTest(scatest.CorbaTestCase):
         self.assertEqual(expectedId, actualId)
 
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

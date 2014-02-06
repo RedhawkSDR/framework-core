@@ -1,34 +1,34 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
 import unittest, os
-import scatest
-import buildconfig
+from _unitTestHelpers import scatest
+from _unitTestHelpers import buildconfig
 from ossie.cf import CF
 from omniORB import any
 
 class JavaDeviceTest(scatest.CorbaTestCase):
 
     def test_BasicDevice(self):
-        nodebooter, domMgr = self.launchDomainManager(debug=9)
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_java_node/DeviceManager.dcd.xml", debug=9)
+        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_java_node/DeviceManager.dcd.xml", debug=self.debuglevel)
 
         # Ensure the expected device is available
         self.assertNotEqual(devMgr, None)
@@ -180,6 +180,3 @@ class JavaDeviceTest(scatest.CorbaTestCase):
 if buildconfig.HAVE_JAVASUPPORT != "yes":
     del JavaDeviceTest
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

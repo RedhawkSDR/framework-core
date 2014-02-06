@@ -21,8 +21,11 @@
 package org.ossie.events;
 
 import org.omg.CORBA.Any;
+import org.omg.CORBA.ORB;
 import org.omg.CosEventChannelAdmin.*;
 import java.util.Hashtable;
+import java.util.Arrays;
+import java.util.Collection;
 
 import org.ossie.events.Consumer_i;
 import org.ossie.component.*;
@@ -66,6 +69,22 @@ public class MessageSupplierPort extends UsesPort<EventChannelOperations> implem
                 }
             }
         }    // don't want to process while command information is coming in
+    }
+
+    public void sendMessage(final StructDef message)
+    {
+        this.sendMessages(Arrays.asList(message));
+    }
+
+    public void sendMessages(final Collection<StructDef> messages) {
+        final CF.DataType[] properties = new CF.DataType[messages.size()];
+        int index = 0;
+        for (StructDef message : messages) {
+            properties[index++] = new CF.DataType(message.getId(), message.toAny());
+        }
+        final Any any = ORB.init().create_any();
+        CF.PropertiesHelper.insert(any, properties);
+        this.push(any);
     }
 
     protected EventChannelOperations narrow(org.omg.CORBA.Object connection) 

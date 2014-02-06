@@ -1,25 +1,25 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
 import unittest
-import scatest
+from _unitTestHelpers import scatest
 from ossie.cf import CF
 from omniORB import CORBA, any
 from ossie.utils import sb
@@ -79,7 +79,7 @@ class JavaPropertiesTest(scatest.CorbaTestCase):
     def test_StructProps(self):
         # Check expected default
         self.assertEqual(self.comp.struct_prop, {'item_string':'default', 'item_long':0})
-        
+
         # Change the value and check that it is updated
         newvalue = {'item_string':'changed', 'item_long': 1000}
         self.comp.struct_prop = newvalue
@@ -93,8 +93,8 @@ class JavaPropertiesTest(scatest.CorbaTestCase):
         newvalue = [{"item_long":12, "item_string":"twelve"}, {"item_long":9, "item_string":"nine"}]
         self.comp.structseq_prop = newvalue
         self.assertEqual(self.comp.structseq_prop, newvalue)
-                
-        
+
+
 class LegacyJavaPropertiesTest(scatest.CorbaTestCase):
     """
     Test backwards compatibility with pre-1.9 Java properties.
@@ -144,7 +144,7 @@ class LegacyJavaPropertiesTest(scatest.CorbaTestCase):
     def test_StructProps(self):
         # Check expected default
         self.assertEqual(self.comp.struct_prop, {'item_string':'default', 'item_long':0})
-        
+
         # Change the value and check that it is updated
         newvalue = {'item_string':'changed', 'item_long': 1000}
         self.comp.struct_prop = newvalue
@@ -159,12 +159,12 @@ class LegacyJavaPropertiesTest(scatest.CorbaTestCase):
         self.comp.structseq_prop = newvalue
         self.assertEqual(self.comp.structseq_prop, newvalue)
 
-        
+
 class JavaPropertiesRangeTest(scatest.CorbaTestCase):
 
     def setUp(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=9)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
         self._app = None
         if self._domMgr:
             try:
@@ -183,12 +183,12 @@ class JavaPropertiesRangeTest(scatest.CorbaTestCase):
         # Do all application shutdown before calling the base class tearDown,
         # or failures will probably occur.
         scatest.CorbaTestCase.tearDown(self)
-        
+
     def test_javaPropsRangeSimple(self):
         self.assertNotEqual(self._domMgr, None, "DomainManager not available")
         self.assertNotEqual(self._devMgr, None, "DeviceManager not available")
         self.assertNotEqual(self._app, None, "Failed to launch app")
-        
+
         # Test upper bound
         my_octet = CF.DataType(id='my_octet', value=CORBA.Any(CORBA.TC_octet, 255))
         my_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_short, 32767))
@@ -239,7 +239,7 @@ class JavaPropertiesRangeTest(scatest.CorbaTestCase):
         self.assertNotEqual(self._domMgr, None, "DomainManager not available")
         self.assertNotEqual(self._devMgr, None, "DeviceManager not available")
         self.assertNotEqual(self._app, None, "Failed to launch app")
-        
+
         # Test upper bounds
         my_struct = CF.DataType(id='my_struct', value=any.to_any([
                                 CF.DataType(id='struct_octet', value=CORBA.Any(CORBA.TC_octet, 255)),
@@ -267,7 +267,7 @@ class JavaPropertiesRangeTest(scatest.CorbaTestCase):
                         self.assertEquals(v.value.value(), 4294967295)
                     elif v.id == 'struct_longlong':
                         self.assertEquals(v.value.value(), 9223372036854775807L)
-                        
+
         # Test lower bounds
         my_struct = CF.DataType(id='my_struct', value=any.to_any([
                                 CF.DataType(id='struct_octet', value=CORBA.Any(CORBA.TC_octet, 0)),
@@ -295,29 +295,29 @@ class JavaPropertiesRangeTest(scatest.CorbaTestCase):
                         self.assertEquals(v.value.value(), 0)
                     elif v.id == 'struct_longlong':
                         self.assertEquals(v.value.value(), -9223372036854775808L)
-        
-        
+
+
     def test_javaPropsRangeSeq(self):
         self.assertNotEqual(self._domMgr, None, "DomainManager not available")
         self.assertNotEqual(self._devMgr, None, "DeviceManager not available")
         self.assertNotEqual(self._app, None, "Failed to launch app")
-        
+
          # Test upper and lower bounds
         octet_val = struct.pack('B', 0) + struct.pack('B', 255)
         seq_octet = CF.DataType(id='seq_octet', value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/OctetSeq:1.0"),
                                                             octet_val
-                                                            ))        
+                                                            ))
         seq_short = CF.DataType(id='seq_short', value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/ShortSeq:1.0"),
                                                             [-32768, 32767]
                                                             ))
         seq_ushort = CF.DataType(id='seq_ushort', value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/UShortSeq:1.0"),
                                                             [0, 65535]
-                                                            ))        
+                                                            ))
         seq_long = CF.DataType(id='seq_long', value=any.to_any([-2147483648, 2147483647]))
         seq_ulong = CF.DataType(id='seq_ulong', value=any.to_any([0,4294967295]))
         seq_longlong = CF.DataType(id='seq_longlong', value=any.to_any([-9223372036854775808L, 9223372036854775807L]))
         self._app.configure([seq_octet, seq_short, seq_ushort, seq_long, seq_ulong, seq_longlong])
-        
+
         res = self._app.query([])
         for r in res:
             if r.id == 'seq_octet':
@@ -337,20 +337,20 @@ class JavaPropertiesRangeTest(scatest.CorbaTestCase):
                 self.assertEquals(r.value.value()[1], 65535)
             elif r.id == 'seq_long':
                 self.assertEquals(r.value.value()[0], -2147483648)
-                self.assertEquals(r.value.value()[1], 2147483647)   
+                self.assertEquals(r.value.value()[1], 2147483647)
             elif r.id == 'seq_ulong':
                 self.assertEquals(r.value.value()[0], 0)
                 self.assertEquals(r.value.value()[1], 4294967295)
             elif r.id == 'seq_longlong':
                 self.assertEquals(r.value.value()[0], -9223372036854775808L)
                 self.assertEquals(r.value.value()[1], 9223372036854775807L)
-        
-        
+
+
     def test_javaPropsRangeStructSeq(self):
         self.assertNotEqual(self._domMgr, None, "DomainManager not available")
         self.assertNotEqual(self._devMgr, None, "DeviceManager not available")
         self.assertNotEqual(self._app, None, "Failed to launch app")
-        
+
         # Struct with upper bound
         upper = CORBA.Any(CORBA.TypeCode("IDL:CF/Properties:1.0"), [
                             CF.DataType(id='ss_octet', value=CORBA.Any(CORBA.TC_octet, 255)),
@@ -367,13 +367,13 @@ class JavaPropertiesRangeTest(scatest.CorbaTestCase):
                             CF.DataType(id='ss_long', value=CORBA.Any(CORBA.TC_long, -2147483648)),
                             CF.DataType(id='ss_ulong', value=CORBA.Any(CORBA.TC_ulong, 0)),
                             CF.DataType(id='ss_longlong', value=CORBA.Any(CORBA.TC_longlong, -9223372036854775808L))])
-        
-        my_structseq = CF.DataType(id='my_structseq', 
-                value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"), 
+
+        my_structseq = CF.DataType(id='my_structseq',
+                value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"),
                         [ upper , lower ]
-                        ))  
+                        ))
         self._app.configure([my_structseq])
-        
+
         # Make sure values all got set
         res = self._app.query([])
         for r in res:
@@ -406,8 +406,4 @@ class JavaPropertiesRangeTest(scatest.CorbaTestCase):
                         self.assertEquals(v.value.value(), 0)
                     elif v.id == 'ss_longlong':
                         self.assertEquals(v.value.value(), -9223372036854775808L)
-        
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

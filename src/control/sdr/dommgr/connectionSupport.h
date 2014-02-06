@@ -65,10 +65,8 @@ namespace ossie
     public:
         virtual ~DomainLookup() {};
         virtual CORBA::Object_ptr lookupDomainObject(const std::string& type, const std::string& name) = 0;
-#if ENABLE_EVENTS
         virtual unsigned int incrementEventChannelConnections(const std::string &EventChannelName) = 0;
         virtual unsigned int decrementEventChannelConnections(const std::string &EventChannelName) = 0;
-#endif
     };
 
     // Interface to look up devices by their relationship to a given component.

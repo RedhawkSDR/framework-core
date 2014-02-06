@@ -1,5 +1,7 @@
 *.jar
+build
 helpers/buildconfig.py
+_unitTestHelpers/buildconfig.py
 sdr/cache/
 sdr/dev/devices/BasicDevWithExecParam_cpp/BasicDevWithExecParam_cpp_impl1/BasicDevWithExecParam_cpp_impl1
 sdr/dev/devices/BasicTestDevice_cpp/BasicTestDevice_cpp_impl1/BasicTestDevice_cpp_impl1
@@ -24,3 +26,4 @@ sdr/dom/components/ticket2093/cpp/ticket2093
 sdr/dom/domain/
 sdr/dom/mgr/DomainManager*
 sdr/runtests.log
+.pythonInstallFiles

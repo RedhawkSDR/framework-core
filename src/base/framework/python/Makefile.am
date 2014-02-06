@@ -50,8 +50,13 @@ BUILT_SOURCES = \
 
 CLEANFILES = $(BUILT_SOURCES)
 
+PYTHON_INSTALL_FILES=".pythonInstallFiles"
+
 install-exec-hook:
-	python setup.py install -f --$(PYTHON_INSTALL_SCHEME)=$(DESTDIR)$(prefix)
+	python setup.py install -f --$(PYTHON_INSTALL_SCHEME)=$(DESTDIR)$(prefix) --record $(PYTHON_INSTALL_FILES)
 if INSTALL_PYTHON_BACKPORTS
 	cd backports; python setup-backports.py install --$(PYTHON_INSTALL_SCHEME)=$(DESTDIR)$(prefix)
 endif
+
+uninstall:
+	rm `cat $(PYTHON_INSTALL_FILES)`

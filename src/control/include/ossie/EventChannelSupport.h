@@ -21,8 +21,6 @@
 #ifndef OSSIE_EVENTCHANNELSUPPORT_H
 #define OSSIE_EVENTCHANNELSUPPORT_H
 
-#if ENABLE_EVENTS
-
 #include <omniORB4/CORBA.h>
 
 #include <COS/CosEventChannelAdmin.hh>
@@ -64,7 +62,5 @@ namespace ossie {
         CosLifeCycle::GenericFactory_ptr getEventChannelFactory ();
     }
 }
-
-#endif
 
 #endif // OSSIE_EVENTCHANNELSUPPORT_H

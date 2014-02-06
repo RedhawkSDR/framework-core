@@ -41,11 +41,8 @@ libossiecf_la_SOURCES = AggregateDevice_impl.cpp \
                         PropertyInterface.cpp \
                         Service_impl.cpp \
                         type_traits.cpp \
-                        AnyUtils.cpp
-
-if ENABLE_EVENTS
-libossiecf_la_SOURCES += EventChannelSupport.cpp
-endif
+                        AnyUtils.cpp \
+                        EventChannelSupport.cpp
 
 libossiecf_la_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(OMNICOS_CFLAGS) $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS)
 libossiecf_la_LIBADD = $(BOOST_LDFLAGS) $(BOOST_FILESYSTEM_LIB) $(BOOST_SERIALIZATION_LIB) $(BOOST_THREAD_LIB) $(BOOST_SYSTEM_LIB) $(OMNICOS_LIBS) $(OMNIORB_LIBS) $(LOG4CXX_LIBS)

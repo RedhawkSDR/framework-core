@@ -24,9 +24,7 @@
 #include "ossie/Device_impl.h"
 #include "ossie/CorbaUtils.h"
 
-#if ENABLE_EVENTS
 #include "ossie/EventChannelSupport.h"
-#endif
 
 PREPARE_LOGGING(Device_impl)
 
@@ -57,9 +55,7 @@ public:
     // Add the given capacity to the list of successful allocations
     void add (const CF::DataType& capacity)
     {
-        const CORBA::ULong index = capacities.length();
-        capacities.length(index + 1);
-        capacities[index] = capacity;
+        ossie::corba::push_back(capacities, capacity);
     }
 
     // Mark that the allocation was successful, so that the capacities are not
@@ -726,7 +722,6 @@ Device_impl::AnyComparisonType Device_impl::compareAnyToZero (CORBA::Any& first)
 void Device_impl::setUsageState (CF::Device::UsageType newUsageState)
 {
     /* Keep a copy of the actual usage state */
-#if ENABLE_EVENTS
     StandardEvent::StateChangeType current_state = StandardEvent::BUSY;
     StandardEvent::StateChangeType new_state = StandardEvent::BUSY;
     switch (_usageState) {
@@ -753,13 +748,11 @@ void Device_impl::setUsageState (CF::Device::UsageType newUsageState)
     }
     ossie::sendStateChangeEvent(Device_impl::__logger, _identifier.c_str(), _identifier.c_str(), StandardEvent::USAGE_STATE_EVENT, 
         current_state, new_state, proxy_consumer);
-#endif
     _usageState = newUsageState;
 }
 
 void Device_impl::setAdminState (CF::Device::AdminType new_adminState)
 {
-#if ENABLE_EVENTS
     /* Keep a copy of the actual usage state */
     StandardEvent::StateChangeType current_state = StandardEvent::UNLOCKED;
     StandardEvent::StateChangeType new_state = StandardEvent::UNLOCKED;
@@ -787,7 +780,6 @@ void Device_impl::setAdminState (CF::Device::AdminType new_adminState)
     }
     ossie::sendStateChangeEvent(Device_impl::__logger, _identifier.c_str(), _identifier.c_str(), StandardEvent::ADMINISTRATIVE_STATE_EVENT, 
         current_state, new_state, proxy_consumer);
-#endif
     _adminState = new_adminState;
 }
 
@@ -857,13 +849,6 @@ throw (CORBA::SystemException)
 }
 
 
-char* Device_impl::softwareProfile ()
-throw (CORBA::SystemException)
-{
-    return CORBA::string_dup(_softwareProfile.c_str());
-}
-
-
 CF::Device::UsageType Device_impl::usageState ()
 throw (CORBA::SystemException)
 {
@@ -912,7 +897,6 @@ throw (CF::PropertySet::PartialConfiguration, CF::PropertySet::
     PropertySet_impl::configure(capacities);
 }
 
-#if ENABLE_EVENTS
 IDM_Channel_Supplier_i::IDM_Channel_Supplier_i (Device_impl *_dev)
 {
     TRACE_ENTER(Device_impl)
@@ -1025,5 +1009,3 @@ void Device_impl::connectSupplierToIncomingEventChannel(CosEventChannelAdmin::Ev
     }
 
 }
-
-#endif

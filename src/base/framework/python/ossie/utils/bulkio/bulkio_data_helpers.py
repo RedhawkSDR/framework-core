@@ -1,20 +1,20 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -41,20 +41,20 @@ class ArraySource(object):
     """
     def __init__(self, porttype):
         """
-        Instantiates a new object and generates a default StreamSRI.  The 
-        porttype parameter corresponds to the type of data contained in the 
-        array of data being sent.  
-        
-        The porttype is also used in the connectPort() method to narrow the 
+        Instantiates a new object and generates a default StreamSRI.  The
+        porttype parameter corresponds to the type of data contained in the
+        array of data being sent.
+
+        The porttype is also used in the connectPort() method to narrow the
         connection
-        
+
         """
         self.port_type = porttype
         self.outPorts = {}
         self.refreshSRI = False
         self.sri = BULKIO.StreamSRI(1, 0.0, 0.001, 1, 200, 0.0, 0.001, 1, 1,
                                     "defaultStreamID", True, [])
-        
+
         self.port_lock = threading.Lock()
         self.done = False
 
@@ -73,11 +73,11 @@ class ArraySource(object):
             self.outPorts.pop(str(connectionId), None)
         finally:
             self.port_lock.release()
-        
+
     def pushSRI(self, H):
         self.port_lock.acquire()
         self.sri = H
-        try:    
+        try:
             try:
                 for connId, port in self.outPorts.items():
                     if port != None: port.pushSRI(H)
@@ -89,12 +89,12 @@ class ArraySource(object):
             self.port_lock.release()
             self.refreshSRI = False
 
-    def pushPacket(self, data, T, EOS, streamID):        
+    def pushPacket(self, data, T, EOS, streamID):
         if self.refreshSRI:
             self.pushSRI(self.sri)
-        
+
         self.port_lock.acquire()
-        try:    
+        try:
             try:
                 for connId, port in self.outPorts.items():
                     if port != None:
@@ -105,10 +105,10 @@ class ArraySource(object):
                 log.warn(msg)
         finally:
             self.port_lock.release()
-            
+
     def getPort(self):
         """
-        Returns a Port object of the type CF__POA.Port.                
+        Returns a Port object of the type CF__POA.Port.
         """
         # The classobj generates a class using the following arguments:
         #
@@ -121,29 +121,29 @@ class ArraySource(object):
                              {'connectPort':self.connectPort,
                               'disconnectPort':self.disconnectPort})
 
-        # Create a port using the generate Metaclass and return an instance 
+        # Create a port using the generate Metaclass and return an instance
         port = PortClass()
         return port._this()
-    
+
     def run(self, data, sri=None, pktsize=1024, startTime=0.0, sampleRate=1.0, complexData=False, streamID=None):
         """
-        Pushes the data through the connected port.  Each packet of data 
-        contains no more than pktsize elements.  Once all the elements have 
-        been sent, the method sends an empty list with the EOS set to True to 
+        Pushes the data through the connected port.  Each packet of data
+        contains no more than pktsize elements.  Once all the elements have
+        been sent, the method sends an empty list with the EOS set to True to
         indicate the end of the stream.
-        
+
         Inputs:
             <data>       A list of elements containing the data to push
             <sri>        SRI to send before pushing data
             <pktsize>    The maximum number of elements to send on each push
             <startTime>  The time of the first sample
-            <sampleRate> The sample rate of the data used to set xdelta in the SRI 
-            <complexData>The mode of the data (real=0(False),complex=1(True)) in the SRI 
+            <sampleRate> The sample rate of the data used to set xdelta in the SRI
+            <complexData>The mode of the data (real=0(False),complex=1(True)) in the SRI
             <streamID>   The streamID of the data
         """
         start = 0           # stores the start of the packet
         end = start         # stores the end of the packet
-        sz = len(data)      
+        sz = len(data)
         self.done = False
         if sri != None:
             self.sri = sri
@@ -157,7 +157,7 @@ class ArraySource(object):
                 self.sri.xstart = startTime
         self.pushSRI(self.sri)
 
-        currentSampleTime = self.sri.xstart 
+        currentSampleTime = self.sri.xstart
         while not self.done:
             chunk = start + pktsize
             # if the next chunk is greater than the file, then grab remaining
@@ -167,16 +167,16 @@ class ArraySource(object):
                 self.done = True
             else:
                 end = chunk
-            
-            # there are cases when this happens: array has 6 elements and 
+
+            # there are cases when this happens: array has 6 elements and
             # pktsize = 2 (end = length - 1 = 5 and start = 6)
             if start > end:
                 self.done = True
                 continue
-            
-            d = data[start:end] 
+
+            d = data[start:end]
             start = end
-            
+
             T = BULKIO.PrecisionUTCTime(BULKIO.TCM_CPU, BULKIO.TCS_VALID, 0.0, int(currentSampleTime), currentSampleTime - int(currentSampleTime))
             self.pushPacket(d, T, False, self.sri.streamID)
             dataSize = len(d)
@@ -185,9 +185,9 @@ class ArraySource(object):
             currentSampleTime = currentSampleTime + dataSize/sampleRate
         T = BULKIO.PrecisionUTCTime(BULKIO.TCM_CPU, BULKIO.TCS_VALID, 0.0, int(currentSampleTime), currentSampleTime - int(currentSampleTime))
         self.pushPacket([], T, True, self.sri.streamID)
-    
 
-        
+
+
 class ArraySink(object):
     """
     Simple class used to receive data from a port and store it in a python
@@ -195,15 +195,15 @@ class ArraySink(object):
     """
     def __init__(self, porttype):
         """
-        Instantiates a new object responsible for writing data from the port 
+        Instantiates a new object responsible for writing data from the port
         into an array.
-        
+
         It is important to notice that the porttype is a BULKIO__POA type and
-        not a BULKIO type.  The reason is because it is used to generate a 
+        not a BULKIO type.  The reason is because it is used to generate a
         Port class that will be returned when the getPort() is invoked.  The
         returned class is the one acting as a server and therefore must be a
         Portable Object Adapter rather and a simple BULKIO object.
-        
+
         Inputs:
             <porttype>        The BULKIO__POA data type
         """
@@ -216,7 +216,7 @@ class ArraySink(object):
         self.breakBlock = False
         self.port_lock = threading.Lock()
         self.port_cond = threading.Condition(self.port_lock)
-    
+
     def _isActive(self):
         return not self.gotEOS and not self.breakBlock
 
@@ -229,7 +229,7 @@ class ArraySink(object):
         self.breakBlock = True
         self.port_cond.notifyAll()
         self.port_cond.release()
-    
+
     def eos(self):
         return self.gotEOS
 
@@ -241,7 +241,7 @@ class ArraySink(object):
             return self.gotEOS
         finally:
             self.port_cond.release()
-    
+
     def pushSRI(self, H):
         """
         Stores the SteramSRI object regardless that there is no need for it
@@ -251,11 +251,11 @@ class ArraySink(object):
                    generate the header file
         """
         self.sri = H
-        
+
     def pushPacket(self, data, ts, EOS, stream_id):
         """
         Appends the data to the end of the array.
-        
+
         Input:
             <data>        The actual data to append to the array
             <ts>          The timestamp
@@ -270,14 +270,14 @@ class ArraySink(object):
             self.port_cond.notifyAll()
         finally:
             self.port_cond.release()
-    
+
     def retrieveData(self, length=None):
         self.port_cond.acquire()
         try:
             if length is None:
                 # No length specified; get all of the data.
                 length = len(self.data)
-            
+
             # Wait for there to be enough data.
             while len(self.data) < length and self._isActive():
                 self.port_cond.wait()
@@ -309,26 +309,26 @@ class ArraySink(object):
             return (retval, rettime)
         finally:
             self.port_cond.release()
-            
+
     def getPort(self):
         """
-        Returns a Port object of the same type as the one specified as the 
-        porttype argument during the object instantiation.  It uses the 
+        Returns a Port object of the same type as the one specified as the
+        porttype argument during the object instantiation.  It uses the
         classobj from the new module to generate a class on runtime.
 
         The classobj generates a class using the following arguments:
-        
+
             name:        The name of the class to generate
             bases:       A tuple containing all the base classes to use
             dct:         A dictionary containing all the attributes such as
                          functions, and class variables
-        
+
         It is important to notice that the porttype is a BULKIO__POA type and
-        not a BULKIO type.  The reason is because it is used to generate a 
+        not a BULKIO type.  The reason is because it is used to generate a
         Port class that will be returned when the getPort() is invoked.  The
         returned class is the one acting as a server and therefore must be a
         Portable Object Adapter rather and a simple BULKIO object.
-                
+
         """
         # The classobj generates a class using the following arguments:
         #
@@ -341,14 +341,14 @@ class ArraySink(object):
                              {'pushPacket':self.pushPacket,
                               'pushSRI':self.pushSRI})
 
-        # Create a port using the generate Metaclass and return an instance 
+        # Create a port using the generate Metaclass and return an instance
         port = PortClass()
         return port._this()
 
     def popPacket(self, timeout=1):
-       
+
         if timeout == -1:
-            self.port_lock.acquire() 
+            self.port_lock.acquire()
             try:
                 while not self.data:
                     self.port_lock.wait(3)
@@ -371,7 +371,7 @@ class ArraySink(object):
         finally:
             self.port_lock.release()
         raise NoDataException()
-        
+
 class ProbeSink(object):
     """
     Simple class used to receive data from a port and store it in a python
@@ -379,15 +379,15 @@ class ProbeSink(object):
     """
     def __init__(self, porttype):
         """
-        Instantiates a new object responsible for writing data from the port 
+        Instantiates a new object responsible for writing data from the port
         into an array.
-        
+
         It is important to notice that the porttype is a BULKIO__POA type and
-        not a BULKIO type.  The reason is because it is used to generate a 
+        not a BULKIO type.  The reason is because it is used to generate a
         Port class that will be returned when the getPort() is invoked.  The
         returned class is the one acting as a server and therefore must be a
         Portable Object Adapter rather and a simple BULKIO object.
-        
+
         Inputs:
             <porttype>        The BULKIO__POA data type
         """
@@ -400,13 +400,13 @@ class ProbeSink(object):
         self.valid_streams = {}
         self.invalid_streams = {}
         self.received_data = {}
-    
+
     def start(self):
         self.gotEOS = False
-    
+
     def eos(self):
         return self.gotEOS
-    
+
     def pushSRI(self, H):
         """
         Stores the SteramSRI object regardless that there is no need for it
@@ -418,11 +418,11 @@ class ProbeSink(object):
         self.sri = H
         self.valid_streams[H.streamID] = H
         self.received_data[H.streamID] = (0,0)
-        
+
     def pushPacket(self, data, ts, EOS, stream_id):
         """
         Appends the data to the end of the array.
-        
+
         Input:
             <data>        The actual data to append to the array
             <ts>          The timestamp
@@ -442,26 +442,26 @@ class ProbeSink(object):
                 self.gotEOS = False
         finally:
             self.port_lock.release()
-            
+
     def getPort(self):
         """
-        Returns a Port object of the same type as the one specified as the 
-        porttype argument during the object instantiation.  It uses the 
+        Returns a Port object of the same type as the one specified as the
+        porttype argument during the object instantiation.  It uses the
         classobj from the new module to generate a class on runtime.
 
         The classobj generates a class using the following arguments:
-        
+
             name:        The name of the class to generate
             bases:       A tuple containing all the base classes to use
             dct:         A dictionary containing all the attributes such as
                          functions, and class variables
-        
+
         It is important to notice that the porttype is a BULKIO__POA type and
-        not a BULKIO type.  The reason is because it is used to generate a 
+        not a BULKIO type.  The reason is because it is used to generate a
         Port class that will be returned when the getPort() is invoked.  The
         returned class is the one acting as a server and therefore must be a
         Portable Object Adapter rather and a simple BULKIO object.
-                
+
         """
         # The classobj generates a class using the following arguments:
         #
@@ -474,7 +474,7 @@ class ProbeSink(object):
                              {'pushPacket':self.pushPacket,
                               'pushSRI':self.pushSRI})
 
-        # Create a port using the generate Metaclass and return an instance 
+        # Create a port using the generate Metaclass and return an instance
         port = PortClass()
         return port._this()
 
@@ -482,7 +482,7 @@ class XmlArraySink(ArraySink):
     "This sub-class exists to override pushPacket for dataXML ports."
     def __init__(self, porttype):
         ArraySink.__init__(self, porttype)
-    
+
     def pushPacket(self, data, EOS, stream_id):
         """
         Overrides ArraySink.pushPacket(). The difference is that there is no
@@ -578,7 +578,7 @@ class FileSource(object):
     """
     Simple class used to push data into a port from a given array of data.
     """
-    def __init__(self, porttype):
+    def __init__(self, porttype, byteswap=False, usesPortTypeDict=None):
         """
         Instantiates a new object and generates a default StreamSRI.  The
         porttype parameter corresponds to the type of data contained in the
@@ -626,8 +626,15 @@ class FileSource(object):
         elif(porttype == BULKIO__POA.dataXML):
             self.byte_per_sample = 1
             self.structFormat = "c"
+        if byteswap:
+            self._byteswap = '>'
+        else:
+            self._byteswap = '<'
 
         self.outPorts = {}
+        self.connectionNormalization = {}
+        self.connectionTranslation = {}
+        self.usesPortTypeDict = usesPortTypeDict
         self.refreshSRI = False
         # Create default SRI
         self.sri = BULKIO.StreamSRI(1, 0.0, 0.001, 1, 200, 0.0, 0.001, 1, 1,
@@ -638,12 +645,52 @@ class FileSource(object):
 
     def connectPort(self, connection, connectionId):
         self.port_lock.acquire()
-        try:
-            port = connection._narrow(self.port_type)
-            self.outPorts[str(connectionId)] = port
-            self.refreshSRI = True
-        finally:
-            self.port_lock.release()
+        for candidate in self.usesPortTypeDict:
+            try:
+                port = connection._narrow(self.usesPortTypeDict[candidate]['Port Type'])
+                if port == None:
+                    continue
+                self.outPorts[str(connectionId)] = port
+                if self.usesPortTypeDict[candidate]['Port Type']==BULKIO__POA.dataFloat or self.usesPortTypeDict[candidate]['Port Type']==BULKIO__POA.dataDouble:
+                    if self.structFormat == 'h':
+                        self.connectionNormalization[str(connectionId)] = 1./((2**15)-1)
+                    elif self.structFormat == 'b':
+                        self.connectionNormalization[str(connectionId)] = 1./((2**7)-1)
+                    elif self.structFormat == 'B':
+                        self.connectionNormalization[str(connectionId)] = 1./((2**8)-1)
+                    elif self.structFormat == 'L':
+                        self.connectionNormalization[str(connectionId)] = 1./((2**32)-1)
+                    elif self.structFormat == 'H':
+                        self.connectionNormalization[str(connectionId)] = 1./((2**16)-1)
+                    elif self.structFormat == 'l':
+                        self.connectionNormalization[str(connectionId)] = 1./((2**31)-1)
+                    elif self.structFormat == 'q':
+                        self.connectionNormalization[str(connectionId)] = 1./((2**63)-1)
+                    elif self.structFormat == 'Q':
+                        self.connectionNormalization[str(connectionId)] = 1./((2**64)-1)
+                if self.usesPortTypeDict[candidate]['Port Type']==BULKIO__POA.dataShort:
+                    if self.structFormat == 'b' or self.structFormat == 'B':
+                        self.connectionTranslation[str(connectionId)] = ('\x00','h')
+                elif self.usesPortTypeDict[candidate]['Port Type']==BULKIO__POA.dataUshort:
+                    if self.structFormat == 'b' or self.structFormat == 'B':
+                        self.connectionTranslation[str(connectionId)] = ('\x00','H')
+                elif self.usesPortTypeDict[candidate]['Port Type']==BULKIO__POA.dataLong:
+                    if self.structFormat == 'b' or self.structFormat == 'B':
+                        self.connectionTranslation[str(connectionId)] = ('\x00'+'\x00'+'\x00','i')
+                elif self.usesPortTypeDict[candidate]['Port Type']==BULKIO__POA.dataUlong:
+                    if self.structFormat == 'b' or self.structFormat == 'B':
+                        self.connectionTranslation[str(connectionId)] = ('\x00'+'\x00'+'\x00','I')
+                elif self.usesPortTypeDict[candidate]['Port Type']==BULKIO__POA.dataLongLong:
+                    if self.structFormat == 'b' or self.structFormat == 'B':
+                        self.connectionTranslation[str(connectionId)] = ('\x00'+'\x00'+'\x00'+'\x00'+'\x00'+'\x00'+'\x00','q')
+                elif self.usesPortTypeDict[candidate]['Port Type']==BULKIO__POA.dataUlongLong:
+                    if self.structFormat == 'b' or self.structFormat == 'B':
+                        self.connectionTranslation[str(connectionId)] = ('\x00'+'\x00'+'\x00'+'\x00'+'\x00'+'\x00'+'\x00','Q')
+                self.refreshSRI = True
+                break
+            except:
+                pass
+        self.port_lock.release()
 
     def disconnectPort(self, connectionId):
         self.port_lock.acquire()
@@ -675,7 +722,21 @@ class FileSource(object):
         try:
             try:
                 for connId, port in self.outPorts.items():
-                    if port != None: port.pushPacket(data, T, EOS, streamID)
+                    if port != None:
+                        if self.connectionNormalization.has_key(connId):
+                            new_data = range(len(data))
+                            for idx in range(len(data)):
+                                new_data[idx] = float(data[idx]) * self.connectionNormalization[connId]
+                            port.pushPacket(new_data, T, EOS, streamID)
+                        elif self.connectionTranslation.has_key(connId):
+                            new_data_str = ''
+                            for idx in range(len(data)):
+                                new_data_str = new_data_str + data[idx] + self.connectionTranslation[connId][0]
+                            fmt = str(len(data))+self.connectionTranslation[connId][1]
+                            new_data = struct.unpack(fmt,new_data_str)
+                            port.pushPacket(new_data, T, EOS, streamID)
+                        else:
+                            port.pushPacket(data, T, EOS, streamID)
             except Exception, e:
                 msg = "The call to pushPacket failed with %s " % e
                 msg += "connection %s instance %s" % (connId, port)
@@ -715,8 +776,8 @@ class FileSource(object):
             <pktsize>    The maximum number of elements to send on each push
             <numpkts>    The maximum number of packets to send
             <startTime>  The time of the first sample
-            <sampleRate> The sample rate of the data used to set xdelta in the SRI 
-            <complexData>The mode of the data (real=0(False),complex=1(True)) in the SRI 
+            <sampleRate> The sample rate of the data used to set xdelta in the SRI
+            <complexData>The mode of the data (real=0(False),complex=1(True)) in the SRI
             <streamID>   The streamID of the data
         """
 
@@ -743,7 +804,7 @@ class FileSource(object):
         if self.file_d.closed:
             log.info("file data has been exhausted!")
 
-        currentSampleTime = self.sri.xstart 
+        currentSampleTime = self.sri.xstart
         while not self.EOS and not run_complete:
             T = BULKIO.PrecisionUTCTime(BULKIO.TCM_CPU, BULKIO.TCS_VALID, 0.0, int(currentSampleTime), currentSampleTime - int(currentSampleTime))
             byteData = self.file_d.read(pktsize * self.byte_per_sample)
@@ -752,15 +813,15 @@ class FileSource(object):
             signalData = byteData
             if self.structFormat != "b" and self.structFormat != "B":
                 dataSize = len(byteData)/self.byte_per_sample
-                fmt = '<' + str(dataSize) + self.structFormat
+                fmt = self._byteswap + str(dataSize) + self.structFormat
                 signalData = struct.unpack(fmt, byteData)
             else:
-                dataSize = len(byteData)                                                                     
-            if complexData:                                                                                 
-                dataSize = dataSize/2                                                                      
+                dataSize = len(byteData)
+            if complexData:
+                dataSize = dataSize/2
             self.pushPacket(signalData,T, False, self.sri.streamID)
             sampleRate = 1.0/self.sri.xdelta
-            currentSampleTime = currentSampleTime + dataSize/sampleRate                                                                
+            currentSampleTime = currentSampleTime + dataSize/sampleRate
             self.pkts_sent += 1
             if numpkts != 0 and numpkts == self.pkts_sent:
                 run_complete = True
@@ -775,27 +836,27 @@ class FileSource(object):
             self.file_d.close()
         else:
             pass
-            
+
 class FileSink(object):
     """
     Simple class used to receive data from a port and store it in a binary
-    file.  It uses the SRI to generate the header.  The file is created the 
-    first time the SRI is pushed if the file does not exists.  If the file is 
+    file.  It uses the SRI to generate the header.  The file is created the
+    first time the SRI is pushed if the file does not exists.  If the file is
     present, then it does not alter the file.
     """
     def __init__(self, outputFilename, porttype):
         """
-        Instantiates a new object responsible for writing data from the port 
+        Instantiates a new object responsible for writing data from the port
         into an array.
-        
+
         It is important to notice that the porttype is a BULKIO__POA type and
-        not a BULKIO type.  The reason is because it is used to generate a 
+        not a BULKIO type.  The reason is because it is used to generate a
         Port class that will be returned when the getPort() is invoked.  The
         returned class is the one acting as a server and therefore must be a
         Portable Object Adapter rather and a simple BULKIO object.
-        
+
         Inputs:
-            <outputFilename>  The output filename 
+            <outputFilename>  The output filename
             <porttype>        The BULKIO__POA data type
         """
         # If output file already exists, remove it
@@ -803,13 +864,22 @@ class FileSink(object):
             log.warn("overwriting output file " + str(outputFilename) + " since it already exists ")
             os.remove(outputFilename)
 
-        # Make sure if path is provided, it is valid
-        path = os.path.dirname(outputFilename)
-        if len(path) == 0 or \
-            (len(path) > 0 and os.path.isdir(path)):
-            self.outFile = open(outputFilename, "wb")
+        if outputFilename == None:
+            self.stream_derived = True
+            self.sd_fp = {}
         else:
-            log.error("invalid filename path")
+            self.stream_derived = False
+        
+        if not self.stream_derived:
+            # Make sure if path is provided, it is valid
+            path = os.path.dirname(outputFilename)
+            if len(path) == 0 or \
+                (len(path) > 0 and os.path.isdir(path)):
+                self.outFile = open(outputFilename, "wb")
+            else:
+                log.error("invalid filename path")
+                self.outFile = None
+        else:
             self.outFile = None
 
         self.port_type = porttype
@@ -822,13 +892,13 @@ class FileSink(object):
     def __del__(self):
         if self.outFile != None:
             self.outFile.close()
-    
+
     def start(self):
         self.gotEOS = False
-    
+
     def eos(self):
         return self.gotEOS
-    
+
     def pushSRI(self, H):
         """
         Stores the SteramSRI object regardless that there is no need for it
@@ -838,11 +908,11 @@ class FileSink(object):
                    generate the header file
         """
         self.sri = H
-        
+
     def pushPacket(self, data, ts, EOS, stream_id):
         """
         Appends the data to the end of the array.
-        
+
         Input:
             <data>        The actual data to append to the array
             <ts>          The timestamp
@@ -898,18 +968,32 @@ class FileSink(object):
                         outputArray.fromstring(item)
                 else:
                     outputArray = outputArray + array.array(self.structFormat, data)
-                outputArray.tofile(self.outFile) 
+                if self.outFile == None:
+                    if self.stream_derived:
+                        self.outFile = open(stream_id+'_out', "wb")
+                        self.sd_fp[stream_id] = self.outFile
+                else:
+                    if self.stream_derived:
+                        if self.sd_fp.has_key(stream_id):
+                            self.outFile = self.sd_fp[stream_id]
+                        else:
+                            self.outFile = open(stream_id+'_out', "wb")
+                            self.sd_fp[stream_id] = self.outFile
+                outputArray.tofile(self.outFile)
             # If end of stream is true, close the output file
             if EOS == True:
                 if self.outFile != None:
                     self.outFile.close()
+                    if self.stream_derived:
+                        if self.sd_fp.has_key(stream_id):
+                            self.sd_fp.pop(stream_id)
         finally:
             self.port_lock.release()
-        
+
     def pushPacketXML(self, data, EOS, stream_id):
         """
         Deals with XML data
-        
+
         Input:
             <data>        xml string
             <EOS>         Flag indicating if this is the End Of the Stream
@@ -928,26 +1012,26 @@ class FileSink(object):
                     self.outFile.close()
         finally:
             self.port_lock.release()
-            
+
     def getPort(self):
         """
-        Returns a Port object of the same type as the one specified as the 
-        porttype argument during the object instantiation.  It uses the 
+        Returns a Port object of the same type as the one specified as the
+        porttype argument during the object instantiation.  It uses the
         classobj from the new module to generate a class on runtime.
 
         The classobj generates a class using the following arguments:
-        
+
             name:        The name of the class to generate
             bases:       A tuple containing all the base classes to use
             dct:         A dictionary containing all the attributes such as
                          functions, and class variables
-        
+
         It is important to notice that the porttype is a BULKIO__POA type and
-        not a BULKIO type.  The reason is because it is used to generate a 
+        not a BULKIO type.  The reason is because it is used to generate a
         Port class that will be returned when the getPort() is invoked.  The
         returned class is the one acting as a server and therefore must be a
         Portable Object Adapter rather and a simple BULKIO object.
-                
+
         """
         # The classobj generates a class using the following arguments:
         #
@@ -960,6 +1044,6 @@ class FileSink(object):
                              {'pushPacket':self.pushPacket,
                               'pushSRI':self.pushSRI})
 
-        # Create a port using the generate Metaclass and return an instance 
+        # Create a port using the generate Metaclass and return an instance
         port = PortClass()
         return port._this()

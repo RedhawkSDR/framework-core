@@ -122,6 +122,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
     protected Thread processingThread;
     /** port to be used to output property changes */
     protected PropertyEventSupplier propertyChangePort;
+    protected String softwareProfile;
 
     /**
      * Constructor intended to be used by start_component.
@@ -170,6 +171,10 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      */
     public String identifier() {
         return this.compId;
+    }
+
+    public String softwareProfile() {
+        return softwareProfile;
     }
 
     /**
@@ -448,6 +453,10 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         return this.poa;
     }
     
+    public void setAdditionalParameters(String _softwareProfile) {
+        this.softwareProfile = _softwareProfile;
+    }
+    
     /**
      * This function explicitly activates the given Servant.
      * 
@@ -606,6 +615,11 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
             nameBinding = execparams.get("NAME_BINDING");
         }
 
+        String profile = null;
+        if (execparams.containsKey("PROFILE_NAME")) {
+            profile = execparams.get("PROFILE_NAME");
+        }
+
         if ((nameContext == null) || (nameBinding == null)) {
             if ((!Arrays.toString(args).contains("-i")) && (!Arrays.toString(args).contains("--interactive"))) {
                 System.out.println("usage: "+clazz+" [options] [execparams]\n");
@@ -620,6 +634,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 
         final Resource resource_i = clazz.newInstance();
         final CF.Resource resource = resource_i.setup(identifier, nameBinding, orb, rootpoa);
+        resource_i.setAdditionalParameters(profile);
         resource_i.initializeProperties(execparams);
 
         if ((nameContext != null) && (nameBinding != null)) {

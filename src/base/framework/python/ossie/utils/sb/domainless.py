@@ -63,6 +63,9 @@ Examples of use:
     # Show current list of components running and component connections
     show()
 
+    # Show the interfaces and properties for a component that has not been launched
+    api('TestComponent')
+
     # Launch component from component name
     a = launch('TestComponent')
 
@@ -109,12 +112,13 @@ from ossie.utils.model.connect import ConnectionManager
 from ossie.utils.uuid import uuid4
 
 from ossie.utils.sandbox import LocalSandbox, IDESandbox
+import ossie.utils.sandbox
 
 # Limit exported symbols
 __all__ = ('show', 'loadSADFile', 'IDELocation', 'connectedIDE', 'getIDE_REF',
            'start', 'getSDRROOT', 'setSDRROOT', 'Component', 'generateSADXML',
            'getDEBUG', 'setDEBUG', 'getComponent', 'IDE_REF', 'setIDE_REF',
-           'stop', 'catalog', 'redirectSTDOUT', 'orb', 'reset', 'launch',
+           'stop', 'catalog', 'redirectSTDOUT', 'orb', 'reset', 'launch', 'api',
            'createEventChannel', 'getEventChannel')
 
 # Set up logging
@@ -243,10 +247,18 @@ def IDELocation(location=None):
                 print "IDELocation(): WARNING - RH_IDE environment variable is not set so plotting will not work"
             return None
     else:
-        if os.path.isdir(location):
-            os.environ["RH_IDE"] = str(location)
-            if _DEBUG:
-                print "IDELocation(): setting RH_IDE environment variable " + str(location)
+        foundIDE = False
+        if os.path.exists(location) and os.path.isdir(location):
+            for file in os.listdir(location):
+                if file == "eclipse":
+                    foundIDE = True
+                    os.environ["RH_IDE"] = str(location)
+                    if _DEBUG:
+                         print "IDELocation(): setting RH_IDE environment variable " + str(location)
+        if not foundIDE:
+            print "IDELocation(): ERROR - invalid location passed in, must give absolute path " + str(location) 
+        if _DEBUG:
+            print "IDELocation(): setting RH_IDE environment variable " + str(location)
             return str(location)
         else:
             if _DEBUG:
@@ -822,6 +834,45 @@ class Component(object):
         except RuntimeError, e:
             # Turn RuntimeErrors into AssertionErrors to match legacy expectation.
             raise AssertionError, "Unable to launch component: '%s'" % e
+def api(descriptor):
+    sdrRoot = _getSandbox().getSdrRoot()
+    profile = sdrRoot.findProfile(descriptor)
+    spd, scd, prf = sdrRoot.readProfile(profile)
+    #spd,scd,prf = _getSandbox().getSdrRoot().readProfile(descriptor)
+    print '\nPorts ======================'
+    print '\nUses (output)'
+    table = TablePrinter('Port Name', 'Port Interface')
+    for uses in scd.get_componentfeatures().get_ports().get_uses():
+        table.append(uses.get_usesname(), uses.get_repid())
+    table.write()
+    print '\nProvides (input)'
+    table = TablePrinter('Port Name', 'Port Interface')
+    for provides in scd.get_componentfeatures().get_ports().get_provides():
+        table.append(provides.get_providesname(), provides.get_repid())
+    table.write()
+
+    print '\nProperties ======================\n'
+    table = TablePrinter('id', 'type')
+    for simple in prf.simple:
+        table.append(simple.get_id(),simple.get_type())
+    for simpleseq in prf.simplesequence:
+        table.append(simpleseq.get_id(),simpleseq.get_type())
+    for struct in prf.struct:
+        _id = struct.get_id()
+        kinds = []
+        mode = struct.get_mode()
+        table.append(_id, 'struct')
+        for simple in struct.get_simple():
+            table.append('  '+simple.get_id(),simple.get_type())
+    for struct in prf.structsequence:
+        _id = struct.get_id()
+        kinds = []
+        mode = struct.get_mode()
+        table.append(_id, 'struct sequence')
+        for simple in struct.get_struct().get_simple():
+            table.append('  '+simple.get_id(),simple.get_type())
+    table.write()
+
 
 
 def start():

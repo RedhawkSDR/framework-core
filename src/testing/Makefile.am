@@ -18,6 +18,8 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
+# vim: noet: softtabstop=0
+
 SUBDIRS = sdr/dev/devices/ExecutableDevice \
           sdr/dev/devices/BasicTestDevice_cpp/BasicTestDevice_cpp_impl1 \
           sdr/dev/devices/BasicDevWithExecParam_cpp/BasicDevWithExecParam_cpp_impl1 \
@@ -56,3 +58,20 @@ SUBDIRS += sdr/dev/devices/BasicTestDevice_java/java \
            sdr/dom/components/TestComplexProps/java \
            sdr/dom/components/TestAllPropTypes/java
 endif
+
+all-local:
+	python setup.py build
+
+clean-local:
+	python setup.py clean
+	rm -rf build
+
+EXTRA_DIST = setup.py
+
+PYTHON_INSTALL_FILES=".pythonInstallFiles"
+
+install-exec-hook:
+	python setup.py install -f --$(PYTHON_INSTALL_SCHEME)=$(DESTDIR)$(prefix) --record $(PYTHON_INSTALL_FILES)
+
+uninstall:
+	rm `cat $(PYTHON_INSTALL_FILES)`

@@ -67,6 +67,9 @@ AX_BOOST_THREAD
 AX_BOOST_DATE_TIME
 
 AX_LIB_EXPAT([1.95.8])
+if test x"$HAVE_EXPAT" = xno ; then
+        AC_MSG_ERROR([The Expat XML parser library and header files are required])
+fi
 
 PKG_CHECK_MODULES([OMNIORB], [omniORB4 >= 4.0.0])
 PKG_CHECK_MODULES([OMNITHREAD], [omnithread3 >= 4.0.0])
@@ -272,7 +275,7 @@ AC_CONFIG_FILES(Makefile \
                 idl/Makefile \
                 xml/Makefile \
                 testing/Makefile \
-                testing/helpers/buildconfig.py \
+                testing/_unitTestHelpers/buildconfig.py \
                 testing/sdr/dev/devices/ExecutableDevice/Makefile \
                 testing/sdr/dev/devices/BasicTestDevice_cpp/BasicTestDevice_cpp_impl1/Makefile \
                 testing/sdr/dev/devices/BasicTestDevice_java/java/Makefile \

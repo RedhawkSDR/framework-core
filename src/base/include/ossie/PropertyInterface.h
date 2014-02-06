@@ -38,16 +38,8 @@
 #include "type_traits.h"
 #include "exceptions.h"
 
-#if ENABLE_EVENTS
 #include "CF/ExtendedEvent.h"
 #include <COS/CosEventChannelAdmin.hh>
-#endif
-
-#if not ENABLE_EVENTS
-#include "CF/cf.h"
-class PropertyEventSupplier : public virtual POA_CF::Port {
-};
-#endif
 
 /**
  *
@@ -560,8 +552,6 @@ private:
 
 };
 
-#if ENABLE_EVENTS
-
 /************************************************************************************
   PropertyChange producer
 ************************************************************************************/
@@ -644,7 +634,5 @@ protected:
     
     
 };
-
-#endif // ENABLE_EVENTS
 
 #endif // PROPERTYINTERFACE_H

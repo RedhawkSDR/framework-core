@@ -21,7 +21,9 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 
 <!DOCTYPE softpkg PUBLIC "-//JTRS//DTD SCA V2.2.2 SPD//EN" "softpkg.dtd">
 <softpkg name="DomainManager" id="DCE:82f6515a-de05-47f0-8e7a-1c9f621c00ee" >
-	<author/>
+	<author>
+		<name>REDHAWK test author</name>
+	</author>
 	<propertyfile>
 		<localfile name="DomainManager.prf.xml"/>
 	</propertyfile>

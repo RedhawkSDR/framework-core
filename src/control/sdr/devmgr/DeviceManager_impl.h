@@ -27,9 +27,7 @@
 
 #include <boost/thread/recursive_mutex.hpp>
 
-#if ENABLE_EVENTS
 #include <COS/CosEventChannelAdmin.hh>
-#endif
 
 #include <ossie/ComponentDescriptor.h>
 #include <ossie/ossieSupport.h>
@@ -327,10 +325,8 @@ private:
 
     std::map<std::string, std::string> _componentImplMap;
 
-#if ENABLE_EVENTS
     CosEventChannelAdmin::EventChannel_var IDM_channel;
     std::string IDM_IOR;
-#endif
 
 };
 

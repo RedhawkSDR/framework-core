@@ -42,6 +42,11 @@ namespace ossie
     CF::DataType convertPropertyToDataType(const StructProperty* prop);
     CF::DataType convertPropertyToDataType(const StructSequenceProperty* prop);
 
+    CF::DataType convertPropertyToDataType(const SimplePropertyRef* prop);
+    CF::DataType convertPropertyToDataType(const SimpleSequencePropertyRef* prop);
+    CF::DataType convertPropertyToDataType(const StructPropertyRef* prop);
+    CF::DataType convertPropertyToDataType(const StructSequencePropertyRef* prop);
+    
     CF::DataType overridePropertyValue(const Property* prop, const ossie::ComponentProperty* compprop);
     CF::DataType overridePropertyValue(const SimpleProperty* prop, const ossie::ComponentProperty* compprop);
     CF::DataType overridePropertyValue(const SimpleSequenceProperty* prop, const ossie::ComponentProperty* compprop);
@@ -49,6 +54,9 @@ namespace ossie
     CF::DataType overridePropertyValue(const StructSequenceProperty* prop, const ossie::ComponentProperty* compprop);
     CF::DataType overridePropertyValue(const Property* prop, const ossie::ComponentProperty* compprop, const CF::Properties& configureProperties);
     CF::DataType overridePropertyValue(const StructProperty* prop, const ossie::ComponentProperty* compprop, const CF::Properties& configureProperties);
+
+    CF::AllocationManager::AllocationResponseType assembleResponse(std::string requestID, std::string allocationID,
+    		CF::Properties& allocations, CF::Device_ptr dev, CF::DeviceManager_ptr devMgr);
 
     bool checkProcessor(const std::vector<std::string>& processorDeps, const std::vector<const Property*>& props);
     bool checkOs(const std::vector<ossie::SPD::NameVersionPair>& osDeps, const std::vector<const Property*>& props);

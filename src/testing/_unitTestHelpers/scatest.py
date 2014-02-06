@@ -1,21 +1,21 @@
 #!/usr/bin/env python
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -63,8 +63,8 @@ def getSdrCache():
 
 def getDatPath():
    return os.path.join(os.getcwd(), "dat")
-        
-                            
+
+
 def persistenceEnabled():
     for backend in ( "BDB", "GDBM", "SQLITE" ):
         if getBuildDefineValue("ENABLE_"+backend+"_PERSISTENCE") == "1":
@@ -105,6 +105,25 @@ def updateLink(source, target):
         # Do not replace existing files.
         os.symlink(source, target)
 
+def setupDeviceAndDomainMgrPackage():
+    # Point to the SDR source directory for the DomainManager and
+    # DeviceManager softpkgs.
+    sdrSrc = os.path.realpath('../control/sdr')
+
+    # "Install" the DomainManager softpkg.
+    domMgrSrc = os.path.join(sdrSrc, 'dommgr')
+    domMgrDest = os.path.join(getSdrPath(), "dom", "mgr")
+    updateLink(os.path.join(domMgrSrc, 'DomainManager'), os.path.join(domMgrDest, 'DomainManager'))
+    for xmlFile in glob.glob(os.path.join(domMgrSrc, '*.xml')):
+        updateLink(xmlFile, os.path.join(domMgrDest, os.path.basename(xmlFile)))
+
+    # "Install" the DeviceManager softpkg.
+    devMgrSrc = os.path.join(sdrSrc, 'devmgr')
+    devMgrDest = os.path.join(getSdrPath(), "dev", "mgr")
+    updateLink(os.path.join(devMgrSrc, 'DeviceManager'), os.path.join(devMgrDest, 'DeviceManager'))
+    for xmlFile in glob.glob(os.path.join(devMgrSrc, '*.xml')):
+        updateLink(xmlFile, os.path.join(devMgrDest, os.path.basename(xmlFile)))
+
 def createTestDomain():
     domainName = getTestDomainName()
     print domainName
@@ -125,23 +144,7 @@ def createTestDomain():
     dmd.write(lines)
     dmd.close()
 
-    # Point to the SDR source directory for the DomainManager and
-    # DeviceManager softpkgs.
-    sdrSrc = os.path.realpath('../control/sdr')
-
-    # "Install" the DomainManager softpkg.
-    domMgrSrc = os.path.join(sdrSrc, 'dommgr')
-    domMgrDest = os.path.join(getSdrPath(), "dom", "mgr")
-    updateLink(os.path.join(domMgrSrc, 'DomainManager'), os.path.join(domMgrDest, 'DomainManager'))
-    for xmlFile in glob.glob(os.path.join(domMgrSrc, '*.xml')):
-        updateLink(xmlFile, os.path.join(domMgrDest, os.path.basename(xmlFile)))
-
-    # "Install" the DeviceManager softpkg.
-    devMgrSrc = os.path.join(sdrSrc, 'devmgr')
-    devMgrDest = os.path.join(getSdrPath(), "dev", "mgr")
-    updateLink(os.path.join(devMgrSrc, 'DeviceManager'), os.path.join(devMgrDest, 'DeviceManager'))
-    for xmlFile in glob.glob(os.path.join(devMgrSrc, '*.xml')):
-        updateLink(xmlFile, os.path.join(devMgrDest, os.path.basename(xmlFile)))
+    setupDeviceAndDomainMgrPackage()
 
 
 DEBUG_NODEBOOTER=False
@@ -226,10 +229,10 @@ class OssieTestCase(unittest.TestCase):
 
     def assertAlomstEqual(self, a, b):
         self.assertEqual(round(a-b, 7), 0)
-        
+
     def assertAlomstNotEqual(self, a, b):
         self.assertNotEqual(round(a-b, 7), 0)
-        
+
     def promptToContinue(self):
         if sys.stdout.isatty():
             raw_input("Press enter to continue")
@@ -295,6 +298,11 @@ class CorbaTestCase(OssieTestCase):
     """A helper class for test cases which need a CORBA connection."""
     def __init__(self, methodName='runTest', orbArgs=[]):
         unittest.TestCase.__init__(self, methodName)
+        args = sys.argv
+        self.debuglevel = 9
+        for arg in args:
+            if '--debuglevel' in arg:
+                self.debuglevel = arg.split('=')[-1]
         self._orb = CORBA.ORB_init(sys.argv + orbArgs, CORBA.ORB_ID)
         self._poa = self._orb.resolve_initial_references("RootPOA")
         self._poa._get_the_POAManager().activate()
@@ -324,7 +332,7 @@ class CorbaTestCase(OssieTestCase):
             return self._deviceBooters[:]
         finally:
             self._deviceLock.release()
-    
+
     def _addDeviceManager(self, devMgr):
         self._deviceLock.acquire()
         try:
@@ -405,16 +413,20 @@ class CorbaTestCase(OssieTestCase):
                     pass
             time.sleep(0.1)
         return (self._domainBooter, self._domainManager)
-        
+
     def launchDeviceManager(self, dcdFile, domainManager=None, wait=True, *args, **kwargs):
         try:
             dcdPath = self._getDCDPath(dcdFile)
         except IOError:
             print "ERROR: Invalid DCD path provided to launchDeviceManager", dcdFile
             return (None, None)
-        
+
         # Launch the nodebooter.
-        devBooter = spawnNodeBooter(dcdFile=dcdFile, execparams=self._execparams, *args, **kwargs)
+        if domainManager == None:
+            name = None
+        else:
+            name = domainManager._get_name()
+        devBooter = spawnNodeBooter(dcdFile=dcdFile, domainname=name, execparams=self._execparams, *args, **kwargs)
         self._addDeviceBooter(devBooter)
 
         if wait:
@@ -430,7 +442,7 @@ class CorbaTestCase(OssieTestCase):
         except IOError:
             print "ERROR: Invalid DCD path provided to waitDeviceManager", dcdFile
             return None
-        
+
         # Parse the DCD file to get the identifier and number of devices, which can be
         # determined from the number of componentplacement elements.
         dcd = DCDParser.parse(dcdPath)
@@ -555,3 +567,4 @@ class CorbaTestCase(OssieTestCase):
             child.wait()
         except OSError:
             pass
+

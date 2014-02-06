@@ -1,25 +1,25 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
 import unittest
-import scatest
+from _unitTestHelpers import scatest
 from ossie.cf import CF
 from omniORB import CORBA
 import time
@@ -28,13 +28,13 @@ from test_09_HardFail import getChildren
 
 class DeviceManagerTest(scatest.CorbaTestCase):
     def setUp(self):
-        self._nodebooter, self._domMgr = self.launchDomainManager(debug=9)
+        self._nodebooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
 
     def tearDown(self):
         scatest.CorbaTestCase.tearDown(self)
 
     def _setupDevices(self, nodeName):
-        self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_%s_node/DeviceManager.dcd.xml" % (nodeName,), debug=9)
+        self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_%s_node/DeviceManager.dcd.xml" % (nodeName,), debug=self.debuglevel)
         self.assertNotEqual(self._devMgr, None)
 
         self._parentDevice = None
@@ -61,7 +61,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
 
         self.assertEqual(len(self._aggregateDevice._get_devices()), 1)
         self.assertEqual(self._aggregateDevice._get_devices()[0]._get_identifier(), self._childDevice._get_identifier())
-        
+
         self.assertNotEqual(self._childDevice._get_compositeDevice(), None)
         self.assertEqual(self._parentDevice._get_identifier(), self._childDevice._get_compositeDevice()._narrow(CF.Device)._get_identifier())
 
@@ -172,7 +172,4 @@ class DeviceManagerTest(scatest.CorbaTestCase):
 
     def test_PyBasicAggregateDeviceShutdownChild(self):
         self._test_ShutdownChild("BasicChildDevice_python")
-    
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()
+

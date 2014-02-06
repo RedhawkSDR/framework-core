@@ -63,11 +63,11 @@ void signal_catcher( int sig )
 int main(int argc, char* argv[])
 {
     // parse command line options
-    string dmdFile;
-    string sdrRoot;
-    string logfile_uri;
-    string db_uri;
-    string domainName;
+    string dmdFile("");
+    string sdrRoot("");
+    string logfile_uri("");
+    string db_uri("");
+    string domainName("");
     int debugLevel = 3;
 
     // If "--nopersist" is asserted, turn off persistent IORs.
@@ -257,7 +257,8 @@ int main(int argc, char* argv[])
             DomainManager_servant = new DomainManager_impl(dmdFile.c_str(),
                                                            domRootPath.string().c_str(),
                                                            domainName.c_str(),
-                                                           (logfile_uri.empty()) ? NULL : logfile_uri.c_str()
+                                                           (logfile_uri.empty()) ? NULL : logfile_uri.c_str(),
+                                                           (db_uri.empty()) ? NULL : db_uri.c_str()
                                                            );
             DomainManager_servant->setExecparamProperties(execparams);
 

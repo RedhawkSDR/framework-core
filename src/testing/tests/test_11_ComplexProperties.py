@@ -1,25 +1,25 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
 from omniORB import any
-import scatest
+from _unitTestHelpers import scatest
 from ossie.cf import CF
 from omniORB import CORBA
 import numpy
@@ -30,19 +30,19 @@ class _DataTypeTest:
         self.default = default
         self.override = override
         self.typecode = typecode
-        
 
-   
+
+
 class _TestVector:
     '''
-    def test_complexBoolean(self):   
+    def test_complexBoolean(self):
         testStruct = (_DataTypeTest("complexBooleanProp",
                                     CF.complexBoolean(False, True),
                                     CF.complexBoolean(True, False),
                                     CF._tc_complexBoolean))
         self._runTest(testStruct)
 
-    def test_complexULong(self):   
+    def test_complexULong(self):
         testStruct = (_DataTypeTest("complexULongProp",
                                     CF.complexULong(4, 5),
                                     CF.complexULong(2, 3),
@@ -118,8 +118,8 @@ class SetupCommon:
         self.assertEquals(val1.real, val2.real)
         self.assertEquals(val1.imag, val2.imag)
     def setUp_(self, sadpath):
-        domBooter, self._domMgr = self.launchDomainManager(debug=9)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml", debug=9)
+        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
         self._app = None
         if self._domMgr:
             try:
@@ -147,10 +147,10 @@ class SetupCommon:
 class CppPropertiesSADOverridesTest(scatest.CorbaTestCase, _TestVector, SetupCommon):
     def setUp(self):
         SetupCommon.setUp_(self, sadpath = "/waveforms/TestComplexPropsSADOverrides/TestComplexPropsSADOverrides.sad.xml")
-        
+
     def tearDown(self):
         SetupCommon.tearDown_(self)
-        
+
     def preconditions(self):
         SetupCommon.preconditions_(self)
 
@@ -162,34 +162,34 @@ class CppPropertiesSADOverridesTest(scatest.CorbaTestCase, _TestVector, SetupCom
         # Check the default property value via query
         defaultProps = self._app.query([prop])
         self._compareComplexValues(defaultProps[0].value.value(), dataTypeTest.override)
-    
-   
+
+
 class SandboxTest(scatest.CorbaTestCase, _TestVector, SetupCommon):
     def setUp(self):
         SetupCommon.setUp_(self, sadpath = "/waveforms/TestComplexPropsWaveform/TestComplexPropsWaveform.sad.xml")
-        
+
     def tearDown(self):
         SetupCommon.tearDown_(self)
-        
+
     def preconditions(self):
         SetupCommon.preconditions_(self)
-        
+
     def _runTest(self, dataTypeTest):
         '''
         1.  Check the default value of the property via the query method.
         2.  Configure the property with an override value.
         3.  Query the property to make sure the override value has been set.
-        
+
         '''
         # Create a property structure
         prop = CF.DataType(id = dataTypeTest.id,
                            value = CORBA.Any(dataTypeTest.typecode,
                                              dataTypeTest.override))
-        
+
         # Check the default property value via query
         defaultProps = self._app.query([prop])
         self._compareComplexValues(defaultProps[0].value.value(), dataTypeTest.default)
-        
+
         # Call configure with the property with an override value
         # then check, via query, if the configuration worked
         self._app.configure([prop])
@@ -211,10 +211,10 @@ class SandboxTest(scatest.CorbaTestCase, _TestVector, SetupCommon):
         #"char"      : component.complexCharProp,
         #"char"      : numpy.complex(0,1),
         return defaults
-    
+
     def test_sandboxComplexProps(self):
         from ossie.utils import sb
-                    
+
         # values from the component PRF file
         expectedDefaults = {
             "boolean"   : numpy.complex(False, True),
@@ -227,7 +227,7 @@ class SandboxTest(scatest.CorbaTestCase, _TestVector, SetupCommon):
             "long"      : numpy.complex(4,5),
             "longlong"  : numpy.complex(4,5),
             "ulonglong" : numpy.complex(4,5)}
-                    
+
 
         '''
             "cFloatSeq"       : component.complexFloatSeq,
@@ -240,11 +240,11 @@ class SandboxTest(scatest.CorbaTestCase, _TestVector, SetupCommon):
             "cFloatStructSeq" : [{"complexFloatStructMember": CF.complexFloat(real=1.0, imag=0.0)}]}
         '''
 
-        # Create an instance of the test component in all 3 languages        
+        # Create an instance of the test component in all 3 languages
         components = {"cpp"   : sb.launch("TestComplexProps", impl="cpp"),
                       "python": sb.launch("TestComplexProps", impl="python"),
                       "java"  : sb.launch("TestComplexProps", impl="java")}
-       
+
         sb.start()
 
         for language in components.keys():
@@ -269,7 +269,7 @@ class SandboxTest(scatest.CorbaTestCase, _TestVector, SetupCommon):
 
 
         for componentKey in components.keys():
-            # loop through all three languages and query for the default 
+            # loop through all three languages and query for the default
             # property values
             defaults = self._queryDefaults(components[componentKey])
             for key in defaults.keys():

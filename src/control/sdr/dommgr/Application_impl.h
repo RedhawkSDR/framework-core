@@ -59,8 +59,7 @@ public:
                               CF::Application::ComponentProcessIdSequence* _procIdSequence,
                               std::vector<ossie::ConnectionNode>& connections,
                               std::map<std::string, std::string>& fileTable,
-                              std::map<std::string, std::vector< ossie::AllocPropsInfo > >& allocPropsTable,
-                              std::vector<ossie::AllocPropsInfo>& usesDevCaps);
+                              CF::AllocationManager::AllocationResponseSequence* _allocationResponses);
 
     ~Application_impl ();
 
@@ -95,6 +94,8 @@ public:
     
     char* profile () throw (CORBA::SystemException);
     
+    char* softwareProfile () throw (CORBA::SystemException);
+    
     char* name () throw (CORBA::SystemException);
     
     CF::DeviceAssignmentSequence * componentDevices ()
@@ -128,9 +129,7 @@ public:
     CF::Device_ptr lookupDeviceThatLoadedComponentInstantiationId(const std::string& componentId);
     CF::Device_ptr lookupDeviceUsedByComponentInstantiationId(const std::string& componentId, const std::string& usesId);
 
-#if ENABLE_EVENTS
     CosEventChannelAdmin::ProxyPushConsumer_var proxy_consumer;
-#endif
 
     // Event Channel objects
     void createEventChannels (void);
@@ -155,8 +154,9 @@ private:
     std::vector<CF::Resource_ptr> _appStartSeq;
     std::map<std::string, std::string> _fileTable;
     std::map<std::string, unsigned long> _pidTable;
-    std::map<std::string, std::vector<ossie::AllocPropsInfo> >_allocPropsTable;
-    std::vector<ossie::AllocPropsInfo> _usesDeviceCapacities;
+    CF::AllocationManager::AllocationResponseSequence appAllocationResponses;
+    /*std::map<std::string, std::vector<ossie::AllocPropsInfo> >_allocPropsTable;
+    std::vector<ossie::AllocPropsInfo> _usesDeviceCapacities;*/
     std::auto_ptr<ossie::AppConnectionManager> connectionManager;
     DomainManager_impl* _domainManager;
     std::string _waveformContextName;

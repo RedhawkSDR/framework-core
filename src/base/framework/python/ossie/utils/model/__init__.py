@@ -55,7 +55,6 @@ __MIDAS_TYPE_MAP = {'char'  : ('/SB/8t'),
                     'double': ('/SD/64f')}
 
 log = logging.getLogger(__name__)
-
 def setDEBUG(debug=False):
     global _DEBUG
     _DEBUG = debug
@@ -65,6 +64,10 @@ def getDEBUG():
 
 def _uuidgen():
     return _commands.getoutput('uuidgen')
+
+class NoMatchingPorts(Exception):
+    def __init__(self, *args):
+        Exception.__init__(self,*args)
 
 def _convertType(propType, val):
     ''' 
@@ -122,14 +125,15 @@ def _readProfile(spdFilename, fileSystem):
     
     return spd, scd, prf
 
-def _formatSimple(prop, value):
+def _formatSimple(prop, value,id):
     currVal = str(value)
-
     # Checks if current prop is an enum
-    if prop.clean_name in _prop_helpers._enums:
-        for enumLabel, enumValue in _prop_helpers._enums[prop.clean_name].iteritems():
-            if value == enumValue:
-                currVal += " (enum=" + enumLabel + ")"
+    try:
+        if prop._enums != None:
+            if value in prop._enums.values():
+                currVal += " (enum=" + prop._enums.keys()[prop._enums.values().index(value)] + ")"
+    except:
+        return currVal
     return currVal
 
 def _formatType(propType):
@@ -261,9 +265,12 @@ class PortSupplier(object):
                     matches.extend((uses, provides) for provides in providesComponent._matchUsesPort(usesPort, connectionId))
 
                 if len(matches) > 1:
-                    raise RuntimeError, 'Multiple ports matched interfaces on connect, must specify providesPortName or usesPortName'
+                    ret_str = "Multiple ports matched interfaces on connect, must specify providesPortName or usesPortName\nPossible matches:\n"
+                    for match in matches:
+                        ret_str += "  Interface: "+match[0].getInterface()+", component/port:  "+match[0].getName()+"     "+match[1].getName()+"\n"
+                    raise RuntimeError, ret_str
                 elif len(matches) == 0:
-                    raise RuntimeError, 'No matching interfaces'
+                    raise NoMatchingPorts('No matching interfaces between '+uses.supplier._instanceName+' and '+providesComponent._componentName)
                 usesEndpoint, providesEndpoint = matches[0]
 
         elif isinstance(providesComponent, OutputBase):
@@ -328,7 +335,8 @@ class PropertySet(object):
 
     def __init__(self):
         self._propertySet = []
-
+        self._execParamPropertySet = []
+        self._properties = []
     def _findProperty(self, name):
         for prop in self._propertySet:
             if name in (prop.id, prop.clean_name):
@@ -352,16 +360,20 @@ class PropertySet(object):
         self.ref.configure(props)
             
     def query(self, props):
-        self.__log.debug("query('%s')", str(props))
-        if self.ref:
-            return self.ref.query(props)
-        else:
-            return None
-    
+        if True:
+            self.__log.debug("query('%s')", str(props))
+            if self.ref:
+                return self.ref.query(props)
+            else:
+                return None
+   
     def api(self, externalPropInfo=None):
         if not self._propertySet:
             return
- 
+        for p in self._execParamPropertySet:        
+            self._propertySet.append(p)
+
+        self._execParamPropertySet = []
         table = TablePrinter('Property Name', '(Data Type)', '[Default Value]', 'Current Value')
 
         # Limit the amount of space between columns of data for display
@@ -374,7 +386,6 @@ class PropertySet(object):
             table.enable_header(False)
         else:
             print "Properties =============="
-
         for prop in self._propertySet:
             if externalPropInfo:
                 # Searching for a particular external property
@@ -383,21 +394,26 @@ class PropertySet(object):
                 name = extId
             else:
                 name = prop.clean_name
-
+            writeOnly = False
             if prop.mode != "writeonly":
                 currentValue = prop.queryValue()
             else:
+                writeOnly = True
                 currentValue = "N/A"
 
             if prop.type == 'structSeq':
                 table.append(name, '('+scaType+')')
+                if writeOnly:
+                    currentValue = "N"
                 for item_count, item in enumerate(currentValue):
                     for member in prop.valueType:
                         _id = str(member[0])
                         scaType = str(member[1])
                         defVal = str(member[2])
-                        currVal = str(item[member[0]])
-
+                        if not writeOnly:
+                            currVal = str(item[member[0]])
+                        else:
+                            currVal = "N/A"
                         name = ' [%d] %s' % (item_count, _id)
                         scaType = _formatType(scaType)
                         table.append(name, '('+scaType+')', defVal, currVal)
@@ -406,11 +422,14 @@ class PropertySet(object):
                 for member in prop.members.itervalues():
                     name = ' ' + member.clean_name
                     scaType = _formatType(member.type)
-                    _currentValue = _formatSimple(member, currentValue[member.id])
+                    if not writeOnly:
+                        _currentValue = _formatSimple(member, currentValue[member.id],member.id)
+                    else: 
+                        _currentValue = "N/A"
                     table.append(' '+name, '('+scaType+')', str(member.defValue), _currentValue)
             else:
                 scaType = _formatType(prop.type)
-                currentValue = _formatSimple(prop, currentValue)
+                currentValue = _formatSimple(prop, currentValue,prop.id)
                 table.append(name, '('+scaType+')', str(prop.defValue), currentValue)
 
         table.write()
@@ -491,6 +510,12 @@ class Resource(CorbaObject, PortSupplier, PropertySet):
         self.__log.debug("stop()")
         if self.ref:
             self.ref.stop()
+
+    def _get_softwareProfile(self):
+        if self.ref:
+            return self.ref._get_softwareProfile()
+        else:
+            return None
             
     def initialize(self):
         self.__log.debug("initialize()")
@@ -516,11 +541,12 @@ class Resource(CorbaObject, PortSupplier, PropertySet):
             self.ref.releaseObject()
             # Reset component object reference
             self.ref = None
-
+       
+    
 
 class Device(Resource):
     def _buildAPI(self):
-        self._allocProps = self._getPropertySet(kinds=('allocation',))
+        self._allocProps = self._getPropertySet(kinds=('allocation',),action=('external','eq','ge','gt','le','lt','ne') )
 
     def _getAllocProp(self, name):
         for prop in self._allocProps:
@@ -555,12 +581,6 @@ class Device(Resource):
         retval = None
         if self.ref:
             return self.ref._get_operationalState()
-        else:
-            return None
-
-    def _get_softwareProfile(self):
-        if self.ref:
-            return self.ref._get_softwareProfile()
         else:
             return None
 
@@ -643,7 +663,7 @@ class AggregateDevice(object):
     def removeDevice(self, associatedDevice):
         if self.ref:
             self.ref.removeDevice(associatedDevice)
-   
+
 
 class ComponentBase(object):
     def __init__(self, spd, scd, prf, instanceName, refid, impl):
@@ -654,7 +674,13 @@ class ComponentBase(object):
         self._refid = refid
         self._impl = impl
         self._configureTable = {}
-
+        #will return a list of all properties excluding for execparam props
+        self._properties = self._getPropertySet(kinds=("configure","execparam","allocation","event","message"),
+                                          modes=("readwrite","readonly","writeonly"),
+                                          action=("external","eq","ge","gt","le","lt","ne"),
+                                          includeNil=True)
+        #this combines the execparamprops with all the others to make a complete list
+        self._combineAllProps()
     def __setattr__(self,name,value):
         # If setting any class attribute except for _propertySet,
         # Then need to see if name matches any component properties
@@ -685,19 +711,24 @@ class ComponentBase(object):
                 else:
                     raise e
         return object.__setattr__(self,name,value)
-
+    
     def __getattribute__(self,name):
         # Called for every access (in alternative to __getattr__)
-        if name != "_propertySet" and hasattr(self,"_propertySet"):
-            propSet = object.__getattribute__(self,"_propertySet")
-            if propSet != None:
-                for prop in propSet: 
-                    if name == prop.id or name == prop.clean_name:
-                        if _DEBUG == True:
-                            print 'Component:__getattribute__()', prop
-                        return prop
+        if name != "_properties" and hasattr(self,"_properties"):
+           propSet = object.__getattribute__(self,"_properties")
+           if propSet != None:
+               for prop in propSet: 
+                   if name == prop.id or name == prop.clean_name:
+                       print "\nprop: ", prop.id
+                       if _DEBUG == True:
+                           print 'Component:__getattribute__()', prop
+                       return prop
         return object.__getattribute__(self,name)
-        
+
+    def _combineAllProps(self):
+        for i in self._execParamPropertySet:
+            self._properties.append(i)
+
     def _getPropType(self, prop):
         '''
         Returns the property type.
@@ -716,14 +747,15 @@ class ComponentBase(object):
         return propType
      
     def _getPropertySet(self, \
-                        kinds=("configure",), \
+                        kinds=("configure","execparam"), \
                         modes=("readwrite", "writeonly", "readonly"), \
-                        action="external", \
+                        action=("external"), \
                         includeNil=True):
         """
         A useful utility function that extracts specified property types from
         the PRF file and turns them into a _CF.PropertySet
         """
+      
         if _DEBUG == True:
             print "Component: _getPropertySet() kinds " + str(kinds)
             print "Component: _getPropertySet() modes " + str(modes)
@@ -732,15 +764,16 @@ class ComponentBase(object):
             return []
 
         propertySet = []
-
         # Simples
-        for prop in self._prf.get_simple(): 
-            if _prop_helpers.isMatch(prop, modes, kinds, (action,)):
+        for prop in self._prf.get_simple():
+            if _prop_helpers.isMatch(prop, modes, kinds, action):
                 if prop.get_value() == None and includeNil == False:
                     continue
-                
                 propType = self._getPropType(prop)
-
+                try:
+                    enum = prop.get_enumerations().get_enumeration()
+                except:
+                    enum = None
                 val = prop.get_value()
                 if str(val) == str(None):
                     defValue = None
@@ -750,27 +783,49 @@ class ComponentBase(object):
                     act = prop.get_action().get_type()
                 else:
                     act = 'external'
-                p = _prop_helpers.simpleProperty(id=prop.get_id(), valueType=propType, compRef=weakref.proxy(self), defValue=defValue, mode=prop.get_mode(), action=act)
+
+                kindList = []
+                for k in prop.get_kind():
+                    kindList.append(k.get_kindtype())
+                p = _prop_helpers.simpleProperty(id=prop.get_id(), valueType=propType, enum=enum, compRef=weakref.proxy(self), kinds=kindList,defValue=defValue, mode=prop.get_mode(), action=act)
                 id_clean = _prop_helpers._cleanId(prop)
                 p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
-                propertySet.append(p)
-                
-                # If property has enumerations, stores them 
-                if prop.enumerations != None:
-                    _prop_helpers._addEnumerations(prop, p.clean_name)
 
+                alreadyExists = False
+                addProp = True
+                if ("execparam" in kindList) and ("configure" not in kindList) and prop.get_mode() != "writeonly":
+                    for i in self._execParamPropertySet:
+                        if p.clean_name == i.clean_name:
+                            alreadyExists = True
+                    #adds all execParam properties that are not configure into a seperate list
+                    if not alreadyExists:
+                        self._execParamPropertySet.append(p)
+                        addProp = False
+                    #adds properties that are allocation and not configure
+                    if ("allocation" in kindList ):
+                        for i in propertySet:
+                            if p.clean_name == i.clean_name:
+                                add = False
+                        if addProp:
+                            propertySet.append(p)
+                else:
+                    propertySet.append(p)
         # Simple Sequences
         for prop in self._prf.get_simplesequence():
-            if _prop_helpers.isMatch(prop, modes, kinds, (action,)):
+            if _prop_helpers.isMatch(prop, modes, kinds, action):
                 values = prop.get_values()
                 propType = self._getPropType(prop)
                 if values:
                     defValue = [_convertType(propType, val) for val in values.get_value()]
                 else:
                     defValue = None
+                kindList = []
+                for k in prop.get_kind():
+                    kindList.append(k.get_kindtype())
                 
                 p = _prop_helpers.sequenceProperty(id        = prop.get_id(), 
                                                    valueType = propType, 
+                                                   kinds     = kindList,
                                                    compRef   = self, 
                                                    defValue  = defValue, 
                                                    mode      = prop.get_mode())
@@ -782,7 +837,7 @@ class ComponentBase(object):
 
         # Structures
         for prop in self._prf.get_struct():
-            if _prop_helpers.isMatch(prop, modes, kinds, (action,)):
+            if _prop_helpers.isMatch(prop, modes, kinds, action):
                 members = []
                 structDefValue = {}
                 if prop.get_simple() != None:
@@ -794,9 +849,6 @@ class ComponentBase(object):
                         else:
                             defValue = _convertType(propType, val)
                         id_clean = _prop_helpers._cleanId(simple)
-                        # Checks for enumerated properties
-                        if simple.enumerations != None:
-                            _prop_helpers._addEnumerations(simple, id_clean)
                         # Add individual property
                         id_clean = _prop_helpers.addCleanName(id_clean, simple.get_id(), self._refid)
                         members.append((simple.get_id(), propType, defValue, id_clean))
@@ -809,8 +861,13 @@ class ComponentBase(object):
                         break
                 if not hasDefault:
                     structDefValue = None
+                kindList = []
+                for k in prop.get_configurationkind():
+                    kindList.append(k.get_kindtype())
                 p = _prop_helpers.structProperty(id=prop.get_id(),
                                                  valueType=members,
+                                                 kinds=kindList,
+                                                 props=prop.get_simple(),
                                                  compRef=weakref.proxy(self),
                                                  defValue=structDefValue,
                                                  mode=prop.get_mode())
@@ -820,7 +877,7 @@ class ComponentBase(object):
 
         # Struct Sequence
         for prop in self._prf.get_structsequence():
-            if _prop_helpers.isMatch(prop, modes, kinds, (action,)):
+            if _prop_helpers.isMatch(prop, modes, kinds, action):
                 if prop.get_struct() != None:
                     members = []
                     #get the struct definition
@@ -832,9 +889,6 @@ class ComponentBase(object):
                         else:
                             simpleDefValue = _convertType(propType, val)
                         id_clean = _prop_helpers._cleanId(simple)
-                        # Checks for enumerated properties
-                        if simple.enumerations != None:
-                            _prop_helpers._addEnumerations(simple, id_clean)   
                         # Adds struct member
                         members.append((simple.get_id(), propType, simpleDefValue, id_clean))
                         _prop_helpers.addCleanName(id_clean, simple.get_id(), self._refid)
@@ -859,7 +913,10 @@ class ComponentBase(object):
                                     _value = _convertType(_propType, value)
                                 newValue[str(id)] = _value
                             structSeqDefValue.append(newValue)
-                p = _prop_helpers.structSequenceProperty(id=prop.get_id(), structID=prop.get_struct().get_id(), valueType=members, compRef=weakref.proxy(self), defValue=structSeqDefValue, mode=prop.get_mode())
+                kindList = []
+                for k in prop.get_configurationkind():
+                    kindList.append(k.get_kindtype())
+                p = _prop_helpers.structSequenceProperty(id=prop.get_id(), structID=prop.get_struct().get_id(), valueType=members, kinds=kindList, props=prop.get_struct().get_simple(), compRef=weakref.proxy(self), defValue=structSeqDefValue, mode=prop.get_mode())
                 id_clean = _prop_helpers._cleanId(prop)
                 p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
                 propertySet.append(p)
@@ -869,6 +926,8 @@ class ComponentBase(object):
                 print "Component: _getPropertySet() propertySet " + str(propertySet)
             except:
                 pass
+        #for i in self._execParamPropertySet:
+            #propertySet.append(i)
         return propertySet
 
     def _parseComponentXMLFiles(self):
@@ -933,7 +992,7 @@ class ComponentBase(object):
             self._usesPortDict[name]["Port Name"] = str(name)
             self._usesPortDict[name]["Port Interface"] = str(port.get_repid())
 
-        self._propertySet = self._getPropertySet()
+        self._propertySet = self._getPropertySet(action=('external','eq','ge','gt','le','lt','ne'))
         for prop in self._propertySet:
             self._configureTable[prop.id] = prop
 
@@ -1040,6 +1099,9 @@ class ComponentBase(object):
         if usesPort['Port Interface'] == 'IDL:CF/Resource:1.0':
             return [ObjectEndpoint(self, 'IDL:CF/Resource:1.0')]
         return super(ComponentBase,self)._matchUsesPort(usesPort, connectionId)
+
+
+
 
 
 class _Port(object):

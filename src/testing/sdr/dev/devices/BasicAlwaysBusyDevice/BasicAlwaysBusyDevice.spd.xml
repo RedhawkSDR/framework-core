@@ -23,9 +23,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 <softpkg id="DCE:938362bb-d35f-4b9e-8b5c-b73789d2b8f4" name="BasicAlwaysBusyDevice" type="sca_compliant" version="">
     <title />
     <author>
-        <name>OSSIE</name>
-        <company>MPRG</company>
-        <webpage>www.mprg.org</webpage>
+        <name>REDHAWK test author</name>
     </author>
     <propertyfile type="PRF">
         <localfile name="BasicAlwaysBusyDevice.prf.xml" />

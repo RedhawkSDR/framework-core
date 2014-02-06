@@ -25,6 +25,7 @@
 
 #include <omniORB4/CORBA.h>
 
+#include "CorbaSequence.h"
 #include "ossie/debug.h"
 
 namespace ossie {
@@ -111,15 +112,6 @@ namespace ossie {
 
         // Set up a handler for retrying calls to the provided object on a COMM_FAILURE exception.
         void setObjectCommFailureRetries (CORBA::Object_ptr obj, int numRetries);
-
-        // Append to a CORBA sequence
-        template <typename T>
-        inline void push_back (_CORBA_Sequence<T>& sequence, const T& element)
-        {
-            CORBA::ULong index = sequence.length();
-            sequence.length(index+1);
-            sequence[index] = element;
-        }
 
         // Mapping of C++ types to type codes.
         template <typename T>

@@ -1,26 +1,26 @@
 #!/usr/bin/env python
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
 from ossie import parsers
-import scatest
+from _unitTestHelpers import scatest
 import commands
 import os
 import tempfile
@@ -44,7 +44,7 @@ class PythonParserTestCase(scatest.OssieTestCase):
         spd = parsers.SPDParser.parse(spdPath)
         self.assertEqual(spd.get_id(), "DCE:458872f6-a316-4082-b1eb-ce5704f5c49d")
         self.assertEqual(spd.get_name(), "CommandWrapper")
-        self.assertEqual(str(spd.get_author()[0].get_name()[0]), "OSSIE Project")
+        self.assertEqual(str(spd.get_author()[0].get_name()[0]), "REDHAWK test author")
         self.assertEqual(spd.get_propertyfile().get_type(), "PRF")
         self.assertEqual(spd.get_propertyfile().get_localfile().get_name(), "CommandWrapper.prf.xml")
 
@@ -80,7 +80,7 @@ class PythonParserTestCase(scatest.OssieTestCase):
         self.assertEqual(props["DCE:5d8bfe8d-bc25-4f26-8144-248bc343aa53"].get_type(), "string")
         self.assertEqual(props["DCE:5d8bfe8d-bc25-4f26-8144-248bc343aa53"].get_values().get_value()[0], "Hello World")
         self.assertEqual(props["DCE:5d8bfe8d-bc25-4f26-8144-248bc343aa53"].get_kind()[0].get_kindtype(), "configure")
-        
+
         # Verify that we can write the output and still be DTD valid
         tmpfile = tempfile.mktemp()
         try:
@@ -104,7 +104,7 @@ class PythonParserTestCase(scatest.OssieTestCase):
         self.assertEqual(scd.get_componentfeatures().get_supportsinterface()[0].get_supportsname(), "Resource")
         self.assertEqual(scd.get_interfaces().get_interface()[0].get_name(), "Resource")
         self.assertEqual(scd.get_interfaces().get_interface()[0].get_inheritsinterface()[0].get_repid(), "IDL:CF/LifeCycle:1.0")
-    
+
         # Verify that we can write the output and still be DTD valid
         tmpfile = tempfile.mktemp()
         try:
@@ -118,7 +118,7 @@ class PythonParserTestCase(scatest.OssieTestCase):
                 os.remove(tmpfile)
             except OSError:
                 pass
-                
+
     def test_DCDParser(self):
         dcd = parsers.DCDParser.parse("sdr/dev/nodes/test_MultipleExecutableDevice_node/DeviceManager.dcd.xml")
         self.assertEqual(dcd.get_id(), "DCE:d68b588e-5223-11db-9069-000d56d8556e")
@@ -191,6 +191,3 @@ class PythonParserTestCase(scatest.OssieTestCase):
         self.assertEqual(sad.partitioning.get_componentplacement()[3].get_componentinstantiation()[0].startorder, "3")
 
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

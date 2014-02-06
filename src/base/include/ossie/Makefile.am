@@ -32,6 +32,7 @@ pkginclude_HEADERS = AggregateDevice_impl.h \
              prop_helpers.h \
              debug.h \
              FileStream.h \
+             CorbaSequence.h \
              CorbaUtils.h \
              PropertyInterface.h \
              ComplexProperties.h \

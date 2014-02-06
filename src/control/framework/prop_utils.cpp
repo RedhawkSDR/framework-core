@@ -362,6 +362,15 @@ bool ossie::checkProcessor(const std::vector<std::string>& processorDeps, const 
         bool matchProcessor = true;
 
         std::string processor = processorDeps[j];
+        bool has_processor = false;
+        // make sure that a processor property exists
+        for (unsigned int i = 0; i < props.size(); i++) {
+        	std::string prop_id(props[i]->getID());
+        	if (prop_id == "DCE:fefb9c66-d14a-438d-ad59-2cfd1adb272b") {
+        		has_processor = true;
+        	}
+        }
+        //if ((processor != "") and (has_processor)) {
         if (processor != "") {
             matchProcessor = false;
             LOG_TRACE(prop_utils, "Attempting to match processor " << processor << " against " << props.size() << " properties")
@@ -425,7 +434,9 @@ bool ossie::checkOs(const std::vector<ossie::SPD::NameVersionPair>& osDeps, cons
                         LOG_TRACE(prop_utils, "Performing comparison operation " << dev_os_name << " " << action << " " << os);
                         matchOs = ossie::perform_action(dev_os_name, os, action);
                         LOG_TRACE(prop_utils, "Performing comparison operation " << dev_os_name << " " << action << " " << os << " RESULT:" << matchOs);
-                        if (matchOs) break;
+                        if (matchOs) {
+                        	break;
+                        }
                     }
                 }
             }
@@ -452,6 +463,7 @@ bool ossie::checkOs(const std::vector<ossie::SPD::NameVersionPair>& osDeps, cons
                     }
                 }
             }
+        } else {
         }
 
         if (matchOs && matchOsVersion) {
@@ -460,4 +472,80 @@ bool ossie::checkOs(const std::vector<ossie::SPD::NameVersionPair>& osDeps, cons
     }
 
     return false;
+}
+
+CF::AllocationManager::AllocationResponseType ossie::assembleResponse(std::string requestID, std::string allocationID,
+		CF::Properties& allocations, CF::Device_ptr dev, CF::DeviceManager_ptr devMgr)
+{
+	CF::AllocationManager::AllocationResponseType resp;
+	resp.requestID = CORBA::string_dup(requestID.c_str());
+    resp.allocationID = CORBA::string_dup(allocationID.c_str());
+	resp.allocationProperties = allocations;
+	resp.allocatedDevice = CF::Device::_duplicate(dev);
+	resp.allocationDeviceManager = CF::DeviceManager::_duplicate(devMgr);
+
+	return resp;
+}
+
+CF::DataType ossie::convertPropertyToDataType(const SimplePropertyRef* prop) {
+    CF::DataType dataType;
+    dataType.id = CORBA::string_dup(prop->getID());
+    
+    if (prop->getValue() != NULL) {
+        std::string value(prop->getValue());
+        dataType.value <<= value;
+    }
+    return dataType;
+}
+
+CF::DataType ossie::convertPropertyToDataType(const SimpleSequencePropertyRef* prop) {
+    CF::DataType dataType;
+    dataType.id = CORBA::string_dup(prop->getID());
+    dataType.value = ossie::strings_to_any(prop->getValues(), CORBA::tk_string);
+    return dataType;
+}
+
+CF::DataType ossie::convertPropertyToDataType(const StructPropertyRef* prop) {
+    CF::DataType dataType;
+    dataType.id = CORBA::string_dup(prop->getID());
+    
+    CF::Properties structval_;
+    for (std::map<std::string, std::string>::const_iterator i = prop->getValue().begin(); i != prop->getValue().end(); ++i) {
+        CF::DataType dt;
+        dt.id = CORBA::string_dup((*i).first.c_str());
+        CORBA::TypeCode *tc = ossie::corba::TypeCode<std::string>();
+        dt.value = ossie::string_to_any((*i).second.c_str(), tc);
+        LOG_TRACE(prop_utils, "setting struct item " << (*i).first);
+        structval_.length(structval_.length() + 1);
+        structval_[structval_.length() - 1] = dt;
+    }
+    dataType.value <<= structval_;
+    return dataType;
+}
+
+CF::DataType ossie::convertPropertyToDataType(const StructSequencePropertyRef* prop) {
+    CF::DataType dataType;
+    dataType.id = CORBA::string_dup(prop->getID());
+    
+    const std::vector<std::map<std::string, std::string> > propValues = prop->getValues();
+    CORBA::AnySeq values;
+    values.length(propValues.size());
+    for (CORBA::ULong ii = 0; ii < values.length(); ++ii) {
+        CF::DataType tmp_struct;
+        tmp_struct.id = CORBA::string_dup("");
+        CF::Properties structval_;
+        for (std::map<std::string, std::string>::const_iterator i = propValues[ii].begin(); i != propValues[ii].end(); ++i) {
+            CF::DataType dt;
+            dt.id = CORBA::string_dup((*i).first.c_str());
+            CORBA::TypeCode *tc = ossie::corba::TypeCode<std::string>();
+            dt.value = ossie::string_to_any((*i).second.c_str(), tc);
+            LOG_TRACE(prop_utils, "setting struct item " << (*i).first);
+            structval_.length(structval_.length() + 1);
+            structval_[structval_.length() - 1] = dt;
+        }
+        tmp_struct.value <<= structval_;
+        values[ii] <<= tmp_struct;
+    }
+    dataType.value <<= values;
+    return dataType;
 }

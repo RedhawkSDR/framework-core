@@ -28,6 +28,7 @@ module CF {
     interface Application;
     interface ApplicationFactory;
     interface DeviceManager;
+    interface DomainManager;
     /* This type is a CORBA IDL struct type which can be used to hold any CORBA basic type or static IDL type. */
     struct DataType {
         /* The id attribute indicates the kind of value and type. The id can be an UUID string, an integer string, or a name identifier. */
@@ -432,6 +433,102 @@ module CF {
             )
             raises (CF::UnknownProperties);
     };
+    
+    /* The AllocationManager interface is for the consolidation and delegation of allocation requests. */
+    interface AllocationManager {
+
+        /* This type defines an unbounded sequence of Device Pool names. */
+        typedef sequence<string> DevicePoolNames;
+
+        /* The AllocationRequestType defines a type for describing an allocation. The allocation request is composed of a request ID, the properties that need to be allocated,
+           the device pools that the allocations need to be limited to, and the list of devices that need to satisfy this request. */
+        struct AllocationRequestType {
+            string requestID;
+            Properties allocationProperties;
+            DevicePoolNames devicePools;
+            DeviceSequence requestedDevices;
+        };
+
+        /* The AllocationResponseType defines a type for associating an allocation ID with its request ID. The response also contains the list of allocation responses from the device allocations
+           as well as the devices that satisfied the request. */
+        struct AllocationResponseType {
+            string requestID;
+            string allocationID;
+            Properties allocationProperties;
+            Device allocatedDevice;
+            DeviceManager allocationDeviceManager;
+        };
+
+        /* The AllocationStatusType defines a type for describing a successful allocation that has not been deallocated. */
+        struct AllocationStatusType {
+            string allocationID;
+            string requestingDomain;
+            Properties allocationProperties;
+            Device allocatedDevice;
+            DeviceManager allocationDeviceManager;
+        };
+
+        /* The DeviceLocationType defines a type locating a particular device in a Domain/Device Manager/Device Pool. */
+        struct DeviceLocationType {
+            string domainName;
+            DevicePoolNames pools;
+            DeviceManager devMgr;
+            Device dev;
+        };
+
+        /* This type defines an unbounded sequence of allocation requests. */
+        typedef sequence<AllocationRequestType> AllocationRequestSequence;
+
+        /* This type defines an unbounded sequence of allocation responses. */
+        typedef sequence<AllocationResponseType> AllocationResponseSequence;
+
+        /* This type defines an unbounded sequence of allocation status responses. */
+        typedef sequence<AllocationStatusType> AllocationStatusSequence;
+        
+        /* This type defines an unbounded sequence of Device locations. */
+        typedef sequence<DeviceLocationType> DeviceLocationSequence;
+        
+        /* This type defines an unbounded sequence of allocation IDs. */
+        typedef sequence<string> allocationIDSequence;
+
+        exception AllocationError {
+            short errorCode;
+            string message;
+        };
+
+        exception InvalidAllocationId {
+            allocationIDSequence invalidAllocationIds;
+        };
+
+        /* The readonly AllocationManager attribute allDevices contains all devices in all Domains that can be seen by any Allocation Manager seen by the local Allocation Manager */
+        readonly attribute DeviceLocationSequence allDevices;
+
+        /* The readonly AllocationManager attribute authorizedDevices contains all devices after policy is applied by any Allocation Manager seen by the local Allocation Manager */
+        readonly attribute DeviceLocationSequence authorizedDevices;
+
+        /* The readonly AllocationManager attribute localDevices contains all devices that are located within the local Domain */
+        readonly attribute DeviceLocationSequence localDevices;
+
+        /* The readonly AllocationManager attribute domainManager contains a link to the local Domain */
+        readonly attribute CF::DomainManager domainMgr;
+
+        /* Allocates a set of depenedencies */
+        AllocationResponseSequence allocate(in AllocationRequestSequence requests) raises (AllocationError);
+
+        /* Allocates a set of dependencies only inside the local Domain */
+        AllocationResponseSequence allocateLocal(in AllocationRequestSequence requests, in string domainName) raises (AllocationError);
+
+        /* Deallocates a set of allocations */
+        void deallocate(in allocationIDSequence allocationIDs) raises (InvalidAllocationId);
+
+        /* Returns all current allocations on all Domains with an optional list of selected allocations to return */
+        AllocationStatusSequence allocations(in allocationIDSequence allocationIDs) raises (InvalidAllocationId);
+
+        /* Returns all current allocations that were made through the Allocation Manager that have not been deallocated with an optional list of selected allocations to return */
+        AllocationStatusSequence localAllocations(in allocationIDSequence allocationIDs) raises (InvalidAllocationId);
+
+    }; //End Interface
+    
     /* The DomainManager interface is for the control and configuration of the radio domain. */
     interface DomainManager : PropertySet {
         /* This exception is raised when an Application installation has not completed correctly. The message provides additional information describing the reason for the error. */
@@ -447,6 +544,8 @@ module CF {
         typedef sequence <ApplicationFactory> ApplicationFactorySequence;
         /* This type defines an unbounded sequence of DeviceManagers. */
         typedef sequence <DeviceManager> DeviceManagerSequence;
+        /* This type defines an unbounded sequence of DomainManagers. */
+        typedef sequence <DomainManager> DomainManagerSequence;
         /* This exception indicates the application ID is invalid. */
         exception InvalidIdentifier {
         };
@@ -488,8 +587,14 @@ module CF {
         applicationFactories;
         /* The readonly fileMgr attribute contains the DomainManager's FileManager. */
         readonly attribute CF::FileManager fileMgr;
+        /* The readonly fileMgr attribute contains the DomainManager's AllocationManager. */
+        readonly attribute CF::AllocationManager allocationMgr;
         /* The readonly identifier attribute contains a unique identifier for a DomainManager instance. The identifier is identical to the domainmanagerconfiguration element id attribute of the DomainManager's Descriptor (DMD) file. */
         readonly attribute string identifier;
+        /* The readonly name attribute contains the DomainManager name. */
+        readonly attribute string name;
+        /* The domainManagers attribute is read-only containing a sequence of registered remote DomainManagers. */
+        readonly attribute CF::DomainManager::DomainManagerSequence remoteDomainManagers;
         /* The registerDevice operation is used to register a Device for a specific DeviceManager in the DomainManager's Domain Profile. */
         void registerDevice (
             in CF::Device registeringDevice,
@@ -561,6 +666,18 @@ module CF {
             )
             raises (CF::DomainManager::InvalidEventChannelName,
                 CF::DomainManager::NotConnected);
+        /* The registerRemoteDomainManager operation is used to register a remote DomainManager. */
+        void registerRemoteDomainManager (
+            in CF::DomainManager registeringDomainManager
+            )
+            raises (CF::InvalidObjectReference,
+                CF::DomainManager::RegisterError);
+        /* The unregisterRemoteDomainManager operation is used to unregister a remote DomainManager. */
+        void unregisterRemoteDomainManager (
+            in CF::DomainManager unregisteringDomainManager
+            )
+            raises (CF::InvalidObjectReference,
+                CF::DomainManager::UnregisterError);
     };
     /* The ApplicationFactory interface class provides an interface to request the creation of a specific type of Application in the domain.The Software Profile determines the type of Application that is created by the ApplicationFactory. */
     interface ApplicationFactory {
@@ -626,6 +743,8 @@ module CF {
         readonly attribute string identifier;
         /* Backport from SCA Next; the readonly started attribute shall return the component's started value. */
         readonly attribute boolean started;
+        /* The softwareProfile attribute is the XML description for this logical Device. The softwareProfile attribute contains a profile DTD element with a file reference to the SPD profile file. */
+        readonly attribute string softwareProfile;
         /* The start operation is provided to command a Resource implementing this interface to start internal processing. 
 	The start operation shall set the started attribute to a value of true.
 	*/
@@ -680,8 +799,6 @@ module CF {
         attribute CF::Device::AdminType adminState;
         /* The operationalState attribute contains the device's operational state. The operational state indicates whether or not the device is functioning. */
         readonly attribute CF::Device::OperationalType operationalState;
-        /* The softwareProfile attribute is the XML description for this logical Device. The softwareProfile attribute contains a profile DTD element with a file reference to the SPD profile file. */
-        readonly attribute string softwareProfile;
         /* The label attribute is the meaningful name given to a Device. */
         readonly attribute string label;
         /* The compositeDevice attribute contains the object reference of the AggregateDevice with which this Device is associated or a nil CORBA object reference if no association exists. */

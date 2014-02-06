@@ -27,10 +27,8 @@
 #include <fstream>
 #include <map>
 
-#if ENABLE_EVENTS
 #include <COS/CosEventComm.hh>
 #include <COS/CosEventChannelAdmin.hh>
-#endif
 
 #include "Resource_impl.h"
 #include "CF/cf.h"
@@ -40,7 +38,6 @@
 
 class Device_impl;
 
-#if ENABLE_EVENTS
 class IDM_Channel_Supplier_i : virtual public POA_CosEventComm::PushSupplier
 {
 
@@ -52,7 +49,6 @@ private:
     Device_impl *_device;
     
 };
-#endif
 
 
 class Device_impl: public virtual POA_CF::Device, public Resource_impl
@@ -147,7 +143,6 @@ public:
         // setting all the execparams passed as argument, this method resides in the Resource_impl class
         (*devPtr)->setExecparamProperties(execparams);
 
-#if ENABLE_EVENTS
         if (idm_channel_ior) {
             try {
                 CORBA::Object_var IDM_channel_obj = ossie::corba::Orb()->string_to_object(idm_channel_ior);
@@ -160,7 +155,6 @@ public:
             }
             CATCH_LOG_WARN(Device_impl, "Unable to connect to IDM channel");
         }
-#endif
 
         (*devPtr)->run();
         LOG_DEBUG(Device_impl, "Goodbye!");
@@ -249,16 +243,13 @@ protected:
     CF::Device::UsageType _usageState;
     CF::Device::OperationalType _operationalState;
     CF::AggregateDevice_ptr _aggregateDevice;
-    std::string _softwareProfile;
     std::string _label;
     std::string _compositeDev_ior;
 
-#if ENABLE_EVENTS
     void connectSupplierToIncomingEventChannel (CosEventChannelAdmin::EventChannel_ptr idmChannel);;
 
     CosEventChannelAdmin::EventChannel_var IDM_channel;
     CosEventChannelAdmin::ProxyPushConsumer_var proxy_consumer;
-#endif
 
     //AggregateDevice _compositeDevice;
     bool initialConfiguration;
@@ -280,7 +271,6 @@ public:
     void releaseObject () throw (CF::LifeCycle::ReleaseError, CORBA::SystemException);
 
     char* label () throw (CORBA::SystemException);
-    char* softwareProfile () throw (CORBA::SystemException);
     CF::Device::UsageType usageState ()throw (CORBA::SystemException);
     CF::Device::AdminType adminState ()throw (CORBA::SystemException);
     CF::Device::OperationalType operationalState ()throw (CORBA::SystemException);

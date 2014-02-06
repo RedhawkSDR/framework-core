@@ -37,6 +37,13 @@ namespace ossie {
 
     typedef std::string     ID;
 
+    struct _allocationsType {
+        std::string requestingDomain;
+        CF::Properties allocationProperties;
+        std::string allocatedDevice;
+        std::string allocationDeviceManager;
+    };
+
     class DeviceManagerNode {
         public:
             std::string identifier;
@@ -44,7 +51,16 @@ namespace ossie {
             CF::DeviceManager_var deviceManager;
     };
 
+    class DomainManagerNode {
+        public:
+            std::string identifier;
+            std::string name;
+            CF::DomainManager_var domainManager;
+    };
+
     typedef std::list<DeviceManagerNode> DeviceManagerList;
+
+    typedef std::list<DomainManagerNode> DomainManagerList;
 
     typedef  ID    DeviceID;
 
@@ -77,6 +93,13 @@ namespace ossie {
             std::string identifier;
     };
 
+    class AllocationManagerNode {
+        public:
+            CF::AllocationManager_var allocationManager;
+            std::map<std::string, ossie::_allocationsType> _allocations;
+            std::map<std::string, CF::AllocationManager_var> _remoteAllocations;
+    };
+
     class ApplicationNode {
         public:
             std::string name;
@@ -93,8 +116,9 @@ namespace ossie {
             std::vector<CF::Resource_ptr> _startOrder;
             std::vector<ConnectionNode> connections;
             std::map<std::string, std::string> fileTable;
-            std::map<std::string, std::vector<ossie::AllocPropsInfo> > allocPropsTable;
-            std::vector<ossie::AllocPropsInfo> usesDeviceCapacities;
+            /*std::map<std::string, std::vector<ossie::AllocPropsInfo> > allocPropsTable;
+            std::vector<ossie::AllocPropsInfo> usesDeviceCapacities;*/
+            CF::AllocationManager::AllocationResponseSequence appAllocationResponses;
             std::vector<std::string> componentIORS;
             std::vector<ossie::ComponentNode> components;
             std::map<std::string, CORBA::Object_var> ports;
@@ -112,7 +136,6 @@ namespace ossie {
 
     typedef std::list<ServiceNode> ServiceList;
     
-#if ENABLE_EVENTS
     class EventChannelNode {
         public:
             CosEventChannelAdmin::EventChannel_var channel;
@@ -125,7 +148,7 @@ namespace ossie {
         CosEventChannelAdmin::ProxyPushSupplier_var proxy_supplier;
         std::string channelName;
     };
-#endif
+
     // Enable compile-time selection of persistence
     // backends using templates
     template<typename PersistenceImpl>
@@ -237,13 +260,21 @@ namespace boost {
             ar & (node.componentProcessIds);
             ar & (node.assemblyController);
             ar & (node.fileTable);
-            ar & (node.allocPropsTable);
+            ar & (node.appAllocationResponses);
+            //ar & (node.allocPropsTable);
             ar & (node.connections);
-            ar & (node.usesDeviceCapacities);
+            //ar & (node.usesDeviceCapacities);
             ar & (node.componentIORS);
             ar & (node.components);
             ar & (node.ports);
             ar & (node.properties);
+        }
+
+        template<class Archive>
+        void serialize(Archive& ar, ossie::AllocationManagerNode& node, const unsigned int version) {
+            ar & (node._allocations);
+            ar & (node._remoteAllocations);
+            ar & (node.allocationManager);
         }
 
         template<class Archive>
@@ -273,6 +304,14 @@ namespace boost {
             ar & (dai.device);
         }
 
+        template<class Archive>
+        void serialize(Archive& ar, ossie::_allocationsType& at, const unsigned int version) {
+            ar & (at.requestingDomain);
+            ar & (at.allocationProperties);
+            ar & (at.allocatedDevice);
+            ar & (at.allocationDeviceManager);
+        }
+
         template<class CorbaClass, class Archive>
         typename CorbaClass::_ptr_type loadAndNarrow(Archive& ar, const unsigned int version) {
             std::string ior;
@@ -300,6 +339,35 @@ namespace boost {
         }
 
         template<class Archive>
+        void save(Archive& ar, const CF::AllocationManager::AllocationResponseType& resp, const unsigned int version) {
+            std::string requestID(resp.requestID);
+            std::string allocationID(resp.allocationID);
+            CF::Properties allocationProperties = resp.allocationProperties;
+            std::string allocatedDevice_ior = ::ossie::corba::objectToString(resp.allocatedDevice);
+            std::string allocationDeviceManager_ior = ::ossie::corba::objectToString(resp.allocationDeviceManager);
+            ar << requestID;
+            ar << allocationID;
+            ar << allocationProperties;
+            ar << allocatedDevice_ior;
+            ar << allocationDeviceManager_ior;
+        }
+
+        template<class Archive>
+        void load(Archive& ar, CF::AllocationManager::AllocationResponseType& resp, const unsigned int version) {
+            std::string requestID;
+            std::string allocationID;
+            CF::Properties allocationProperties;
+            ar >> requestID;
+            ar >> allocationID;
+            ar >> allocationProperties;
+            resp.requestID = requestID.c_str();
+            resp.allocationID = allocationID.c_str();
+            resp.allocationProperties = allocationProperties;
+            resp.allocatedDevice = loadAndNarrow<CF::Device>(ar, version);
+            resp.allocationDeviceManager = loadAndNarrow<CF::DeviceManager>(ar, version);
+        }
+
+        template<class Archive>
         void save(Archive& ar, const CF::DeviceAssignmentSequence& das, const unsigned int version) {
             std::size_t const count(das.length());
             ar << count;
@@ -315,6 +383,25 @@ namespace boost {
             das.length(count);
             for (std::size_t i = 0; i < das.length(); ++i) {
                 ar >> das[i];
+            }
+        }
+
+        template<class Archive>
+        void save(Archive& ar, const CF::AllocationManager::AllocationResponseSequence& res, const unsigned int version) {
+            std::size_t const count(res.length());
+            ar << count;
+            for (std::size_t i = 0; i < res.length(); ++i) {
+                ar << res[i];
+            }
+        }
+
+        template<class Archive>
+        void load(Archive& ar, CF::AllocationManager::AllocationResponseSequence& res, const unsigned int version) {
+            std::size_t count;
+            ar >> count;
+            res.length(count);
+            for (std::size_t i = 0; i < res.length(); ++i) {
+                ar >> res[i];
             }
         }
 
@@ -458,6 +545,17 @@ namespace boost {
         void load(Archive& ar, CF::DeviceManager_var& obj, const unsigned int version) {
             obj = loadAndNarrow<CF::DeviceManager>(ar, version);
         }
+
+        template<class Archive>
+        void save(Archive& ar, const CF::AllocationManager_var& obj, const unsigned int version) {
+            std::string ior = ::ossie::corba::objectToString(obj);
+            ar << ior;
+        }
+
+        template<class Archive>
+        void load(Archive& ar, CF::AllocationManager_var& obj, const unsigned int version) {
+            obj = loadAndNarrow<CF::AllocationManager>(ar, version);
+        }
     
         template<class Archive>
         void load(Archive& ar, CosEventChannelAdmin::EventChannel_var& obj, const unsigned int version) {
@@ -495,13 +593,16 @@ namespace boost {
 BOOST_SERIALIZATION_SPLIT_FREE(CORBA::Any)
 BOOST_SERIALIZATION_SPLIT_FREE(CF::Application::ComponentElementSequence);
 BOOST_SERIALIZATION_SPLIT_FREE(CF::DeviceAssignmentType);
+BOOST_SERIALIZATION_SPLIT_FREE(CF::AllocationManager::AllocationResponseType);
 BOOST_SERIALIZATION_SPLIT_FREE(CF::DeviceAssignmentSequence);
+BOOST_SERIALIZATION_SPLIT_FREE(CF::AllocationManager::AllocationResponseSequence);
 BOOST_SERIALIZATION_SPLIT_FREE(CF::Application::ComponentProcessIdSequence);
 BOOST_SERIALIZATION_SPLIT_FREE(CF::Properties);
 BOOST_SERIALIZATION_SPLIT_FREE(CF::Port_var);
 BOOST_SERIALIZATION_SPLIT_FREE(CF::Resource_var);
 BOOST_SERIALIZATION_SPLIT_FREE(CF::Device_var);
 BOOST_SERIALIZATION_SPLIT_FREE(CF::DeviceManager_var);
+BOOST_SERIALIZATION_SPLIT_FREE(CF::AllocationManager_var);
 BOOST_SERIALIZATION_SPLIT_FREE(CosEventChannelAdmin::EventChannel_var);
 BOOST_SERIALIZATION_SPLIT_FREE(CORBA::Object_var);
 #endif

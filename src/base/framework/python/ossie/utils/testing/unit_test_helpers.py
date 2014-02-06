@@ -44,6 +44,9 @@ from ossie.utils import prop_helpers
 from ossie.utils import sb
 from ossie.utils.idllib import IDLLibrary
 import getopt
+from ossie.properties import mapComplexType
+from ossie.utils.prop_helpers import parseComplexString
+from omniORB import any, CORBA, tcInternal
 
 # These global methods are here to allow other modules to modify the global variables IMPL_ID and SOFT_PKG
 # TestCase setUp() method doesn't allow passing in arguments to the test case so global values are needed
@@ -67,6 +70,13 @@ IDE_REF_ENV = None
 if IDE_REF_ENV != None:
     sb.setIDE_REF(CORBA.ORB_init().string_to_object(IDE_REF_ENV)._narrow(ExtendedCF.Sandbox))
 
+def stringToComplex(value, type):
+    real, imag = parseComplexString(value, type)
+    if isinstance(real, basestring):
+        real = int(real)
+        imag = int(imag)
+    return complex(real, imag)
+    
 class ScaComponentTestCase(unittest.TestCase):
     """
     Class used to test independent implementations of a component. It starts an
@@ -227,8 +237,14 @@ class ScaComponentTestCase(unittest.TestCase):
         # Simples
         for prop in self.prf.get_simple():
             if self.isMatch(prop, modes, kinds, (action,)): 
-                if prop.get_value() is not None:
-                    dt = properties.to_tc_value(prop.get_value(), prop.get_type())
+                if prop.get_value() is not None:    
+                    if prop.complex.lower() == "true":
+                        type = mapComplexType(prop.get_type())
+                        value = stringToComplex(prop.get_value(), type)
+                    else:
+                        type = prop.get_type()
+                        value = prop.get_value()
+                    dt = properties.to_tc_value(value, type)
                 elif not includeNil:
                     continue
                 else:
@@ -241,9 +257,22 @@ class ScaComponentTestCase(unittest.TestCase):
             if self.isMatch(prop, modes, kinds, (action,)): 
                 if prop.get_values() is not None:
                     seq = []
-                    for v in prop.get_values().get_value():
-                        seq.append(properties.to_pyvalue(v, prop.get_type()))
-                    dt = any.to_any(seq)
+                    if prop.complex.lower() == "true":
+                        type = mapComplexType(prop.get_type())
+                        for v in prop.get_values().get_value():
+                            seq.append(stringToComplex(v, type))
+                        expectedType = properties.getTypeCode(type)
+                        expectedTypeCode = tcInternal.createTypeCode(
+                            (tcInternal.tv_sequence, expectedType._d, 0))
+                        dt = CORBA.Any(expectedTypeCode, 
+                                       [properties._convertComplexToCFComplex(item, type) 
+                                            for item in seq])
+                    else:
+                        type = prop.get_type()
+                        for v in prop.get_values().get_value():
+                            value = v
+                            seq.append(properties.to_pyvalue(value, type))
+                        dt = any.to_any(seq)
                 elif not includeNil:
                     continue
                 else:

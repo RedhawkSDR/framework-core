@@ -38,6 +38,7 @@ import string as _string
 import operator as _operator
 import warnings as _warnings
 from ossie.utils.type_helpers import OutOfRangeException
+from ossie.utils.formatting import TablePrinter
 
 SCA_TYPES = globals()['_SCA_TYPES']
 
@@ -214,7 +215,6 @@ def getPropNameDict(prf):
     return nameDict
 
 
-_enums = {}
 _displayNames = {}
 _duplicateNames = {}
 
@@ -240,37 +240,6 @@ def addCleanName(cleanName, id, compRefId):
         _duplicateNames[compRefId][cleanName] = count
         return cleanName + str(count)
     
-'''
--Adds a property to the enumerated properties map
--This allows enforcement of enumerations as the property
-values are configured
-'''
-def _addEnumerations(prop, clean_id):
-    _enums[clean_id] = _parseEnumerations(prop)
-
-def _parseEnumerations(prop):
-    enums = {}
-    propType = prop.get_type()
-    for en in prop.get_enumerations().get_enumeration():
-        if en.get_value() is None:
-            value = None
-        elif propType in ['long', 'longlong', 'octet', 'short', 'ulong', 'ulonglong', 'ushort']: 
-            if en.get_value().find('x') != -1:
-                value = int(en.get_value(),16)
-            else:
-                value = int(en.get_value())
-        elif propType in ['double', 'float']:
-            value = float(en.get_value())
-        elif propType in ['char', 'string']:
-            value = str(en.get_value())
-        elif propType == 'boolean':
-            value = {"TRUE": True, "FALSE": False}[en.get_value().strip().upper()]
-        else:
-            value = None
-        enums[str(en.get_label())] = value
-    return enums
-
-
 def _cleanId(prop):
     translation = 48*"_"+_string.digits+7*"_"+_string.ascii_uppercase+6*"_"+_string.ascii_lowercase+133*"_"
     prop_id = prop.get_name()
@@ -347,7 +316,7 @@ class Property(object):
     """
     MODES = ['readwrite', 'writeonly', 'readonly']
     
-    def __init__(self, id, type, compRef, mode='readwrite', action='external', parent=None, defValue=None):
+    def __init__(self, id, type, kinds, compRef, mode='readwrite', action='external', parent=None, defValue=None):
         """ 
         compRef - (domainless.componentBase) - pointer to the component that owns this property
         type - (string): type of property (SCA Type or 'struct' or 'structSequence')
@@ -366,6 +335,99 @@ class Property(object):
         self.action = action
         self._parent = parent
         self.defValue = defValue
+        self.kinds = kinds
+
+    def _getStructsSimpleProps(self,simple,prop):
+        kinds = []
+        enums = []
+        value = None
+        defVal = None
+        for i in self.compRef._propertySet:
+            if i.clean_name == prop.id_:
+                for k in prop.get_configurationkind():
+                    kinds.append(k.get_kindtype())
+                if i.members[_cleanId(simple)]._enums != None:
+                    enums = i.members[_cleanId(simple)]._enums
+                if self.mode != "writeonly":
+                    value = str(i.members[_cleanId(simple)])
+                defVal = str(i.members[_cleanId(simple)].defValue)
+        type = str(self.compRef._getPropType(simple))
+        return defVal, value, type, kinds, enums
+
+    def api(self):
+    
+        kinds = []
+        print "\nProperty\n--------"
+        print "% -*s %s" % (17,"ID:",self.id)
+        print "% -*s %s" % (17,"Type:",self.type)
+        simpleOrSequence = False
+        if self.type != "structSeq" and self.type != "struct":
+            simpleOrSequence = True
+            print "% -*s %s" % (17,"Default Value:", self.defValue)
+            if self.mode != "writeonly":
+                print "% -*s %s" % (17,"Value: ", self.queryValue())
+            try:
+                if self._enums != None:
+                    print "% -*s %s" % (17,"Enumumerations:", self._enums)
+            except:
+                simpleOrSequence = True
+        if self.type != "struct":
+            print "% -*s %s" % (17,"Action:", self.action) 
+        print "% -*s %s" % (17,"Mode: ", self.mode)
+
+        if self.type == "struct":
+            structTable = TablePrinter('Name','Data Type','Default Value', 'Current Value','Enumerations')
+            structTable.limit_column(1,20)
+            structTable.limit_column(2,15)
+            structTable.limit_column(3,15)
+            structTable.limit_column(4,40)
+            for prop in self.compRef._prf.get_struct():
+                if prop.id_ == self.id:
+                    first = True
+                    for simple in prop.get_simple():
+                        defVal,value, type, kinds,enums = self._getStructsSimpleProps(simple,prop)
+                        structTable.append(simple.get_id(),type,str(defVal),str(value),enums)
+                        if first:
+                            print "% -*s %s" % (17,"Kinds: ", ', '.join(kinds))
+                            first = False
+            structTable.write()
+        elif self.type == "sequence":
+            print "sequence: ",type(self)
+
+        elif self.type == "structSeq":
+            structNum = -1
+            structTable = TablePrinter('Name','Data Type')
+            structTable.limit_column(1,35)
+            for prop in self.compRef._prf.get_structsequence():
+                for kind in prop.get_configurationkind():
+                    kinds.append(kind.get_kindtype())
+                if prop.id_ == self.id and prop.get_struct() != None:
+                    for simple in prop.get_struct().get_simple():
+                        structTable.append(simple.id_, simple.get_type())
+            print "% -*s %s" % (17,"Kinds: ", ', '.join(kinds))
+            print "\nStruct\n======"
+            structTable.write()
+
+            simpleTable = TablePrinter('Index','Name','Value')
+            simpleTable.limit_column(1,30)
+            simpleTable.limit_column(2,35)
+            for i in self.compRef._propertySet:
+                if i.type == "structSeq" and self.mode != "writeonly":
+                    for s in i:
+                        structNum +=1
+                        for key in s.keys():
+                            simpleTable.append(str(structNum),key,str(s[key]))
+            if self.mode != "writeonly":
+                print "\nSimple Properties\n================="
+                simpleTable.write()
+
+        elif simpleOrSequence:
+            for prop in self.compRef._prf.get_simple() + self.compRef._prf.get_simplesequence():
+                if prop.id_ == self.id:
+                    for kind in prop.get_kind():
+                        kinds.append(kind.get_kindtype())
+            print "% -*s %s" % (17,"Kinds: ", ', '.join(kinds))
+          
 
     def _isNested(self):
         return self._parent is not None
@@ -393,7 +455,12 @@ class Property(object):
         if self._isNested():
             return self._parent._queryItem(self._getItemKey())
         else:
-            results = self.compRef.query([_CF.DataType(str(self.id), _any.to_any(None))])
+            try:
+                results = self.compRef.query([_CF.DataType(str(self.id), _any.to_any(None))])
+            except:
+                results = None
+                if self.mode == "writeonly":
+                    print "Invalid Action: can not query a partial property if it is writeonly"
             if results is None:
                 return None
             else:
@@ -436,12 +503,10 @@ class Property(object):
         except ValueError:
             # If enumeration value is invalid, list available enumerations.
             # NB: Should create specific error type for this condition.
-            if self.id not in _enums:
-                raise
             print 'Could not perform configure on ' + str(self.id) + ', invalid enumeration provided'
             print "Valid enumerations: "
-            for enumLabel, enumValue in _enums[self.id].iteritems():
-                print "\t%s=%s" % (enumLabel, enumValue)
+            for en in self._enums:
+                print "\t%s=%s" % (en,self._enums[en])
             return
         self._configureValue(value)
 
@@ -592,7 +657,7 @@ def _convertToComplex(value):
     return value
  
 class simpleProperty(Property):
-    def __init__(self, id, valueType, compRef, defValue=None, parent=None, mode='readwrite', action='external',
+    def __init__(self, id, valueType, enum, compRef, kinds,defValue=None, parent=None, mode='readwrite', action='external',
                  structRef=None, structSeqRef=None, structSeqIdx=None):
         """ 
         Create a new simple property.
@@ -613,20 +678,47 @@ class simpleProperty(Property):
             raise('"' + str(valueType) + '"' + ' is not a valid valueType, choose from\n ' + str(SCA_TYPES))
         
         # Initialize the parent
-        Property.__init__(self, id, type=valueType, compRef=compRef, mode=mode, action=action, parent=parent,
+        Property.__init__(self, id, type=valueType, kinds=kinds,compRef=compRef, mode=mode, action=action, parent=parent,
                           defValue=defValue)
         
         self.valueType = valueType
         self.typecode = getTypeCode(self.valueType)
+        if enum != None:
+            self._enums = self._parseEnumerations(enum)
+        else:
+            self._enums = None
 
     def _getItemKey(self):
         return self.id
-            
+
+    def _parseEnumerations(self,enum):
+        enums = {}
+        for en in enum:
+            if en.get_value() is None:
+                value = None
+            elif self.valueType in ['long', 'longlong', 'octet', 'short', 'ulong', 'ulonglong', 'ushort']: 
+                if en.get_value().find('x') != -1:
+                    value = int(en.get_value(),16)
+                else:
+                    value = int(en.get_value())
+            elif self.valueType in ['double', 'float']:
+                value = float(en.get_value())
+            elif self.valueType in ['char', 'string']:
+                value = str(en.get_value())
+            elif self.valueType == 'boolean':
+                value = {"TRUE": True, "FALSE": False}[en.get_value().strip().upper()]
+            else:
+                value = None
+            enums[str(en.get_label())] = value
+        return enums
+
+
     def _enumValue(self, value):
-        for enumLabel, enumValue in _enums[self.id].iteritems():
-            if value == enumLabel or value == enumValue:
-                return enumValue
-        raise ValueError, "Invalid enumeration value '%s'" % (value,)
+         if value in self._enums.values():
+             return value
+         elif value in self._enums.keys():
+             return self._enums.get(value)
+         raise ValueError, "Invalid enumeration value '%s'" % (value,)
 
     @property
     def structRef(self):
@@ -675,7 +767,7 @@ class simpleProperty(Property):
             return _any.to_any(None)
 
         # If property is an enumeration, enforce proper value
-        if self.id in _enums.keys():
+        if self._enums != None:
             value = self._enumValue(value)
 
         if self.valueType.startswith("complex"):
@@ -704,6 +796,9 @@ class simpleProperty(Property):
             return str(value)
         else:
             return ''
+
+    def enums(self):
+        print self._enums
         
     def __getattr__(self, name):
         # If attribute is not found on simpleProperty, defer to the value; this
@@ -713,7 +808,7 @@ class simpleProperty(Property):
 
 
 class sequenceProperty(Property):
-    def __init__(self, id, valueType, compRef, defValue=None, mode='readwrite'):
+    def __init__(self, id, valueType, kinds, compRef, defValue=None, mode='readwrite'):
         """
         Create a new sequence property. Instances behave like list objects.
 
@@ -728,7 +823,7 @@ class sequenceProperty(Property):
             raise('"' + str(valueType) + '"' + ' is not a valid valueType, choose from\n ' + str(SCA_TYPES))
         
         # Initialize the parent Property
-        Property.__init__(self, id, type=valueType, compRef=compRef, mode=mode, action='external',
+        Property.__init__(self, id, type=valueType, kinds=kinds, compRef=compRef, mode=mode, action='external',
                           defValue=defValue)
         
         self.complex = False
@@ -863,7 +958,7 @@ class structProperty(Property):
     # All structs have the same CORBA typecode.
     typecode = _CORBA.TypeCode("IDL:CF/Properties:1.0")
 
-    def __init__(self, id, valueType, compRef, defValue=None, parent=None, structSeqIdx=None, mode='readwrite',
+    def __init__(self, id, valueType, kinds, compRef, props, defValue=None, parent=None, structSeqIdx=None, mode='readwrite',
                  structSeqRef=None):
         """ 
         Create a struct property.
@@ -888,19 +983,25 @@ class structProperty(Property):
         self.members = {}
         
         #initialize the parent
-        Property.__init__(self, id, type='struct', compRef=compRef, mode=mode, action='external', parent=parent,
+        Property.__init__(self, id, type='struct', kinds=kinds, compRef=compRef, mode=mode, action='external', parent=parent,
                           defValue=defValue)
         
         self.valueType = valueType
-        
+
         #used when the struct is part of a struct sequence
         self.structSeqIdx = structSeqIdx
 
         #each of these members is itself a simple property
+        simplePropIndex = 0
         for _id, _type, _defValue, _clean_name in valueType:
-            simpleProp = simpleProperty(_id, _type, compRef=compRef, defValue=_defValue, parent=self)
+            try:
+                enum = props[simplePropIndex].get_enumerations().get_enumeration()
+            except:
+                enum = None
+            simpleProp = simpleProperty(_id, _type, enum, compRef=compRef, kinds=kinds, defValue=_defValue, parent=self)
             simpleProp.clean_name = _clean_name
             self.members[_id] = simpleProp
+            simplePropIndex += 1
 
     def _getItemKey(self):
         return self.structSeqIdx
@@ -1036,7 +1137,7 @@ class structSequenceProperty(sequenceProperty):
     # All struct sequences have the same CORBA typecode.
     typecode = _CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0")
 
-    def __init__(self, id, structID, valueType, compRef, defValue=[], mode='readwrite'):
+    def __init__(self, id, structID, valueType, kinds, props, compRef, defValue=[], mode='readwrite'):
         """ 
         Create a struct sequence property.
 
@@ -1053,11 +1154,12 @@ class structSequenceProperty(sequenceProperty):
             raise TypeError('valueType must be provided as a list')
         
         #initialize the parent
-        sequenceProperty.__init__(self, id, valueType='structSeq', compRef=compRef, defValue=defValue, mode=mode)
+        sequenceProperty.__init__(self, id, valueType='structSeq', kinds=kinds, compRef=compRef, defValue=defValue, mode=mode)
         self.valueType = valueType
-
+        self._structseqkinds = kinds
+        self.props = props
         # Create a property for the struct definition.
-        self.structDef = structProperty(id=structID, valueType=self.valueType, compRef=self.compRef, mode=self.mode)
+        self.structDef = structProperty(id=structID, valueType=self.valueType, kinds=kinds,props=props, compRef=self.compRef, mode=self.mode)
 
     @property
     def propRef(self):
@@ -1074,7 +1176,7 @@ class structSequenceProperty(sequenceProperty):
 
     def __getitem__(self, index):
         # The actual struct property doesn't exist, so create and return it
-        return structProperty(id=self.structDef.id, valueType=self.valueType, compRef=self.compRef,
+        return structProperty(id=self.structDef.id, valueType=self.valueType, kinds=self._structseqkinds, props=self.props, compRef=self.compRef,
                               parent=self, structSeqIdx=index, mode=self.mode)
     
     def __setitem__(self, index, value):

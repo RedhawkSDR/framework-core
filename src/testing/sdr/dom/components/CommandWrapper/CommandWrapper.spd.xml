@@ -23,9 +23,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 <softpkg id="DCE:458872f6-a316-4082-b1eb-ce5704f5c49d" name="CommandWrapper" type="123">
     <title/>
     <author>
-        <name>OSSIE Project</name> 
-        <company>Mobile and Portable Radio Research Group</company> 
-        <webpage>http://www.mprg.org</webpage> 
+        <name>REDHAWK test author</name>
     </author>
     <description>A python script that can wrap a non-sca command.  This is useful because
     OSSIE doesn't support components with the non-sca-compliant type.

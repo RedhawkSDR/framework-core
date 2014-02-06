@@ -389,6 +389,7 @@ class ResourceLauncher(LocalLauncher):
     def _getRequiredExecparams(self):
         return {'COMPONENT_IDENTIFIER': self._identifier,
                 'NAMING_CONTEXT_IOR': orb.object_to_string(self.__namingContext._this()),
+                'PROFILE_NAME': self._profile,
                 'NAME_BINDING': self._name}
 
     def _getType(self):

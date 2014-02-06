@@ -148,6 +148,8 @@ class Resource(object):
 
         logging.trace("Initial property storage %s", self._props)
 
+    def setAdditionalParameters(self, softwareProfile):
+        self._softwareProfile = softwareProfile
 
     #########################################
     # CF::Resource
@@ -164,6 +166,9 @@ class Resource(object):
 
     def _get_started(self):
         return self._started
+
+    def _get_softwareProfile(self):
+        return self._softwareProfile
 
     #########################################
     # CF::LifeCycle
@@ -520,9 +525,15 @@ def start_component(componentclass, interactive_callback=None, thread_policy=Non
                 if not interactive:
                     logging.warning("No 'NAME_BINDING' argument provided")
                 execparams["NAME_BINDING"] = ""
+            
+            if not execparams.has_key("PROFILE_NAME"):
+                if not interactive:
+                    logging.warning("No 'PROFILE_NAME' argument provided")
+                execparams["PROFILE_NAME"] = ""
 
             # Create the component
             component_Obj = componentclass(execparams["COMPONENT_IDENTIFIER"], execparams)
+            component_Obj.setAdditionalParameters(execparams["PROFILE_NAME"])
             componentPOA.activate_object(component_Obj)
             component_Var = component_Obj._this()
 

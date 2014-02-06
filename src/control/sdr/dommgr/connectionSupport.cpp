@@ -1039,7 +1039,6 @@ void ConnectionNode::disconnect(DomainLookup* domainLookup)
         usesPort->disconnectPort(identifier.c_str());
     } CATCH_LOG_WARN(ConnectionNode, "Unable to disconnect port for connection " << identifier);
 
-#if ENABLE_EVENTS
     FindByDomainFinderEndpoint* endpoint = dynamic_cast<FindByDomainFinderEndpoint*>(provides.get());
     if (endpoint && endpoint->type() == "eventchannel") {
         std::string channelName = endpoint->name();
@@ -1048,7 +1047,6 @@ void ConnectionNode::disconnect(DomainLookup* domainLookup)
         }
         domainLookup->decrementEventChannelConnections(channelName);
     }
-#endif
 }
 
 bool ConnectionNode::allowDeferral()

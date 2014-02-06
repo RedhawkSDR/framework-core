@@ -24,8 +24,7 @@
 #include <map>
 #include <string>
 #include <vector>
-
-#if ENABLE_EVENTS
+#include <iterator>
 
 #include "CF/ExtendedEvent.h"
 #include "CF/cf.h"
@@ -261,16 +260,43 @@ public:
         consumers[std::string(consumer_id)] = proxy_consumer;
     };
 
+    template <typename Message>
+    void sendMessage(const Message& message) {
+        const Message* begin(&message);
+        const Message* end(&begin[1]);
+        sendMessages(begin, end);
+    }
+
+    template <class Sequence>
+    void sendMessages(const Sequence& messages) {
+        sendMessages(messages.begin(), messages.end());
+    }
+    
+    template <typename Iterator>
+    void sendMessages(Iterator first, Iterator last)
+    {
+        CF::Properties properties;
+        properties.length(std::distance(first, last));
+        for (CORBA::ULong ii = 0; first != last; ++ii, ++first) {
+            // Workaround for older components whose structs have a non-const,
+            // non-static member function getId(): determine the type of value
+            // pointed to by the iterator, and const_cast the dereferenced
+            // value; this ensures that it works for both bare pointers and
+            // "true" iterators
+            typedef typename std::iterator_traits<Iterator>::value_type value_type;
+            properties[ii].id = const_cast<value_type&>(*first).getId().c_str();
+            properties[ii].value <<= *first;
+        }
+        CORBA::Any data;
+        data <<= properties;
+        push(data);
+    }
 
 protected:
-    
     boost::mutex portInterfaceAccess;
     std::map<std::string, CosEventChannelAdmin::ProxyPushConsumer_var> consumers;
     std::map<std::string, CosEventChannelAdmin::EventChannel_ptr> _connections;
-    
-    
-};
 
-#endif // ENABLE_EVENTS
+};
 
 #endif // MESSAGEINTERFACE_H

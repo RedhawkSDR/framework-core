@@ -1,26 +1,26 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
 from omniORB import any
 import unittest
-import scatest
+from _unitTestHelpers import scatest
 from ossie.cf import CF
 from omniORB import CORBA
 import struct
@@ -28,8 +28,8 @@ from ossie.utils import sb
 
 class CppPropertiesTest(scatest.CorbaTestCase):
     def setUp(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=9)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml", debug=9)
+        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
         self._app = None
         if self._domMgr:
             try:
@@ -87,7 +87,7 @@ class CppPropertiesTest(scatest.CorbaTestCase):
         prop.value = any.to_any(None)
         self._app.configure([prop])
         propVal = self._app.query([prop])[0]
-        self.assertEqual(propVal.value.value(), None)        
+        self.assertEqual(propVal.value.value(), None)
 
         # Clear the property's nil status and check that it no longer returns
         # 'None'.
@@ -97,7 +97,7 @@ class CppPropertiesTest(scatest.CorbaTestCase):
         self.assertNotEqual(propVal.value.value(), None)
 
     def test_fullQuery(self):
-        devBooter_2, self._devMgr_2 = self.launchDeviceManager("/nodes/props_test_node/DeviceManager.dcd.xml", debug=9)
+        devBooter_2, self._devMgr_2 = self.launchDeviceManager("/nodes/props_test_node/DeviceManager.dcd.xml", debug=self.debuglevel)
         dev = self._devMgr_2._get_registeredDevices()[0]
         results = dev.query([])
         ids = []
@@ -111,9 +111,9 @@ class CppPropertiesTest(scatest.CorbaTestCase):
         self.assertEqual(len(results), 5)
 
     def test_NilRead(self):
-        #nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        #nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
         #self.assertNotEqual(devMgr, None)
-        
+
         self.assertEqual(len(self._domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(self._domMgr._get_applications()), 1)
 
@@ -159,12 +159,12 @@ class CppPropertiesTest(scatest.CorbaTestCase):
         # Check that the default value is not 'None'.
         propVal = self._app.query([prop])[0]
         self.assertNotEqual(propVal.value.value(), None)
-        
-        
+
+
 class CppPropertiesRangeTest(scatest.CorbaTestCase):
     def setUp(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=9)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
         self._app = None
         if self._domMgr:
             try:
@@ -188,10 +188,10 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
         self.assertNotEqual(self._domMgr, None, "DomainManager not available")
         self.assertNotEqual(self._devMgr, None, "DeviceManager not available")
         self.assertNotEqual(self._app, None, "Application not created")
-        
+
     def test_cppPropsRangeSimple(self):
         self.preconditions()
-        
+
         # Test upper bound
         my_octet = CF.DataType(id='my_octet', value=CORBA.Any(CORBA.TC_octet, 255))
         my_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_short, 32767))
@@ -276,7 +276,7 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
                         self.assertEquals(v.value.value(), 9223372036854775807L)
                     elif v.id == 'struct_ulonglong':
                         self.assertEquals(v.value.value(), 18446744073709551615L)
-                        
+
         # Test lower bounds
         my_struct = CF.DataType(id='my_struct', value=any.to_any([
                                 CF.DataType(id='struct_octet', value=CORBA.Any(CORBA.TC_octet, 0)),
@@ -307,26 +307,26 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
                         self.assertEquals(v.value.value(), -9223372036854775808L)
                     elif v.id == 'struct_ulonglong':
                         self.assertEquals(v.value.value(), 0)
-                        
+
     def test_cppPropsRangeSeq(self):
         self.preconditions()
-        
+
         # Test upper and lower bounds
         octet_val = struct.pack('B', 0) + struct.pack('B', 255)
         seq_octet = CF.DataType(id='seq_octet', value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/OctetSeq:1.0"),
                                                             octet_val
-                                                            ))        
+                                                            ))
         seq_short = CF.DataType(id='seq_short', value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/ShortSeq:1.0"),
                                                             [-32768, 32767]
                                                             ))
         seq_ushort = CF.DataType(id='seq_ushort', value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/UShortSeq:1.0"),
                                                             [0, 65535]
-                                                            ))        
+                                                            ))
         seq_long = CF.DataType(id='seq_long', value=any.to_any([-2147483648, 2147483647]))
         seq_ulong = CF.DataType(id='seq_ulong', value=any.to_any([0,4294967295]))
         seq_longlong = CF.DataType(id='seq_longlong', value=any.to_any([-9223372036854775808L, 9223372036854775807L]))
         self._app.configure([seq_octet, seq_short, seq_ushort, seq_long, seq_ulong, seq_longlong])
-        
+
         res = self._app.query([])
         for r in res:
             if r.id == 'seq_octet':
@@ -346,17 +346,17 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
                 self.assertEquals(r.value.value()[1], 65535)
             elif r.id == 'seq_long':
                 self.assertEquals(r.value.value()[0], -2147483648)
-                self.assertEquals(r.value.value()[1], 2147483647)   
+                self.assertEquals(r.value.value()[1], 2147483647)
             elif r.id == 'seq_ulong':
                 self.assertEquals(r.value.value()[0], 0)
                 self.assertEquals(r.value.value()[1], 4294967295)
             elif r.id == 'seq_longlong':
                 self.assertEquals(r.value.value()[0], -9223372036854775808L)
                 self.assertEquals(r.value.value()[1], 9223372036854775807L)
-                
+
     def test_cppPropsRangeStructSeq(self):
         self.preconditions()
-        
+
         # Struct with upper bound
         upper = CORBA.Any(CORBA.TypeCode("IDL:CF/Properties:1.0"), [
                             CF.DataType(id='ss_octet', value=CORBA.Any(CORBA.TC_octet, 255)),
@@ -375,13 +375,13 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
                             CF.DataType(id='ss_ulong', value=CORBA.Any(CORBA.TC_ulong, 0)),
                             CF.DataType(id='ss_longlong', value=CORBA.Any(CORBA.TC_longlong, -9223372036854775808L)),
                             CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 0))])
-        
-        my_structseq = CF.DataType(id='my_structseq', 
-                value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"), 
+
+        my_structseq = CF.DataType(id='my_structseq',
+                value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"),
                         [ upper , lower ]
-                        ))  
+                        ))
         self._app.configure([my_structseq])
-        
+
         # Make sure values all got set
         res = self._app.query([])
         for r in res:
@@ -418,11 +418,11 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
                         self.assertEquals(v.value.value(), -9223372036854775808L)
                     elif v.id == 'ss_ulonglong':
                         self.assertEquals(v.value.value(), 0)
-                        
+
     def checkPropValues(self, expected_short, expected_long, expected_struct_short, expected_struct_long):
         # Gets the property values
         res = self._app.query([])
-        
+
         # Checks for expected prop values
         for r in res:
             if r.id == 'my_short':
@@ -439,7 +439,7 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
 
     def test_bug208(self):
         self.preconditions()
-        
+
         # Makes sure that a query will change the property values
         my_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_short, 11))
         my_long = CF.DataType(id='my_long', value=CORBA.Any(CORBA.TC_long, 22))
@@ -449,15 +449,15 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
 
         # Configures and makes sure properties were set correctly
         self._app.configure([my_short, my_long, my_struct])
-        self.checkPropValues(11, 22, 33, 44)    
-        
+        self.checkPropValues(11, 22, 33, 44)
+
         # Make sure correct exceptions are raised
         bad_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_string, 'invalid'))
         bad_long = CF.DataType(id='my_long' , value=CORBA.Any(CORBA.TC_string, 'invalid'))
         bad_struct = CF.DataType(id='my_struct', value=any.to_any([
                                 CF.DataType(id='struct_short', value=CORBA.Any(CORBA.TC_string, 'invalid')),
                                 CF.DataType(id='struct_long', value=CORBA.Any(CORBA.TC_string, 'invalid'))]))
-        
+
         # Properties should not have changed
         self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_short])
         self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_short, bad_long])
@@ -467,25 +467,25 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
         self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_struct])
         self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_short, bad_long, bad_struct])
         self.checkPropValues(11, 22, 33, 44)
-        
+
         new_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_short, 111))
         new_long = CF.DataType(id='my_long', value=CORBA.Any(CORBA.TC_long, 222))
         new_struct = CF.DataType(id='my_struct',value=any.to_any([
                                 CF.DataType(id='struct_short',value=CORBA.Any(CORBA.TC_short, 333)),
                                 CF.DataType(id='struct_long',value=CORBA.Any(CORBA.TC_long, 444))]))
-        
+
         # Only long should change
         self.assertRaises(CF.PropertySet.PartialConfiguration, self._app.configure, [bad_short, new_long, bad_struct])
         self.checkPropValues(11, 222, 33, 44)
-        
+
         # Only short should change
         self.assertRaises(CF.PropertySet.PartialConfiguration, self._app.configure, [new_short, bad_long, bad_struct])
         self.checkPropValues(111, 222, 33, 44)
-        
+
         # Only struct should change
         self.assertRaises(CF.PropertySet.PartialConfiguration, self._app.configure, [bad_short, bad_long, new_struct])
         self.checkPropValues(111, 222, 333, 444)
-        
+
         bad_short_name = CF.DataType(id='wrong_short', value=CORBA.Any(CORBA.TC_short, 66))
         bad_long_name = CF.DataType(id='wrong_long' , value=CORBA.Any(CORBA.TC_long, 66))
         bad_struct_name = CF.DataType(id='wrong_struct',value=any.to_any([
@@ -493,7 +493,7 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
                                 CF.DataType(id='struct_long',value=CORBA.Any(CORBA.TC_long, 444))]))
         self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [bad_short_name, bad_long_name, bad_struct_name])
         self.checkPropValues(111, 222, 333, 444)
-        
+
         # Check random partial configs
         self.assertRaises(CF.PropertySet.PartialConfiguration, self._app.configure, [bad_short_name, my_long, bad_struct])
         self.checkPropValues(111, 22, 333, 444)
@@ -501,25 +501,25 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
         self.checkPropValues(11, 22, 333, 444)
         self.assertRaises(CF.PropertySet.PartialConfiguration, self._app.configure, [bad_short, my_long, my_struct])
         self.checkPropValues(11, 22, 33, 44)
-        
+
         # Makes sure that all values can successfully be changed at once
         self._app.configure([new_short, new_struct, new_long])
         self.checkPropValues(111, 222, 333, 444)
-        
+
     def test_propertyExceptionsSeq(self):
         self.preconditions()
-        
+
         seq_short = CF.DataType(id='seq_short', value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/ShortSeq:1.0"),
                                                             [11, 22]
                                                             ))
         self._app.configure([seq_short])
-        
+
         seq_short = CF.DataType(id='seq_short', value=any.to_any([33,44]))
         self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [seq_short])
-        
+
         seq_long = CF.DataType(id='seq_long', value=any.to_any([55, 66]))
         self.assertRaises(CF.PropertySet.PartialConfiguration, self._app.configure, [seq_short, seq_long])
-        
+
         # Long sequence should have changed and short did not
         for r in self._app.query([]):
             if r.id == 'seq_long':
@@ -563,7 +563,3 @@ class CppCallbacksTest(scatest.CorbaTestCase):
         comp.station = station
         comp.servers = servers
         self.assertEqual(comp.callbacks_run, [])
-        
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

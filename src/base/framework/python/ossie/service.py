@@ -28,6 +28,10 @@ from ossie.resource import load_logging_config_uri
 from ossie.cf import CF
 
 def __exit_handler(signum, frame):
+    # Raise SystemExit - but only the first time we get a signal
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    signal.signal(signal.SIGQUIT, signal.SIG_IGN)
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
     raise SystemExit
 
 def start_service(serviceclass, thread_policy=None):

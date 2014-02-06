@@ -150,12 +150,10 @@ class Sandbox(object):
                debugger=None, window=None, execparams={}, configure={},
                initialize=True, timeout=None):
         sdrRoot = self.getSdrRoot()
-
         # Parse the component XML profile.
         profile = sdrRoot.findProfile(descriptor)
         spd, scd, prf = sdrRoot.readProfile(profile)
         name = spd.get_name()
-
         if not scd:
             raise RuntimeError, 'Cannot launch softpkg with no SCD'
 
@@ -175,7 +173,6 @@ class Sandbox(object):
             raise NotImplementedError, "No support for component type '%s'" % comptype
         clazz = self.__comptypes__[comptype]
         comp = clazz(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window, timeout)
-
         # Services don't get initialized or configured
         if comptype == 'service':
             return comp
@@ -218,7 +215,7 @@ class SandboxComponent(ComponentBase):
             self._configRef[str(prop.id)] = prop.defValue
 
         self.__ports = None
-
+        
     def _readProfile(self):
         sdrRoot = self._sandbox.getSdrRoot()
         self._spd, self._scd, self._prf = sdrRoot.readProfile(self._profile)

@@ -686,14 +686,12 @@ void DeviceManager_impl::createDeviceExecStatement(
             new_argv[new_argc] = (char*)compositeDeviceIOR.c_str();
             new_argc++;
         }
-#if ENABLE_EVENTS
         if (!CORBA::is_nil(IDM_channel)) {
             new_argv[new_argc] = "IDM_CHANNEL_IOR";
             new_argc++;
             new_argv[new_argc] = (char*)IDM_IOR.c_str();
             new_argc++;
         }
-#endif
     } else if (componentType == "service") {
         new_argv[new_argc] = "SERVICE_NAME";
         new_argc++;
@@ -981,14 +979,12 @@ void DeviceManager_impl::post_constructor (
     // valid reference but a stale connection.
     ossie::corba::setObjectCommFailureRetries(_dmnMgr, 1);
 
-#if ENABLE_EVENTS
     IDM_channel = ossie::event::connectToEventChannel(rootContext, "IDM_Channel");
     if (CORBA::is_nil(IDM_channel)) {
         LOG_INFO(DeviceManager_impl, "IDM channel not found. Continuing without using the IDM channel");
     } else {
         IDM_IOR = ossie::corba::objectToString(IDM_channel);
     }
-#endif
 
     _adminState = DEVMGR_REGISTERED;
 
@@ -1418,7 +1414,7 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
     } catch ( std::exception& ex ) {
         LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while attempting to initialize Device " << deviceLabel)
     } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while attempting to initialize Device " << deviceLabel)
+        LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while attempting to initialize Device " << deviceLabel)    
     }
     
     //Get properties from SPD

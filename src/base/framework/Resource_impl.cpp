@@ -40,6 +40,12 @@ Resource_impl::Resource_impl (const char* _uuid, const char *label) :
 }
 
 
+void Resource_impl::setAdditionalParameters(std::string softwareProfile)
+{
+    _softwareProfile = softwareProfile;
+}
+
+
 void Resource_impl::start () throw (CORBA::SystemException, CF::Resource::StartError)
 {
     _started = true;
@@ -54,6 +60,12 @@ void Resource_impl::stop () throw (CORBA::SystemException, CF::Resource::StopErr
 char* Resource_impl::identifier () throw (CORBA::SystemException)
 {
     return CORBA::string_dup(_identifier.c_str());
+}
+
+char* Resource_impl::softwareProfile ()
+throw (CORBA::SystemException)
+{
+    return CORBA::string_dup(_softwareProfile.c_str());
 }
 
 CORBA::Boolean Resource_impl::started () throw (CORBA::SystemException)

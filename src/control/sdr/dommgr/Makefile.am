@@ -24,6 +24,7 @@ domainmgr_PROGRAMS = DomainManager
 
 DomainManager_SOURCES = applicationSupport.cpp \
                         connectionSupport.cpp \
+                        AllocationManager_impl.cpp \
                         Application_impl.cpp \
                         ApplicationFactory_impl.cpp \
                         DomainManager_Channels.cpp \

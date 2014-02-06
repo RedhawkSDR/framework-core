@@ -134,4 +134,11 @@ public abstract class StructDef {
         sb.append(this.getElementsMap());
         return sb.toString();
     }
+
+    public String getId() {
+        // Ideally, this would be an abstract method; however, since there are
+        // existing Java components whose structs do not override this method,
+        // return an empty string to avoid breaking source compatibility.
+        return "";
+    }
 };

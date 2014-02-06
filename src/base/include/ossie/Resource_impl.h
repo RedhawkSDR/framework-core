@@ -42,6 +42,7 @@ public:
         std::string naming_context_ior;
         std::string component_identifier;
         std::string name_binding;
+        std::string profile = "";
         const char* logging_config_uri = 0;
         int debug_level = 3; // Default level is INFO.
         bool standAlone = false;
@@ -51,6 +52,8 @@ public:
         for (int i=0; i < argc; i++) {
             if (strcmp("NAMING_CONTEXT_IOR", argv[i]) == 0) {
                 naming_context_ior = argv[++i];
+            } else if (strcmp("PROFILE_NAME", argv[i]) == 0) {
+                profile = argv[++i];
             } else if (strcmp("COMPONENT_IDENTIFIER", argv[i]) == 0) {
                 component_identifier = argv[++i];
             } else if (strcmp("NAME_BINDING", argv[i]) == 0) {
@@ -96,6 +99,8 @@ public:
         // Create the servant.
         LOG_TRACE(Resource_impl, "Creating component with identifier '" << component_identifier << "'");
         component = new T(component_identifier.c_str(), name_binding.c_str());
+        
+        component->setAdditionalParameters(profile);
 
         // setting all the execparams passed as argument, this method resides in the Resource_impl class
         component->setExecparamProperties(execparams);
@@ -140,7 +145,8 @@ protected:
     std::map<std::string, CF::Port_var> outPorts_var;
     RH_ProvidesPortMap inPorts;
     CORBA::Boolean _started;
-
+    std::string _softwareProfile;
+    
     void registerInPort(Port_Provides_base_impl *port);
     void registerOutPort(Port_Uses_base_impl *port, CF::Port_ptr ref);
 
@@ -162,12 +168,15 @@ public:
     void releaseObject() throw (CORBA::SystemException, CF::LifeCycle::ReleaseError);
     char* identifier () throw (CORBA::SystemException);
     CORBA::Boolean started() throw (CORBA::SystemException);
-
+    char* softwareProfile () throw (CORBA::SystemException);
+    
     virtual void run ();
     virtual void halt ();
     
     virtual void setCurrentWorkingDirectory(std::string& cwd);
     virtual std::string& getCurrentWorkingDirectory();
+    
+    void setAdditionalParameters(std::string softwareProfile);
 
     std::string _identifier;
     std::string naming_service_name;

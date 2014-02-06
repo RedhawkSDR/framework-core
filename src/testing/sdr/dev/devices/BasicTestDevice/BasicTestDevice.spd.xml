@@ -23,9 +23,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 <softpkg id="DCE:e3d8cda4-441c-425c-9603-6598169866ff" name="BasicTestDevice" type="sca_compliant" version="">
     <title />
     <author>
-        <name>OSSIE</name>
-        <company>MPRG</company>
-        <webpage>www.mprg.org</webpage>
+        <name>REDHAWK test author</name>
     </author>
     <propertyfile type="PRF">
         <localfile name="BasicTestDevice.prf.xml" />
