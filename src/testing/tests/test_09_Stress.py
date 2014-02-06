@@ -1,20 +1,20 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -34,7 +34,7 @@ class WaveformWorker:
         self.data_signal_1 = threading.Event()
         self.data_signal_2 = threading.Event()
         self.process_thread = threading.Thread(target=self.Process)
-    
+
     def getApp(self):
         # attempt to get the app and try until an arbitrary timeout period is reached
         begin_time = time.time()
@@ -70,7 +70,7 @@ def waitAppCount (domMgr, count, timeout, pause=1.0):
     while len(domMgr._get_applications()) != count and timeout > 0.0:
         timeout -= pause
         time.sleep(pause)
-    return len(domMgr._get_applications()) == count 
+    return len(domMgr._get_applications()) == count
 
 
 class StressTest(scatest.CorbaTestCase):
@@ -79,7 +79,7 @@ class StressTest(scatest.CorbaTestCase):
 
     def setUp(self):
         self.devRoot = os.path.join(scatest.getSdrPath(), 'dev')
-            
+
 
     def _threadCheckin(self):
         self.countCondition.acquire()
@@ -147,14 +147,14 @@ class StressTest(scatest.CorbaTestCase):
 
         # Write the output XML
         dcd.export(open(outfile, 'w'), 0)
-        
-            
+
+
     def test_FastCycle(self):
         # Make sure our base node directory exists.
         nodeDir = os.path.join(self.devRoot, 'nodes', 'test_Concurrent_nodes')
         if not os.path.isdir(nodeDir):
             os.mkdir(nodeDir)
-        
+
         # Starts many nodes with many devices each simulataneously
         nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
@@ -232,7 +232,7 @@ class StressTest(scatest.CorbaTestCase):
         # create the worker classes - these will each create a new app (waveform) in a new thread
         for i in xrange(num_waveforms):
             processThreads.append(WaveformWorker(appFact, False, i))
-            
+
         # start the thread (app/waveform)
         for entry in processThreads:
             entry.process_thread.start()
@@ -258,10 +258,7 @@ class StressTest(scatest.CorbaTestCase):
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
-        
+
         domMgr.uninstallApplication(appFact._get_identifier())
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

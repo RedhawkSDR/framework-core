@@ -19,7 +19,7 @@
 #
 
 dnl Update this version number immedately after a release
-AC_INIT([ossie],[1.9.0])
+AC_INIT([ossie],[1.9.1])
 #AM_INIT_AUTOMAKE(nostdinc)
 # allows filenames over 99 characters long during dist
 AM_INIT_AUTOMAKE([1.9 tar-pax])
@@ -67,6 +67,9 @@ AX_BOOST_THREAD
 AX_BOOST_DATE_TIME
 
 AX_LIB_EXPAT([1.95.8])
+if test x"$HAVE_EXPAT" = xno ; then
+        AC_MSG_ERROR([The Expat XML parser library and header files are required])
+fi
 
 PKG_CHECK_MODULES([OMNIORB], [omniORB4 >= 4.0.0])
 PKG_CHECK_MODULES([OMNITHREAD], [omnithread3 >= 4.0.0])

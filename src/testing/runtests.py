@@ -109,7 +109,7 @@ class PromptTestLoader(unittest.TestLoader):
                     else:
                         testCaseNamesToRun.append(name)
                 testCaseNames = testCaseNamesToRun
-                    
+
         return self.suiteClass(map(testCaseClass, testCaseNames))
 
 class TestCollector(unittest.TestSuite):
@@ -180,7 +180,7 @@ if __name__ == "__main__":
             sys.exit()
     else:
         os.environ['OSSIEUNITTESTSLOGCONFIG'] = os.path.abspath(options.logconfig)
-                
+
     print ""
     print "Creating the Test Domain"
     print ""
@@ -202,4 +202,4 @@ if __name__ == "__main__":
         import pdb
         pdb.run("runner.run(suite)")
     else:
-        runner.run(suite)                                                               
+        runner.run(suite)

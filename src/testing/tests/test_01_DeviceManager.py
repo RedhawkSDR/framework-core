@@ -1,20 +1,20 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -26,24 +26,24 @@ import commands
 import CosNaming
 import tempfile
 
-def getChildren(parentPid): 
-    process_listing = commands.getoutput('ls /proc').split('\n') 
-    children = [] 
-    for entry in process_listing: 
-        try: 
-            filename = '/proc/'+entry+'/status' 
-            fp = open(filename,'r') 
-            stuff=fp.read() 
-            fp.close() 
-            rows = stuff.split('\n') 
-            for row in rows: 
-                if row[:4]=='PPid': 
+def getChildren(parentPid):
+    process_listing = commands.getoutput('ls /proc').split('\n')
+    children = []
+    for entry in process_listing:
+        try:
+            filename = '/proc/'+entry+'/status'
+            fp = open(filename,'r')
+            stuff=fp.read()
+            fp.close()
+            rows = stuff.split('\n')
+            for row in rows:
+                if row[:4]=='PPid':
                     PPid = int(row.split(':')[1][1:])
-                    if PPid == parentPid: 
-                        children.append(int(entry)) 
-                        break 
-        except: 
-            continue 
+                    if PPid == parentPid:
+                        children.append(int(entry))
+                        break
+        except:
+            continue
     return children
 
 def killChildProcesses(parentPid):
@@ -67,7 +67,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
 
     def tearDown(self):
         scatest.CorbaTestCase.tearDown(self)
-        
+
         killChildProcesses(os.getpid())
 
     def test_CleanShutDown(self):
@@ -108,14 +108,14 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         self.assertEqual(len(self._domMgr._get_deviceManagers()), 0)
 
 
-        
+
     def test_deadDeviceShutdownNode(self):
         devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_SelfTerminatingDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
 
         # NOTE These assert check must be kept in-line with the DeviceManager.dcd.xml
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
-            
+
         devs = devMgr._get_registeredDevices()
         devs[0].start()
         time.sleep(0.5)
@@ -126,14 +126,14 @@ class DeviceManagerTest(scatest.CorbaTestCase):
 
         self.assert_(self.waitTermination(devmgr_nb), "Nodebooter did not die after shutdown")
         self.assertEqual(len(self._domMgr._get_deviceManagers()), 0)
-        
+
     def test_deadDeviceManager(self):
         devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_SelfTerminatingDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
 
         # NOTE These assert check must be kept in-line with the DeviceManager.dcd.xml
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
-            
+
         devs = devMgr._get_registeredDevices()
         pids = getChildren(os.getpid())
         devMgrPid = 0
@@ -157,7 +157,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
 
         # NOTE These assert check must be kept in-line with the DeviceManager.dcd.xml
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
-            
+
         devs = devMgr._get_registeredDevices()
         pids = getChildren(devmgr_nb.pid)
         for devpid in pids:
@@ -192,8 +192,8 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         self._deviceBooters.append(devmgr2_nb)
         time.sleep(2)
 
-        # Verify that the second DeviceManager is no longer alive, 
-        # This is REDHAWK specific, the spec would have let this go without 
+        # Verify that the second DeviceManager is no longer alive,
+        # This is REDHAWK specific, the spec would have let this go without
         # giving the user clear warning that something was wrong
         self.assertNotEqual(devmgr2_nb.poll(), None)
         self.assertEqual(len(self._domMgr._get_deviceManagers()), 1)
@@ -209,7 +209,16 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         # NOTE These assert check must be kept in-line with the DeviceManager.dcd.xml
         self.assertEqual(len(self._domMgr._get_deviceManagers()), 1)
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
-    
+
+    def test_DeviceInitializeFail(self):
+        # These two nodes use the same identifier, but have different names to distinguish them
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/bad_init_device_node/DeviceManager.dcd.xml", debug=9)
+        self.assertNotEqual(devMgr, None)
+
+        # NOTE These assert check must be kept in-line with the DeviceManager.dcd.xml
+        self.assertEqual(len(self._domMgr._get_deviceManagers()), 1)
+        self.assertEqual(len(devMgr._get_registeredDevices()), 1)
+
     def test_ReRegDevMgrDuplicate(self):
         # These two nodes use the same identifier, but have different names to distinguish them
         devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
@@ -229,8 +238,8 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         self.assertEqual(len(self._domMgr._get_deviceManagers()), 1)
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
 
-        # Verify that the second DeviceManager is no longer alive, 
-        # This is REDHAWK specific, the spec would have let this go without 
+        # Verify that the second DeviceManager is no longer alive,
+        # This is REDHAWK specific, the spec would have let this go without
         # giving the user clear warning that something was wrong
         self.assertEqual(len(self._domMgr._get_deviceManagers()), 1)
         devMgr = self._domMgr._get_deviceManagers()[0]
@@ -252,7 +261,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         self.assertEqual(len(devMgr2._get_registeredDevices()), 1)
         dev2 = devMgr2._get_registeredDevices()[0]
         self.assertEqual(dev2._get_label(), "BasicTestDeviceSameDevId")
-        
+
         # TODO how do we test that this indeed worked?
 
     def test_ReRegDevDuplicate(self):
@@ -291,15 +300,15 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         result = device.query([prop])
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, propId)
-        # This should have been overrided by the dcd 
+        # This should have been overrided by the dcd
         self.assertEqual(result[0].value._v, "BasicTestDevice1_no_default_prop")
 
-        propId = "DCE:456310b2-7d2f-40f5-bfef-9fdf4f3560ea" 
+        propId = "DCE:456310b2-7d2f-40f5-bfef-9fdf4f3560ea"
         prop = CF.DataType(id=propId, value=any.to_any(None))
         result = device.query([prop])
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, propId)
-        # This should have been overrided by the dcd 
+        # This should have been overrided by the dcd
         self.assertEqual(result[0].value._v, "BasicTestDevice1_default_prop")
 
         structprop = device.query([CF.DataType(id="DCE:ffe634c9-096d-425b-86cc-df1cce50612f", value=any.to_any(None))])[0]
@@ -359,7 +368,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         result = device.query([prop])
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, propId)
-        # This should have been overrided by the dcd 
+        # This should have been overrided by the dcd
         self.assertEqual(result[0].value._v, "modified_default_value")
 
 
@@ -373,13 +382,13 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         # Test that the DCD file componentproperties get pushed to configure()
         # as per DeviceManager requirement SR:482
         device = devMgr._get_registeredDevices()[0]
-                
-        propId = "DCE:68dc0d3b-deb2-4fae-b898-62273b74614b"                  
+
+        propId = "DCE:68dc0d3b-deb2-4fae-b898-62273b74614b"
         prop = CF.DataType(id=propId, value=any.to_any(None))
         result = device.query([prop])
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, propId)
-        # This should have been overrided by the dcd 
+        # This should have been overrided by the dcd
         self.assertEqual(result[0].value._v, "new execparam value")
 
         propId = "DCE:07350439-e917-45ef-b71f-e387a737fd9c"
@@ -387,16 +396,16 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         result = device.query([prop])
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, propId)
-        # This should have been overrided by the dcd 
+        # This should have been overrided by the dcd
         self.assertEqual(result[0].value._v, "new configured value")
-        
+
         try:
             propId = "DCE:07350439-e917-45ef-b71f-a-bad-id"
             prop = CF.DataType(id=propId, value=any.to_any(None))
             result = self._app.query([prop])
             self.assertTrue(False)
         except:
-            self.assertTrue(True)        
+            self.assertTrue(True)
 
     def test_AllocateCapacities(self):
         devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_AllocateBasicDevice_python_node/DeviceManager.dcd.xml", debug=2)
@@ -410,10 +419,10 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
         device = devMgr._get_registeredDevices()[0]
         self.assertNotEqual(device, None)
-        
+
         mem_id = 'DCE:7aeaace8-350e-48da-8d77-f97c2e722e06'
         bog_id = 'DCE:bbdf708f-ce05-469f-8aed-f5c93e353e14'
-        
+
         # first we don't have the properties set
         result = device.query([])
         for prop in result:
@@ -421,13 +430,13 @@ class DeviceManagerTest(scatest.CorbaTestCase):
 
         # Set the BasicTestDevice to have 2048 MB of memory capacity and 1024
         # BogoMips.  Attempting to allocate more than that it raises an error
-        # at the BasicTestDevice level        
+        # at the BasicTestDevice level
         props = [CF.DataType(id=mem_id, value=any.to_any(1024)),
                  CF.DataType(id=bog_id, value=any.to_any(512))
                 ]
-        
+
         # allocating half of maximum capacity
-        device.allocateCapacity(props)                      
+        device.allocateCapacity(props)
         result = device.query([])
         for prop in result:
             if prop.id == mem_id:
@@ -438,7 +447,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
                 self.assertTrue(False)
 
         # allocating full capacity
-        device.allocateCapacity(props)                      
+        device.allocateCapacity(props)
         result = device.query([])
         for prop in result:
             if prop.id == mem_id:
@@ -447,12 +456,12 @@ class DeviceManagerTest(scatest.CorbaTestCase):
                 self.assertEqual(prop.value._v, 1024)
             else:
                 self.assertTrue(False)
-        
+
         # exceeding capacity
         props = [CF.DataType(id=mem_id, value=any.to_any(1)),
                  CF.DataType(id=bog_id, value=any.to_any(0))
-                ]        
-        device.allocateCapacity(props)                      
+                ]
+        device.allocateCapacity(props)
         result = device.query([])
         for prop in result:
             if prop.id == mem_id:
@@ -461,13 +470,13 @@ class DeviceManagerTest(scatest.CorbaTestCase):
                 self.assertEqual(prop.value._v, 1024)
             else:
                 self.assertTrue(False)
-                        
+
         # deallocating capacity
         props = [CF.DataType(id=mem_id, value=any.to_any(1024)),
                  CF.DataType(id=bog_id, value=any.to_any(512))
-                ]        
-        
-        device.deallocateCapacity(props)                      
+                ]
+
+        device.deallocateCapacity(props)
         result = device.query([])
         for prop in result:
             if prop.id == mem_id:
@@ -476,17 +485,17 @@ class DeviceManagerTest(scatest.CorbaTestCase):
                 self.assertEqual(prop.value._v, 512)
             else:
                 self.assertTrue(False)
-        
-                                      
+
+
         # allocating capacity
         props = [CF.DataType(id=mem_id, value=any.to_any(1025)),
                  CF.DataType(id=bog_id, value=any.to_any(512))
-                ]        
-        
+                ]
+
         # exceeding capacity so no changes should occur
-        device.allocateCapacity(props)                      
+        device.allocateCapacity(props)
         result = device.query([])
-        
+
         for prop in result:
             if prop.id == mem_id:
                 self.assertEqual(prop.value._v, 1024)
@@ -494,7 +503,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
                 self.assertEqual(prop.value._v, 512)
             else:
                 self.assertTrue(False)
-         
+
 
 
     def test_ComponentPropertyOverride_cpp(self):
@@ -509,7 +518,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
         device = devMgr._get_registeredDevices()[0]
         self.assertNotEqual(device, None)
-        
+
 
         # Now trying the component
         if self._domMgr:
@@ -520,8 +529,8 @@ class DeviceManagerTest(scatest.CorbaTestCase):
                 self._app = appFact.create(appFact._get_name(), [], [])
             except Exception, e:
                 pass
-                        
-        propId = "DCE:c709f95e-6b05-439a-9db9-dba95e70888e"                  
+
+        propId = "DCE:c709f95e-6b05-439a-9db9-dba95e70888e"
         prop = CF.DataType(id=propId, value=any.to_any(None))
         result = self._app.query([prop])
         self.assertEqual(len(result), 1)
@@ -536,7 +545,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         self.assertEqual(result[0].id, propId)
         # This should have been overrided by the sad file
         self.assertEqual(result[0].value._v, "new configured value")
-                
+
         try:
             propId = "DCE:07350439-e917-45ef-b71f-a-bad-id"
             prop = CF.DataType(id=propId, value=any.to_any(None))
@@ -554,15 +563,15 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, octetId)
         self.assertEqual(result[0].value._v, 254)
-        
-                
+
+
     def test_MultipleComponentPlacements(self):
         devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_MultipleExecutableDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
 
         # NOTE These assert check must be kept in-line with the DeviceManager.dcd.xml
         self.assertEqual(len(devMgr._get_registeredDevices()), 4)
-    
+
     def test_BadDeviceManagerName(self):
         devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_BadDeviceManagerName_node/DeviceManager.dcd.xml", debug=9)
         self.assertEqual(devMgr, None)
@@ -582,7 +591,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
 
         self.assertEqual(len(self._domMgr._get_deviceManagers()), 2)
         for devMgr in self._domMgr._get_deviceManagers():
-            self.assertEqual(len(devMgr._get_registeredDevices()), 1) 
+            self.assertEqual(len(devMgr._get_registeredDevices()), 1)
 
         # Although nothing in the spec specifies where a device is to be bound
         # ossie does /DomainName/DevicemgrName/DeviceName, so let's check that now
@@ -623,7 +632,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
             pass
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, propId)
-        # This should have been overrided by the dcd 
+        # This should have been overrided by the dcd
         self.assertEqual(result[0].value._v, "path/to/some/config/file")
 
         # Test that the DCD file execparam that are readonly get sent the default value in the PRF file
@@ -636,7 +645,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
             pass
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, propId)
-        # This should not have been overrided by the dcd 
+        # This should not have been overrided by the dcd
         self.assertEqual(result[0].value._v, "DefaultValueGood")
 
         # Test whether the execparam "ImplementationSpecificProperty" was overloaded properly from the implementation-specific PRF file
@@ -663,7 +672,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         # This should have been overrided by the implementation-specific PRF file
         self.assertEqual(result[0].value._v, "OverloadedTheImplementationSpecific")
         self.assertNotEqual(result[0].value._v, "NewLinuxx86Value2")
-        
+
         # Test whether the implementation-specific property get's overloaded by the DCD
         #
         # if there is ever a way to override implemenation specific allocation properties
@@ -709,7 +718,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
             self._app.start()
         except Exception, e:
             pass
-            
+
 
         dev_mgrs = len(self._domMgr._get_deviceManagers())
         self.assertEqual(dev_mgrs, 1)
@@ -789,7 +798,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
 
     def test_ExternalServices(self):
         devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_MultipleService_node/DeviceManager.dcd.xml", debug=9)
-        
+
         import ossie.utils.popen as _popen
 
         serviceName = "BasicService10"
@@ -822,8 +831,8 @@ class DeviceManagerTest(scatest.CorbaTestCase):
 
         time.sleep(1)
 
-        names = ["BasicService1", "BasicService2", "BasicService3", "BasicService4", "BasicService5", serviceName, serviceName2]   
-        
+        names = ["BasicService1", "BasicService2", "BasicService3", "BasicService4", "BasicService5", serviceName, serviceName2]
+
         # Makes sure external service registered
         for svc in devMgr._get_registeredServices():
             self.assertNotEqual(svc, None)
@@ -833,13 +842,13 @@ class DeviceManagerTest(scatest.CorbaTestCase):
             obj = svc.serviceObject
             obj = obj._narrow(CF.PropertySet)
             self.assertNotEqual(obj, None)
-            
+
             # Check the name service to ensure the service is properly bound
             svcName = URI.stringToName(scatest.getTestDomainName() + "/" + svc.serviceName)
             svcobj = self._root.resolve(svcName)._narrow(CF.PropertySet)
             self.assertNotEqual(svcobj, None)
             self.assert_(obj._is_equivalent(svcobj))
-            
+
             # Check that all the parameters got set correctly
             props = obj.query([])
             d = dict([(p.id, any.from_any(p.value)) for p in props])
@@ -857,30 +866,30 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         self.assertEquals(len(self._domMgr._get_applicationFactories()), 1)
         factory = self._domMgr._get_applicationFactories()[0]
         app = factory.create(factory._get_name(), [], [])
-        self.assertEquals(len(self._domMgr._get_applications()), 1)    
-              
+        self.assertEquals(len(self._domMgr._get_applications()), 1)
+
         # Make sure an app that uses external services can launch
         app.start()
-        port = app._get_registeredComponents()[0].componentObject.getPort("output") 
+        port = app._get_registeredComponents()[0].componentObject.getPort("output")
         app.releaseObject()
 
         # Kill the 2 external services
         os.kill(external_process.pid, signal.SIGINT)
         os.kill(external_process2.pid, signal.SIGINT)
-        
+
         # Give time for kill signals to be caught
         time.sleep(1)
         os.kill(devmgr_nb.pid, signal.SIGINT)
-                
+
         # Make sure services are no longer register with the domain manager
-        names = ["BasicService1", "BasicService2", "BasicService3", "BasicService4", "BasicService5", serviceName, serviceName2]  
+        names = ["BasicService1", "BasicService2", "BasicService3", "BasicService4", "BasicService5", serviceName, serviceName2]
         svcNames = []
         for n in names:
             svcNames.append(URI.stringToName(scatest.getTestDomainName() + "/" + n))
-        
+
         # Needs to allow time for unregistering
         self.assert_(self.waitTermination(devmgr_nb), "Nodebooter did not die after shutdown")
-        
+
         # Don't use assertRaises, so we can simplify things
         for name in svcNames:
             try:
@@ -888,11 +897,11 @@ class DeviceManagerTest(scatest.CorbaTestCase):
             except CosNaming.NamingContext.NotFound:
                 pass
             else:
-                self.fail("Expected service to not exist in the naming service") 
-        
+                self.fail("Expected service to not exist in the naming service")
+
         # Makes sure all children are cleaned
         self.assertEquals(len(getChildren(devmgr_nb.pid)), 0)
-        
+
     def test_ServiceShutdown_DomMgr(self):
         num_services = 5
         num_devices = 1
@@ -908,10 +917,10 @@ class DeviceManagerTest(scatest.CorbaTestCase):
             if len(devMgr._get_registeredServices()) == num_services:
                 break
         self.assertEqual(len(devMgr._get_registeredServices()), num_services)
-        
-        # Makes sure that the correct number of processes forked 
+
+        # Makes sure that the correct number of processes forked
         self.assertEquals(len(getChildren(devmgr_nb.pid)), num_services + num_devices)
-        
+
         svcName = URI.stringToName(scatest.getTestDomainName() + "/BasicService1")
         self._root.resolve(svcName)._narrow(CF.PropertySet)
 
@@ -924,7 +933,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
             obj = svc.serviceObject
             obj = obj._narrow(CF.PropertySet)
             self.assertNotEqual(obj, None)
-            
+
             # Check the name service to ensure the service is properly bound
             svcName = URI.stringToName(scatest.getTestDomainName() + "/" + svc.serviceName)
             svcobj = self._root.resolve(svcName)._narrow(CF.PropertySet)
@@ -945,15 +954,15 @@ class DeviceManagerTest(scatest.CorbaTestCase):
 
         # Check that we unregister correctly
         os.kill(self._domBooter.pid, signal.SIGINT)
-        
+
         names = ["BasicService1", "BasicService2", "BasicService3", "BasicService4", "BasicService5"]
         svcNames = []
         for n in names:
             svcNames.append(URI.stringToName(scatest.getTestDomainName() + "/" + n))
-        
+
         # Needs to allow time for unregistering
         self.assert_(self.waitTermination(self._domBooter), "Nodebooter did not die after shutdown")
-        
+
         # Don't use assertRaises, so we can simplify things
         for name in svcNames:
             try:
@@ -962,24 +971,24 @@ class DeviceManagerTest(scatest.CorbaTestCase):
                 pass
             else:
                 self.fail("Expected service to not exist in the naming service: " + str(name))
-                
+
         # Makes sure that all children are dead
         self.assertEquals(len(getChildren(devmgr_nb.pid)), 0)
-        
+
     def test_ServiceShutdown_DevMgr(self):
         num_services = 5
         num_devices = 1
-        
+
         # This test makes sure that services are unregistered from the naming service upon shutdown of the DeviceManager
         devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_MultipleService_node/DeviceManager.dcd.xml", debug=9)
         self.assertEqual(len(devMgr._get_registeredServices()), num_services)
-        
+
         # Makes sure that the correct number of processes forked
         self.assertEquals(len(getChildren(devmgr_nb.pid)), num_services + num_devices)
-    
+
         svcName = URI.stringToName(scatest.getTestDomainName() + "/BasicService1")
         self._root.resolve(svcName)._narrow(CF.PropertySet)
-        
+
         names = ["BasicService1", "BasicService2", "BasicService3", "BasicService4", "BasicService5"]
 
         for svc in devMgr._get_registeredServices():
@@ -1015,7 +1024,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         svcNames = []
         for n in names:
             svcNames.append(URI.stringToName(scatest.getTestDomainName() + "/" + n))
-        
+
         # Needs to allow time for unregistering
         self.assert_(self.waitTermination(devmgr_nb), "Nodebooter did not die after shutdown")
 
@@ -1027,11 +1036,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
                 pass
             else:
                 self.fail("Expected service to not exist in the naming service: " + str(name))
-            
+
         # Makes sure that all children are dead
         self.assertEquals(len(getChildren(devmgr_nb.pid)), 0)
 
-                
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

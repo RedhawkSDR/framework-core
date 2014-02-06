@@ -8,9 +8,9 @@ Contains the REDHAWK Core Framework
 
 REDHAWK Website: [www.redhawksdr.org](http://www.redhawksdr.org)
 
-Overview and Getting Started Guide: [PDF](http://sourceforge.net/projects/redhawksdr/files/redhawk-doc/1.9.0/REDHAWK_Overview_v1.9.0.pdf/download "PDF") [HTML](http://redhawksdr.github.com/Documentation/gettingstarted/main.html "HTML")
+Overview and Getting Started Guide: [PDF](http://sourceforge.net/projects/redhawksdr/files/redhawk-doc/1.9.1/REDHAWK_Overview_v1.9.1.pdf/download "PDF") [HTML](http://redhawksdr.github.com/Documentation/gettingstarted/main.html "HTML")
 
-Full REDHAWK Manual: [PDF](http://sourceforge.net/projects/redhawksdr/files/redhawk-doc/1.9.0/REDHAWK_Manual_v1.9.0.pdf/download "PDF") [HTML](http://redhawksdr.github.com/Documentation/main.html "HTML")
+Full REDHAWK Manual: [PDF](http://sourceforge.net/projects/redhawksdr/files/redhawk-doc/1.9.1/REDHAWK_Manual_v1.9.1.pdf/download "PDF") [HTML](http://redhawksdr.github.com/Documentation/main.html "HTML")
  
 ## Copyrights
 

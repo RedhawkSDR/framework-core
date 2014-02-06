@@ -1,21 +1,21 @@
 # -*- coding: utf-8 -*-
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -39,8 +39,8 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
         This test exercises the collocation failover capability and exhusts all available devices to deploy collocation
         requests for the waveform.  For these scenarios the device in question is: test_collocation_device that
         manages a simple counter for the number of compnents that allocated against its capacity.  That is, when the
-        component deploys it submits a  supported_components = 1 to reduce the devices deployment count.  When the 
-        count == the device's property setting, then a capacity failure occurrs and the component cannot be deployed 
+        component deploys it submits a  supported_components = 1 to reduce the devices deployment count.  When the
+        count == the device's property setting, then a capacity failure occurrs and the component cannot be deployed
         on that specific instance.
 
         The waveform contains 2 collocation requests, each contains 2 NOOP_CAP components that request 1 unit of supported_components's
@@ -158,7 +158,7 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
 
         domMgr.installApplication("/waveforms/test_collocation_mix2/test_collocation_mix2.sad.xml")
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
-        
+
         appFact = domMgr._get_applicationFactories()[0]
 
         app = None
@@ -191,7 +191,7 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
 
         domMgr.installApplication("/waveforms/test_no_collocation/test_no_collocation.sad.xml")
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
-        
+
         appFact = domMgr._get_applicationFactories()[0]
 
         app = None
@@ -224,7 +224,7 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
 
         domMgr.installApplication("/waveforms/test_no_collocation_mix1/test_no_collocation_mix1.sad.xml")
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
-        
+
         appFact = domMgr._get_applicationFactories()[0]
 
         app = None
@@ -247,8 +247,5 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
     def _getBogoMips(self, device):
         return device.query([CF.DataType(id="DCE:5636c210-0346-4df7-a5a3-8fd34c5540a8", value=any.to_any(None))])[0].value._v
 
-    
+
         self._domMgr.uninstallApplication(appFact._get_identifier())
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

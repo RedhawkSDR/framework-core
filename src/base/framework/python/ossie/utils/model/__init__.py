@@ -42,13 +42,8 @@ from connect import *
 
 _DEBUG = False 
 
-_ossiehome = _os.getenv('OSSIEHOME')
-
-if _ossiehome == None:
-    _ossiehome = ''
-
-_std_idl_path=_ossiehome+'/share/idl'
-_std_idl_include_path = '/usr/local/share/idl'
+_std_idl_path="/usr/local/share/idl/ossie"
+_std_idl_include_path="/usr/local/share/idl"
 
 _interface_list = []
 _loadedInterfaceList = False
@@ -360,13 +355,14 @@ class PropertySet(object):
             propType = str(prop.type)
             defValue = _copy.deepcopy(prop.defValue)
             valueType = _copy.deepcopy(prop.valueType)
-
+            writeOnly = False
             if mode != "writeonly":
                 if propType == 'struct':
                     currentValue = prop.members
                 else:
                     currentValue = prop.queryValue()
             else:
+                writeOnly = True
                 currentValue = "N/A"
 
             scaType = propType
@@ -420,13 +416,17 @@ class PropertySet(object):
                 if scaType == 'structSeq':
                     if printProperty:
                         print line % (name, '('+scaType+')', '', '')
+                    if writeOnly:
+                        currentValue = "N"
                     for item_count, item in enumerate(currentValue):
                         for member in valueType:
                             _id = str(member[0])
                             scaType = str(member[1])
                             defVal = str(member[2])
-                            currVal = str(item[member[0]])
-
+                            if not writeOnly:
+                                currVal = str(item[member[0]])
+                            else:
+                                currVal = "N/A"
                             name = ' [%d] %s' % (item_count, _id)
                             if len(name) > maxNameLen:
                                  name = name[0:maxNameLen-3] + '...'
@@ -447,14 +447,17 @@ class PropertySet(object):
                 elif scaType == 'struct':
                     if printProperty:
                         print line % (name, '('+scaType+')', '', '')
-                    for member in currentValue.values():
-                        scaType = str(member.type)
-                        defVal = str(member.defValue)
-                        _currentValue = member.queryValue()
-
-                        name = ' '+str(member.clean_name)
+                    for item_count, member in enumerate(valueType):
+                        _id = str(member[0])
+                        scaType = str(member[1])
+                        defVal = str(member[2])
+                        if not writeOnly:
+                            _currentValue = currentValue.values()[item_count].queryValue()
+                        else:
+                            _currentValue = "N/A"
+                        name = ' '+_id
                         if len(name) > maxNameLen:
-                             name = name[0:maxNameLen-3] + '...'
+                            name = name[0:maxNameLen-3] + '...'
 
                         if midasTypeMap.has_key(scaType):
                             scaType = scaType + midasTypeMap[scaType]
@@ -469,10 +472,10 @@ class PropertySet(object):
                             currVal = currVal[0:maxDefaultValueLen-3] + '...'
 
                         # Checks if the current prop is an enum
-                        if member.id in _prop_helpers._enums:
-                            for enumLabel, enumValue in _prop_helpers._enums[member.id].iteritems():
+                        if _id in _prop_helpers._enums:
+                            for enumLabel, enumValue in _prop_helpers._enums[_id].iteritems():
                                 if _currentValue == enumValue:
-                                    currVal += " (enum=" + enumLabel + ")"
+                                    currVal += " (enum=" + enumLabel[1] + ")"
                             
                         if printProperty:
                             print line % (name, '('+scaType+')', defVal, currVal)
@@ -497,8 +500,10 @@ class PropertySet(object):
                     # Checks if current prop is an enum
                     if clean_name in _prop_helpers._enums:
                         for enumLabel, enumValue in _prop_helpers._enums[clean_name].iteritems():
-                            if currentValue == enumValue:
-                                currVal += " (enum=" + enumLabel + ")"
+                            if currentValue == None:
+                                break
+                            if currentValue == prop._getEnumValue(enumLabel[1]):
+                                currVal += " (enum=" + enumLabel[1] + ")"
                     
                     if printProperty:
                         print line % (name, '('+scaType+')', defVal, currVal)
@@ -519,7 +524,8 @@ class Service(CorbaObject):
         global _loadedInterfaceList, _interface_list
         if not _loadedInterfaceList:
             _interface_list = _importIDL.importStandardIdl(std_idl_path=_std_idl_path, std_idl_include_path = _std_idl_include_path)
-            _loadedInterfaceList = True
+            if _interface_list:
+                _loadedInterfaceList = True
             
          # Add mapping of services operations and attributes
         found = False
@@ -848,7 +854,7 @@ class ComponentBase(object):
                 
                 # If property has enumerations, stores them 
                 if prop.enumerations != None:
-                    _prop_helpers._addEnumerations(prop, p.clean_name)
+                    _prop_helpers._addEnumerations(prop, p.clean_name,str(weakref.proxy(self)))
 
         # Simple Sequences
         for prop in self._prf.get_simplesequence():
@@ -887,7 +893,7 @@ class ComponentBase(object):
                         id_clean = _prop_helpers._cleanId(simple)
                         # Checks for enumerated properties
                         if simple.enumerations != None:
-                            _prop_helpers._addEnumerations(simple, id_clean)
+                            _prop_helpers._addEnumerations(simple, id_clean,str(weakref.proxy(self)))
                         # Add individual property
                         id_clean = _prop_helpers.addCleanName(id_clean, simple.get_id(), self._refid)
                         members.append((simple.get_id(), propType, defValue, id_clean))
@@ -925,7 +931,7 @@ class ComponentBase(object):
                         id_clean = _prop_helpers._cleanId(simple)
                         # Checks for enumerated properties
                         if simple.enumerations != None:
-                            _prop_helpers._addEnumerations(simple, id_clean)   
+                            _prop_helpers._addEnumerations(simple, id_clean,str(weakref.proxy(self)))   
                         # Adds struct member
                         members.append((simple.get_id(), propType, simpleDefValue, id_clean))
                         _prop_helpers.addCleanName(id_clean, simple.get_id(), self._refid)
@@ -1043,7 +1049,8 @@ class ComponentBase(object):
         global _loadedInterfaceList, _interface_list
         if not _loadedInterfaceList:
             _interface_list = _importIDL.importStandardIdl(std_idl_path=_std_idl_path, std_idl_include_path = _std_idl_include_path)
-            _loadedInterfaceList = True
+            if _interface_list:
+                _loadedInterfaceList = True
 
         scdPorts = self._scd.componentfeatures.ports
         ports = []

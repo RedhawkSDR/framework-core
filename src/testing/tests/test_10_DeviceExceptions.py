@@ -1,20 +1,20 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -39,7 +39,7 @@ class DeviceExceptionsTest(scatest.CorbaTestCase):
         self.assertNotEqual(self._domMgr, None)
         self.assertNotEqual(self._devMgr, None)
         self.assertNotEqual(self._device, None)
-        
+
     def test_AppReleaseUnloadFail (self):
         self.preconditions()
 
@@ -91,7 +91,7 @@ class DeviceExceptionsTest(scatest.CorbaTestCase):
         prop = CF.DataType(id="DCE:5636c210-0346-4df7-a5a3-8fd34c5540a8", value=any.to_any(None))
         props = self._device.query([prop])
         self.assertEqual(props[0].value._v, 100000000)
-        
+
     def test_AllocateFailUnexpectedException (self):
         self.preconditions()
 
@@ -116,7 +116,7 @@ class DeviceExceptionsTest(scatest.CorbaTestCase):
             pass
         except:
             self.fail("Unhandled error in application creation")
-        
+
     def test_AllocateRaiseUnexpectedException (self):
         devBooter_2, self._devMgr_2 = self.launchDeviceManager("/nodes/test_UnusableAllocateCapacity_node/DeviceManager.dcd.xml", debug=9)
         local_device = self._devMgr_2._get_registeredDevices()[0]

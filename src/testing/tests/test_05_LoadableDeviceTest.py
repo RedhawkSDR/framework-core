@@ -1,20 +1,20 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -314,7 +314,7 @@ class LoadableDeviceTest(scatest.CorbaTestCase):
         self.assertEqual(len(os.listdir(deviceCacheDir + "/components/CapacityUser")), 4)
 
         device.releaseObject()
-        
+
         # Wait for the device to unregister.
         self.assert_(self._waitRegisteredDevices(devMgr, 0))
 
@@ -388,7 +388,7 @@ class LoadableDeviceTest(scatest.CorbaTestCase):
             device.unload("/components/CapacityUser/CapacityUser.prf.xml")
             device.unload("/components/CapacityUser/CapacityUser.scd.xml")
             device.unload("/components/CapacityUser/CapacityUser.spd.xml")
-        
+
         self.assertEqual(len(os.listdir(deviceCacheDir + "/components/CommandWrapper")), 0)
         self.assertEqual(len(os.listdir(deviceCacheDir + "/components/CapacityUser")), 0)
 
@@ -488,7 +488,7 @@ class LoadableDeviceTest(scatest.CorbaTestCase):
 
         self.assertNotEqual(self._domMgr, None)
         fileMgr = self._domMgr._get_fileMgr()
-        
+
         # Ensure the expected device is available
         devBooter, devMgr = self.launchDeviceManager(dcdFile="/nodes/test_%s/DeviceManager.dcd.xml" % nodeName)
         self.assertNotEqual(devMgr, None)
@@ -535,6 +535,3 @@ class LoadableDeviceTest(scatest.CorbaTestCase):
     def test_py_FileChanged(self):
         self._test_FileChanged("BasicTestDevice_node", "BasicTestDevice1")
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

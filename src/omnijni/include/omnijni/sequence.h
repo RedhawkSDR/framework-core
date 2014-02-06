@@ -36,8 +36,9 @@ namespace omnijni {
     inline void fromJObject (_CORBA_String_element str, JNIEnv* env, jobject obj)
     {
         jstring jstr = (jstring)obj;
-        str = env->GetStringUTFChars(jstr, NULL);
-        env->ReleaseStringUTFChars(jstr, NULL);
+        const char* utf = env->GetStringUTFChars(jstr, NULL);
+        str = utf;
+        env->ReleaseStringUTFChars(jstr, utf);
     }
 
     template <class T, class T_Helper>
@@ -87,6 +88,7 @@ namespace omnijni {
         for (jsize ii = 0; ii < size; ++ii) {
             jobject item = toJObject(sequence[ii], env);
             env->SetObjectArrayElement(array, ii, item);
+            env->DeleteLocalRef(item);
         }
         return array;
     }

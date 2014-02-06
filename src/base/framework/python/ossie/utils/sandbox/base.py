@@ -107,7 +107,7 @@ class Sandbox(object):
 
     def launch(self, descriptor, instanceName=None, refid=None, impl=None,
                debugger=None, window=None, execparams={}, configure={},
-               initialize=True):
+               initialize=True, timeout=None):
         sdrRoot = self.getSdrRoot()
 
         # Parse the component XML profile.
@@ -127,13 +127,13 @@ class Sandbox(object):
             refid = str(uuid4())
         elif not self._checkInstanceId(refid):
             raise ValueError, "User-specified identifier '%s' already in use" % (refid,)
-        
+
         # Determine the class for the component type and create a new instance.
         comptype = scd.get_componenttype()
         if comptype not in self.__comptypes__:
             raise NotImplementedError, "No support for component type '%s'" % comptype
         clazz = self.__comptypes__[comptype]
-        comp = clazz(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window)
+        comp = clazz(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window, timeout)
 
         # Services don't get initialized or configured
         if comptype == 'service':

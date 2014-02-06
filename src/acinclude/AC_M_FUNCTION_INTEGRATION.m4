@@ -19,19 +19,35 @@ dnl along with this program.  If not, see http://www.gnu.org/licenses/.
 dnl
 AC_DEFUN([AC_HEADER_M_FUNCTION],
 [
-dnl look for "include/octave" followed by a "x.y.z" version number.
-dnl "-print -quit" grabs the first result
-dnl "2>/dev/null" gets rid of permission denied warnings
-M_FUNCTION_INTERPRETER_INCLUDE="-I"`find /usr -regextype posix-extended -regex ".*include\/octave\-[[0-9]]+\.[[0-9]]+\.[[0-9]]+$" -print -quit 2>/dev/null`
-dnl TODO: accept arguments from command-line
+  AC_ARG_WITH(
+    [m-function-include],
+    [AS_HELP_STRING(
+      [--with-m-function-include=<dir to include>],
+      [Location of the m-function interpreter include files (e.g., /usr/include/octave-3.6.4/) (optional)])],
+    [M_FUNCTION_INTERPRETER_INCLUDE="-I$withval"],
+    [
+    dnl look for "include/octave" followed by a "x.y.z" version number.
+    dnl "-print -quit" grabs the first result
+    dnl "2>/dev/null" gets rid of permission denied warnings
+    M_FUNCTION_INTERPRETER_INCLUDE="-I"`find /usr -regextype posix-extended -regex ".*include\/octave\-[[0-9]]+\.[[0-9]]+\.[[0-9]]+$" -print -quit 2>/dev/null`
+    ]
+  )
 AC_SUBST(M_FUNCTION_INTERPRETER_INCLUDE)
 ])
+
 AC_DEFUN([AC_LIB_M_FUNCTION],
 [
-dnl look for "lib/octave/" or "lib64/octave/" followed by a "x.y.z" version number.
-dnl "-print -quit" grabs the first result
-dnl "2>/dev/null" gets rid of permission denied warnings
-M_FUNCTION_INTERPRETER_LOAD="-L"`find /usr -regextype posix-extended -regex ".*lib[[6]]?[[4]]?\/octave\/[[0-9]]+\.[[0-9]]+\.[[0-9]]+$" -print -quit 2>/dev/null`" -loctave -loctinterp"
-dnl TODO: accept arguments from command-line
+  AC_ARG_WITH(
+    [m-function-load], 
+    [AS_HELP_STRING(
+      [--with-m-function-load=<dir to load>],
+      [Location of the m-function interpreter load files (e.g., /usr/lib64/octave/3.6.4/) (optional)])],
+    [M_FUNCTION_INTERPRETER_LOAD="-Wl,-rpath=$withval -L$withval -loctave -loctinterp"],
+    [
+    dnl look for "lib/octave/" or "lib64/octave/" followed by a "x.y.z" version number.
+    dnl "-print -quit" grabs the first result
+    dnl "2>/dev/null" gets rid of permission denied warnings
+    M_FUNCTION_INTERPRETER_LOAD="-Wl,-rpath="`find /usr -regextype posix-extended -regex ".*lib[[6]]?[[4]]?\/octave\/[[0-9]]+\.[[0-9]]+\.[[0-9]]+$" -print -quit 2>/dev/null`" -L"`find /usr -regextype posix-extended -regex ".*lib[[6]]?[[4]]?\/octave\/[[0-9]]+\.[[0-9]]+\.[[0-9]]+$" -print -quit 2>/dev/null`" -loctave -loctinterp"]
+  )
 AC_SUBST(M_FUNCTION_INTERPRETER_LOAD)
 ])

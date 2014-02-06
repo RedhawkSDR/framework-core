@@ -157,9 +157,8 @@ public:
                     CosEventChannelAdmin::EventChannel_var idm_channel = CosEventChannelAdmin::EventChannel::_narrow(IDM_channel_obj);
                     (*devPtr)->connectSupplierToIncomingEventChannel(idm_channel);
                 }
-            } catch (...) {
-                LOG_WARN(Device_impl, "Unable to connect to IDM channel");
             }
+            CATCH_LOG_WARN(Device_impl, "Unable to connect to IDM channel");
         }
 #endif
 

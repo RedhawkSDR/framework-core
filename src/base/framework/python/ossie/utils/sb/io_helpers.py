@@ -1,20 +1,20 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -259,7 +259,7 @@ class _DataPortBase(helperBase, PortSupplier):
 
         # top-level keys should be all lower-case
         #
-        # To add support for a new interface type, simply add it to the 
+        # To add support for a new interface type, simply add it to the
         # dictionary following the format of the other entries.  The
         # current list of entries represents supported interfaces that
         # have been verified to work; this list does not include all
@@ -338,7 +338,7 @@ class _DataPortBase(helperBase, PortSupplier):
             if port["portDict"]["Port Name"] == portName:
                 return port[key]
 
- 
+
     def getPortByName(self, portName):
         """
         Returns the entry of self.supportedPorts associated with portName.
@@ -349,10 +349,10 @@ class _DataPortBase(helperBase, PortSupplier):
             if port["portDict"]["Port Name"] == portName:
                 return port
 
-        # portName not found in self.supportedPorts.  This should never happen 
+        # portName not found in self.supportedPorts.  This should never happen
         # as the portName should be set via self.supportedPorts.
         raise Exception, "Port name " + portName + " not found."
- 
+
     def api(self):
         """
         Prints application programming interface (API) information and returns.
@@ -390,13 +390,13 @@ class _SourceBase(_DataPortBase):
                 self._dataFormat = dataFormat.lower()
         else:
             self._dataFormat = None
- 
+
         self._connections = {}
         self._buildAPI()
 
     def _addConnection(self, portName, arraySrcInst):
         """
-        When a connection is made, this method should be called 
+        When a connection is made, this method should be called
         to update the running list of array sources.
 
         """
@@ -421,8 +421,8 @@ class _SourceBase(_DataPortBase):
         self._usesPortDict[name] = port["portDict"]
         self._usesPortDict[name]["Port Name"] = name
         # Determine number of elements per pushPacket
-        # NOTE: complex data is treated real data with alternating real and 
-        # imaginary values 
+        # NOTE: complex data is treated real data with alternating real and
+        # imaginary values
         self._pktSize = self.bytesPerPush / port["bytesPerSample"]
         port["pktSize"] = self._pktSize
 
@@ -437,13 +437,13 @@ class _SourceBase(_DataPortBase):
 
         if self._dataFormat != None:
             port = self.supportedPorts[self._dataFormat]
-            self._srcPortType = port["portType"] 
+            self._srcPortType = port["portType"]
             self._addUsesPort(port)
         else:
             # Create all ports
             for port in self.supportedPorts.values():
                 self._addUsesPort(port)
-        
+
 
         if _domainless._DEBUG == True:
             print self.className + ":_buildAPI()"
@@ -494,7 +494,7 @@ class _SinkBase(_DataPortBase):
         if _domainless._DEBUG == True:
             print self.className + ":_buildAPI()"
             self.api()
-      
+
     def getPortType(self, portName):
         """
         Uses self.getPortByName to retrieve the prt type
@@ -506,16 +506,16 @@ class _SinkBase(_DataPortBase):
 
     def start(self):
         pass
-    
+
     def stop(self):
         """
-        Sets a flag to break the module out of a loop that 
+        Sets a flag to break the module out of a loop that
         is waiting for an EOS flag (if applicable).
 
         """
 
         self.breakBlock = True
-    
+
     def eos(self):
         """
         Returns the end of sequence (EOS) state of self._sink, or false if no
@@ -529,7 +529,7 @@ class _SinkBase(_DataPortBase):
 
     def sri(self):
         """
-        Returns the signal related information (SRI) associated with of 
+        Returns the signal related information (SRI) associated with of
         self._sink, or false if no self._sink exists.
 
         """
@@ -541,8 +541,8 @@ class _SinkBase(_DataPortBase):
 
 class FileSource(_SourceBase):
     def __init__(self,
-                 filename     = "", 
-                 dataFormat   = None, 
+                 filename     = "",
+                 dataFormat   = None,
                  midasFile    = False,
                  sampleRate   = 1.0,
                  complexData  = False,
@@ -551,8 +551,8 @@ class FileSource(_SourceBase):
                  startTime    = 0.0,
                  streamID     = None,
                  blocking     = True):
-       
-        _SourceBase.__init__(self, bytesPerPush = bytesPerPush, dataFormat = dataFormat) 
+
+        _SourceBase.__init__(self, bytesPerPush = bytesPerPush, dataFormat = dataFormat)
 
         self._filename = filename
         self._midasFile = midasFile
@@ -571,21 +571,21 @@ class FileSource(_SourceBase):
                 dataFormat = 'double'
 
         if dataFormat == None:
-            print "WARNING: dataFormat not provided for FileSource; defaulting to " + self._defaultDataFormat
-            dataFormat = self._defaultDataFormat 
+            log.warn("dataFormat not provided for FileSource; defaulting to " + self._defaultDataFormat)
+            dataFormat = self._defaultDataFormat
         if self.supportedPorts.has_key(dataFormat):
             self._srcPortType = self.supportedPorts[dataFormat]["portType"]
         else:
             raise Exception, "ERROR: FileSource does not supporte data type " + dataFormat
- 
+
         self._src         = None
         self._runThread   = None
-        self._sampleRate  = sampleRate 
+        self._sampleRate  = sampleRate
         self._complexData = complexData
         self._SRIKeywords = SRIKeywords
         self._startTime   = startTime
         self._streamID    = streamID
-        self._blocking    = blocking 
+        self._blocking    = blocking
         self._sri         = None
 
         self._srcPortObject = None
@@ -607,7 +607,7 @@ class FileSource(_SourceBase):
                 keywords = []
                 for key in self._SRIKeywords:
                     keywords.append(_CF.DataType(key._name, _properties.to_tc_value(key._value,str(key._format))))
-            
+
                 self._sri = _BULKIO.StreamSRI(1, 0.0, 1, 0, 0, 0.0, 0, 0, 0,
                                             "defaultStreamID", True, keywords)
 
@@ -722,8 +722,8 @@ class FileSink(_SinkBase):
             print "No file writer present, therefore not waiting for EOS.  Is the " + self.className + " module connected?"
 
 class DataSource(_SourceBase):
-    def __init__(self, 
-                 data         = None, 
+    def __init__(self,
+                 data         = None,
                  dataFormat   = None,
                  loop         = False,
                  bytesPerPush = 512000,
@@ -731,9 +731,9 @@ class DataSource(_SourceBase):
                  blocking     = True):
 
         self.threadExited = None
-        
+
         _SourceBase.__init__(self,
-                             bytesPerPush = bytesPerPush, 
+                             bytesPerPush = bytesPerPush,
                              dataFormat   = dataFormat,
                              data         = data)
 
@@ -761,7 +761,7 @@ class DataSource(_SourceBase):
             return _bulkio_data_helpers.ArraySource(eval(srcPortType))
         else:
             return _bulkio_data_helpers.XmlArraySource(eval(srcPortType))
-        
+
 
     def start(self):
         self._exitThread = False
@@ -782,6 +782,21 @@ class DataSource(_SourceBase):
              complexData = False,
              SRIKeywords = [],
              loop        = None):
+
+        # Detect whether or not any of the data is of type complex
+        def isComplex(x) : return type(x) == type(complex())
+        _complexData = len(filter(isComplex, data))
+
+        # If complex values are present, interleave the data as scalar values
+        # and set the complex flag
+        if _complexData:
+            data = _bulkio_helpers.pythonComplexListToBulkioComplex(data)
+            complexData = _complexData
+            # the conversion function always returns floats, so we must
+            # typecast to ints for applicable types
+            if self._dataFormat in ('octet', 'short', 'ushort', 'long', 'ulong', 'longlong', 'ulonglong'):
+                data = [int(iter) for iter in data]
+
         self._dataQueue.put((data,
                              EOS,
                              streamID,
@@ -810,7 +825,7 @@ class DataSource(_SourceBase):
     def pushThread(self):
         self.settingsAcquired = False
         self.threadExited = False
-        # Make sure data passed in is within min/max bounds on port type 
+        # Make sure data passed in is within min/max bounds on port type
         # and is a valid type
         currentSampleTime = self._startTime
         while not self._exitThread:
@@ -825,8 +840,8 @@ class DataSource(_SourceBase):
                         exitInputLoop = True
             if self._exitThread:
                 if self.settingsAcquired:
-                    self._pushPacketAllConnectedPorts([], 
-                                                      currentSampleTime, 
+                    self._pushPacketAllConnectedPorts([],
+                                                      currentSampleTime,
                                                       EOS,
                                                       streamID)
                     self._packetSent()
@@ -849,7 +864,7 @@ class DataSource(_SourceBase):
                 self._complexData = complexData
                 self._SRIKeywords = SRIKeywords
                 self._streamID    = streamID
-                candidateSri      = None 
+                candidateSri      = None
                 # If any SRI info is set, call pushSRI
                 if streamID != None or \
                   sampleRate != None or \
@@ -860,10 +875,10 @@ class DataSource(_SourceBase):
                         keywords.append(_CF.DataType(key._name, _properties.to_tc_value(key._value,str(key._format))))
                     candidateSri = _BULKIO.StreamSRI(1, 0.0, 1, 0, 0, 0.0, 0, 0, 0,
                                                      streamID, self._blocking, keywords)
-                
+
                     if sampleRate > 0.0:
                         candidateSri.xdelta = 1.0/float(sampleRate)
-    
+
                     if complexData == True:
                         candidateSri.mode = 1
                     else:
@@ -878,21 +893,21 @@ class DataSource(_SourceBase):
                 if self._sri==None or not compareSRI(candidateSri, self._sri):
                     self._sri = candidateSri
                     self._pushSRIAllConnectedPorts(sri = self._sri)
-    
+
                 # Call pushPacket
-                # If necessary, break data into chunks of pktSize for each 
+                # If necessary, break data into chunks of pktSize for each
                 # pushPacket
                 if len(data) > 0:
                     self._pushPacketsAllConnectedPorts(data,
-                                                       currentSampleTime, 
-                                                       EOS, 
+                                                       currentSampleTime,
+                                                       EOS,
                                                        streamID)
-                    # If loop is set to True, continue pushing data until loop 
+                    # If loop is set to True, continue pushing data until loop
                     # is set to False or stop() is called
                     while self._loop:
-                        self._pushPacketsAllConnectedPorts(data, 
-                                                           currentSampleTime, 
-                                                           EOS, 
+                        self._pushPacketsAllConnectedPorts(data,
+                                                           currentSampleTime,
+                                                           EOS,
                                                            streamID)
                 else:
                     self._pushPacketAllConnectedPorts(data,
@@ -904,10 +919,10 @@ class DataSource(_SourceBase):
                 print self.className + ":pushData() failed " + str(e)
         self.threadExited = True
 
-    def _pushPacketsAllConnectedPorts(self, 
-                                      data, 
-                                      currentSampleTime, 
-                                      EOS, 
+    def _pushPacketsAllConnectedPorts(self,
+                                      data,
+                                      currentSampleTime,
+                                      EOS,
                                       streamID):
 
         for connection in self._connections.values():
@@ -919,10 +934,10 @@ class DataSource(_SourceBase):
                               srcPortType       = connection["srcPortType"],
                               pktSize           = connection["pktSize"])
 
-    def _pushPacketAllConnectedPorts(self, 
-                                     data, 
-                                     currentSampleTime, 
-                                     EOS, 
+    def _pushPacketAllConnectedPorts(self,
+                                     data,
+                                     currentSampleTime,
+                                     EOS,
                                      streamID):
 
         for connection in self._connections.values():
@@ -933,23 +948,23 @@ class DataSource(_SourceBase):
                              streamID          = streamID,
                              srcPortType       = connection["srcPortType"])
 
-    def _pushPackets(self, 
-                     arraySrcInst, 
-                     data, 
-                     currentSampleTime, 
-                     EOS, 
-                     streamID, 
-                     srcPortType, 
+    def _pushPackets(self,
+                     arraySrcInst,
+                     data,
+                     currentSampleTime,
+                     EOS,
+                     streamID,
+                     srcPortType,
                      pktSize):
 
         # If necessary, break data into chunks of pktSize for each pushPacket
         if str(type(data)) == "<type 'list'>":
             while len(data) > 0:
-                self._pushPacket(arraySrcInst, 
-                                 data[:pktSize], 
-                                 currentSampleTime, 
-                                 EOS, 
-                                 streamID, 
+                self._pushPacket(arraySrcInst,
+                                 data[:pktSize],
+                                 currentSampleTime,
+                                 EOS,
+                                 streamID,
                                  srcPortType)
                 dataSize = len(data[:pktSize])
                 if self._sri != None:
@@ -958,19 +973,19 @@ class DataSource(_SourceBase):
                 currentSampleTime = currentSampleTime + dataSize/self._sampleRate
                 data = data[pktSize:]
         else:
-            self._pushPacket(arraySrcInst, 
-                             data, 
-                             currentSampleTime, 
-                             EOS, 
-                             streamID, 
+            self._pushPacket(arraySrcInst,
+                             data,
+                             currentSampleTime,
+                             EOS,
+                             streamID,
                              srcPortType)
 
-    def _pushPacket(self, 
-                    arraySrcInst, 
-                    data, 
-                    currentSampleTime, 
-                    EOS, 
-                    streamID, 
+    def _pushPacket(self,
+                    arraySrcInst,
+                    data,
+                    currentSampleTime,
+                    EOS,
+                    streamID,
                     srcPortType):
 
         if srcPortType == "_BULKIO__POA.dataXML" or srcPortType == "_BULKIO__POA.dataFile":
@@ -982,24 +997,24 @@ class DataSource(_SourceBase):
                 print "data must be a list of values for the specified data type"
                 return
         if len(data)>0:
-                data = _bulkio_helpers.formatData(data, 
+                data = _bulkio_helpers.formatData(data,
                                                   BULKIOtype=eval(srcPortType))
 
-        T = _BULKIO.PrecisionUTCTime(_BULKIO.TCM_CPU, 
-                                     _BULKIO.TCS_VALID, 
-                                     0.0, 
-                                     int(currentSampleTime), 
+        T = _BULKIO.PrecisionUTCTime(_BULKIO.TCM_CPU,
+                                     _BULKIO.TCS_VALID,
+                                     0.0,
+                                     int(currentSampleTime),
                                      currentSampleTime - int(currentSampleTime))
         if srcPortType != "_BULKIO__POA.dataXML":
-            _bulkio_data_helpers.ArraySource.pushPacket(arraySrcInst, 
-                                                        data     = data, 
-                                                        T        = T, 
-                                                        EOS      = EOS, 
+            _bulkio_data_helpers.ArraySource.pushPacket(arraySrcInst,
+                                                        data     = data,
+                                                        T        = T,
+                                                        EOS      = EOS,
                                                         streamID = streamID)
         else:
-            _bulkio_data_helpers.XmlArraySource.pushPacket(arraySrcInst, 
-                                                           data     = data, 
-                                                           EOS      = EOS, 
+            _bulkio_data_helpers.XmlArraySource.pushPacket(arraySrcInst,
+                                                           data     = data,
+                                                           EOS      = EOS,
                                                            streamID = streamID)
 
     def _pushSRIAllConnectedPorts(self, sri):
@@ -1065,19 +1080,19 @@ class DataSink(_SinkBase):
 
     def getData(self, length=None, eos_block=False, tstamps=False):
         '''
-        Returns either an array of the received data elements or a tuple containing the received list 
+        Returns either an array of the received data elements or a tuple containing the received list
         and their associated time stamps
-        
+
         Parameters
         ----------
         length: number of elements that are requested
         eos_block: setting to True creates a blocking call until eos is received
         tstamps: setting to True makes the return value a tuple, where the first
-            element is the data set and the second element is a series of tuples 
+            element is the data set and the second element is a series of tuples
             containing the element index number of and timestamp
         '''
         isChar = self._sink.port_type == _BULKIO__POA.dataChar
-            
+
         if not self._sink:
             return None
         if eos_block:
@@ -1127,7 +1142,7 @@ class _OutputBase(helperBase):
         sp = self._processes[pid]
         for sig, timeout in self._STOP_SIGNALS:
             try:
-                # the group id is used to handle child processes (if they 
+                # the group id is used to handle child processes (if they
                 # exist) of the component being cleaned up
                 if _domainless._DEBUG == True:
                     print "_OutputBase: __terminate () making killpg call on pid " + str(pid) + " with signal " + str(sig)
@@ -1160,20 +1175,20 @@ class probeBULKIO(_OutputBase):
         self._buildAPI()
 
     def _buildAPI(self):
-        self._providesPortDict[0] = {} 
-        self._providesPortDict[0]["Port Interface"] = "IDL:BULKIO/dataChar:1.0" 
+        self._providesPortDict[0] = {}
+        self._providesPortDict[0]["Port Interface"] = "IDL:BULKIO/dataChar:1.0"
         self._providesPortDict[0]["Port Name"] = "charIn"
-        self._providesPortDict[1] = {} 
-        self._providesPortDict[1]["Port Interface"] = "IDL:BULKIO/dataShort:1.0" 
+        self._providesPortDict[1] = {}
+        self._providesPortDict[1]["Port Interface"] = "IDL:BULKIO/dataShort:1.0"
         self._providesPortDict[1]["Port Name"] = "shortIn"
-        self._providesPortDict[2] = {} 
-        self._providesPortDict[2]["Port Interface"] = "IDL:BULKIO/dataLong:1.0" 
+        self._providesPortDict[2] = {}
+        self._providesPortDict[2]["Port Interface"] = "IDL:BULKIO/dataLong:1.0"
         self._providesPortDict[2]["Port Name"] = "longIn"
-        self._providesPortDict[3] = {} 
-        self._providesPortDict[3]["Port Interface"] = "IDL:BULKIO/dataFloat:1.0" 
+        self._providesPortDict[3] = {}
+        self._providesPortDict[3]["Port Interface"] = "IDL:BULKIO/dataFloat:1.0"
         self._providesPortDict[3]["Port Name"] = "floatIn"
-        self._providesPortDict[4] = {} 
-        self._providesPortDict[4]["Port Interface"] = "IDL:BULKIO/dataDouble:1.0" 
+        self._providesPortDict[4] = {}
+        self._providesPortDict[4]["Port Interface"] = "IDL:BULKIO/dataDouble:1.0"
         self._providesPortDict[4]["Port Name"] = "doubleIn"
         if _domainless._DEBUG == True:
             print "probeBULKIO:_buildAPI()"
@@ -1185,7 +1200,7 @@ class probeBULKIO(_OutputBase):
         maxNameLen = 0
         for port in self._providesPortDict.values():
             if len(port['Port Name']) > maxNameLen:
-                maxNameLen = len(port['Port Name']) 
+                maxNameLen = len(port['Port Name'])
         print "Provides (Input) Ports =============="
         print "Port Name" + " "*(maxNameLen-len("Port Name")) + "\tPort Interface"
         print "---------" + " "*(maxNameLen-len("---------")) + "\t--------------"
@@ -1201,15 +1216,15 @@ class probeBULKIO(_OutputBase):
             print "probeBULKIO:getPort() portName " + str(portName) + "================================="
         try:
             if portName == "charIn":
-                self._sinkPortType = "_BULKIO__POA.dataChar" 
+                self._sinkPortType = "_BULKIO__POA.dataChar"
             elif portName == "shortIn":
-                self._sinkPortType = "_BULKIO__POA.dataShort" 
+                self._sinkPortType = "_BULKIO__POA.dataShort"
             elif portName == "longIn":
-                self._sinkPortType = "_BULKIO__POA.dataLong" 
+                self._sinkPortType = "_BULKIO__POA.dataLong"
             elif portName == "floatIn":
-                self._sinkPortType = "_BULKIO__POA.dataFloat" 
+                self._sinkPortType = "_BULKIO__POA.dataFloat"
             elif portName == "doubleIn":
-               self._sinkPortType = "_BULKIO__POA.dataDouble" 
+               self._sinkPortType = "_BULKIO__POA.dataDouble"
             else:
                 return None
 
@@ -1233,7 +1248,7 @@ class probeBULKIO(_OutputBase):
 
     def stop(self):
         self.breakBlock = True
-    
+
     def eos(self):
         if self._sink == None:
             return False
@@ -1244,7 +1259,7 @@ class probeBULKIO(_OutputBase):
             return None
         else:
             return self._sink.sri
-    
+
     def receivedStreams(self):
         if self._sink == None:
             print None
@@ -1258,7 +1273,7 @@ class probeBULKIO(_OutputBase):
                 average_packet = self._sink.received_data[entry][0]/float(self._sink.received_data[entry][1])
                 print "Received "+str(self._sink.received_data[entry])+" on stream ID "+entry+" with mean packet length of "+str(average_packet)
 
-# Plot class requires the following: 
+# Plot class requires the following:
 # - Eclipse Redhawk IDE must be installed
 # - Environment variable RH_IDE must be set defining the path to the main eclipse directory (/data/eclipse for example)
 class Plot(OutputBase, _OutputBase):
@@ -1293,7 +1308,7 @@ class Plot(OutputBase, _OutputBase):
     def plot(self):
         if _domainless._DEBUG == True:
             print "Plot:plot()"
-        
+
         # Error checking before launching plot
         if self.usesPortIORString == None:
             raise AssertionError, "Plot:plot() ERROR - usesPortIORString not set ... must call connect() on this object from another component"
@@ -1315,7 +1330,7 @@ class Plot(OutputBase, _OutputBase):
             self._processes[pid] = sub_process
         except Exception, e:
             raise AssertionError, "Plot:plot() Failed to launch plotting due to %s" % ( e)
-         
+
 
     def setup(self, usesPort, dataType=None, componentName=None, usesPortName=None):
         self.usesPortIORString = domainless.orb.object_to_string(usesPort)

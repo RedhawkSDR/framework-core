@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties PUBLIC "-//JTRS//DTD SCA V2.2.2 PRF//EN" "properties.dtd">
+<properties>
+  <struct id="my_struct" mode="readwrite">
+    <simple id="bool_true" type="boolean">
+      <value>true</value>
+    </simple>
+    <simple id="bool_false" mode="readwrite" type="boolean">
+      <value>false</value>
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <simple id="bool_empty" mode="readwrite" type="boolean">
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <simple id="long_s" mode="readwrite" type="long">
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <simple id="str_s" mode="readwrite" type="string">
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <simple id="enum_bool" mode="readwrite" type="boolean">
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <simple id="enum_str" mode="readwrite" type="string">
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <simple id="enum_long" mode="readwrite" type="long">
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <simple id="es::3" mode="readwrite" type="long">
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <configurationkind kindtype="configure"/>
+  </struct>
+  <simple id="my_long_enum" mode="readwrite" type="long">
+    <value>11</value>
+    <kind kindtype="configure"/>
+    <action type="external"/>
+  </simple>
+</properties>

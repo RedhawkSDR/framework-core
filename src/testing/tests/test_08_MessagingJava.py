@@ -1,20 +1,20 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -40,24 +40,24 @@ class Supplier_i(CosEventComm__POA.PushSupplier):
 class Consumer_i(CosEventComm__POA.PushConsumer):
     def __init__(self, parent):
         self.parent = parent
-    
+
     def push(self, data):
         if data._v == "response":
             self.parent.eventFlag = True
             self.parent.localEvent.set()
-    
+
     def disconnect_push_consumer (self):
         pass
 
 class ConsumerDevice_i(CosEventComm__POA.PushConsumer):
     def __init__(self, parent):
         self.parent = parent
-    
+
     def push(self, data):
         if data._v == "response device":
             self.parent.eventFlag = True
             self.parent.localEvent.set()
-    
+
     def disconnect_push_consumer (self):
         pass
 
@@ -95,7 +95,7 @@ class EventPortConnectionsTest(scatest.CorbaTestCase):
     def test_EventDevicePortConnectionFromPython(self):
         self.localEvent = threading.Event()
         self.eventFlag = False
-        
+
         self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", self._domMgr, debug=9)
         self.assertNotEqual(self._devBooter, None)
         self._domMgr.installApplication("/waveforms/MessageTestPyJava/MessageTestPyJava.sad.xml")
@@ -119,7 +119,7 @@ class EventPortConnectionsTest(scatest.CorbaTestCase):
     def test_EventDevicePortConnectionJavaOnly(self):
         self.localEvent = threading.Event()
         self.eventFlag = False
-        
+
         self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", self._domMgr, debug=9)
         self.assertNotEqual(self._devBooter, None)
         self._domMgr.installApplication("/waveforms/MessageTestJava/MessageTestJava.sad.xml")
@@ -146,6 +146,3 @@ if scatest.getBuildDefineValue("ENABLE_EVENTS") in (None, "0"):
     del EventPortConnectionsTest
 
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

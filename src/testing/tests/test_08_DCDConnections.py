@@ -1,20 +1,20 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -42,7 +42,7 @@ class DCDConnectionsTest(scatest.CorbaTestCase):
         connections = {}
         for device in devMgr._get_registeredDevices():
             id = device._get_identifier()
- 
+
             # Check that the UUID matches what we expect; a failure here is
             # probably more indicative of a faulty test.
             if id != usesId and id != providesId:
@@ -86,7 +86,7 @@ class DCDConnectionsTest(scatest.CorbaTestCase):
             if identifier == dev._get_identifier():
                 device2 = dev
         self.assertNotEqual(device2, None)
-        
+
         # Terminate the first node and verify that the connection is broken.
         self.terminateChild(devBooter)
         self.assertEqual(len(device.runTest(0, [])), 0)
@@ -106,11 +106,11 @@ class DCDConnectionsTest(scatest.CorbaTestCase):
         self.assertNotEqual(svcMgrSecond, None)
         svcBooterSecond, svcMgrThird = self.launchDeviceManager("/nodes/test_PortTestDeviceService_node/DeviceManager.dcd.xml")
         self.assertNotEqual(svcMgrSecond, None)
-        
+
         #confirm connection is there
         device = svcMgrThird._get_registeredDevices()[0]
         service_1 = svcMgr._get_registeredServices()[0]
-        
+
         props = service_1.serviceObject.query([])
         testOut = device.runTest(2, [])
         for ii in range(len(props)):
@@ -150,6 +150,3 @@ class DCDConnectionsTest(scatest.CorbaTestCase):
                 self.fail('Device manager test_BasicService_node did not unregister')
 
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

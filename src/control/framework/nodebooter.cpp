@@ -1,20 +1,20 @@
 /*
- * This file is protected by Copyright. Please refer to the COPYRIGHT file 
+ * This file is protected by Copyright. Please refer to the COPYRIGHT file
  * distributed with this source distribution.
- * 
+ *
  * This file is part of REDHAWK core.
- * 
- * REDHAWK core is free software: you can redistribute it and/or modify it 
- * under the terms of the GNU Lesser General Public License as published by the 
- * Free Software Foundation, either version 3 of the License, or (at your 
+ *
+ * REDHAWK core is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
  * option) any later version.
- * 
- * REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License 
+ *
+ * REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
  * for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License 
+ *
+ * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see http://www.gnu.org/licenses/.
  */
 
@@ -64,21 +64,6 @@ namespace fs = boost::filesystem;
 using namespace std;
 
 
-/** \mainpage
-
-\section Nodebooter
-
-what it does
-
-\section Installation
-
-How to install
-
-*/
-
-/** \file
-    A description of the nodebooter.cpp file
-*/
 CREATE_LOGGER(nodebooter);
 
 // Track the DomainManager and DeviceManager pids, if using fork-and-exec.
@@ -87,20 +72,47 @@ static pid_t devPid = 0;
 
 typedef std::map<std::string, std::string> ExecParams;
 
-const ossie::SPD::Implementation* matchImplementation (const std::vector<ossie::SPD::Implementation>& implementations,
-                                                       const std::vector<const ossie::Property*>& deviceProps)
+/**
+ * Iterate through all of the implementations and find the first implementation
+ * that matches the operating system and processor requirements specified in
+ * deviceProps.
+ *
+ * Return 0 if no match is found.
+ */
+const ossie::SPD::Implementation* matchImplementation (
+    const std::vector<ossie::SPD::Implementation>& implementations,
+    const std::vector<const ossie::Property*>&     deviceProps)
 {
-    for (std::vector<ossie::SPD::Implementation>::const_iterator ii = implementations.begin(); ii != implementations.end(); ++ii) {
-        if (ossie::checkOs(ii->getOsDeps(), deviceProps) && ossie::checkProcessor(ii->getProcessors(), deviceProps)) {
-            return &(*ii);
+    std::vector<ossie::SPD::Implementation>::const_iterator implIter;
+    for ( implIter = implementations.begin();
+          implIter != implementations.end();
+          ++implIter) { // iterate through each implementation
+
+        if (ossie::checkOs(implIter->getOsDeps(), deviceProps) &&
+            ossie::checkProcessor(implIter->getProcessors(), deviceProps)) {
+            // If the operating system and processor of the implementation
+            // match the requirements specified in deviceProps.
+            return &(*implIter);
         }
+
     }
 
     return 0;
 }
 
-
-std::string getLocalPath (const std::string& filePath, const fs::path& sdrRoot, const fs::path& currentPath)
+/**
+ * If filePath is absolute (i.e., starts with "/"), return:
+ *
+ *      sdrroot/filePath
+ *
+ * else (i.e., relative path), return:
+ *
+ *      currentPath/filePath
+ */
+std::string getLocalPath (
+    const std::string& filePath,
+    const fs::path&    sdrRoot,
+    const fs::path&    currentPath)
 {
     fs::path localPath;
     if (filePath.find('/') == 0) {
@@ -114,7 +126,10 @@ std::string getLocalPath (const std::string& filePath, const fs::path& sdrRoot, 
     return localPath.string();
 }
 
-
+/**
+ * Iterate through the properties tagged as execparams; add simple, execparam
+ * properties with default values to execParams.
+ */
 void loadPRFExecParams (const std::string& prfFile, ExecParams& execParams)
 {
     if (!fs::exists(prfFile)) {
@@ -138,9 +153,13 @@ void loadPRFExecParams (const std::string& prfFile, ExecParams& execParams)
     }
     prfStream.close();
     LOG_TRACE(nodebooter, "Loaded PRF file: " << prfFile);
+
     const std::vector<const ossie::Property*>& execProps = prf.getExecParamProperties();
-    for (std::vector<const ossie::Property*>::const_iterator prop = execProps.begin(); prop != execProps.end(); ++prop) {
-        const ossie::SimpleProperty* simpleProp = dynamic_cast<const ossie::SimpleProperty*>(*prop);
+    std::vector<const ossie::Property*>::const_iterator prop;
+
+    for ( prop = execProps.begin(); prop != execProps.end(); ++prop) {
+        const ossie::SimpleProperty* simpleProp;
+        simpleProp = dynamic_cast<const ossie::SimpleProperty*>(*prop);
         if (!simpleProp) {
             LOG_WARN(nodebooter, "Only execparams of type \"simple\" supported");
             continue;
@@ -152,11 +171,12 @@ void loadPRFExecParams (const std::string& prfFile, ExecParams& execParams)
 }
 
 
-static pid_t launchSPD (const std::string& spdFile,
-                        const fs::path& sdrRoot,
-                        const ExecParams& overrideExecParams,
-                        const std::vector<const ossie::Property*>& deviceProps,
-                        bool doFork)
+static pid_t launchSPD (
+    const std::string&                         spdFile,
+    const fs::path&                            sdrRoot,
+    const ExecParams&                          overrideExecParams,
+    const std::vector<const ossie::Property*>& deviceProps,
+    bool                                       doFork)
 {
     fs::path spdPath = sdrRoot / spdFile;
     if (!fs::exists(spdPath)) {
@@ -247,8 +267,8 @@ static pid_t launchSPD (const std::string& spdFile,
         }
     }
 
-    // Execute in place; by definition, if execution continues past this point, an error must have occurred,
-    // so checking the return status is redundant.
+    // Execute in place; by definition, if execution continues past this point,
+    // an error must have occurred, so checking the return status is redundant.
     execvp(exePath.c_str(), const_cast<char* const*>(&argv[0]));
     std::ostringstream err;
     err << "Could not execute " << exePath << ": " << strerror(errno);
@@ -317,7 +337,10 @@ static void setOwners(const std::string& user, const std::string& group)
     }
 }
 
-static void initializeDaemon (const std::string& user, const std::string& group, const std::string& pidfile)
+static void initializeDaemon (
+    const std::string& user,
+    const std::string& group,
+    const std::string& pidfile)
 {
     LOG_INFO(nodebooter, "Running as daemon");
 
@@ -326,7 +349,7 @@ static void initializeDaemon (const std::string& user, const std::string& group,
         LOG_FATAL(nodebooter, "fork: " << strerror(errno));
         exit(EXIT_FAILURE);
     } else if (pid > 0) {
-        // Wait for the initial child to exit, which should occur after it forks.
+        // Wait for the initial child to exit, which should occur after it forks
         int status;
         waitpid(pid, &status, 0);
         exit(WEXITSTATUS(status));
@@ -359,9 +382,10 @@ static void initializeDaemon (const std::string& user, const std::string& group,
         exit(EXIT_SUCCESS);
     }
 
-    // Following the second fork, set the user. This allows the first forked child
-    // to write the pid file with its initial user privileges. By doing this before
-    // closing stdout/stderr, we can still display an error message if it fails.
+    // Following the second fork, set the user. This allows the first forked
+    // child to write the pid file with its initial user privileges. By doing
+    // this before closing stdout/stderr, we can still display an error message
+    // if it fails.
     try {
         setOwners(user, group);
     } catch (const std::runtime_error& ex) {
@@ -372,7 +396,6 @@ static void initializeDaemon (const std::string& user, const std::string& group,
     // Clear umask.
     umask(0);
 
-    // TODO: Should we change directory to SDRROOT instead?
     chdir("/");
 
     // Redirect stdin, stdout and stderr to /dev/null.
@@ -437,7 +460,6 @@ void usage()
 void signal_catcher( int sig )
 {
     // IMPORTANT Don't call exit(...) in this function
-    LOG_DEBUG(nodebooter, "Signal " << sig << " received");
     if ((( sig == SIGINT ) || (sig == SIGQUIT) || (sig == SIGTERM))) {
         if (devPid) {
             kill(devPid, sig);
@@ -445,6 +467,238 @@ void signal_catcher( int sig )
         if (domPid) {
             kill(domPid, sig);
         }
+    }
+}
+
+void startDomainManager(
+    const fs::path&                            domRootPath,
+    const string&                              dmdFile,
+    const string&                              dcdFile,
+    string&                                    domainName,
+    const fs::path&                            sdrRootPath,
+    const int&                                 debugLevel,
+    const bool&                                noPersist,
+    const string&                              logfile_uri,
+    const string&                              db_uri,
+    const string&                              endPoint,
+    const bool&                                forceRebind,
+    const std::vector<string>&                 execparams,
+    const std::vector<const ossie::Property*>& systemProps,
+    const bool&                                doFork)
+{
+    if (!fs::is_directory(domRootPath)) {
+        LOG_ERROR(nodebooter, "Invalid Domain Manager File System Root " << domRootPath);
+        exit(EXIT_FAILURE);
+    }
+
+    fs::path dmdPath = domRootPath / dmdFile;
+    std::ifstream dmdStream(dmdPath.string().c_str());
+    if (!dmdStream) {
+        LOG_ERROR(nodebooter, "Could not read DMD file " << dmdFile);
+        exit(EXIT_FAILURE);
+    }
+
+    ossie::DomainManagerConfiguration dmd;
+    try {
+        dmd.load(dmdStream);
+    } catch (const ossie::parser_error& ex) {
+        LOG_ERROR(nodebooter, "Failed to parse DMD file " << dcdFile);
+        LOG_ERROR(nodebooter, ex.what());
+        exit(EXIT_FAILURE);
+    }
+    dmdStream.close();
+
+    std::string spdFile = dmd.getDomainManagerSoftPkg();
+
+    LOG_DEBUG(nodebooter, "Loaded DMD file " << dmdFile);
+    LOG_DEBUG(nodebooter, "DMD Name:    " << dmd.getName());
+    LOG_DEBUG(nodebooter, "DMD Id:      " << dmd.getID());
+    LOG_DEBUG(nodebooter, "DMD softpkg: " << spdFile);
+
+    if (domainName.empty()) {
+        domainName = dmd.getName();
+    } else {
+        LOG_DEBUG(nodebooter, "Overriding domain name from DMD with \"" << domainName << "\"");
+    }
+
+    ExecParams execParams;
+    execParams["DMD_FILE"] = dmdFile;
+    execParams["DOMAIN_NAME"] = domainName;
+    execParams["SDRROOT"] = sdrRootPath.string();
+    std::stringstream debugLevel_str;
+    debugLevel_str << debugLevel;
+    execParams["DEBUG_LEVEL"] = debugLevel_str.str();
+    if (noPersist) {
+        execParams["PERSISTENCE"] = "false";
+    }
+    if (!logfile_uri.empty()) {
+        execParams["LOGGING_CONFIG_URI"] = logfile_uri;
+    }
+    if (!db_uri.empty()) {
+        execParams["DB_URL"] = db_uri;
+    }
+    if (!endPoint.empty()) {
+        execParams["-ORBendPoint"] = endPoint;
+    }
+    if (forceRebind) {
+        execParams["FORCE_REBIND"] = "true";
+    }
+
+    if(execparams.size() > 0) {
+        for(unsigned int index = 0; index < execparams.size(); index++) {
+            string id = execparams[index];
+            if( index + 1 >= execparams.size()) {
+                LOG_WARN(nodebooter, "\nThe property: " << id
+                        << " did not have a value associated with it, ignoring it!!\n");
+                break;
+            }
+            string value = execparams[++index];
+            execParams[id] = value;
+         }
+    }
+
+    try {
+        domPid = launchSPD(spdFile, domRootPath, execParams, systemProps, doFork);
+    } catch (const std::runtime_error& ex) {
+        LOG_ERROR(nodebooter, "Unable to launch DomainManager Softpkg: " << ex.what());
+        exit(EXIT_FAILURE);
+    }
+}
+
+void startDeviceManager(
+    const fs::path&                            devRootPath,
+    const string&                              dcdFile,
+    const string&                              sdrCache,
+    string&                                    domainName,
+    const fs::path&                            sdrRootPath,
+    const int&                                 debugLevel,
+    const string&                              logfile_uri,
+    const string&                              orb_init_ref,
+    const std::vector<string>&                 execparams,
+    const std::vector<const ossie::Property*>& systemProps,
+    const bool&                                doFork)
+{
+
+    if (!fs::is_directory(devRootPath)) {
+        LOG_ERROR(nodebooter, "Invalid Device Manager File System Root " << devRootPath);
+        exit(EXIT_FAILURE);
+    }
+
+    fs::path dcdPath = devRootPath / dcdFile;
+    std::ifstream dcdStream(dcdPath.string().c_str());
+    if (!dcdStream) {
+        LOG_ERROR(nodebooter, "Could not read DCD file " << dcdFile);
+        exit(EXIT_FAILURE);
+    }
+    ossie::DeviceManagerConfiguration dcd;
+    try {
+        dcd.load(dcdStream);
+    } catch (const ossie::parser_error& ex) {
+        LOG_ERROR(nodebooter, "Failed to parse DCD file " << dcdFile);
+        LOG_ERROR(nodebooter, ex.what());
+        exit(EXIT_FAILURE);
+    }
+    dcdStream.close();
+
+    std::string spdFile = dcd.getDeviceManagerSoftPkg();
+
+    LOG_DEBUG(nodebooter, "Loaded DCD file " << dcdFile);
+    LOG_DEBUG(nodebooter, "DCD Name:    " << dcd.getName());
+    LOG_DEBUG(nodebooter, "DCD Id:      " << dcd.getID());
+    LOG_DEBUG(nodebooter, "DCD softpkg: " << spdFile);
+
+    // locate the physical location for the device manager's cache
+    string devMgrCache;
+    if (!sdrCache.empty()) {
+        // get location from command line
+        if (sdrCache[sdrCache.length()-1] == '/') {
+            devMgrCache = sdrCache.substr(0, sdrCache.length() - 1);
+        } else {
+            devMgrCache = sdrCache;
+        }
+    } else if (getenv("SDRCACHE") != NULL) {
+        // get it from the env variable second
+        string sdrCacheEnv = getenv("SDRCACHE");
+
+        if (sdrCacheEnv[sdrCacheEnv.length()-1] == '/') {
+            devMgrCache = sdrCacheEnv.substr(0, sdrCacheEnv.length() - 1);
+        } else {
+            devMgrCache = sdrCacheEnv;
+        }
+    } else {
+        // get relative to fsDevRoot
+        devMgrCache = devRootPath.string();
+    }
+
+    if (domainName.empty()) {
+        std::string domainManagerName = dcd.getDomainManagerName();
+        domainName.insert(0, domainManagerName, 0, domainManagerName.find("/"));
+    } else {
+        LOG_DEBUG(nodebooter, "Overriding domain name from DCD with \"" << domainName << "\"");
+    }
+
+    // Build up the execparams based on the DCD and command line arguments.
+    ExecParams execParams;
+    execParams["DCD_FILE"] = dcdFile;
+    execParams["DOMAIN_NAME"] = domainName;
+    execParams["SDRROOT"] = sdrRootPath.string();
+    execParams["SDRCACHE"] = devMgrCache;
+    std::stringstream debugLevel_str;
+    debugLevel_str << debugLevel;
+    execParams["DEBUG_LEVEL"] = debugLevel_str.str();
+    if (!logfile_uri.empty()) {
+        execParams["LOGGING_CONFIG_URI"] = logfile_uri;
+    }
+    if (!orb_init_ref.empty()) {
+        execParams["-ORBInitRef"] = orb_init_ref;
+    }
+
+    if(execparams.size() > 0) {
+        for(unsigned int index = 0; index < execparams.size(); index++) {
+            string id = execparams[index];
+            if( index + 1 >= execparams.size()) {
+                LOG_WARN(nodebooter, "\nThe property: " << id
+                        << " did not have a value associated with it, ignoring it!!\n");
+                break;
+            }
+            string value = execparams[++index];
+            execParams[id] = value;
+         }
+    }
+
+    try {
+        devPid = launchSPD(spdFile, devRootPath, execParams, systemProps, doFork);
+    } catch (const std::runtime_error& ex) {
+        LOG_ERROR(nodebooter, "Unable to launch DeviceManager Softpkg: " << ex.what());
+        exit(EXIT_FAILURE);
+    }
+}
+
+void logDomainManagerExit(int status)
+{
+    if (WIFEXITED(status)) {
+        status = WEXITSTATUS(status);
+        if (status) {
+            LOG_WARN(nodebooter, "DomainManager exited with status " << status);
+        } else {
+            LOG_INFO(nodebooter, "DomainManager exited");
+        }
+    } else if (WIFSIGNALED(status)) {
+        LOG_WARN(nodebooter, "DomainManager terminated with signal " << WTERMSIG(status));
+    }
+}
+
+void logDeviceManagerExit(int status)
+{
+    if (WIFEXITED(status)) {
+        status = WEXITSTATUS(status);
+        if (status) {
+            LOG_WARN(nodebooter, "DeviceManager exited with status " << status);
+        } else {
+            LOG_INFO(nodebooter, "DeviceManager exited");
+        }
+    } else if (WIFSIGNALED(status)) {
+        LOG_WARN(nodebooter, "DeviceManager terminated with signal " << WTERMSIG(status));
     }
 }
 
@@ -462,8 +716,8 @@ int main(int argc, char* argv[])
     string endPoint;
     int debugLevel = 3;
 
-    bool startDeviceManager = false;
-    bool startDomainManager = false;
+    bool startDeviceManagerRequested = false;
+    bool startDomainManagerRequested = false;
 
     bool daemonize = false;
     std::string pidfile;
@@ -473,11 +727,13 @@ int main(int argc, char* argv[])
     // If "--nopersist" is asserted, turn off persistent IORs.
     bool noPersist = false;
 
-    // If "--force-rebind" is asserted, the DomainManager will replace any existing name binding.
+    // If "--force-rebind" is asserted, the DomainManager will replace any
+    // existing name binding.
     bool forceRebind = false;
     std::vector<string> execparams;
     bool parsingExecParams = false;
 
+    // iterate through all of the execparams and parse arguments
     for( int i = 1; i < argc; i++ ) {
         // using '--' as a way to determine when the execparams start.  This is
         //            needed in case one of the execparam matches an argument
@@ -501,7 +757,7 @@ int main(int argc, char* argv[])
                 }
               }
 
-            startDomainManager = true;
+            startDomainManagerRequested = true;
         }
 
         if( strcmp( argv[i], "-d" ) == 0 ) {
@@ -512,7 +768,7 @@ int main(int argc, char* argv[])
                     usage();
                     exit(EXIT_FAILURE);
                     }
-                    startDeviceManager = true;
+                    startDeviceManagerRequested = true;
             } else {
                 std::cerr << "[nodeBooter] ERROR: No DCD profile given\n";
                 usage();
@@ -666,18 +922,18 @@ int main(int argc, char* argv[])
             }
             group = argv[i];
         }
-    }
+    }  // end argument parsing
 
 
     // Check that there is work to do
-    if (!(startDeviceManager || startDomainManager)) {
+    if (!(startDeviceManagerRequested || startDomainManagerRequested)) {
         usage();
         exit (0);
     }
 
     // If we are launching both a DomainManager and DeviceManager, then we must
     // fork to spawn each one.
-    bool doFork = (startDomainManager && startDeviceManager);
+    bool doFork = (startDomainManagerRequested && startDeviceManagerRequested);
 
     // We have to have a real SDRROOT
     fs::path sdrRootPath;
@@ -703,7 +959,7 @@ int main(int argc, char* argv[])
 
     // Checks if dom path is available in SDRROOT
     // If not tries to use as a relative path
-    if (startDomainManager && !fs::exists(defaultPathDom)){
+    if (startDomainManagerRequested && !fs::exists(defaultPathDom)){
         string dmdPath;
         string temp = "";
 
@@ -735,7 +991,7 @@ int main(int argc, char* argv[])
 
     // Checks if dev path is available in SDRROOT
     // If not tries to use as a relative path
-    if (startDeviceManager && !fs::exists(defaultPathDev)){
+    if (startDeviceManagerRequested && !fs::exists(defaultPathDev)){
         string dcdPath;
         string temp = "";
 
@@ -810,7 +1066,7 @@ int main(int argc, char* argv[])
     ///////////////////////////////////////////////////////////////////////////
 
     if (daemonize) {
-        if (startDomainManager && startDeviceManager) {
+        if (startDomainManagerRequested && startDeviceManagerRequested) {
             LOG_FATAL(nodebooter, "Can not start both DomainManager and DeviceManager at same time in daemon mode");
             exit(EXIT_FAILURE);
         }
@@ -835,243 +1091,80 @@ int main(int argc, char* argv[])
     // Build a list of properties for this system based on the information from uname.
     std::vector<std::string> kinds;
     kinds.push_back("allocation");
-    ossie::SimpleProperty osProp("DCE:4a23ad60-0b25-4121-a630-68803a498f75", 
-                                 "os_name", 
+    ossie::SimpleProperty osProp("DCE:4a23ad60-0b25-4121-a630-68803a498f75",
+                                 "os_name",
                                  "string",
-                                 "readonly", 
-                                 "eq", 
-                                 kinds, 
+                                 "readonly",
+                                 "eq",
+                                 kinds,
                                  std::string(un.sysname),
                                  "false");
-    ossie::SimpleProperty procProp("DCE:fefb9c66-d14a-438d-ad59-2cfd1adb272b", 
-                                   "processor_name", 
+    ossie::SimpleProperty procProp("DCE:fefb9c66-d14a-438d-ad59-2cfd1adb272b",
+                                   "processor_name",
                                    "string",
-                                   "readonly", 
-                                   "eq", 
-                                   kinds, 
+                                   "readonly",
+                                   "eq",
+                                   kinds,
                                    std::string(un.machine),
                                    "false");
     std::vector<const ossie::Property*> systemProps;
     systemProps.push_back(&osProp);
     systemProps.push_back(&procProp);
 
-    // Start Domain Manager if requested
     try {
-        if (startDomainManager) {
-            if (!fs::is_directory(domRootPath)) {
-                LOG_ERROR(nodebooter, "Invalid Domain Manager File System Root " << domRootPath);
-                exit(EXIT_FAILURE);
-            }
-
-            fs::path dmdPath = domRootPath / dmdFile;
-            std::ifstream dmdStream(dmdPath.string().c_str());
-            if (!dmdStream) {
-                LOG_ERROR(nodebooter, "Could not read DMD file " << dmdFile);
-                exit(EXIT_FAILURE);
-            }
-
-            ossie::DomainManagerConfiguration dmd;
-            try {
-                dmd.load(dmdStream);
-            } catch (const ossie::parser_error& ex) {
-                LOG_ERROR(nodebooter, "Failed to parse DMD file " << dcdFile);
-                LOG_ERROR(nodebooter, ex.what());
-                exit(EXIT_FAILURE);
-            }
-            dmdStream.close();
-
-            std::string spdFile = dmd.getDomainManagerSoftPkg();
-
-            LOG_DEBUG(nodebooter, "Loaded DMD file " << dmdFile);
-            LOG_DEBUG(nodebooter, "DMD Name:    " << dmd.getName());
-            LOG_DEBUG(nodebooter, "DMD Id:      " << dmd.getID());
-            LOG_DEBUG(nodebooter, "DMD softpkg: " << spdFile);
-
-            if (domainName.empty()) {
-                domainName = dmd.getName();
-            } else {
-                LOG_DEBUG(nodebooter, "Overriding domain name from DMD with \"" << domainName << "\"");
-            }
-
-            ExecParams execParams;
-            execParams["DMD_FILE"] = dmdFile;
-            execParams["DOMAIN_NAME"] = domainName;
-            execParams["SDRROOT"] = sdrRootPath.string();
-            std::stringstream debugLevel_str;
-            debugLevel_str << debugLevel;
-            execParams["DEBUG_LEVEL"] = debugLevel_str.str();
-            if (noPersist) {
-                execParams["PERSISTENCE"] = "false";
-            }
-            if (!logfile_uri.empty()) {
-                execParams["LOGGING_CONFIG_URI"] = logfile_uri;
-            }
-            if (!db_uri.empty()) {
-                execParams["DB_URL"] = db_uri;
-            }
-            if (!endPoint.empty()) {
-                execParams["-ORBendPoint"] = endPoint;
-            }
-            if (forceRebind) {
-                execParams["FORCE_REBIND"] = "true";
-            }
-
-            if(execparams.size() > 0) {
-                for(unsigned int index = 0; index < execparams.size(); index++) {
-                    string id = execparams[index];
-                    if( index + 1 >= execparams.size()) {
-                        LOG_WARN(nodebooter, "\nThe property: " << id
-                                << " did not have a value associated with it, ignoring it!!\n");
-                        break;
-                    }
-                    string value = execparams[++index];
-                    execParams[id] = value;
-                 }
-            }
-
-            try {
-                domPid = launchSPD(spdFile, domRootPath, execParams, systemProps, doFork);
-            } catch (const std::runtime_error& ex) {
-                LOG_ERROR(nodebooter, "Unable to launch DomainManager Softpkg: " << ex.what());
-                exit(EXIT_FAILURE);
-            }
+        // Start Domain Manager if requested
+        if (startDomainManagerRequested) {
+            startDomainManager(domRootPath,
+                               dmdFile,
+                               dcdFile,
+                               domainName,
+                               sdrRootPath,
+                               debugLevel,
+                               noPersist,
+                               logfile_uri,
+                               db_uri,
+                               endPoint,
+                               forceRebind,
+                               execparams,
+                               systemProps,
+                               doFork);
         }
 
         // Start Device Manager if requested
-        if (startDeviceManager) {
-            if (!fs::is_directory(devRootPath)) {
-                LOG_ERROR(nodebooter, "Invalid Device Manager File System Root " << domRootPath);
-                exit(EXIT_FAILURE);
-            }
-
-            fs::path dcdPath = devRootPath / dcdFile;
-            std::ifstream dcdStream(dcdPath.string().c_str());
-            if (!dcdStream) {
-                LOG_ERROR(nodebooter, "Could not read DCD file " << dcdFile);
-                exit(EXIT_FAILURE);
-            }
-            ossie::DeviceManagerConfiguration dcd;
-            try {
-                dcd.load(dcdStream);
-            } catch (const ossie::parser_error& ex) {
-                LOG_ERROR(nodebooter, "Failed to parse DCD file " << dcdFile);
-                LOG_ERROR(nodebooter, ex.what());
-                exit(EXIT_FAILURE);
-            }
-            dcdStream.close();
-
-            std::string spdFile = dcd.getDeviceManagerSoftPkg();
-
-            LOG_DEBUG(nodebooter, "Loaded DCD file " << dcdFile);
-            LOG_DEBUG(nodebooter, "DCD Name:    " << dcd.getName());
-            LOG_DEBUG(nodebooter, "DCD Id:      " << dcd.getID());
-            LOG_DEBUG(nodebooter, "DCD softpkg: " << spdFile);
-
-            // locate the physical location for the device manager's cache
-            string devMgrCache;
-            if (!sdrCache.empty()) {
-                // get location from command line
-                if (sdrCache[sdrCache.length()-1] == '/') {
-                    devMgrCache = sdrCache.substr(0, sdrCache.length() - 1);
-                } else {
-                    devMgrCache = sdrCache;
-                }
-            } else if (getenv("SDRCACHE") != NULL) {
-                // get it from the env variable second
-                string sdrCacheEnv = getenv("SDRCACHE");
-
-                if (sdrCacheEnv[sdrCacheEnv.length()-1] == '/') {
-                    devMgrCache = sdrCacheEnv.substr(0, sdrCacheEnv.length() - 1);
-                } else {
-                    devMgrCache = sdrCacheEnv;
-                }
-            } else {
-                // get relative to fsDevRoot
-                devMgrCache = devRootPath.string();
-            }
-
-            if (domainName.empty()) {
-                std::string domainManagerName = dcd.getDomainManagerName();
-                domainName.insert(0, domainManagerName, 0, domainManagerName.find("/"));
-            } else {
-                LOG_DEBUG(nodebooter, "Overriding domain name from DCD with \"" << domainName << "\"");
-            }
-
-            // Build up the execparams based on the DCD and command line arguments.
-            ExecParams execParams;
-            execParams["DCD_FILE"] = dcdFile;
-            execParams["DOMAIN_NAME"] = domainName;
-            execParams["SDRROOT"] = sdrRootPath.string();
-            execParams["SDRCACHE"] = devMgrCache;
-            std::stringstream debugLevel_str;
-            debugLevel_str << debugLevel;
-            execParams["DEBUG_LEVEL"] = debugLevel_str.str();
-            if (!logfile_uri.empty()) {
-                execParams["LOGGING_CONFIG_URI"] = logfile_uri;
-            }
-            if (!orb_init_ref.empty()) {
-                execParams["-ORBInitRef"] = orb_init_ref;
-            }
-            
-            if(execparams.size() > 0) {
-                for(unsigned int index = 0; index < execparams.size(); index++) {
-                    string id = execparams[index];
-                    if( index + 1 >= execparams.size()) {
-                        LOG_WARN(nodebooter, "\nThe property: " << id
-                                << " did not have a value associated with it, ignoring it!!\n");
-                        break;
-                    }
-                    string value = execparams[++index];
-                    execParams[id] = value;
-                 }
-            }
-
-            try {
-                devPid = launchSPD(spdFile, devRootPath, execParams, systemProps, doFork);
-            } catch (const std::runtime_error& ex) {
-                LOG_ERROR(nodebooter, "Unable to launch DeviceManager Softpkg: " << ex.what());
-                exit(EXIT_FAILURE);
-            }
+        if (startDeviceManagerRequested) {
+            startDeviceManager(devRootPath,
+                               dcdFile,
+                               sdrCache,
+                               domainName,
+                               sdrRootPath,
+                               debugLevel,
+                               logfile_uri,
+                               orb_init_ref,
+                               execparams,
+                               systemProps,
+                               doFork);
         }
 
-        // If we reach this point, the DomainManager and/or DeviceManager had to have been
+        // If we reach this point, the DomainManager and DeviceManager were
         // spawned in child processes via fork(). Wait for the children to exit.
         while (domPid || devPid) {
             int status;
             pid_t pid = waitpid(-1, &status, 0);
             if (pid == domPid) {
                 domPid = 0;
-                if (WIFEXITED(status)) {
-                    status = WEXITSTATUS(status);
-                    if (status) {
-                        LOG_WARN(nodebooter, "DomainManager exited with status " << status);
-                    } else {
-                        LOG_INFO(nodebooter, "DomainManager exited");
-                    }
-                } else if (WIFSIGNALED(status)) {
-                    LOG_WARN(nodebooter, "DomainManager terminated with signal " << WTERMSIG(status));
-                }
+                logDomainManagerExit(status);
             } else if (pid == devPid) {
                 devPid = 0;
-                if (WIFEXITED(status)) {
-                    status = WEXITSTATUS(status);
-                    if (status) {
-                        LOG_WARN(nodebooter, "DeviceManager exited with status " << status);
-                    } else {
-                        LOG_INFO(nodebooter, "DeviceManager exited");
-                    }
-                } else if (WIFSIGNALED(status)) {
-                    LOG_WARN(nodebooter, "DeviceManager terminated with signal " << WTERMSIG(status));
-                }
+                logDeviceManagerExit(status);
             }
         }
 
-        LOG_INFO(nodebooter, "Goodbye!");
+        LOG_INFO(nodebooter, "Domain/Device Manager processes have exited");
     } catch (const std::exception& ex) {
         LOG_ERROR(nodebooter, "Terminated with unexpected exception: " << ex.what());
         exit(EXIT_FAILURE);
     }
 
-    LOG_DEBUG(nodebooter, "Farewell!");
+    LOG_DEBUG(nodebooter, "Nodebooter has ended gracefully.");
     return 0;
 }

@@ -189,6 +189,7 @@ protected:
     ossie::DeviceList::iterator _local_unregisterDevice (ossie::DeviceList::iterator device);
     ossie::ServiceList::iterator _local_unregisterService (ossie::ServiceList::iterator service);
 
+    void parseDMDProfile();
     void validate (const char* _profile);
     void validateSPD (const char* _spdProfile, int _cnt = 0) throw (CF::DomainManager::ApplicationInstallationError);
     void removeSPD (const char* _spdProfile, int _cnt = 0);

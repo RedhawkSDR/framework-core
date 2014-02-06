@@ -1,20 +1,20 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -162,7 +162,7 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertNotEqual(basicDevNode2, None)
 
         # Ensure the expected devices are available
-        self.assertEqual(len(basicDevNode1._get_registeredDevices()), 1) 
+        self.assertEqual(len(basicDevNode1._get_registeredDevices()), 1)
         for device in basicDevNode1._get_registeredDevices():
             # Query the known allocation properties
             memCapacity = device.query([CF.DataType(id="DCE:8dcef419-b440-4bcf-b893-cab79b6024fb", value=any.to_any(None))])[0]
@@ -170,7 +170,7 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
             self.assertEqual(memCapacity.value._v, 100000000)
             self.assertEqual(bogoMips.value._v, 100000000)
 
-        self.assertEqual(len(basicDevNode2._get_registeredDevices()), 1) 
+        self.assertEqual(len(basicDevNode2._get_registeredDevices()), 1)
         for device in basicDevNode2._get_registeredDevices():
             # Query the known allocation properties
             memCapacity = device.query([CF.DataType(id="DCE:8dcef419-b440-4bcf-b893-cab79b6024fb", value=any.to_any(None))])[0]
@@ -178,7 +178,7 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
             self.assertEqual(memCapacity.value._v, 100000000)
             self.assertEqual(bogoMips.value._v, 100000000)
 
-        self.assertEqual(len(execDevNode1._get_registeredDevices()), 4) 
+        self.assertEqual(len(execDevNode1._get_registeredDevices()), 4)
 
         appFact = self._domMgr._get_applicationFactories()[0]
         app = appFact.create(appFact._get_name(), [], []) # LOOK MA, NO DAS!
@@ -227,7 +227,7 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
     def _getBogoMips(self, device):
         return device.query([CF.DataType(id="DCE:5636c210-0346-4df7-a5a3-8fd34c5540a8", value=any.to_any(None))])[0].value._v
 
-    
+
     def test_MultipleAllocations(self):
         self._domMgr.installApplication("/waveforms/CapacityUsage/CapacityUsage.sad.xml")
 
@@ -236,7 +236,7 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
 
         # Ensure the expected device is available
         self.assertNotEqual(node1, None)
-        self.assertEqual(len(node1._get_registeredDevices()), 1) 
+        self.assertEqual(len(node1._get_registeredDevices()), 1)
         device1 = node1._get_registeredDevices()[0]
         self.assertEqual(self._getBogoMips(device1), 100000000)
 
@@ -264,7 +264,7 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
 
         # Ensure the expected device is available
         self.assertNotEqual(node2, None)
-        self.assertEqual(len(node2._get_registeredDevices()), 1) 
+        self.assertEqual(len(node2._get_registeredDevices()), 1)
         device2 = node2._get_registeredDevices()[0]
         self.assertEqual(self._getBogoMips(device2), 100000000)
 
@@ -318,7 +318,7 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
 
         # Ensure the expected device is available
         self.assertNotEqual(node1, None)
-        self.assertEqual(len(node1._get_registeredDevices()), 1) 
+        self.assertEqual(len(node1._get_registeredDevices()), 1)
         device1 = node1._get_registeredDevices()[0]
         self.assertEqual(self._getBogoMips(device1), 100000000)
 
@@ -358,6 +358,3 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(self._getBogoMips(device1), 100000000)
 
         self._domMgr.uninstallApplication(appFact._get_identifier())
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

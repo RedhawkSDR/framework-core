@@ -1,20 +1,20 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -27,6 +27,27 @@ from ossie.utils import sb
 from ossie.utils import type_helpers
 globalsdrRoot = os.environ['SDRROOT']
 import sys
+import time
+import copy
+import ossie.utils.bulkio.bulkio_helpers as _bulkio_helpers
+
+def _initSourceAndSink(dataFormat):
+
+    source = sb.DataSource(dataFormat = dataFormat)
+    sink   = sb.DataSink()
+
+    usesPortName = source.supportedPorts[dataFormat]["portDict"]["Port Name"]
+    providesPortName = sink.supportedPorts[dataFormat]["portDict"]["Port Name"]
+
+    source.connect(
+        sink,
+        usesPortName     = usesPortName,
+        providesPortName = providesPortName)
+
+    source.start()
+    sink.start()
+
+    return source, sink
 
 class SBTestTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -49,62 +70,73 @@ class SBTestTest(scatest.CorbaTestCase):
     def test_catalog(self):
         # Store orig sdrroot
         sdrRoot = os.environ.pop('SDRROOT')
-        
+
         # No SDRROOT env (should default to current directory).
         self.assertEquals(sb.catalog(), [])
-        
+
         # Bad Sdr root env; dispose of existing sandbox instance to test.
         sb.domainless._sandbox = None
         os.environ["SDRROOT"] = ""
         self.assertEquals(sb.catalog(), [])
-                
+
         # Good SDRROOT
         sb.setSDRROOT(sdrRoot)
         self.assertNotEquals(len(sb.catalog()), 0)
-        
+
         # Bad search path
         self.assertEquals(len(sb.catalog("my_path")), 0)
-        
+
         # Search path with no usable files
         self.assertEquals(len(sb.catalog("jackhammer")), 0)
-        
+
         # Restore sdrroot
         os.environ['SDRROOT'] = sdrRoot
-        
-    
-    def test_setSDRROOT(self):        
+
+    def test_softpkgDepSingle(self):
+        c = sb.launch('ticket_490_single')
+        self.assertNotEquals(c, None)
+
+    def test_softpkgDepNone(self):
+        c = sb.launch('ticket_490_none')
+        self.assertNotEquals(c, None)
+
+    def test_softpkgDepDouble(self):
+        c = sb.launch('ticket_490_double')
+        self.assertNotEquals(c, None)
+
+    def test_setSDRROOT(self):
         # None type
         self.assertRaises(TypeError, sb.setSDRROOT, None)
-        
+
         # Bad dir should not change root
         sdrroot = sb.getSDRROOT()
         self.assertRaises(AssertionError, sb.setSDRROOT, 'TEMP_PATH')
         self.assertEquals(sdrroot, sb.getSDRROOT())
-        
+
         # Good dir with no dev/dom should not change root
         self.assertRaises(AssertionError, sb.setSDRROOT, 'jackhammer')
         self.assertEquals(sdrroot, sb.getSDRROOT())
-        
+
         # New root
         sb.setSDRROOT('sdr')
         self.assertEquals(sb.getSDRROOT(), 'sdr')
-        
+
         # Restore sdrroot
         sb.setSDRROOT(os.environ['SDRROOT'])
 
-    
-    def test_componentInit(self):        
+
+    def test_componentInit(self):
         # Bad descriptors
         self.assertRaises(TypeError, sb.launch)
         self.assertRaises(ValueError, sb.launch, "test_name")
-                
+
         # Make sure only one instance name and refid can be used
         comp = sb.launch(self.test_comp, "comp")
         comp.api()
         refid = comp._refid
         self.assertRaises(ValueError, sb.launch, self.test_comp, "comp")
         self.assertRaises(ValueError, sb.launch, self.test_comp, "new_comp", refid)
-        
+
         # Only 1 component should be running
         self.assertComponentCount(1)
 
@@ -124,9 +156,9 @@ class SBTestTest(scatest.CorbaTestCase):
 
         comp= sb.launch('sdr/dom/components/CommandWrapperNestedSPDDep/CommandWrapperNestedSPDDep.spd.xml')
         self.assertComponentCount(1)
-    
+
     def initValues(self, comp):
-        # Init values 
+        # Init values
         self.assertEquals(comp.my_bool_true, True)
         self.assertEquals(comp.my_bool_false, False)
         self.assertEquals(comp.my_bool_empty, None)
@@ -136,7 +168,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_str_empty, None)
         self.assertEquals(comp.my_struct.bool_true, True)
         self.assertEquals(comp.my_struct.bool_false, False)
-                
+
         self.assertEquals(comp.my_struct.bool_empty, None)
         self.assertEquals(comp.my_struct.long_s, None)
         self.assertEquals(comp.my_struct.str_s, None)
@@ -151,12 +183,12 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_struct.enum_long, None)
         self.assertEquals(comp.my_struct.enum_bool, None)
         self.assertEquals(comp.my_struct.enum_str, None)
-    
-    
-    def test_simpleComp(self):       
+
+
+    def test_simpleComp(self):
         comp = sb.launch(self.test_comp)
         comp.api()
-        
+
         # Check the init values
         self.initValues(comp)
         
@@ -203,7 +235,7 @@ class SBTestTest(scatest.CorbaTestCase):
         comp.my_bool_enum = 11.1
         comp.my_bool_enum = "invalid"
         self.assertEquals(comp.my_bool_enum, None)
-        
+
         # Checks invalid struct enumeration changes
         comp.my_struct.enum_long = 10
         comp.my_struct.enum_long = "one"
@@ -221,7 +253,7 @@ class SBTestTest(scatest.CorbaTestCase):
         comp.my_struct.enum_bool = 11.1
         comp.my_struct.enum_bool = "valid"
         self.assertEquals(comp.my_struct.enum_bool, None)
-        
+
         # Checks changes to simple enumerations
         comp.my_long_enum = "ONE"
         self.assertEquals(comp.my_long_enum, 11)
@@ -231,7 +263,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_long_enum, 33)
         comp.my_long_enum = 34
         self.assertEquals(comp.my_long_enum, 33)
-     
+
         comp.my_str_enum = "ONE"
         self.assertEquals(comp.my_str_enum, "FIRST")
         comp.my_str_enum = "two"
@@ -240,7 +272,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_str_enum, "SECOND")
         comp.my_str_enum = "third"
         self.assertEquals(comp.my_str_enum, "SECOND")
-        
+
         comp.my_bool_enum = "VALID"
         self.assertEquals(comp.my_bool_enum, True)
         comp.my_bool_enum = "false"
@@ -251,7 +283,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_bool_enum, True)
         comp.my_bool_enum = "INVALID"
         self.assertEquals(comp.my_bool_enum, False)
-        
+
         # Checks changes to struct enumerations
         comp.my_struct.enum_long = "ONE"
         self.assertEquals(comp.my_struct.enum_long, 1)
@@ -261,7 +293,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_struct.enum_long, 3)
         comp.my_struct.enum_long = 4
         self.assertEquals(comp.my_struct.enum_long, 3)
-        
+
         comp.my_struct.enum_str = "ONE"
         self.assertEquals(comp.my_struct.enum_str, "first")
         comp.my_struct.enum_str = "two"
@@ -270,7 +302,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_struct.enum_str, "second")
         comp.my_struct.enum_str = "THIRD"
         self.assertEquals(comp.my_struct.enum_str, "second")
-        
+
         comp.my_struct.enum_bool = "VALID"
         self.assertEquals(comp.my_struct.enum_bool, True)
         comp.my_struct.enum_bool = "false"
@@ -282,18 +314,31 @@ class SBTestTest(scatest.CorbaTestCase):
         comp.my_struct.enum_bool = "INVALID"
         self.assertEquals(comp.my_struct.enum_bool, False)
         
-        
+        #Components which have properties with the same id where one is
+        #enumerated and one is not. checks the id's can not be confused and enum 
+        #values can not given to the non enumerated property
+        sandbox = sb.launch("Sandbox")
+        testProp = sb.launch("TestComponentProperty")
+        self.assertRaises(TypeError, testProp.my_long_enum.configureValue, "TWO")
+        self.assertEquals(testProp.my_long_enum, 11)
+        testProp.my_struct.long_s = 1
+        self.assertRaises(TypeError, testProp.my_struct.enum_long.configureValue, "THREE")
+        self.assertEquals(testProp.my_struct.long_s,1)
+        sandbox.my_struct.enum_str = "TWO"
+        self.assertEquals(sandbox.my_struct.enum_str,"second")
+        sandbox.my_struct.enum_str = "fourth"
+        self.assertEquals(sandbox.my_struct.enum_str,"second")
+
         # Make sure reset works properly
         sb.reset()
         self.initValues(comp)
 
-
     def test_illegalPropertyNames(self):
         comp = sb.launch(self.test_comp)
         comp.api()
-            
+
         self.initValues(comp)
-        
+
         # Makes sure that no getters cause exceptions
         comp.escape__simple
         comp.escape__struct.es__1
@@ -306,7 +351,7 @@ class SBTestTest(scatest.CorbaTestCase):
         comp.my_struct_seq[1].simp_bool
         comp.escape__structseq[0].val__1
         comp.escape__structseq[1].val_2
-        
+
         # Makes sure that no setters cause exceptions
         comp.escape__simple = 1234
         comp.escape__struct.es__1 = 5678
@@ -315,9 +360,9 @@ class SBTestTest(scatest.CorbaTestCase):
         comp.my_struct.es__3 = 333
         comp.my_struct_seq[0].simp_bool = True
         comp.my_struct_seq[1].simp__bad = 11
-        comp.escape__structseq[0].val_2 = "test" 
-        comp.escape__structseq[1].val__1 = 22        
-        
+        comp.escape__structseq[0].val_2 = "test"
+        comp.escape__structseq[1].val__1 = 22
+
         # Makes sure that values got set properly
         self.assertEquals(comp.escape__simple, 1234)
         self.assertEquals(comp.escape__struct.es__1, 5678)
@@ -362,11 +407,11 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp_ac.basic_struct.some_simple, '4')
         self.assertEquals(comp.over_simple, "override")
         self.assertEquals(comp.over_struct_seq, [{'a_word': 'something', 'a_number': 1}])
-    
+
     def test_simplePropertyRange(self):
         comp = sb.launch('TestPythonPropsRange')
         comp.api()
-        
+
         # Test upper range
         comp.my_octet_name = 255
         comp.my_short_name = 32767
@@ -382,7 +427,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_ulong_name, 4294967295)
         self.assertEquals(comp.my_longlong_name, 9223372036854775807)
         self.assertEquals(comp.my_ulonglong_name, 18446744073709551615)
-        
+
         # Test lower range
         comp.my_octet_name = 0
         comp.my_short_name = -32768
@@ -398,7 +443,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_ulong_name, 0)
         self.assertEquals(comp.my_longlong_name, -9223372036854775808)
         self.assertEquals(comp.my_ulonglong_name, 0)
-        
+
         # Test one beyond upper bound
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_octet_name.configureValue, 256)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_short_name.configureValue, 32768)
@@ -407,7 +452,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_ulong_name.configureValue, 4294967296)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_longlong_name.configureValue, 9223372036854775808)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_ulonglong_name.configureValue, 18446744073709551616)
-        
+
         # Test one beyond lower bound
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_octet_name.configureValue, -1)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_short_name.configureValue, -32769)
@@ -415,13 +460,13 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_long_name.configureValue, -2147483649)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_ulong_name.configureValue, -1)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_longlong_name.configureValue, -9223372036854775809)
-        self.assertRaises(type_helpers.OutOfRangeException, comp.my_ulonglong_name.configureValue, -1)                
-        
-        
+        self.assertRaises(type_helpers.OutOfRangeException, comp.my_ulonglong_name.configureValue, -1)
+
+
     def test_structPropertyRange(self):
         comp = sb.launch('TestPythonPropsRange')
         comp.api()
-        
+
         # Test upper range
         comp.my_struct_name.struct_octet_name = 255
         comp.my_struct_name.struct_short_name = 32767
@@ -437,7 +482,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_struct_name.struct_ulong_name, 4294967295)
         self.assertEquals(comp.my_struct_name.struct_longlong_name, 9223372036854775807)
         self.assertEquals(comp.my_struct_name.struct_ulonglong_name, 18446744073709551615)
-        
+
         # Test lower range
         comp.my_struct_name.struct_octet_name = 0
         comp.my_struct_name.struct_short_name = -32768
@@ -453,7 +498,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_struct_name.struct_ulong_name, 0)
         self.assertEquals(comp.my_struct_name.struct_longlong_name, -9223372036854775808)
         self.assertEquals(comp.my_struct_name.struct_ulonglong_name, 0)
-        
+
         # Test one beyond upper bound
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_struct_name.struct_octet_name.configureValue, 256)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_struct_name.struct_short_name.configureValue, 32768)
@@ -462,7 +507,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_struct_name.struct_ulong_name.configureValue, 4294967296)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_struct_name.struct_longlong_name.configureValue, 9223372036854775808)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_struct_name.struct_ulonglong_name.configureValue, 18446744073709551616)
-        
+
         # Test one beyond lower bound
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_struct_name.struct_octet_name.configureValue, -1)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_struct_name.struct_short_name.configureValue, -32769)
@@ -470,19 +515,19 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_struct_name.struct_long_name.configureValue, -2147483649)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_struct_name.struct_ulong_name.configureValue, -1)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_struct_name.struct_longlong_name.configureValue, -9223372036854775809)
-        self.assertRaises(type_helpers.OutOfRangeException, comp.my_struct_name.struct_ulonglong_name.configureValue, -1)       
-        
+        self.assertRaises(type_helpers.OutOfRangeException, comp.my_struct_name.struct_ulonglong_name.configureValue, -1)
+
         # Makes sure the struct can be set without error
         # NB: This test used to use names instead of ids, which silently failed in 1.8.
         new_value = {'struct_octet': 100, 'struct_short': 101, 'struct_ushort': 102, 'struct_long': 103,
                      'struct_ulong': 104, 'struct_longlong': 105, 'struct_ulonglong': 106}
         comp.my_struct_name = new_value
         self.assertEquals(comp.my_struct_name, new_value)
-        
+
     def test_seqPropertyRange(self):
         comp = sb.launch('TestPythonPropsRange')
         comp.api()
-        
+
         # Test upper and lower bounds
         comp.seq_octet_name[0] = 0
         comp.seq_octet_name[1] = 255
@@ -498,7 +543,7 @@ class SBTestTest(scatest.CorbaTestCase):
         comp.seq_longlong_name[1] = 9223372036854775807
         comp.seq_ulonglong_name[0] = 0
         #comp.seq_ulonglong_name[1] = 18446744073709551615
-        self.assertEquals(comp.seq_octet_name[0], 0) 
+        self.assertEquals(comp.seq_octet_name[0], 0)
         self.assertEquals(comp.seq_octet_name[1], 255)
         self.assertEquals(comp.seq_short_name[0], -32768)
         self.assertEquals(comp.seq_short_name[1], 32767)
@@ -513,7 +558,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.seq_ulonglong_name[0], 0)
         #self.assertEauals(comp.seq_ulonglong_name[1], 18446744073709551615)
 
-        # Test one beyond upper bound    
+        # Test one beyond upper bound
         self.assertRaises(type_helpers.OutOfRangeException, comp.seq_octet.configureValue, [0, 256])
         self.assertRaises(type_helpers.OutOfRangeException, comp.seq_short.configureValue, [0, 32768])
         self.assertRaises(type_helpers.OutOfRangeException, comp.seq_ushort.configureValue, [0, 65536])
@@ -521,7 +566,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, comp.seq_ulong.configureValue, [0, 4294967296])
         self.assertRaises(type_helpers.OutOfRangeException, comp.seq_longlong.configureValue, [0, 9223372036854775808])
         self.assertRaises(type_helpers.OutOfRangeException, comp.seq_ulonglong.configureValue, [0, 18446744073709551616])
-        
+
         # Test one beyond lower bound
         self.assertRaises(type_helpers.OutOfRangeException, comp.seq_octet.configureValue, [-1, 0])
         self.assertRaises(type_helpers.OutOfRangeException, comp.seq_short.configureValue, [-32769, 0])
@@ -530,22 +575,22 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, comp.seq_ulong.configureValue, [-1, 0])
         self.assertRaises(type_helpers.OutOfRangeException, comp.seq_longlong.configureValue, [-9223372036854775809, 0])
         self.assertRaises(type_helpers.OutOfRangeException, comp.seq_ulonglong.configureValue, [-1, 0])
-        
+
         # Tests char and octet sequences
         self.assertRaises(TypeError, comp.seq_char_name.configureValue, ['A','BB'])
         self.assertRaises(TypeError, comp.seq_char_name.configureValue, ['a', 1])
         self.assertRaises(TypeError, comp.seq_octet_name.configureValue, [1, 'a'])
-        
+
         comp.seq_char_name[0] = 'X'
         comp.seq_char_name[1] = 'Y'
         self.assertEquals(comp.seq_char_name[0], 'X')
         self.assertEquals(comp.seq_char_name[1], 'Y')
 
-        
+
     def test_structSeqPropertyRange(self):
         comp = sb.launch('TestPythonPropsRange')
         comp.api()
-        
+
         # Test upper and lower bounds
         comp.my_structseq_name[0].ss_octet_name = 255
         comp.my_structseq_name[1].ss_octet_name = 0
@@ -575,7 +620,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.my_structseq_name[1].ss_longlong_name, -9223372036854775808)
         self.assertEquals(comp.my_structseq_name[0].ss_ulonglong_name, 18446744073709551615)
         self.assertEquals(comp.my_structseq_name[1].ss_ulonglong_name, 0)
-        
+
         # Test one beyond upper bound
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_structseq_name[0].ss_octet_name.configureValue, 256)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_structseq_name[0].ss_short_name.configureValue, 32768)
@@ -584,7 +629,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_structseq_name[0].ss_ulong_name.configureValue, 4294967296)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_structseq_name[0].ss_longlong_name.configureValue, 9223372036854775808)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_structseq_name[0].ss_ulonglong_name.configureValue, 18446744073709551616)
-        
+
         # Test one beyond lower bound
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_structseq_name[1].ss_octet_name.configureValue, -1)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_structseq_name[1].ss_short_name.configureValue, -32769)
@@ -593,15 +638,15 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_structseq_name[1].ss_ulong_name.configureValue, -1)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_structseq_name[1].ss_longlong_name.configureValue, -9223372036854775809)
         self.assertRaises(type_helpers.OutOfRangeException, comp.my_structseq_name[1].ss_ulonglong_name.configureValue, -1)
-        
+
         # Make sure entire struct seq can be set without error
-        new_value = [{'ss_octet': 100, 'ss_short': 101, 'ss_ushort': 102, 'ss_long': 103, 
+        new_value = [{'ss_octet': 100, 'ss_short': 101, 'ss_ushort': 102, 'ss_long': 103,
                       'ss_ulong': 104, 'ss_longlong': 105, 'ss_ulonglong': 106},
-                     {'ss_octet': 107, 'ss_short': 108, 'ss_ushort': 109, 'ss_long': 110, 
+                     {'ss_octet': 107, 'ss_short': 108, 'ss_ushort': 109, 'ss_long': 110,
                       'ss_ulong': 111, 'ss_longlong': 112, 'ss_ulonglong': 113}]
         comp.my_structseq_name = new_value
         self.assertEqual(comp.my_structseq_name, new_value)
-        
+
         # Make sure individual structs can be set without error
         # NB: This test used to use names instead of ids, which silently failed in 1.8.
         for item in new_value:
@@ -610,21 +655,21 @@ class SBTestTest(scatest.CorbaTestCase):
         comp.my_structseq_name[0] = new_value[0]
         comp.my_structseq_name[1] = new_value[1]
         self.assertEqual(comp.my_structseq_name, new_value)
-        
+
     def test_readOnlyProps(self):
         comp = sb.launch('Sandbox')
         comp.api()
-        
+
         # Properties should be able to be read, but not set, and all should throw the saem exception
         exception = None
         comp.readonly_simp
         try:
             comp.readonly_simp = 'bad'
         except Exception, e:
-            self.assertEquals(e.__class__, Exception)    
+            self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
-        
+
         # Makes sure both ways to set struct members throws same error
         comp.readonly_struct.readonly_struct_simp
         try:
@@ -639,7 +684,7 @@ class SBTestTest(scatest.CorbaTestCase):
             self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
-            
+
         # Makes sure both ways to set seqs throws same error
         comp.readonly_seq[0]
         comp.readonly_seq[1]
@@ -655,23 +700,23 @@ class SBTestTest(scatest.CorbaTestCase):
             self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
-        
+
         # Make sure all ways to set structseq throws the same error
         comp.readonly_structseq[0].readonly_s
         comp.readonly_structseq[1].readonly_s
-        try: 
+        try:
             comp.readonly_structseq[0].readonly_s = 'bad'
         except Exception, e:
             self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
-        try: 
+        try:
             comp.readonly_structseq[1] = {'readonly_s':'bad'}
         except Exception, e:
             self.assertEquals(e.__class__, Exception)
         else:
             self.fail('Expected exception to be thrown for read only property')
-        try: 
+        try:
             comp.readonly_structseq = [{'readonly_s':'bad1'}, {'readonly_s':'bad2'}]
         except Exception, e:
             self.assertEquals(e.__class__, Exception)
@@ -685,7 +730,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.readonly_seq[1], 'sequence property')
         self.assertEquals(comp.readonly_structseq[0].readonly_s, 'read only')
         self.assertEquals(comp.readonly_structseq[1].readonly_s, 'struct seq property')
-        
+
 
     def test_Services(self):
         service = sb.launch(sb.getSDRROOT() + '/dev/services/BasicService_java/BasicService_java.spd.xml')
@@ -703,6 +748,128 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEqual(d["PARAM4"], False)
         self.assertEqual(d["PARAM5"], "Hello World")
         self.assertEqual(d.has_key("PARAM6"), False)
+
+
+    def test_LaunchTimeout(self):
+        """
+        Test that the launch timeout can be adjusted to accomodate components
+        or devices that take longer than 10 seconds to register with the
+        sandbox.
+        """
+        try:
+            comp = sb.launch('SlowComponent', execparams={'CREATE_DELAY': 15}, timeout=20)
+        except RuntimeError:
+            self.fail('Launch timeout was not honored')
+
+    def _pushSRIThroughSourceAndSink(
+        self,
+        EOS          = True,
+        dataFormat   = "float",
+        streamID     = "testStreamID",
+        sampleRate   = 2.0,
+        delay        = 0.1,
+        SRIKeywords  = []):
+        # Note that the default parameters should be different
+        # than the defaults in the DataSource/Sink to verify
+        # that we are not just getting DataSource/Sink defaults.
+
+        source, sink = _initSourceAndSink(dataFormat)
+
+        data = range(10)
+        source.push(
+            data,
+            EOS         = EOS,
+            streamID    = streamID,
+            sampleRate  = sampleRate,
+            SRIKeywords = SRIKeywords)
+
+        # give the data sink time to buffer the pushed data
+        time.sleep(delay)
+
+        returnedSRI = sink.sri()
+        self.assertEquals(sink.eos(), EOS)
+        self.assertEquals(returnedSRI.streamID, streamID)
+        self.assertEquals(returnedSRI.xdelta, 1./sampleRate)
+        self.assertEquals(returnedSRI.keywords, SRIKeywords)
+
+    def _pushDataThroughSourceAndSink(
+        self,
+        data,
+        dataFormat  = "float",
+        delay       = 0.1,
+        complexData = False):
+        """
+        Push data from DataSource to DataSink and verify that the data out
+        of the DataSink is identical to the data being sent into the
+        DataSource.
+        """
+        source, sink = _initSourceAndSink(dataFormat)
+
+        originalData = copy.deepcopy(data)
+        source.push(
+            data,
+            complexData = complexData)
+
+        # give the data sink time to buffer the pushed data
+        time.sleep(delay)
+        receivedData = sink.getData()
+
+        # Detect if we were passed a data list that had python complex types
+        # in it
+        def isComplex(x) : return type(x) == type(complex())
+        if len(filter(isComplex, originalData)):
+            # in this case, the DataSink will return bulkio complex data
+            # convert the originalData to the bulkio data format.
+            originalData = _bulkio_helpers.pythonComplexListToBulkioComplex(originalData)
+
+            # make sure the mode flag was automatically set
+            self.assertEquals(sink.sri().mode, True)
+
+        self.assertEquals(receivedData, originalData)
+
+
+    def test_DataSourceAndSink(self):
+        dummySource = sb.DataSource()
+        supportedPorts = dummySource.supportedPorts
+
+        self._pushSRIThroughSourceAndSink()
+
+        scalarDataList  = range(8)
+        complexDataList = [0, 1, 2+2j]
+
+        for format in supportedPorts.keys():
+            if format == "file":
+                # TODO: add test for file
+                continue
+            elif format == "xml":
+                # TODO: add test for xml
+                continue
+            elif format == "char":
+                # TODO: add test for char
+                continue
+            elif format == "octet":
+                # TODO: add test for char
+                continue
+            else:
+                # test scalar data
+                dataCopy = copy.deepcopy(scalarDataList)
+                self._pushDataThroughSourceAndSink(
+                    data         = dataCopy,
+                    dataFormat   = format)
+
+                # test complex data (both methods)
+                dataCopy = copy.deepcopy(scalarDataList)
+                self._pushDataThroughSourceAndSink(
+                    data         = dataCopy,
+                    dataFormat   = format,
+                    complexData  = True)
+                dataCopy = copy.deepcopy(complexDataList)
+                self._pushDataThroughSourceAndSink(
+                    data         = dataCopy,
+                    dataFormat   = format)
+
+
+
 
 
         #TODO if BULKIO ever gets folded into core framework these tests can be used
@@ -729,42 +896,42 @@ class SBTestTest(scatest.CorbaTestCase):
 #        self.assertRaises(AssertionError, a.connect, b, "long_in", "")
 #        self.assertRaises(AssertionError, a.connect, b, "", "long_out")
 #        self.assertRaises(AssertionError, a.connect, no_connections)
-#        
+#
 #        # Good connections
 #        self.assertEquals(a.connect(b), True)
 #        self.assertEquals(a.connect(b, "long_in"), True)
 #        self.assertEquals(a.connect(b, None, "long_out"), True)
 #        self.assertEquals(len(sb.domainless._currentState['Component Connections'].keys()), 3)
-#            
+#
 #        # Disconnect
 #        a.disconnect(no_connections)
 #        a.disconnect(None)
 #        self.assertEquals(len(sb.domainless._currentStatep['Component Connections'].keys()), 3)
 #        a.disconnect(b)
 #        self.assertEquals(len(sb.domainless._currentState['Component Connections'].keys()), 0)
-#        
+#
 #        # Makes sure that connection keys are unique
 #        self.assertEquals(a.connect(b, "long_in", "long_out", "my_conn"), True)
 #        self.assertEquals(len(sb.domainless._currentState['Component Connections'].keys()), 1)
 #        self.assertRaises(AssertionError, a.connect, b, "long_in", "long_out", "my_conn")
 #        self.assertEquals(len(sb.domainless._currentState['Component Connections'].keys()), 1)
-#    
+#
 #        a.disconnect(b)
-#        
+#
 #        # Multiple good connections
 #        self.assertRaises(AssertionError, a.connect, multiple_connections)
-#        
+#
 #        #### TEST for a.connectd diff ports BUG
 #        ###TODO this test will fail until Issue #149 is fixed
 #        #self.assertRaises(AssertionError, a.connect, multiple_connections, "long_in", "short_out")
-#    
+#
 #        # Tests getComponents()
 #        self.assertEquals(sb.getComponent(None), None)
 #        self.assertEquals(sb.getComponent(""), None)
 #        for key in sb.domainless._currentState['Components Running'].keys():
 #            temp = sb.getComponent(key)
 #            self.assertNotEquals(temp, None)
-#            self.assertEquals(temp._componentName in names, True)  
-            
-    
+#            self.assertEquals(temp._componentName in names, True)
+
+
 

@@ -21,14 +21,16 @@
 %{!?_ossiehome:  %define _ossiehome  /usr/local/redhawk/core}
 %{!?_sdrroot:    %define _sdrroot    /var/redhawk/sdr}
 %define _prefix %{_ossiehome}
-Prefix:         %{_prefix}
+Prefix:         %{_ossiehome}
+Prefix:         %{_sdrroot}
+Prefix:         %{_sysconfdir}
 
 %define groupname redhawk
 %define username redhawk
 
 Name:           redhawk
-Version:        1.9.0
-Release:        6%{?dist}
+Version:        1.9.1
+Release:        0.1%{?dist}
 Summary:        REDHAWK is a Software Defined Radio framework
 
 Group:          Applications/Engineering

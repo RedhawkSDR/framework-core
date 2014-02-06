@@ -81,11 +81,12 @@ class LocalSdrRoot(SdrRoot):
 
 
 class LocalMixin(object):
-    def __init__(self, execparams, debugger, window):
+    def __init__(self, execparams, debugger, window, timeout):
         self._process = None
         self._execparams = execparams
         self._debugger = debugger
         self._window = window
+        self._timeout = timeout
 
     def _launch(self):
         sdrRoot = self._sandbox.getSdrRoot()
@@ -93,7 +94,7 @@ class LocalMixin(object):
         execparams = dict((str(ep.id), ep.defValue) for ep in self._getPropertySet(kinds=('execparam',), includeNil=False))
         execparams.update(self._execparams)
 
-        proc, ref = launchFactory.execute(self._spd, self._impl, execparams, self._debugger, self._window)
+        proc, ref = launchFactory.execute(self._spd, self._impl, execparams, self._debugger, self._window, self._timeout)
         self._process = proc
         return ref
 
@@ -105,9 +106,10 @@ class LocalMixin(object):
 
 
 class LocalSandboxComponent(SandboxComponent, LocalMixin):
-    def __init__(self, sdrroot, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window):
+    def __init__(self, sdrroot, profile, spd, scd, prf, instanceName, refid, impl,
+                 execparams, debugger, window, timeout):
         SandboxComponent.__init__(self, sdrroot, profile, spd, scd, prf, instanceName, refid, impl)
-        LocalMixin.__init__(self, execparams, debugger, window)
+        LocalMixin.__init__(self, execparams, debugger, window, timeout)
         
         self._kick()
 
@@ -156,10 +158,11 @@ class LocalDevice(LocalSandboxComponent, Device):
 class LocalService(Service, LocalMixin):
     __launcher__ = launcher.ServiceLauncher
     
-    def __init__(self, sdrroot, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window):
+    def __init__(self, sdrroot, profile, spd, scd, prf, instanceName, refid, impl,
+                 execparams, debugger, window, timeout):
         self._sandbox = sdrroot
         Service.__init__(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window)
-        LocalMixin.__init__(self, execparams, debugger, window)
+        LocalMixin.__init__(self, execparams, debugger, window, timeout)
         self.ref = self._launch()
         self.populateMemberFunctions()
         

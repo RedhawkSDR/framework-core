@@ -51,5 +51,10 @@ clean-local:
 ossie/CF:
 	mkdir -p $@
 
+# The COS modules are mapped to the org.omg package.
+COSPKGS = CosEventComm CosNaming CosEventChannelAdmin
+COSPREFIX = org.omg
+IDLJNIFLAGS = $(COSPKGS:%=-Wbpkgprefix=%:$(COSPREFIX))
+
 ossie/CF/jni_%.cpp ossie/CF/jni_%.h : $(OSSIE_IDLDIR)/ossie/CF/%.idl | ossie/CF
-	$(OMNIJNI_IDLJNI) -Wbincprefix=ossie/CF -Wbpkgprefix=CosNaming:COS -Wbpkgprefix=CosEventComm:COS -C ossie/CF $(IDLFLAGS) $<
+	$(OMNIJNI_IDLJNI) -Wbincprefix=ossie/CF $(IDLJNIFLAGS) -C ossie/CF $(IDLFLAGS) $<

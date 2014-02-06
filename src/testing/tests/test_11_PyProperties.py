@@ -1,20 +1,20 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -147,10 +147,10 @@ class PyPropertiesTest(scatest.CorbaTestCase):
         v1 = any.from_any(v1.value)
         self.assertEqual(len(v1), 1)
         self.assertEqual(v1[0], value[1])
-                        
+
     def test_pythonPropsRange(self):
         self._app = self._launchApp('TestPythonPropsRange')
-        
+
         # Test upper bound
         my_octet = CF.DataType(id='my_octet', value=CORBA.Any(CORBA.TC_long, 255))
         my_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_long, 32767))
@@ -202,7 +202,7 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                 self.assertEquals(r.value.value(), -9223372036854775808)
             elif r.id == 'my_ulonglong':
                 self.assertEquals(r.value.value(), 0)
-                         
+
         # Test one beyond upper bound
         my_octet = CF.DataType(id='my_octet', value=CORBA.Any(CORBA.TC_long, 256))
         my_short = CF.DataType(id='my_short', value=CORBA.Any(CORBA.TC_long, 32768))
@@ -210,9 +210,9 @@ class PyPropertiesTest(scatest.CorbaTestCase):
         my_long = CF.DataType(id='my_long', value=CORBA.Any(CORBA.TC_longlong, 2147483648))
         my_ulong = CF.DataType(id='my_ulong', value=CORBA.Any(CORBA.TC_longlong, 4294967296))
         my_longlong = CF.DataType(id='my_longlong', value=CORBA.Any(CORBA.TC_ulonglong, 9223372036854775808L))
-        
+
         # All should fail causing InvalidConfiguration
-        self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, 
+        self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure,
                           [my_octet, my_short, my_ushort, my_long, my_ulong, my_longlong])
 
         # Test one beyond lower bound
@@ -222,11 +222,11 @@ class PyPropertiesTest(scatest.CorbaTestCase):
         my_long = CF.DataType(id='my_long', value=CORBA.Any(CORBA.TC_longlong, -2147483649))
         my_ulong = CF.DataType(id='my_ulong', value=CORBA.Any(CORBA.TC_longlong, -1))
         my_ulonglong = CF.DataType(id='my_ulonglong', value=CORBA.Any(CORBA.TC_longlong, -1))
-        
+
         # All should fail causing InvalidConfiguration
-        self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, 
+        self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure,
                           [my_octet, my_short, my_ushort, my_long, my_ulong, my_ulonglong])
-    
+
         # Make sure Partial Configuration error will occur
         my_octet = CF.DataType(id='my_octet', value=CORBA.Any(CORBA.TC_long, 11))
         my_ushort = CF.DataType(id='my_ushort', value=CORBA.Any(CORBA.TC_long, 22))
@@ -248,7 +248,7 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                 self.assertEquals(r.value.value(), -9223372036854775808)
             elif r.id == 'my_ulonglong':
                 self.assertEquals(r.value.value(), 0)
-        
+
     def test_pythonPropsRangeStruct(self):
         self._app = self._launchApp('TestPythonPropsRange')
         # Test upper bounds
@@ -281,7 +281,7 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                         self.assertEquals(v.value.value(), 9223372036854775807L)
                     elif v.id == 'struct_ulonglong':
                         self.assertEquals(v.value.value(), 18446744073709551615L)
-                        
+
         # Test lower bounds
         my_struct = CF.DataType(id='my_struct', value=any.to_any([
                                 CF.DataType(id='struct_octet', value=CORBA.Any(CORBA.TC_long, 0)),
@@ -312,8 +312,8 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                         self.assertEquals(v.value.value(), -9223372036854775808L)
                     elif v.id == 'struct_ulonglong':
                         self.assertEquals(v.value.value(), 0)
-                                
-                                
+
+
         # Loop through each member of the struct to test one beyond the upper bound
         for r in res:
             if r.id == 'my_struct':
@@ -397,10 +397,10 @@ class PyPropertiesTest(scatest.CorbaTestCase):
 
     def test_pythonPropsRangeSeq(self):
         self._app = self._launchApp('TestPythonPropsRange')
-        
+
         # Test upper and lower bounds
         seq_octet = CF.DataType(id='seq_octet', value=any.to_any([
-                                                            CORBA.Any(CORBA.TC_long, 0), 
+                                                            CORBA.Any(CORBA.TC_long, 0),
                                                             CORBA.Any(CORBA.TC_long, 255)
                                                             ]))
         seq_short = CF.DataType(id='seq_short', value=any.to_any([-32768, 32767]))
@@ -413,7 +413,7 @@ class PyPropertiesTest(scatest.CorbaTestCase):
         #                                                    CORBA.Any(CORBA.TC_ulonglong, 0)
         #                                                    ]))
         self._app.configure([seq_octet, seq_short, seq_ushort, seq_long, seq_ulong, seq_longlong])    #, seq_ulonglong])
-        
+
         res = self._app.query([])
         for r in res:
             if r.id == 'seq_octet':
@@ -429,25 +429,25 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                 self.assertEquals(r.value.value()[1], 65535)
             elif r.id == 'seq_long':
                 self.assertEquals(r.value.value()[0], -2147483648)
-                self.assertEquals(r.value.value()[1], 2147483647)   
+                self.assertEquals(r.value.value()[1], 2147483647)
             elif r.id == 'seq_ulong':
                 self.assertEquals(r.value.value()[0], 0)
                 self.assertEquals(r.value.value()[1], 4294967295)
             elif r.id == 'seq_longlong':
                 self.assertEquals(r.value.value()[0], -9223372036854775808L)
                 self.assertEquals(r.value.value()[1], 9223372036854775807L)
-        
+
         # Test one beyond upper bound
         seq_octet = CF.DataType(id='seq_octet', value=any.to_any([0, 256]))
         seq_short = CF.DataType(id='seq_short', value=any.to_any([0, 32768]))
         seq_ushort = CF.DataType(id='seq_ushort', value=any.to_any([0, 65536]))
         seq_long = CF.DataType(id='seq_long', value=any.to_any([0, 2147483648]))
         seq_ulong = CF.DataType(id='seq_ulong', value=any.to_any([0, 4294967296]))
-        seq_longlong = CF.DataType(id='seq_longlong', value=any.to_any([0, 
+        seq_longlong = CF.DataType(id='seq_longlong', value=any.to_any([0,
                                                             CORBA.Any(CORBA.TC_ulonglong, 9223372036854775808L)]))
         self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure,
                           [seq_octet, seq_short, seq_ushort, seq_long, seq_ulong, seq_longlong])
-        
+
         # Test one beyond lower bound
         seq_octet = CF.DataType(id='seq_octet', value=any.to_any([-1, 0]))
         seq_short = CF.DataType(id='seq_short', value=any.to_any([-32769, 0]))
@@ -457,7 +457,7 @@ class PyPropertiesTest(scatest.CorbaTestCase):
         seq_ulonglong = CF.DataType(id='seq_ulonglong', value=any.to_any([-1, 0]))
         self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure,
                           [seq_octet, seq_short, seq_ushort, seq_long, seq_ulong, seq_ulonglong])
-        
+
     def test_pythonPropsRangeStructSeq(self):
         self._app = self._launchApp('TestPythonPropsRange')
 
@@ -480,12 +480,12 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                             CF.DataType(id='ss_longlong', value=CORBA.Any(CORBA.TC_longlong, -9223372036854775808L)),
                             CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_longlong, 0))])
 
-        my_structseq = CF.DataType(id='my_structseq', 
-                value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"), 
+        my_structseq = CF.DataType(id='my_structseq',
+                value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"),
                         [ upper , lower ]
-                        ))  
+                        ))
         self._app.configure([my_structseq])
-        
+
         # Make sure values all got set
         res = self._app.query([])
         for r in res:
@@ -560,12 +560,12 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                             CF.DataType(id='ss_ulong', value=CORBA.Any(CORBA.TC_longlong, ulong_val)),
                             CF.DataType(id='ss_longlong', value=CORBA.Any(CORBA.TC_ulonglong, longlong_val)),
                             CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, ulonglong_val))])
-                    my_structseq = CF.DataType(id='my_structseq', 
-                                               value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"), 
+                    my_structseq = CF.DataType(id='my_structseq',
+                                               value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"),
                                                                [ upper , bad_struct ]
-                                                            ))  
+                                                            ))
                     self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [my_structseq])
-                    
+
         # Loop through each member of the struct to test one beyond the lower bound
         for r in res:
             if r.id == 'my_structseq':
@@ -603,12 +603,9 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                             CF.DataType(id='ss_ulong', value=CORBA.Any(CORBA.TC_longlong, ulong_val)),
                             CF.DataType(id='ss_longlong', value=CORBA.Any(CORBA.TC_longlong, longlong_val)),
                             CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_longlong, ulonglong_val))])
-                    my_structseq = CF.DataType(id='my_structseq', 
-                                               value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"), 
+                    my_structseq = CF.DataType(id='my_structseq',
+                                               value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"),
                                                                [ bad_struct, lower ]
-                                                ))  
+                                                ))
                     self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [my_structseq])
-              
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()
+

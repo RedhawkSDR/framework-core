@@ -244,10 +244,9 @@ def addCleanName(cleanName, id, compRefId):
 -This allows enforcement of enumerations as the property
 values are configured
 '''
-def _addEnumerations(prop, clean_id):
-    _enums[clean_id] = _parseEnumerations(prop)
-
-def _parseEnumerations(prop):
+def _addEnumerations(prop, clean_id,compRef):
+    _enums[clean_id] = _parseEnumerations(prop,compRef)
+def _parseEnumerations(prop,compRef):
     enums = {}
     propType = prop.get_type()
     for en in prop.get_enumerations().get_enumeration():
@@ -266,7 +265,7 @@ def _parseEnumerations(prop):
             value = {"TRUE": True, "FALSE": False}[en.get_value().strip().upper()]
         else:
             value = None
-        enums[str(en.get_label())] = value
+        enums[compRef,str(en.get_label())] = value
     return enums
 
 
@@ -364,6 +363,14 @@ class Property(object):
             self.mode = mode
         self.action = action
         self._parent = parent
+    
+    def _getEnumValue(self,value):
+        if self.id in _enums.keys():
+            if(str(self.compRef),value) in _enums[self.id].keys():
+                for enumLable, enumValue in _enums[self.id].iteritems():
+                    if value == enumLable[1]:
+                        return enumValue
+        return None 
 
     def _isNested(self):
         return self._parent is not None
@@ -417,7 +424,7 @@ class Property(object):
             print 'Could not perform configure on ' + str(self.id) + ', invalid enumeration provided'
             print "Valid enumerations: "
             for enumLabel, enumValue in _enums[self.id].iteritems():
-                print "\t%s=%s" % (enumLabel, enumValue)
+                print "\t%s=%s" % (enumLabel[1], enumValue)
             return
         self._configureValue(value)
 
@@ -613,11 +620,12 @@ class simpleProperty(Property):
         else:
             # Standalone simple, do standard query.
             return super(simpleProperty,self)._queryValue()
-            
+
     def _enumValue(self, value):
-        for enumLabel, enumValue in _enums[self.id].iteritems():
-            if value == enumLabel or value == enumValue:
-                return enumValue
+        if (str(self.compRef), value) in _enums[self.id].keys() or ( (str(self.compRef)) in str(_enums[self.id].keys()) and value in _enums[self.id].values() ):
+            for enumLabel, enumValue in _enums[self.id].iteritems():
+                if value == enumLabel[1] or value == enumValue:
+                    return enumValue
         raise ValueError, "Invalid enumeration value '%s'" % (value,)
 
     def fromAny(self, value):
@@ -641,7 +649,7 @@ class simpleProperty(Property):
             return _any.to_any(None)
 
         # If property is an enumeration, enforce proper value
-        if self.id in _enums.keys():
+        if ( (self.id) in _enums.keys() ) and ( (str(self.compRef)) in str(_enums[self.id].keys()) ) :
             value = self._enumValue(value)
 
         if self.valueType.startswith("complex"):

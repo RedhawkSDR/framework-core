@@ -1,20 +1,20 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -28,22 +28,22 @@ import commands
 
 def getChildren(parentPid):
     process_listing = commands.getoutput('ls /proc').split('\n')
-    children = [] 
-    for entry in process_listing: 
-        try: 
-            filename = '/proc/'+entry+'/status' 
-            fp = open(filename,'r') 
-            stuff=fp.read() 
-            fp.close() 
-            rows = stuff.split('\n') 
-            for row in rows: 
-                if row[:4]=='PPid': 
+    children = []
+    for entry in process_listing:
+        try:
+            filename = '/proc/'+entry+'/status'
+            fp = open(filename,'r')
+            stuff=fp.read()
+            fp.close()
+            rows = stuff.split('\n')
+            for row in rows:
+                if row[:4]=='PPid':
                     PPid = int(row.split(':')[1][1:])
-                    if PPid == parentPid: 
-                        children.append(int(entry)) 
-                        break 
-        except: 
-            continue 
+                    if PPid == parentPid:
+                        children.append(int(entry))
+                        break
+        except:
+            continue
     return children
 
 def getProcessName(pid):
@@ -119,9 +119,9 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(fakeCapacity.value._v, 3)
 
         appFact = domMgr._get_applicationFactories()[0]
-        app = appFact.create(appFact._get_name(), 
+        app = appFact.create(appFact._get_name(),
                              [CF.DataType(id="DCE:6ad84383-49cf-4017-b7ca-0ec4c4917952", value=any.to_any(1.5)),
-                              CF.DataType(id="SOMEOBJREF", value=any.to_any(self._orb.object_to_string(appFact)))], 
+                              CF.DataType(id="SOMEOBJREF", value=any.to_any(self._orb.object_to_string(appFact)))],
                              ds)
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
@@ -170,7 +170,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(app._get_componentImplementations()), 1)
         compImpl = app._get_componentImplementations()[0]
         self.assertNotEqual(compImpl, None)
-        self.assertEqual(compImpl.componentId, comp._get_identifier()) 
+        self.assertEqual(compImpl.componentId, comp._get_identifier())
 
         # Per SR:169 verify that the identifier is instantiationid:waveformname
         self.assertEqual(comp._get_identifier()[0:40], "DCE:a39e37bc-280e-406f-9952-5beee6575fb4")
@@ -203,11 +203,11 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(execparams["EXEC_PARAM_2"], "2")
         self.assertEqual(execparams["EXEC_PARAM_4"], "True")
         self.assertEqual(execparams["SOMEOBJREF"], self._orb.object_to_string(appFact))
-        
+
         alonglong = comp.query([CF.DataType(id="DCE:a7de97ee-1e78-45e9-8e2b-204c141656fc", value=any.to_any(None))])[0]
         self.assertEqual(alonglong.value._v, 12345678901)
         alonglong2 = comp.query([CF.DataType(id="DCE:9ec6e2ff-6a4f-4452-8f38-4df47d6eebc1", value=any.to_any(None))])[0]
-        self.assertEqual(alonglong2.value._v, 22222222222) 
+        self.assertEqual(alonglong2.value._v, 22222222222)
 
         # Test that we have struct properties
         structprop = comp.query([CF.DataType(id="DCE:ffe634c9-096d-425b-86cc-df1cce50612f", value=any.to_any(None))])[0]
@@ -238,7 +238,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
-        
+
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
@@ -273,7 +273,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
-        
+
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
@@ -301,7 +301,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
-        
+
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
@@ -319,7 +319,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
-        
+
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
@@ -370,7 +370,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
-        
+
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
@@ -398,7 +398,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
-        
+
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
@@ -482,7 +482,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
-        
+
         domMgr.installApplication("/waveforms/CommandWrapper/CommandWrapper.sad.xml")
 
         # Ensure the expected device is available
@@ -510,12 +510,12 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
-        
+
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
-        
+
         domMgr.installApplication("/waveforms/CommandWrapperNonUUID/CommandWrapper.sad.xml")
-        
+
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
@@ -529,21 +529,21 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 1)
-        
+
         app.releaseObject()
-        
+
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
         domMgr.uninstallApplication(appFact._get_identifier())
-        
+
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
     def test_sadPropertyOverride(self):
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
-        
+
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
@@ -680,7 +680,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         initProps.append(CF.DataType(id="DCE:5d8bfe8d-bc25-4f26-8144-248bc343aa53", value=any.to_any(["-a"])))
         initProps.append(CF.DataType(id="EXEC_PARAM_1", value=any.to_any("NewValue")))
 
-        newvalue = [CF.DataType(id="item1", value=any.to_any("testing 1,2,3")), 
+        newvalue = [CF.DataType(id="item1", value=any.to_any("testing 1,2,3")),
                     CF.DataType(id="item2", value=any.to_any(44)),
                     CF.DataType(id="item3", value=any.to_any(4.25))]
         initProps.append(CF.DataType(id="DCE:ffe634c9-096d-425b-86cc-df1cce50612f", value=any.to_any(newvalue)))
@@ -730,7 +730,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         execp = comp.query([CF.DataType(id="EXEC_PARAM_1", value=any.to_any(None))])[0]
         self.assertEqual(execp.value._v, "")
-        
+
         app.stop()
         app.releaseObject()
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
@@ -842,14 +842,14 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         domMgr.uninstallApplication(appFact._get_identifier())
 
     def test_appFailResource(self):
-        # test case where launching of an app fails (due to a failed configure call 
+        # test case where launching of an app fails (due to a failed configure call
         # in CommandWrapperBad)
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
         dev = devMgr._get_registeredDevices()[0]
-        
+
         props = [CF.DataType(id="DCE:8dcef419-b440-4bcf-b893-cab79b6024fb", value=any.to_any(None)), CF.DataType(id="DCE:5636c210-0346-4df7-a5a3-8fd34c5540a8", value=any.to_any(None))]
         retval = dev.query(props)
         original_mem = int(retval[0].value.value())
@@ -863,9 +863,9 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
         appFact = domMgr._get_applicationFactories()[0]
-        
+
         app = None
-        
+
         self.assertRaises(CF.ApplicationFactory.CreateApplicationError, appFact.create, appFact._get_name(), [], [])
 
         props = [CF.DataType(id="DCE:8dcef419-b440-4bcf-b893-cab79b6024fb", value=any.to_any(None)), CF.DataType(id="DCE:5636c210-0346-4df7-a5a3-8fd34c5540a8", value=any.to_any(None))]
@@ -878,20 +878,20 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
-        
+
         self.assertEqual(app, None)
 
         domMgr.uninstallApplication(appFact._get_identifier())
 
     def test_appFailAssembly(self):
-        # Test that a component with no deps can be loaded on a device with 
+        # Test that a component with no deps can be loaded on a device with
         # no properties
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
         dev = devMgr._get_registeredDevices()[0]
-        
+
         props = [CF.DataType(id="DCE:8dcef419-b440-4bcf-b893-cab79b6024fb", value=any.to_any(None)), CF.DataType(id="DCE:5636c210-0346-4df7-a5a3-8fd34c5540a8", value=any.to_any(None))]
         retval = dev.query(props)
         original_mem = int(retval[0].value.value())
@@ -905,9 +905,9 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
         appFact = domMgr._get_applicationFactories()[0]
-        
+
         app = None
-        
+
         try:
             app = appFact.create(appFact._get_name(), [], [])
         except:
@@ -922,19 +922,19 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
-        
+
         self.assertEqual(app, None)
 
         domMgr.uninstallApplication(appFact._get_identifier())
 
     def test_appFailDAS(self):
-        # Test that a waveform with an invalid DAS fails 
+        # Test that a waveform with an invalid DAS fails
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
         dev = devMgr._get_registeredDevices()[0]
-        
+
         props = [CF.DataType(id="DCE:8dcef419-b440-4bcf-b893-cab79b6024fb", value=any.to_any(None)), CF.DataType(id="DCE:5636c210-0346-4df7-a5a3-8fd34c5540a8", value=any.to_any(None))]
         retval = dev.query(props)
         original_mem = int(retval[0].value.value())
@@ -948,10 +948,10 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
         appFact = domMgr._get_applicationFactories()[0]
-        
+
         app = None
-        
-        
+
+
         das = [ CF.DeviceAssignmentType("DCE:a39e37bc-280e-406f-9952-5beee6575fb4", "DCE:bad_id") ]
         try:
             app = appFact.create(appFact._get_name(), [], das)
@@ -965,7 +965,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
-        
+
         self.assertEqual(app, None)
 
         domMgr.uninstallApplication(appFact._get_identifier())
@@ -978,7 +978,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDeviceNoAllocDeps_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
         dev = devMgr._get_registeredDevices()[0]
-        
+
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
@@ -987,9 +987,9 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
         appFact = domMgr._get_applicationFactories()[0]
-        
+
         app = None
-        
+
         try:
             app = appFact.create(appFact._get_name(), [], [])
         except:
@@ -997,7 +997,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
-        
+
         self.assertEqual(app, None)
 
         domMgr.uninstallApplication(appFact._get_identifier())
@@ -1010,7 +1010,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDeviceAllocOverride/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
         dev = devMgr._get_registeredDevices()[0]
-        
+
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
@@ -1019,9 +1019,9 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
         appFact = domMgr._get_applicationFactories()[0]
-        
+
         app = None
-        
+
         try:
             app = appFact.create(appFact._get_name(), [], [])
         except:
@@ -1029,14 +1029,14 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 1)
-        
+
         self.assertNotEqual(app, None)
 
         domMgr.uninstallApplication(appFact._get_identifier())
 
 
     def test_usesDevicePass(self):
-        # Test that a component with no deps can be loaded on a device with 
+        # Test that a component with no deps can be loaded on a device with
         # no properties
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
@@ -1047,7 +1047,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
             if dev._get_identifier() == 'DCE:fe4fee1e-f305-454b-aa96-9f6e7d960cde':
                 devUses = dev
         self.assertNotEqual(devUses, None)
-        
+
         props = [CF.DataType(id="DCE:8cad8ca5-c155-4d1d-ae40-e194aa1d855f", value=any.to_any(None))]
         retval = devUses.query(props)
         original_bw = int(retval[0].value.value())
@@ -1060,9 +1060,9 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
         appFact = domMgr._get_applicationFactories()[0]
-        
+
         app = None
-        
+
         try:
             app = appFact.create(appFact._get_name(), [], [])
         except:
@@ -1074,7 +1074,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 1)
-        
+
         das = app._get_componentDevices()
         devs=domMgr._get_deviceManagers()[0]._get_registeredDevices()
         dev_0_id = devs[0]._get_identifier()
@@ -1092,7 +1092,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         app.stop()
         app.releaseObject()
-        
+
         status,output = commands.getstatusoutput('kill -0 '+str(pid))
         self.assertNotEqual(status,0)
 
@@ -1107,7 +1107,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(original_bw, final_bw)
 
         domMgr.uninstallApplication(appFact._get_identifier())
-        
+
         devs = devMgr._get_registeredDevices()
         foundProperty = False
         for dev in devs:
@@ -1118,7 +1118,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(foundProperty, True)
 
     def test_usesDeviceFail(self):
-        # Test that a component with no deps can be loaded on a device with 
+        # Test that a component with no deps can be loaded on a device with
         # no properties
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
@@ -1128,7 +1128,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         for dev in devMgr._get_registeredDevices():
             if dev._get_identifier() == 'DCE:fe4fee1e-f305-454b-aa96-9f6e7d960cde':
                 devUses = dev
-       
+
         self.assertNotEqual(devUses, None)
         props = [CF.DataType(id="DCE:8cad8ca5-c155-4d1d-ae40-e194aa1d855f", value=any.to_any(None))]
         retval = devUses.query(props)
@@ -1142,9 +1142,9 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
         appFact = domMgr._get_applicationFactories()[0]
-        
+
         app = None
-        
+
         try:
             app = appFact.create(appFact._get_name(), [], [])
         except:
@@ -1180,7 +1180,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_MultipleSimpleDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
-        
+
         domMgr.installApplication("/waveforms/CommandWrapperUsesDevice/CommandWrapper.sad.xml")
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         appFact = domMgr._get_applicationFactories()[0]
@@ -1225,7 +1225,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
             device.allocateCapacity([CF.DataType(id="DCE:5636c210-0346-4df7-a5a3-8fd34c5540a8", value=any.to_any(1000))])
 
         appFact = domMgr._get_applicationFactories()[0]
-        
+
         try:
             app = appFact.create(appFact._get_name(), [], [])
         except:
@@ -1272,7 +1272,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         appFact = domMgr._get_applicationFactories()[0]
 
         deviceID = "DCE:f6ee5832-6a99-4ff8-bacf-d2f9c7574a72"
-        
+
         # Create a hard-coded DAS to put the second component on the second
         # device, to make sure that both components get placed correctly.
         das = [ CF.DeviceAssignmentType("DCE:8eebcfae-9a42-47cb-b645-35eccf7a69a0", deviceID) ]
@@ -1314,7 +1314,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         ds = []
         ds.append( CF.DeviceAssignmentType("DCE:a39e37bc-280e-406f-9952-5beee6575fb4",str(device._get_identifier())) )
-        
+
         appFact = domMgr._get_applicationFactories()[0]
         app = appFact.create(appFact._get_name(), [], ds)
 
@@ -1517,7 +1517,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         appFact = domMgr._get_applicationFactories()[0]
         self.assertEqual(len(domMgr._get_applications()), 0)
-        
+
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
         self.assertEqual(len(domMgr._get_deviceManagers()), 1)
@@ -1534,7 +1534,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(nicCapacity.value._v, 100.0)
         self.assertEqual(fakeCapacity.value._v, 3)
 
-        for failurePos in ("PreOrbInit", "PreServantCreation", "PreNameBinding", "PreOrbRun", "Initialize", "Configure"): 
+        for failurePos in ("PreOrbInit", "PreServantCreation", "PreNameBinding", "PreOrbRun", "Initialize", "Configure"):
             self.assertRaises(CF.ApplicationFactory.CreateApplicationError, appFact.create, appFact._get_name(), [CF.DataType(id="FAIL_AT", value=any.to_any(failurePos))], [])
             self.assertEqual(len(domMgr._get_applications()), 0)
             # Verify that capacity was not allocated
@@ -1583,7 +1583,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         cmdWrapperDir = os.path.join(scatest.getSdrPath(), "dom", "components", "CommandWrapper")
         shutil.copy(cmdWrapperDir + "/CommandWrapper.spd.xml", cmdWrapperDir + "/CommandWrapper.spd.xml.bak")
-        
+
         domMgr.installApplication("/waveforms/CommandWrapper/CommandWrapper.sad.xml")
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
@@ -1664,18 +1664,18 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
             simple.setAttribute("type", "string")
 
             enum1 = prf.createElement("enumeration")
-            enum1.setAttribute("label", "a") 
+            enum1.setAttribute("label", "a")
             enum1.setAttribute("value", "1")
             simple.appendChild(enum1)
 
             enum2 = prf.createElement("enumeration")
-            enum2.setAttribute("label", "a") 
-            enum2.setAttribute("value", "2") 
+            enum2.setAttribute("label", "a")
+            enum2.setAttribute("value", "2")
             simple.appendChild(enum2)
 
             enum3 = prf.createElement("enumeration")
-            enum3.setAttribute("label", "a") 
-            enum3.setAttribute("value", "3") 
+            enum3.setAttribute("label", "a")
+            enum3.setAttribute("value", "3")
             simple.appendChild(enum3)
 
             prf.getElementsByTagName("properties")[0].appendChild(simple)
@@ -1870,7 +1870,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         domMgr.installApplication("/waveforms/CommandWrapper/CommandWrapper.sad.xml")
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
-        
+
         devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
         self.assertEqual(len(domMgr._get_deviceManagers()), 1)
@@ -1882,11 +1882,11 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_deviceManagers()), 2)
         self.assertEqual(len(devMgr2._get_registeredDevices()), 1)
         device2 = devMgr2._get_registeredDevices()[0]
-        
+
         appFact = domMgr._get_applicationFactories()[0]
-        app = appFact.create(appFact._get_name(), 
+        app = appFact.create(appFact._get_name(),
                              [CF.DataType(id="DCE:6ad84383-49cf-4017-b7ca-0ec4c4917952", value=any.to_any(1.5)),
-                              CF.DataType(id="SOMEOBJREF", value=any.to_any(self._orb.object_to_string(appFact)))], 
+                              CF.DataType(id="SOMEOBJREF", value=any.to_any(self._orb.object_to_string(appFact)))],
                              [])
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
@@ -1896,7 +1896,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         app.releaseObject()
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
-      
+
         # Kill the device as brutally as possible
         #os.kill(devmgr_nb.pid, signal.SIGKILL)
         pids = getChildren(devmgr_nb.pid)
@@ -1911,9 +1911,9 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(devMgr2._get_registeredDevices()), 1)
 
         # Try again
-        app = appFact.create(appFact._get_name(), 
+        app = appFact.create(appFact._get_name(),
                              [CF.DataType(id="DCE:6ad84383-49cf-4017-b7ca-0ec4c4917952", value=any.to_any(1.5)),
-                              CF.DataType(id="SOMEOBJREF", value=any.to_any(self._orb.object_to_string(appFact)))], 
+                              CF.DataType(id="SOMEOBJREF", value=any.to_any(self._orb.object_to_string(appFact)))],
                              [])
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 1)
@@ -1926,34 +1926,34 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         domMgr.uninstallApplication(appFact._get_identifier())
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
 
-        
+
     def test_skipBusyDevices(self):
-        
+
         # creates a new DomainManager
         nodebooter, domMgr = self.launchDomainManager(debug=5)
         self.assertNotEqual(domMgr, None)
-        
+
         # checking that I don't have a factory yet (no application)
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
-                
+
         # once is generated I need to install an application in order to create an ApplicationFactory
         domMgr.installApplication("/waveforms/CommandWrapper/CommandWrapper.sad.xml")
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
-        
+
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicAlwaysBusyDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
-        
+
         nodebooter2, devMgr2 = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr2, None)
-        
+
         appFact = domMgr._get_applicationFactories()[0]
-        app = appFact.create(appFact._get_name(),[],[]) 
+        app = appFact.create(appFact._get_name(),[],[])
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 1)
-        
+
         invalid_node_id = "DCE:8f3478e3-626e-45c3-bd01-0a8117dbe59f"
         valid_node_id = "DCE:8f3478e3-626e-45c3-bd01-0a8117dbe59b"
         devices = app._get_componentDevices()
@@ -1961,10 +1961,10 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         # making sure it has only one component
         self.assertEqual(len(devices), 1)
         dev_id = devices[0].assignedDeviceId
-        
+
         # checking the id to assure is NOT the busy one
         self.assertEqual(dev_id, valid_node_id)
-       
+
         # Stop and release the application
         app.stop()
         app.releaseObject()
@@ -1973,32 +1973,32 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
 
     def test_MyPlayground(self):
-        
+
         # creates a new DomainManager
         nodebooter, domMgr = self.launchDomainManager(debug=5)
         self.assertNotEqual(domMgr, None)
-        
+
         # checking that I don't have a factory yet (no application)
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
-                
+
         # once is generated I need to install an application in order to create an ApplicationFactory
         domMgr.installApplication("/waveforms/CommandWrapper/CommandWrapper.sad.xml")
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
-        
+
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicAlwaysBusyDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr, None)
-        
+
         nodebooter2, devMgr2 = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
         self.assertNotEqual(devMgr2, None)
-        
+
         appFact = domMgr._get_applicationFactories()[0]
-        app = appFact.create(appFact._get_name(),[],[]) 
+        app = appFact.create(appFact._get_name(),[],[])
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 1)
-        
+
         invalid_node_id = "DCE:8f3478e3-626e-45c3-bd01-0a8117dbe59f"
         valid_node_id = "DCE:8f3478e3-626e-45c3-bd01-0a8117dbe59b"
         devices = app._get_componentDevices()
@@ -2006,18 +2006,18 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         # making sure it has only one component
         self.assertEqual(len(devices), 1)
         dev_id = devices[0].assignedDeviceId
-        
+
         # checking the id to assure is NOT the busy one
         self.assertEqual(dev_id, valid_node_id)
-        
+
         app.start()
-                
+
         # Stop and release the application
         app.stop()
         app.releaseObject()
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         self.assertEqual(len(domMgr._get_applications()), 0)
-        
+
 
     def test_structAllocationProps(self):
         # Test that struct properties can be used for allocation, both via
@@ -2042,7 +2042,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertNotEqual(devs[0].assignedDeviceId, devs[1].assignedDeviceId)
 
         app.stop()
-        app.releaseObject()        
+        app.releaseObject()
 
     def test_dontConfigureNilProps(self):
         # Test that struct properties can be used for allocation, both via
@@ -2067,7 +2067,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         app.stop()
         app.releaseObject()
-    
+
     def test_noStartOrder(self):
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
@@ -2079,7 +2079,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         appFact = domMgr._get_applicationFactories()[0]
 
         app = appFact.create(appFact._get_name(), [], [])
-        
+
         count = 0
         for x in app._get_registeredComponents():
             props = x.componentObject.query([])
@@ -2087,13 +2087,13 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
             if props["startCounter"] == 1:
                 count = count + 1
         self.assertEqual(count, 0)
-        
+
         app.start()
-        
+
         props = app.query([])
         props = dict( [(p.id, any.from_any(p.value)) for p in props] )
         self.assertEqual(props["startCounter"], 1)
-        
+
         count = 0
         for x in app._get_registeredComponents():
             props = x.componentObject.query([])
@@ -2101,10 +2101,10 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
             if props["startCounter"] == 1:
                 count = count + 1
         self.assertEqual(count, 1)
-        
+
         app.stop()
         app.releaseObject()
-    
+
     def test_normalStartOrder(self):
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
@@ -2116,7 +2116,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         appFact = domMgr._get_applicationFactories()[0]
 
         app = appFact.create(appFact._get_name(), [], [])
-        
+
         count = 0
         for x in app._get_registeredComponents():
             props = x.componentObject.query([])
@@ -2124,9 +2124,9 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
             if props["startCounter"] == 1:
                 count = count + 1
         self.assertEqual(count, 0)
-        
+
         app.start()
-        
+
         count = 0
         for x in app._get_registeredComponents():
             props = x.componentObject.query([])
@@ -2134,10 +2134,10 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
             if props["startCounter"] == 1:
                 count = count + 1
         self.assertEqual(count, 4)
-        
+
         app.stop()
         app.releaseObject()
-    
+
     def test_badStartOrder(self):
         nodebooter, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
@@ -2149,7 +2149,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         appFact = domMgr._get_applicationFactories()[0]
 
         app = appFact.create(appFact._get_name(), [], [])
-        
+
         count = 0
         for x in app._get_registeredComponents():
             props = x.componentObject.query([])
@@ -2157,9 +2157,9 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
             if props["startCounter"] == 1:
                 count = count + 1
         self.assertEqual(count, 0)
-        
+
         app.start()
-        
+
         count = 0
         for x in app._get_registeredComponents():
             props = x.componentObject.query([])
@@ -2167,10 +2167,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
             if props["startCounter"] == 1:
                 count = count + 1
         self.assertEqual(count, 3)
-        
+
         app.stop()
-        app.releaseObject()                
-                
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()
+        app.releaseObject()
+

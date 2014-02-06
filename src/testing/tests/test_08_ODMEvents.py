@@ -1,20 +1,20 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -57,15 +57,15 @@ class ConsumerODM_i(CosEventComm__POA.PushConsumer):
             StandardEvent.APPLICATION:'APPLICATION',
             StandardEvent.SERVICE:'SERVICE'
         }
-   
+
     def push(self, data_obj):
         data = data_obj.value()
-        
+
         # some error checking
         if data.sourceCategory not in self._sourceCategoryLookup:
             self.parent.fail("Invalid category: " + str(data.sourceCategory))
             return
-        
+
         # add event
         if isinstance(data, StandardEvent.DomainManagementObjectAddedEventType):
             if self._sourceCategoryLookup[data.sourceCategory] == 'DEVICE':
@@ -106,7 +106,7 @@ class ConsumerODM_i(CosEventComm__POA.PushConsumer):
                     self.parent.assertEqual(data.sourceId, 'unknown Device Manager')
             self.DMRemoved[self._sourceCategoryLookup[data.sourceCategory]][data.sourceId] = data.sourceName
             self.DMRemoved[self._sourceCategoryLookup[data.sourceCategory]]['event_count'] += 1
-       
+
 
     def checkAddedEvent(self, eventType, sourceId, sourceName):
         if sourceId not in self.DMAdded[eventType.upper()]:
@@ -114,7 +114,7 @@ class ConsumerODM_i(CosEventComm__POA.PushConsumer):
         if sourceName not in self.DMAdded[eventType.upper()][sourceId]:
             return False
         return True
-    
+
     def checkRemovedEvent(self, eventType, sourceId, sourceName):
         if sourceId not in self.DMRemoved[eventType.upper()]:
             return False
@@ -127,7 +127,7 @@ class ConsumerODM_i(CosEventComm__POA.PushConsumer):
 
     def getRemovedEventCount(self, eventType):
         return self.DMRemoved[eventType]['event_count']
-    
+
     def disconnect_push_consumer (self):
         pass
 
@@ -137,7 +137,7 @@ class ODMEventsTest(scatest.CorbaTestCase):
 
     def test_ODMEvents_DeviceManager(self):
         # Test DeviceManager related events
-        
+
         # launch DomainManager
         nodebooter, self._domMgr = self.launchDomainManager(debug=9)
 
@@ -148,7 +148,7 @@ class ODMEventsTest(scatest.CorbaTestCase):
         if odmChannel == None:
             self.fail("Could not connect to the ODM_Channel")
 
-        
+
         # set up consumer
         consumer_admin = odmChannel.for_consumers()
         _proxy_supplier = consumer_admin.obtain_push_supplier()
@@ -200,13 +200,10 @@ class ODMEventsTest(scatest.CorbaTestCase):
         self.assertEqual(_consumer.getRemovedEventCount('DEVICE_MANAGER'), 2)
         self.assertEqual(_consumer.getRemovedEventCount('DEVICE'), 1)
         self.assertEqual(_consumer.getRemovedEventCount('SERVICE'), 1)
-        
+
         self.terminateChild(devBooter)
 
 # Disable the tests entirely if events are not enabled.
 if scatest.getBuildDefineValue("ENABLE_EVENTS") in (None, "0"):
     del ODMEventsTest
 
-if __name__ == "__main__":
-  # Run the unittests
-  unittest.main()

@@ -830,9 +830,7 @@ void Device_impl::connectSupplierToIncomingEventChannel(CosEventChannelAdmin::Ev
 
     IDM_Channel_Supplier_i* supplier_servant = new IDM_Channel_Supplier_i(this);
 
-    PortableServer::POA_var poa = root_poa->find_POA("DomainManager", 1);
-    PortableServer::POA_var event_poa = poa->find_POA("EventChannels", 1);
-    PortableServer::ObjectId_var oid = event_poa->activate_object(supplier_servant);
+    PortableServer::ObjectId_var oid = root_poa->activate_object(supplier_servant);
 
     CosEventComm::PushSupplier_var sptr = supplier_servant->_this();
     

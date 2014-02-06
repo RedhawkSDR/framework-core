@@ -242,10 +242,18 @@ def IDELocation(location=None):
                 print "IDELocation(): WARNING - RH_IDE environment variable is not set so plotting will not work"
             return None
     else:
-        if os.path.isdir(location):
-            os.environ["RH_IDE"] = str(location)
-            if _DEBUG:
-                print "IDELocation(): setting RH_IDE environment variable " + str(location)
+        foundIDE = False
+        if os.path.exists(location) and os.path.isdir(location):
+            for file in os.listdir(location):
+                if file == "eclipse":
+                    foundIDE = True
+                    os.environ["RH_IDE"] = str(location)
+                    if _DEBUG:
+                         print "IDELocation(): setting RH_IDE environment variable " + str(location)
+        if not foundIDE:
+            print "IDELocation(): ERROR - invalid location passed in, must give absolute path " + str(location) 
+        if _DEBUG:
+            print "IDELocation(): setting RH_IDE environment variable " + str(location)
             return str(location)
         else:
             if _DEBUG:
@@ -824,7 +832,7 @@ def stop():
 
 def launch(descriptor, instanceName=None, refid=None, impl=None,
            debugger=None, window=None, execparams={}, configure={},
-           initialize=True):
+           initialize=True, timeout=None):
     """
     Execute a softpkg, returning a proxy object. This is a factory function
     that may return a component, device or service depending on the SPD.
@@ -855,6 +863,9 @@ def launch(descriptor, instanceName=None, refid=None, impl=None,
                      caller (generally used by loadSADFile).
       initialize   - If true, call initialize() after launching the component.
                      If false, defer initialization to ther caller.
+      timeout      - Time, in seconds, to wait for launch to complete. If not
+                     given, the default is 10 seconds, except when running with
+                     a debugger, in which case the default is 60 seconds.
     """
     return _getSandbox().launch(descriptor, instanceName, refid, impl, debugger,
-                                window, execparams, configure, initialize)
+                                window, execparams, configure, initialize, timeout)

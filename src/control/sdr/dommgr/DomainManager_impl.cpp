@@ -82,35 +82,7 @@ DomainManager_impl::DomainManager_impl (const char* _dmdFile, const char* _rootp
     fileMgr_servant->_remove_ref();
     _fileMgr = fileMgr_servant->_this();
 
-    // Parse the DMD profile
-    try {
-        LOG_TRACE(DomainManager_impl, "Loading domain manager configuration from " << _domainManagerProfile);
-        File_stream dmdStream(_fileMgr, _domainManagerProfile.c_str());
-        _configuration.load(dmdStream);
-        dmdStream.close();
-    } catch (const parser_error& e) {
-        LOG_FATAL(DomainManager_impl, "Stopping domain manager; error parsing domain manager configuration " <<  _domainManagerProfile << "; " << e.what())
-        exit(EXIT_FAILURE);
-    } catch (const std::ios_base::failure& e) {
-        LOG_FATAL(DomainManager_impl, "Stopping domain manager; IO error reading domain manager configuration; " << e.what())
-        exit(EXIT_FAILURE);
-    } catch( CF::InvalidFileName& _ex ) {
-        LOG_FATAL(DomainManager_impl, "Stopping domain manager; invalid domain manager configuration file name; " << _ex.msg)
-        exit(EXIT_FAILURE);
-    } catch( CF::FileException& _ex ) {
-        LOG_FATAL(DomainManager_impl, "Stopping domain manager; file error while opening domain manager configuration; " << _ex.msg)
-        exit(EXIT_FAILURE);
-    } catch ( std::exception& ex ) {
-        std::ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" while loading domain manager configuration from " << _domainManagerProfile;
-        LOG_FATAL(DomainManager_impl, eout.str())
-        exit(EXIT_FAILURE);
-    } catch ( CORBA::Exception& ex ) {
-        std::ostringstream eout;
-        eout << "The following CORBA exception occurred: "<<ex._name()<<" while loading domain manager configuration from " << _domainManagerProfile;
-        LOG_FATAL(DomainManager_impl, eout.str())
-        exit(EXIT_FAILURE);
-    }
+    parseDMDProfile();
 
     LOG_TRACE(DomainManager_impl, "Setting domain name to " << domainName);
     this->_domainName = domainName;
@@ -182,6 +154,38 @@ DomainManager_impl::DomainManager_impl (const char* _dmdFile, const char* _rootp
 
     LOG_TRACE(DomainManager_impl, "Done instantiating Domain Manager")
     TRACE_EXIT(DomainManager_impl)
+}
+
+void DomainManager_impl::parseDMDProfile()
+{
+    try {
+        LOG_TRACE(DomainManager_impl, "Loading domain manager configuration from " << _domainManagerProfile);
+        File_stream dmdStream(_fileMgr, _domainManagerProfile.c_str());
+        _configuration.load(dmdStream);
+        dmdStream.close();
+    } catch (const parser_error& e) {
+        LOG_FATAL(DomainManager_impl, "Stopping domain manager; error parsing domain manager configuration " <<  _domainManagerProfile << "; " << e.what())
+        exit(EXIT_FAILURE);
+    } catch (const std::ios_base::failure& e) {
+        LOG_FATAL(DomainManager_impl, "Stopping domain manager; IO error reading domain manager configuration; " << e.what())
+        exit(EXIT_FAILURE);
+    } catch( CF::InvalidFileName& _ex ) {
+        LOG_FATAL(DomainManager_impl, "Stopping domain manager; invalid domain manager configuration file name; " << _ex.msg)
+        exit(EXIT_FAILURE);
+    } catch( CF::FileException& _ex ) {
+        LOG_FATAL(DomainManager_impl, "Stopping domain manager; file error while opening domain manager configuration; " << _ex.msg)
+        exit(EXIT_FAILURE);
+    } catch ( std::exception& ex ) {
+        std::ostringstream eout;
+        eout << "The following standard exception occurred: "<<ex.what()<<" while loading domain manager configuration from " << _domainManagerProfile;
+        LOG_FATAL(DomainManager_impl, eout.str())
+        exit(EXIT_FAILURE);
+    } catch ( CORBA::Exception& ex ) {
+        std::ostringstream eout;
+        eout << "The following CORBA exception occurred: "<<ex._name()<<" while loading domain manager configuration from " << _domainManagerProfile;
+        LOG_FATAL(DomainManager_impl, eout.str())
+        exit(EXIT_FAILURE);
+    }
 }
 
 void DomainManager_impl::restoreState(const std::string& _db_uri) {
