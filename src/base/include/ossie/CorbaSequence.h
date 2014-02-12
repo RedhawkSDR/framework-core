@@ -148,6 +148,28 @@ namespace ossie {
             sequence[index] = element;
         }
 
+        // Returns a new sequence containing the range [first, last) from 
+        // source; source must be passed by reference, not a var
+        template <typename Sequence>
+        inline Sequence slice (const Sequence& source, size_t first, size_t last)
+        {
+            Sequence result;
+            const size_t count = last - first;
+            result.length(count);
+            for (size_t index = 0; first < last; ++first, ++index) {
+                result[index] = source[first];
+            }
+            return result;
+        }
+
+        // Returns a new sequence containing the range from first to the end of
+        // source; source must be passed by reference, not a var
+        template <typename Sequence>
+        inline Sequence slice (const Sequence& source, size_t first)
+        {
+            return slice(source, first, source.length());
+        }
+
     } // namespace corba
 
 } // namespace ossie

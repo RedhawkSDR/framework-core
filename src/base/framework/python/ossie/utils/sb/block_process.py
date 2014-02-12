@@ -329,7 +329,11 @@ def proc(comp,source,sink=None,sourceFmt=None,sinkFmt=None,sampleRate=1.0,execpa
                 _dataConverter_out=_sandbox.launch('DataConverter', timeout)
             except Exception, e:
                 undo_all(undos)
-                raise
+                if type(e).__name__ == "ValueError" and \
+                   str(e) == "'DataConverter' is not a valid softpkg name or SPD file":
+                    raise Exception("DataConverter component is not installed in SDRROOT.")
+                else:
+                    raise
             try:
                 _comp.connect(_dataConverter_out, usesPortName=usesPortName)
                 undos[str(order)+':disconnect']=(_comp,_dataConverter_out)
@@ -373,7 +377,11 @@ def proc(comp,source,sink=None,sourceFmt=None,sinkFmt=None,sampleRate=1.0,execpa
             _dataConverter=_sandbox.launch('DataConverter', timeout)
         except Exception, e:
             undo_all(undos)
-            raise
+            if type(e).__name__ == "ValueError" and \
+               str(e) == "'DataConverter' is not a valid softpkg name or SPD file":
+                raise Exception("DataConverter component is not installed in SDRROOT.")
+            else:
+                raise
         try:
             portName = findInDataCoverterPortName(sourceFmt)
             _read.connect(_dataConverter, providesPortName=portName)

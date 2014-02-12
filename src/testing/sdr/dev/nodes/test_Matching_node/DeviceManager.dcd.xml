@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE deviceconfiguration PUBLIC "-//JTRS//DTD SCA V2.2.2 DCD//EN" "deviceconfiguration.dtd">
+<deviceconfiguration name="test_Matching_node" id="DCE:ff936e2b-65b2-43ca-bb95-ab4ea7dc6e53">
+    <devicemanagersoftpkg>
+    	<localfile name="/mgr/DeviceManager.spd.xml">
+    	</localfile>
+    </devicemanagersoftpkg>
+    <componentfiles> 
+    	<componentfile type="SPD" id="MatchingDevice_5f2c4295-75d5-4943-b393-9c53d320addc">
+    		<localfile name="/devices/MatchingDevice/MatchingDevice.spd.xml">
+    		</localfile>
+    	</componentfile>
+    </componentfiles>    
+    <partitioning>
+		<componentplacement>
+	    	<componentfileref refid="MatchingDevice_5f2c4295-75d5-4943-b393-9c53d320addc">
+    		</componentfileref>
+	     	<componentinstantiation id="DCE:e5efe766-bb51-4e2f-b228-03d24957ad07">
+	     		<usagename>MatchingDevice_1</usagename>
+	     	</componentinstantiation>
+    	</componentplacement>
+    </partitioning>
+    <domainmanager>
+    	<namingservice name="REDHAWK/REDHAWK">
+    	</namingservice>
+    </domainmanager>
+</deviceconfiguration>

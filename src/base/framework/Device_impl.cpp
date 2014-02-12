@@ -21,10 +21,12 @@
 #include <iostream>
 #include <string.h>
 
+
 #include "ossie/Device_impl.h"
 #include "ossie/CorbaUtils.h"
 
 #include "ossie/EventChannelSupport.h"
+
 
 PREPARE_LOGGING(Device_impl)
 
@@ -111,6 +113,8 @@ Device_impl::Device_impl (char* devMgr_ior, char* _id, char* lbl, char* sftwrPrf
 {
 
     LOG_TRACE(Device_impl, "Constructing Device")
+    initResources(devMgr_ior, _id, lbl, sftwrPrfl);
+    _compositeDev_ior = compositeDev_ior;
     CORBA::Object_var _aggDev_obj = ossie::corba::Orb()->string_to_object(_compositeDev_ior.c_str());
     if (CORBA::is_nil(_aggDev_obj)) {
         LOG_ERROR(Device_impl, "Invalid composite device IOR: " << _compositeDev_ior);
@@ -119,7 +123,6 @@ Device_impl::Device_impl (char* devMgr_ior, char* _id, char* lbl, char* sftwrPrf
         _aggregateDevice->addDevice(this->_this());
     }
 
-    initResources(devMgr_ior, _id, lbl, sftwrPrfl);
     configure (capacities);
     LOG_TRACE(Device_impl, "Done Constructing Device")
 }
@@ -129,6 +132,8 @@ Device_impl::Device_impl (char* devMgr_ior, char* _id, char* lbl, char* sftwrPrf
 {
 
     LOG_TRACE(Device_impl, "Constructing Device")
+    initResources(devMgr_ior, _id, lbl, sftwrPrfl);
+    _compositeDev_ior = compositeDev_ior;
     CORBA::Object_var _aggDev_obj = ossie::corba::Orb()->string_to_object(_compositeDev_ior.c_str());
     if (CORBA::is_nil(_aggDev_obj)) {
         LOG_ERROR(Device_impl, "Invalid composite device IOR: " << _compositeDev_ior);
@@ -137,7 +142,6 @@ Device_impl::Device_impl (char* devMgr_ior, char* _id, char* lbl, char* sftwrPrf
         _aggregateDevice->addDevice(this->_this());
     }
 
-    initResources(devMgr_ior, _id, lbl, sftwrPrfl);
     LOG_TRACE(Device_impl, "Done Constructing Device")
 }
 
@@ -873,7 +877,7 @@ throw (CORBA::SystemException)
 CF::AggregateDevice_ptr Device_impl::compositeDevice ()
 throw (CORBA::SystemException)
 {
-    return _aggregateDevice;
+    return CF::AggregateDevice::_duplicate(_aggregateDevice);
 }
 
 

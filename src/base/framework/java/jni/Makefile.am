@@ -24,17 +24,20 @@ IDLFLAGS = -I$(OSSIE_IDLDIR) -I$(IDLDIR) -I$(OMNICOS_IDLDIR)
 
 lib_LTLIBRARIES = libossiecfjni.la
 
-nodist_libossiecfjni_la_SOURCES = ossie/CF/jni_cf.cpp \
+nodist_libossiecfjni_la_SOURCES = ossie/CF/jni_LogInterfaces.cpp \
+				  ossie/CF/jni_cf.cpp \
 				  ossie/CF/jni_AggregateDevices.cpp \
 				  ossie/CF/jni_QueryablePort.cpp \
 				  ossie/CF/jni_StandardEvent.cpp \
 				  ossie/CF/jni_WellKnownProperties.cpp \
 				  ossie/CF/jni_PortTypes.cpp \
 				  ossie/CF/jni_ExtendedEvent.cpp \
-				  ossie/CF/jni_sandbox.cpp
+				  ossie/CF/jni_sandbox.cpp 
+
 libossiecfjni_la_CPPFLAGS = $(OMNIJNI_CPPFLAGS) $(OSSIE_CFLAGS)
 
-nobase_nodist_include_HEADERS = ossie/CF/jni_cf.h \
+nobase_nodist_include_HEADERS = ossie/CF/jni_LogInterfaces.h \
+				ossie/CF/jni_cf.h \
 				ossie/CF/jni_AggregateDevices.h \
 				ossie/CF/jni_QueryablePort.h \
 				ossie/CF/jni_StandardEvent.h \

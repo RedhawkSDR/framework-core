@@ -30,6 +30,7 @@ except:
 
 import ossie.resource as resource
 import ossie.utils
+import ossie.logger
 import sys
 import logging
 import signal
@@ -40,7 +41,7 @@ import threading
 import exceptions
 from Queue import Queue
 import time
-
+import traceback
 
 if hasEvents:
     # Map CF.Device states to StandardEvent states for sending state change messages.
@@ -1078,7 +1079,7 @@ def _getParentAggregateDevice(execparams, orb):
     return parentdev_ref
 
 
-def start_device(deviceclass, interactive_callback=None, thread_policy=None,loggerName=None):
+def start_device(deviceclass, interactive_callback=None, thread_policy=None,loggerName=None, skip_run=False):
     """Typically your device will use this to start the device in __main__.  It
     is recommended to use this function because it will ensure compliance with
     SCA argument parsing and execparams.
@@ -1088,9 +1089,9 @@ def start_device(deviceclass, interactive_callback=None, thread_policy=None,logg
     start_device(MyDeviceImpl)
     """
     execparams, interactive = resource.parseCommandLineArgs(deviceclass)
-
-    resource.setupSignalHandlers()
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    if not skip_run:
+        resource.setupSignalHandlers()
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     _checkForRequiredParameters(execparams)
 
@@ -1099,6 +1100,7 @@ def start_device(deviceclass, interactive_callback=None, thread_policy=None,logg
             orb = resource.createOrb()
             resource.__orb__ = orb
 
+            ## sets up backwards compat logging 
             resource.configureLogging(execparams, loggerName, orb)
 
             devicePOA = resource.getPOA(orb, thread_policy, "devicePOA")
@@ -1106,6 +1108,15 @@ def start_device(deviceclass, interactive_callback=None, thread_policy=None,logg
             devMgr = _getDevMgr(execparams, orb)
 
             parentdev_ref = _getParentAggregateDevice(execparams, orb)
+
+            # Configure logging (defaulting to INFO level).
+            label = execparams.get("DEVICE_LABEL", "")
+            id = execparams.get("DEVICE_ID", "")
+            log_config_uri = execparams.get("LOGGING_CONFIG_URI", None)
+            debug_level = execparams.get("DEBUG_LEVEL", 3)
+            dpath=execparams.get("DOM_PATH", "")
+            ctx = ossie.logger.DeviceCtx( label, id, dpath )
+            ossie.logger.Configure( log_config_uri, debug_level, ctx )
 
             # instantiate the provided device
             logging.debug("Instantiating Device")
@@ -1116,6 +1127,9 @@ def start_device(deviceclass, interactive_callback=None, thread_policy=None,logg
                                         parentdev_ref,
                                         execparams)
             devicePOA.activate_object(component_Obj)
+
+            # set logging context for resource to supoprt CF::Logging
+            component_Obj.setLoggingContext( log_config_uri, debug_level, ctx )
 
             # Get DomainManager incoming event channel and connect the device to it,
             # where applicable.
@@ -1129,11 +1143,12 @@ def start_device(deviceclass, interactive_callback=None, thread_policy=None,logg
 
             component_Var = component_Obj._this()
             component_Obj.registerDevice()
-
             if not interactive:
                 logging.debug("Starting ORB event loop")
                 objectActivated = True
                 obj = devicePOA.servant_to_id(component_Obj)
+                if skip_run:
+                    return component_Obj
                 while objectActivated:
                     try:
                         obj = devicePOA.reference_to_servant(component_Var)
@@ -1160,7 +1175,9 @@ def start_device(deviceclass, interactive_callback=None, thread_policy=None,logg
         except KeyboardInterrupt:
             pass
         except:
-            logging.exception("Unexpected Error")
+            traceback.print_exc()
+            #logging.exception("Unexpected Error")
+
     finally:
-        if orb:
+        if orb and not skip_run:
             orb.destroy()

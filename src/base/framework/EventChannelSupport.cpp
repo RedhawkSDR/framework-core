@@ -17,13 +17,21 @@
  * You should have received a copy of the GNU Lesser General Public License 
  * along with this program.  If not, see http://www.gnu.org/licenses/.
  */
-
-
+#include <iostream>
+#include <stdlib.h>
+#include <stdint.h>
+#include <signal.h>
+#include <iostream>
+#include <cstdio>
+#include <cstddef>
+#include <sstream>
+#include <vector>
+#include <boost/thread/thread.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <omniORB4/omniURI.h>
 #include "ossie/debug.h"
-#include "ossie/CorbaUtils.h"
 #include "ossie/EventChannelSupport.h"
 
-#include <iostream>
 
 namespace ossie {
 void sendStateChangeEvent(log4cxx::LoggerPtr logger, const char* producerId, const char* sourceId,
@@ -93,6 +101,13 @@ void sendObjectRemovedEvent(log4cxx::LoggerPtr logger, const char* producerId, c
 namespace event {
 
 CREATE_LOGGER(EventChannelSupport);
+
+#define LNTRACE( lname, expression ) LOG4CXX_TRACE( log4cxx::Logger::getLogger(lname), expression )
+#define LNDEBUG( lname, expression ) LOG4CXX_DEBUG( log4cxx::Logger::getLogger(lname), expression )
+#define LNINFO( lname, expression )  LOG4CXX_INFO( log4cxx::Logger::getLogger(lname), expression )
+#define LNWARN( lname, expression )  LOG4CXX_WARN( log4cxx::Logger::getLogger(lname), expression )
+#define LNERROR( lname, expression ) LOG4CXX_ERROR( log4cxx::Logger::getLogger(lname), expression )
+#define LNFATAL( lname, expression ) LOG4CXX_FATAL( log4cxx::Logger::getLogger(lname), expression )
 
 CosLifeCycle::GenericFactory_ptr getEventChannelFactory ()
 {
@@ -194,5 +209,725 @@ CosEventChannelAdmin::EventChannel_ptr createEventChannel (const std::string& na
     return eventChannel._retn();
 }
 
-}
-}
+
+
+
+  ////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////
+
+   struct Orb;
+   typedef Orb*  OrbPtr;
+ 
+    //
+    // Orb
+    //
+    // Context for access to ORB and common CORBA services
+    //
+    struct Orb {
+
+      // orb instantiation
+      CORBA::ORB_ptr                          orb;
+
+      // root POA for to handle object requests
+      PortableServer::POA_ptr                 rootPOA;
+
+      // handle to naming service
+      CosNaming::NamingContext_ptr            namingService;
+
+      // handle to naming service
+      CosNaming::NamingContextExt_ptr         namingServiceCtx;
+
+      virtual ~Orb() {};
+
+      Orb() {
+	orb = ossie::corba::Orb();
+	rootPOA = ossie::corba::RootPOA();
+	namingService = ossie::corba::InitialNamingContext();
+	namingServiceCtx = CosNaming::NamingContextExt::_nil();
+	try {
+	  CORBA::Object_ptr obj;
+	  obj=orb->resolve_initial_references("NameService");
+	  namingServiceCtx = CosNaming::NamingContextExt::_narrow(obj);
+	}
+	catch(...){
+	};
+      };
+
+    };
+
+
+ //
+  // Bind to naming context    id = name, kind=""
+  //
+  static int  Bind(const std::string &name,  CORBA::Object_ptr obj,  CosNaming::NamingContext_ptr namingContext  ) {
+
+    LNDEBUG( "Bind", " created event channel " << name );
+    int retval=1;
+    try {
+      if(!CORBA::is_nil(namingContext) ) {
+	CosNaming::Name  cname = ossie::corba::str2name(name.c_str());
+	try{
+	  LNDEBUG( "Bind", "Attempt to Bind, Name:" << name  );
+	  namingContext->bind(cname, obj);
+	  LNDEBUG( "Bind", "SUCCESS, for Name:" << name  );
+	  retval=0;
+	} catch(CosNaming::NamingContext::AlreadyBound& ex) {
+	  LNDEBUG( "Bind", "Already Bound, Name:" << name  );
+	  namingContext->rebind(cname, obj);
+	  retval=0;
+	}
+      }
+    } catch (const CORBA::Exception& ex) {
+      LNERROR( "Bind", " CORBA " << ex._name() << " exception during bind operation, name:" << name );
+    }
+
+    return retval;
+  };
+
+  //
+  // Bind to naming context    id = name, kind=""
+  //
+static int  Bind( OrbPtr orb, const std::string &name,  CORBA::Object_ptr obj, const std::string &namingContext ) {
+
+    LNDEBUG( "Bind", " NamingContext: " << namingContext << " Name:" << name );
+    int retval=1;
+    CosNaming::Name  cname = ossie::corba::str2name(namingContext.c_str());      
+    CosNaming::NamingContext_var ctx  = CosNaming::NamingContext::_nil();
+    if(!CORBA::is_nil(orb->namingService) ) {
+      try {
+	if ( namingContext == "" ) {
+	  LNDEBUG( "Bind", " Use Root NamingContext ");
+	  ctx = orb->namingService;
+	}
+	else {
+	  LNDEBUG( "Bind", " LOOK UP NamingContext " << namingContext  );
+	  orb->namingService->bind( cname, ctx );
+	}
+
+      } catch(CosNaming::NamingContext::AlreadyBound& ex) {
+	LNDEBUG( "Bind", " Already Bound NamingContext : " << namingContext  );
+	CORBA::Object_var tmp = orb->namingService->resolve(cname);
+	ctx = CosNaming::NamingContext::_narrow(tmp);
+
+      } catch( const CORBA::Exception& ex) {
+	LNERROR( "Bind", " CORBA " << ex._name() << " exception during, bind context:" << namingContext );
+      }
+
+      if ( !CORBA::is_nil(ctx) ) {
+	LNDEBUG( "Bind", " DIR:" << namingContext << " Name:" << name );
+	return Bind( name, obj, ctx );
+      }
+    }
+    return retval;
+  };
+
+
+
+  ////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////
+
+  //
+  // EventChannel Convenience Methods
+  //
+
+  //
+  // (Taken from eventc.cc)
+  //
+  //
+/**
+  CosLifeCycle::GenericFactory_ptr GetEventChannelFactory ( ) {
+    
+    Orb _orb;
+    OrbPtr orb=&_orb;
+
+    CORBA::Object_var ecf_obj;
+    //omniEvents::EventChannelFactory_var ecf = omniEvents::EventChannelFactory::_nil();
+    CosLifeCycle::GenericFactory_var  ecf;
+    LNDEBUG( "GetEventChannelFactory", " Look up EventChannelFactory" );
+    try {
+      //ecf_obj = orb.namingServiceCtx->resolve_str(str2name("EventChannelFactory"));
+      ecf_obj = orb->namingServiceCtx->resolve_str("EventChannelFactory");
+      if (!CORBA::is_nil(ecf_obj)) {
+	LNDEBUG( "GetEventChannelFactory",  " Narrow object to EventChannelFactory" );
+	ecf = CosLifeCycle::GenericFactory::_narrow(ecf_obj);
+	//ecf = omniEvents::EventChannelFactory::_narrow(ecf_obj);
+	LNDEBUG( "GetEventChannelFactory",  " Narrowed to ... EventChannelFactory" );
+      }
+    } catch (const CosNaming::NamingContext::NotFound&) {
+      LNWARN( "GetEventChannelFactory", " No naming service entry for 'EventChannelFactory'" );
+    } catch (const CORBA::Exception& e) {
+      LNWARN( "GetEventChannelFactory",  " CORBA " << e._name() << ", exception looking up EventChannelFactory." );
+    } 
+    return ecf._retn();
+
+  }
+**/
+
+  //
+  // GetEventChannel
+  //
+  // Will first lookup an event channel given the value of the name parameter... it will try to resolve the
+  // name using different event channel resolution methods:
+  // 1) resolve using naming services's resolve_str method
+  // 2) resolve if channel defined with InitRef method and resolve_initial_reference method
+  // 3) resolve as corbaname   corbaname::#channelname
+  // 4) resolve with  corbaloc
+  //
+  // If channel was not found and create==true then create the channel from the EventChannelFactory
+  //
+  CosEventChannelAdmin::EventChannel_ptr GetEventChannel ( const std::string& name, 
+							   const bool create,
+							   const std::string &host ) {
+    LNDEBUG("GetEventChannel",  " : NamingService look up, Channel " << name );
+    return GetEventChannel( name, "", create, host );
+  }
+
+
+  CosEventChannelAdmin::EventChannel_ptr GetEventChannel ( const std::string& name, 
+							   const std::string &nc_name, 
+							   const bool create,
+							   const std::string &host )
+  {
+
+
+    // set orb context..
+    Orb    _orb;
+    OrbPtr orb = &_orb;
+
+    // return value if no event channel was found or error occured
+    CosEventChannelAdmin::EventChannel_var event_channel = CosEventChannelAdmin::EventChannel::_nil();
+
+    //
+    // Look up event channel in NamingService from root context...
+    //   if no channel is found then try to lookup using InitRef
+    //   if no channel is found then try to lookup using corbaname method
+    //   if no channel is found then try to lookup using corbaloc method.
+    // 
+    // if all options fail then return nil if create== false
+    //
+
+    bool found=false;
+    std::string tname;
+
+    try {
+      //
+      // Lookup in NamingService...
+      //
+      LNDEBUG("GetEventChannel",  " : NamingService look up, NC<"<<nc_name<<"> Channel " << name );
+      std::string cname=name;
+      if ( nc_name != "" )
+	cname=nc_name+"/"+name;
+
+      LNDEBUG("GetEventChannel",  " : NamingService look up : " << cname );
+      CORBA::Object_var obj = orb->namingServiceCtx->resolve_str(cname.c_str());
+      event_channel = CosEventChannelAdmin::EventChannel::_narrow(obj);
+
+      LNDEBUG("GetEventChannel", " : FOUND EXISTING, Channel NC<"<<nc_name<<"> Channel " << name );
+      found = true;
+    } catch (const CosNaming::NamingContext::NotFound&) {
+      LNWARN("GetEventChannel",  "  Unable to resolve event channel (" << name << ") in NamingService.. trying alternate methods." );
+    } catch (const CORBA::Exception& e) {
+      LNERROR("GetEventChannel", "  CORBA (" << e._name() << ") exception during event channel look up, CH:" << name );
+    }
+
+
+    //
+    // try to resolve using channel name as InitRef  and resolve_initial_references
+    //
+    try {
+      if ( found == false ) {
+	LNDEBUG( "GetEventChannel", " : Trying InitRef Lookup " << name );
+	CORBA::Object_var obj = orb->orb->resolve_initial_references(name.c_str());
+	event_channel = CosEventChannelAdmin::EventChannel::_narrow(obj);
+	found =true;
+	LNDEBUG( "GetEventChannel", " : FOUND EXISTING, Channel " << name );
+      } 
+    }catch (const CORBA::Exception& e) {
+      LNWARN( "GetEventChannel", "  Unable to lookup with InitRef:" << name << ",  CORBA RETURNED(" << e._name() << ")" );
+    } 
+
+
+    //
+    // try to resolve with corbaname and string_to_object method
+    //
+    try {
+      std::ostringstream os;
+      if ( found == false ) {
+	if ( name.find("corbaname") == std::string::npos ) {
+	  if ( nc_name != "" )
+	    os << "corbaname:rir:#"<< nc_name << "/" << name;
+	  else
+	    os << "corbaname:rir:#"<< name;
+	}
+	else
+	  os << name;
+	tname=os.str();
+	LNDEBUG( "GetEventChannel", " : Trying corbaname resolution " << tname );
+	CORBA::Object_var obj = obj=orb->orb->string_to_object(tname.c_str());
+	event_channel = CosEventChannelAdmin::EventChannel::_narrow(obj);
+	found =true;
+	LNDEBUG( "GetEventChannel", " : FOUND EXISTING, Channel " << tname );
+      } 
+
+    }catch (const CORBA::Exception& e) {
+      LNWARN( "GetEventChannel",  "  Unable to lookup with corbaname:  URI:" << tname << ",  CORBA RETURNED(" << e._name() << ")");
+    }
+
+
+    //
+    // try to resolve with corbaloc method and string_to_object method
+    //
+    try {
+      if ( found == false ) {	
+	std::ostringstream os;
+	//
+	// last gasp... try the corbaloc method...corbaloc::host::11169/<channel name>
+	// 
+	os << "corbaloc::"<<host<<":11169/"<< name;
+	tname=os.str();
+	LNDEBUG( "GetEventChannel"," : Trying corbaloc resolution " << tname );
+	CORBA::Object_var obj = orb->orb->string_to_object(tname.c_str());
+	if ( !CORBA::is_nil(obj) ) {
+	    event_channel = CosEventChannelAdmin::EventChannel::_narrow(obj);
+	    found = true;
+	    LNDEBUG( "GetEventChannel", " : FOUND EXISTING, Channel " << tname );
+	}
+	else {
+	  LNDEBUG( "GetEventChannel", " : SEARCH FOR Channel " << tname << " FAILED");
+	}
+      } 
+    }catch (const CORBA::Exception& e) {
+      LNWARN( "GetEventChannel", "  Unable to lookup with corbaloc URI:" << tname << ", CORBA RETURNED(" << e._name() << ")" );
+    }
+
+    try{
+      if ( !found && create ) {
+
+	LNDEBUG( "GetEventChannel", " CREATE NEW CHANNEL " << name );
+	event_channel = CreateEventChannel( name, nc_name );
+	if ( !CORBA::is_nil(event_channel) )
+	  LNINFO( "GetEventChannel", " --- CREATED NEW CHANNEL ---" << name );
+      }
+    } catch (const CORBA::Exception& e) {
+      LNERROR( "GetEventChannel", "  CORBA (" << e._name() << ") during event creation, channel " << name );
+    }
+
+    return event_channel._retn();
+  }
+
+  //
+  // CreateEventChannel
+  //
+  // @param orb  context of the orb we are associated with 
+  // @param name human readable path to the event channel being requested
+  // @parm  bind bind the channel name to the object in the NamingService if channel was created
+  //
+  CosEventChannelAdmin::EventChannel_ptr CreateEventChannel (  const std::string& name, 
+							      corba::NS_ACTION action  ) {
+    return CreateEventChannel( name, "", action );
+    }
+
+  CosEventChannelAdmin::EventChannel_ptr CreateEventChannel ( const std::string& name, 
+							      const std::string &nc_name, 
+							      corba::NS_ACTION action  )
+  {
+    
+    Orb    _orb;
+    OrbPtr orb = &_orb;
+
+    CosEventChannelAdmin::EventChannel_var event_channel = CosEventChannelAdmin::EventChannel::_nil();
+    //omniEvents::EventChannelFactory_var event_channel_factory = GetEventChannelFactory( );
+    CosLifeCycle::GenericFactory_var event_channel_factory = getEventChannelFactory( );
+
+    LNDEBUG( "CreateEventChannel", " Request to create event channel:" << name << " bind action:" << action );
+
+    if (CORBA::is_nil(event_channel_factory)) {
+      LNERROR( "CreateEventChannel", "CHANNEL(CREATE): Could not find EventChannelFactory" );
+      return event_channel._retn();
+    }
+
+    CosLifeCycle::Key key;
+    key.length (1);
+    key[0].id = CORBA::string_dup("EventChannel");
+    key[0].kind = CORBA::string_dup("object interface");
+
+    LNDEBUG( "CreateEventChannel", " action - event channel factory api" );
+    if(!event_channel_factory->supports(key))
+      {
+	LNWARN( "CreateEventChannel", " EventChannelFactory does not support Event Channel Interface!" );
+	return event_channel._retn();	
+      }
+
+    // 
+    // Our EventChannels will always be created with InsName
+    //
+    CosLifeCycle::Criteria criteria;
+    criteria.length(2);
+    criteria[0].name=CORBA::string_dup("InsName");
+    criteria[0].value<<=name.c_str();
+    criteria[1].name=CORBA::string_dup("CyclePeriod_ns");
+    criteria[1].value<<=(CORBA::ULong)10;
+
+    //
+    // Create Event Channel Object.
+    //
+    LNDEBUG( "CreateEventChannel", " action - create EventChannel object" );
+
+    CORBA::Object_var obj;
+    try {
+      obj =event_channel_factory->create_object(key, criteria);
+    }
+    catch (CosLifeCycle::CannotMeetCriteria& ex) /* create_object() */ {
+      LNERROR( "CreateEventChannel", "create_object failed, channel: " << name << " reason: CannotMeetCriteria " );
+    }
+    catch (CosLifeCycle::InvalidCriteria& ex) /* create_object() */ {
+      LNERROR( "CreateEventChannel", "create_object failed, channel: " << name << " reason: InvalidCriteria " );
+      if(ex.invalid_criteria.length()>0) {
+	int j;
+	for (  j=0; (unsigned int)j < ex.invalid_criteria.length(); j++ ) { 
+	  LNERROR( "CreateEventChannel", "--- Criteria Name: " << ex.invalid_criteria[j].name );
+	  CORBA::ULong xx;
+	  ex.invalid_criteria[j].value >>= xx;
+	  LNERROR( "CreateEventChannel", "--- Criteria Value : " << xx );
+	}
+      }
+    }
+    catch( CORBA::Exception &ex ) {
+      LNERROR( "CreateEventChannel", " create_object failed, channel:" << name << " reason: corba exception" );
+    }
+
+    if (CORBA::is_nil(obj)) {
+      LNERROR( "CreateEventChannel", " Factory failed to create channel: " << name );
+      return event_channel._retn();
+    }
+
+    try {
+      LNDEBUG( "CreateEventChannel", " action - Narrow EventChannel" );
+      event_channel = CosEventChannelAdmin::EventChannel::_narrow(obj);
+    }
+    catch( CORBA::Exception &ex ) {
+      LNERROR( "CreateEventChannel", " Failed Narrow to EventChannel for:" << name  );
+    }
+    LNDEBUG( "CreateEventChannel", " created event channel " << name );
+    try {
+
+      if(!CORBA::is_nil(orb->namingService) && ( action == ossie::corba::NS_BIND) ) {
+	Bind(orb, name, event_channel.in(), nc_name );
+	/**
+	CosNaming::Name  cname = str2name(name.c_str());
+	try{
+	  LNDEBUG( "CreateEventChannel", "CHANNEL(CREATE): (BIND) EventChannel with the NamingService, CHANNEL:" << name << " NC:" << ns_context);
+	  orb->namingService->bind(cname,event_channel.in());
+
+	} catch(CosNaming::NamingContext::AlreadyBound& ex) {
+	  LNDEBUG( "CreateEventChannel", "CHANNEL(CREATE): (REBIND) EventChannel with the NamingService, CHANNEL:" << name << " NC:" << ns_context);
+	  orb->namingService->rebind(cname,event_channel.in());
+	}
+	**/
+      }
+
+    } 
+    catch (const CosLifeCycle::InvalidCriteria& ex) {
+      LNERROR( "CreateEventChannel", " CHANNEL: Invalid Criteria: " << ex._name() << " - for creating event channel " << name );
+    } catch (const CORBA::Exception& ex) {
+      LNERROR( "CreateEventChannel", " CHANNEL: CORBA " << ex._name() << " exception during create operation, CHANNEL:" << name );
+    }
+
+
+    LNDEBUG( "CreateEventChannel", " completed create event channel : " << name );
+    return event_channel._retn();
+  };
+
+
+
+
+
+  ////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////
+
+  //
+  //  PushEventConsumer class implementation
+  //
+  PushEventConsumer::PushEventConsumer( const std::string   &channelName, 
+					Consumer            *inConsumer,
+					const int            retries, 
+					const int            retry_wait ):
+    name(channelName),
+    nc_name(""),
+    consumer(inConsumer),
+    retries(retries),
+    retry_wait(retry_wait)
+  {
+    _init();
+  }
+
+  PushEventConsumer::PushEventConsumer( const std::string   &channelName, 
+					const std::string   &ncName, 
+					Consumer            *inConsumer,
+					const int            retries, 
+					const int            retry_wait ):
+    name(channelName),
+    nc_name(ncName),
+    consumer(inConsumer),
+    retries(retries),
+    retry_wait(retry_wait)
+  {
+    _init();
+  }
+
+
+  PushEventConsumer::PushEventConsumer( const std::string   &channelName, 
+					const int retries, 
+					const int retry_wait ):
+    name(channelName),
+    nc_name(""),
+    consumer(NULL),
+    retries(retries),
+    retry_wait(retry_wait)
+  {
+    _init();
+  }
+
+
+  PushEventConsumer::PushEventConsumer( const std::string   &channelName, 
+					const std::string   &ncName, 
+					const int retries, 
+					const int retry_wait ):
+    name(channelName),
+    nc_name(ncName),
+    consumer(NULL),
+    retries(retries),
+    retry_wait(retry_wait)
+  {
+    _init();
+  }
+
+
+  void PushEventConsumer::_init( ) 
+  {
+    LNDEBUG("PushEventConsumer", " GetEventChannel " << name );
+    try {
+      //channel = corba::GetEventChannel( orb, name, nc_name, true );
+      channel = GetEventChannel( name, nc_name, true );
+    }
+    catch(...){
+        LNERROR("PushEventConsumer", " Channel " << name );
+	return;
+    }
+    
+    if ( CORBA::is_nil(channel) == true ) {
+      LNERROR("PushEventConsumer", " Channel resource not available, channel " << name );
+      return;
+    }
+
+    int tries=retries;
+    do
+      {
+	try {
+	  consumer_admin = channel->for_consumers ();
+	  break;
+	}
+	catch (CORBA::COMM_FAILURE& ex) {
+	}
+	if ( retry_wait > 0 ) {
+	  boost::this_thread::sleep( boost::posix_time::microseconds( retry_wait*1000 ) );
+	} else {
+	  boost::this_thread::yield();
+	}
+	tries--;
+      } while ( tries );
+
+    if ( CORBA::is_nil(consumer_admin) ) return;
+    
+    LNDEBUG("PushEventConsumer", "Obtained ConsumerAdmin." );
+
+    tries=retries;
+    do {
+      try {
+	proxy_for_supplier = consumer_admin->obtain_push_supplier ();
+	break;
+      }
+      catch (CORBA::COMM_FAILURE& ex) {
+      }
+      if ( retry_wait > 0 ) {
+	boost::this_thread::sleep( boost::posix_time::microseconds( retry_wait*1000 ) );
+      } else {
+	boost::this_thread::yield();
+      }
+      tries--;
+    } while ( tries );
+
+    LNDEBUG("PushEventConsumer", "Obtained ProxyPushConsumer." );
+    if ( CORBA::is_nil(proxy_for_supplier) ) return;
+
+    if  ( consumer == NULL ) {
+      consumer = new PushEventConsumer::CallbackConsumer(*this);
+    }
+    if ( consumer == NULL ) return;
+    CosEventComm::PushConsumer_var sptr =CosEventComm::PushConsumer::_nil();
+    sptr = consumer->_this();
+
+    // now attach supplier to the proxy
+    do {
+      try {
+	// connect the the consumer object to the supplier's proxy
+	proxy_for_supplier->connect_push_consumer(sptr.in());
+      }
+      catch (CORBA::BAD_PARAM& ex) {
+	LNERROR("PushEventConsumer", "Caught BAD_PARAM " );
+	break;
+      }
+      catch (CosEventChannelAdmin::AlreadyConnected& ex) {
+	break;
+      }
+      catch (CORBA::COMM_FAILURE& ex) {
+	LNERROR("PushEventConsumer",  "Caught COMM_FAILURE Exception "  << 
+		"connecting Push Consumer! Retrying..." );
+      }
+      if ( retry_wait > 0 ) {
+	boost::this_thread::sleep( boost::posix_time::microseconds( retry_wait*1000 ) );
+      } else {
+	boost::this_thread::yield();
+      }
+      tries--;
+    } while ( tries );
+
+
+    LNDEBUG("PushEventConsumer",  "Connected Push Consumer." );
+
+  };
+    
+  PushEventConsumer::~PushEventConsumer( ) {
+
+    LNDEBUG("PushEventConsumer", "DTOR - START." );
+    int tries = retries;
+    if ( CORBA::is_nil(proxy_for_supplier) == false ) {
+     // Disconnect - retrying on Comms Failure.
+     do {
+        try {
+           proxy_for_supplier->disconnect_push_supplier();
+           break;
+        }
+        catch (CORBA::COMM_FAILURE& ex) {
+	  LNERROR("PushEventConsumer",  "Caught COMM_FAILURE Exception "
+		  << "disconnecting Push Consumer! Retrying..." );
+        }
+	if ( retry_wait > 0 ) {
+	  boost::this_thread::sleep( boost::posix_time::microseconds( retry_wait*1000 ) );
+	} else {
+	  boost::this_thread::yield();
+	}
+	tries--;
+      } while(tries);
+      LNDEBUG("PushEventConsumer", "ProxyPushSupplier disconnected." );
+      
+    }
+
+    if ( consumer ) {
+      consumer->_remove_ref();
+    }
+
+    LNDEBUG("PushEventConsumer", "DTOR - END." );
+  }
+
+#if 0
+  void   PushEventConsumer::detach() {
+
+    LNDEBUG("PushEventConsumer", "DETTACH - START." );
+    int tries = retries;
+    if ( CORBA::is_nil(proxy_for_supplier) == false ) {
+      // Disconnect - retrying on Comms Failure.
+      do {
+        try {
+	  proxy_for_supplier->disconnect_push_supplier();
+	  break;
+        }
+        catch (CORBA::COMM_FAILURE& ex) {
+	  LNERROR("PushEventConsumer",  "Caught COMM_FAILURE Exception "
+		  << "disconnecting Push Consumer! Retrying..." );
+        }
+	if ( retry_wait > 0 ) {
+	  boost::this_thread::sleep( boost::posix_time::microseconds( retry_wait*1000 ) );
+	} else {
+	  boost::this_thread::yield();
+	}
+	tries--;
+      } while(tries);
+      LNDEBUG("PushEventConsumer", "ProxyPushSupplier disconnected." );
+      
+    }
+    else {
+      LNDEBUG("PushEventConsumer", "DETTACH - ProxyForSupplier is Nil." );    
+    }
+  }
+
+
+
+  void   PushEventConsumer::attach() {
+
+    LNDEBUG("PushEventConsumer", "ATTACH - START." );
+    if ( consumer == NULL ) return;
+
+    LNDEBUG("PushEventConsumer", "Register Consumer." );    
+    CosEventComm::PushConsumer_var sptr = consumer->_this();
+    int tries = retries;
+
+    if ( CORBA::is_nil(proxy_for_supplier) == false ) {
+      // now attach supplier to the proxy
+      do {
+	try {
+	  // connect the the consumer object to the supplier's proxy
+	  proxy_for_supplier->connect_push_consumer(sptr.in());
+	}
+	catch (CORBA::BAD_PARAM& ex) {
+	  LNERROR("PushEventConsumer", "Caught BAD_PARAM " );
+	  break;
+	}
+	catch (CosEventChannelAdmin::AlreadyConnected& ex) {
+	  LNDEBUG("PushEventConsumer", "ATTACH - Already Connected Consumer." );    
+	  break;
+	}
+	catch (CORBA::COMM_FAILURE& ex) {
+	  LNERROR("PushEventConsumer",  "Caught COMM_FAILURE Exception "  << 
+		  "connecting Push Consumer! Retrying..." );
+	}
+	if ( retry_wait > 0 ) {
+	  boost::this_thread::sleep( boost::posix_time::microseconds( retry_wait*1000 ) );
+	} else {
+	  boost::this_thread::yield();
+	}
+	tries--;
+      } while ( tries );
+
+    }
+    else {
+      LNDEBUG("PushEventConsumer", "ATTACH - ProxyForSupplier is Nil." );    
+    }
+  }
+
+#endif
+
+  //
+  // used for boost shared pointer instantion when user
+  // supplied callback is provided
+  //
+  struct null_deleter
+  {
+    void operator()(void const *) const
+    {
+    }
+  };
+
+  void   PushEventConsumer::setDataArrivedListener( DataArrivedListener *newListener ) {
+    dataArrivedCB =  boost::shared_ptr< DataArrivedListener >(newListener, null_deleter());
+  }
+
+  void   PushEventConsumer::setDataArrivedListener( DataArrivedCallbackFn  newListener ) {
+    dataArrivedCB =  boost::make_shared< StaticDataArrivedListener >( newListener );
+  }
+
+
+
+
+} // end of namespace event
+} // end of namespace ossie

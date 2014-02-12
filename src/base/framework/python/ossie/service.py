@@ -26,6 +26,7 @@ import signal
 from omniORB import CORBA
 from ossie.resource import load_logging_config_uri
 from ossie.cf import CF
+import ossie.logger
 
 def __exit_handler(signum, frame):
     # Raise SystemExit - but only the first time we get a signal
@@ -83,11 +84,7 @@ def start_service(serviceclass, thread_policy=None):
             if execparams.has_key('LOGGING_CONFIG_URI'):
                 load_logging_config_uri(orb, execparams["LOGGING_CONFIG_URI"])
             else:
-                try:
-                    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-                except:
-                    logging.basicConfig()
-                    logging.getLogger().setLevel(logging.DEBUG)
+                ossie.logger.ConfigureDefault()
 
             # get the POA
             obj_poa = orb.resolve_initial_references("RootPOA")
@@ -110,10 +107,23 @@ def start_service(serviceclass, thread_policy=None):
                 logging.warning("No 'SERVICE_NAME' argument provided")
                 execparams["SERVICE_NAME"] = ""
 
+
+            # Configure logging (defaulting to INFO level).
+            name = execparams.get("SERVICE_NAME", "")
+            log_config_uri = execparams.get("LOGGING_CONFIG_URI", None)
+            debug_level = execparams.get("DEBUG_LEVEL", 3)
+            dpath=execparams.get("DOM_PATH", "")
+            ctx = ossie.logger.ServiceCtx( name, dpath )
+            ossie.logger.Configure( log_config_uri, debug_level, ctx )
+
             # Create the component
             component_Obj = serviceclass(execparams["SERVICE_NAME"], execparams)
             servicePOA.activate_object(component_Obj)
             component_Var = component_Obj._this()
+
+            ## RESOLVE  - service does not follow Resource class hierarchy
+            ## set logging context for resource to support CF::Logging
+            ##component_Obj.setLoggingContext( log_config_uri, debug_level, ctx )
 
             if devMgr != None:
                 logging.debug("Registering service with device manager")

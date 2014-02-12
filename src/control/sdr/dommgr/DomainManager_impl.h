@@ -40,6 +40,7 @@
 #include "connectionSupport.h"
 
 class Application_impl;
+class AllocationManager_impl;
 
 class DomainManager_impl: public virtual POA_CF::DomainManager, public PropertySet_impl, public ossie::ComponentLookup, public ossie::DomainLookup, public ossie::Runnable
 {
@@ -153,7 +154,7 @@ public:
     
     void removeApplication(std::string app_id);
 
-    void updateAllocations(std::map<std::string, ossie::_allocationsType> &ref_allocations, std::map<std::string, CF::AllocationManager_var> &ref_remoteAllocations);
+    void updateAllocations(std::map<std::string, ossie::AllocationType> &ref_allocations, std::map<std::string, CF::AllocationManager_var> &ref_remoteAllocations);
 
     const std::string& getDomainManagerName (void) const {
         return _domainName;
@@ -190,8 +191,11 @@ public:
     std::map<std::string, ossie::consumerContainer> registeredConsumers;
 
     CF::FileManager_var _fileMgr;
-    
-    CF::AllocationManager_var _allocationMgr;
+
+    AllocationManager_impl* _allocationMgr;
+
+    std::string getLastDeviceUsedForDeployment();
+    void setLastDeviceUsedForDeployment(const std::string& identifier);
 
 /////////////////////////////
 // Internal Helper Functions
@@ -208,7 +212,6 @@ protected:
     void removeSPD (const char* _spdProfile, int _cnt = 0);
     void storeDeviceInDomainMgr (CF::Device_ptr, CF::DeviceManager_ptr);
     void storeServiceInDomainMgr (CORBA::Object_ptr, CF::DeviceManager_ptr, const char*, const char*);
-    void getDeviceProperties (ossie::DeviceNode&);
     bool deviceMgrIsRegistered (CF::DeviceManager_ptr);
     bool domainMgrIsRegistered (CF::DomainManager_ptr);
     bool deviceIsRegistered (CF::Device_ptr);
@@ -243,6 +246,8 @@ protected:
     void destroyEventChannels (void);
     void connectToOutgoingEventChannel (void);
     void connectToIncomingEventChannel (void);
+
+    void parseDeviceProfile (ossie::DeviceNode& node);
 
 /////////////////////////
 // Protected Domain State
@@ -284,6 +289,9 @@ private:
     
     CF::DomainManager::ApplicationSequence _applications;
     CF::DomainManager::ApplicationFactorySequence _applicationFactories;
+
+    // Identifier of last device that was successfully used for deployment
+    std::string _lastDeviceUsedForDeployment;
 
     std::string logging_config_uri;
     StringProperty* logging_config_prop;

@@ -93,6 +93,7 @@ OSSIE_SOURCE = src/org/ossie/component/AllocCapacity.java \
 	       src/org/ossie/component/Resource.java \
 	       src/org/ossie/component/Service.java \
 	       src/org/ossie/component/UsesPort.java \
+	       src/org/ossie/logging/logging.java \
 	       src/org/ossie/events/Consumer_i.java \
 	       src/org/ossie/events/EventCallback.java \
 	       src/org/ossie/events/MessageConsumerPort.java \

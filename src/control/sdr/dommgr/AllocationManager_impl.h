@@ -39,7 +39,6 @@ class AllocationManager_impl: public virtual POA_CF::AllocationManager
     
     public:
         AllocationManager_impl (DomainManager_impl* domainManager);
-        AllocationManager_impl (DomainManager_impl* domainManager, std::map<std::string, ossie::_allocationsType> &ref_allocations, std::map<std::string, CF::AllocationManager_var> &ref_remoteAllocations);
         ~AllocationManager_impl ();
         
         CF::AllocationManager::AllocationResponseSequence* allocate(const CF::AllocationManager::AllocationRequestSequence &requests) throw (CF::AllocationManager::AllocationError);
@@ -68,15 +67,54 @@ class AllocationManager_impl: public virtual POA_CF::AllocationManager
         /* Returns all devices that are located within the local Domain */
         CF::DomainManager_ptr domainMgr();
 
-        // local support functions
-        bool checkDeviceMatching(ossie::Properties& _prf, CF::Properties& propertiesToCheckForMatch, const CF::Properties& dependencyPropertiesFromComponent,
-                CF::DeviceManager_ptr _devMgr, const char *_deviceSoftwareProfile);
-        bool checkDevicePropertyTypes(ossie::Properties& _prf, CF::Properties& propertiesForAllocateCall, const CF::Properties& dependencyPropertiesFromComponent);
-        bool completeAllocations(CF::Device_ptr device, CF::Properties &allocProps, std::vector<CF::Properties>& duplicates);
+        /* Allocates a set of dependencies for deployment; not part of the CORBA API */
+        ossie::AllocationResult allocateDeployment(const std::string& requestID, const CF::Properties& allocationProperties, ossie::DeviceList& devices, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps);
+
+        /* Deallocates a set of allocations */
+        template <class Iterator>
+        void deallocate(Iterator first, const Iterator end)
+        {
+            CF::AllocationManager::allocationIDSequence invalidAllocations;
+            invalidAllocations.length(0);
+
+            boost::recursive_mutex::scoped_lock lock(allocationAccess);
+            for (; first != end; ++first) {
+                const std::string allocationId(*first);
+                if (!deallocateSingle(allocationId)) {
+                    LOG_TRACE(AllocationManager_impl, "Invalid allocation ID " << allocationId);
+                    ossie::corba::push_back(invalidAllocations, allocationId.c_str());
+                }
+            }
+
+            this->_domainManager->updateAllocations(this->_allocations, this->_remoteAllocations);
+            if (invalidAllocations.length() != 0) {
+                throw CF::AllocationManager::InvalidAllocationId(invalidAllocations);
+            }
+        }
+
+        // Local interface for persistance support
+        void restoreAllocations(ossie::AllocationTable& ref_allocations, std::map<std::string, CF::AllocationManager_var> &ref_remoteAllocations);
 
     private:
+        CF::AllocationManager::AllocationResponseSequence* allocateDevices(const CF::AllocationManager::AllocationRequestSequence &requests, ossie::DeviceList& devices);
+
+        std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> allocateRequest(const std::string& requestID, const CF::Properties& allocationProperties, ossie::DeviceList& devices, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps);
+
+        bool checkDeviceMatching(ossie::Properties& _prf, CF::Properties& externalProps, const CF::Properties& dependencyPropertiesFromComponent, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps);
+
+        bool checkMatchingProperty(const ossie::Property* property, const CF::DataType& dependency);
+
+        bool allocateDevice(const CF::Properties& requestedProperties, ossie::DeviceNode& device, CF::Properties& allocatedProperties, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps);
+        void partitionProperties(const CF::Properties& properties, std::vector<CF::Properties>& outProps);
+
+        bool completeAllocations(CF::Device_ptr device, const std::vector<CF::Properties>& duplicates);
+
+        bool deallocateSingle(const std::string& allocationID);
+        bool deallocateLocal(const std::string& allocationID);
+        bool deallocateRemote(const std::string& allocationID);
+
         DomainManager_impl* _domainManager;
-        std::map<std::string, ossie::_allocationsType> _allocations;
+        ossie::AllocationTable _allocations;
         std::map<std::string, CF::AllocationManager_var> _remoteAllocations;
         void unfilledRequests(CF::AllocationManager::AllocationRequestSequence &requests, const CF::AllocationManager::AllocationResponseSequence &result);
     

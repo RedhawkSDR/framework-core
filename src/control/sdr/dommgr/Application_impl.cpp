@@ -27,6 +27,7 @@
 
 #include "Application_impl.h"
 #include "DomainManager_impl.h"
+#include "AllocationManager_impl.h"
 #include "connectionSupport.h"
 
 PREPARE_LOGGING(Application_impl);
@@ -61,7 +62,7 @@ void Application_impl::populateApplication(CF::Resource_ptr _controller,
                                            CF::Application::ComponentProcessIdSequence* _pidSeq,
                                            std::vector<ConnectionNode>& connections,
                                            std::map<std::string, std::string>& fileTable,
-                                           CF::AllocationManager::AllocationResponseSequence* _allocationResponses)
+                                           std::vector<std::string> allocationIDs)
 {
     TRACE_ENTER(Application_impl)
     _fileTable = fileTable;
@@ -111,15 +112,8 @@ void Application_impl::populateApplication(CF::Resource_ptr _controller,
         }
     } 
 
-    LOG_DEBUG(Application_impl, "Creating allocation sequence")
-    if (_allocationResponses != NULL) {
-        this->appAllocationResponses.length (_allocationResponses->length ());
-
-        for (unsigned int i = 0; i < _allocationResponses->length (); i++) {
-            appAllocationResponses[i] = (*_allocationResponses)[i];
-            //_pidTable[static_cast<const char*>((*_pidSeq)[i].componentId)] = (*_pidSeq)[i].processId;
-        }
-    }
+    LOG_DEBUG(Application_impl, "Creating allocation sequence");
+    this->_allocationIDs = allocationIDs;
 
     LOG_DEBUG(Application_impl, "Assigning the assembly controller")
     // Assume _controller is NIL implies that the assembly controller component is Non SCA-Compliant
@@ -751,12 +745,19 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
     }
 
     // deallocate capacities
-    CF::AllocationManager::allocationIDSequence seq;
-    seq.length(this->appAllocationResponses.length());
-    for (unsigned int dealloc=0; dealloc<appAllocationResponses.length(); dealloc++) {
-        seq[dealloc] = CORBA::string_dup(this->appAllocationResponses[dealloc].allocationID);
+    try {
+        this->_domainManager->_allocationMgr->deallocate(this->_allocationIDs.begin(), this->_allocationIDs.end());
+    } catch (const CF::AllocationManager::InvalidAllocationId& iad) {
+        std::ostringstream err;
+        err << "Tried to deallocate invalid allocation IDs: ";
+        for (size_t ii = 0; ii < iad.invalidAllocationIds.length(); ++ii) {
+            if (ii > 0) {
+                err << ", ";
+            }
+            err << iad.invalidAllocationIds[ii];
+        }
+        LOG_ERROR(Application_impl, err.str());
     }
-    this->_domainManager->_allocationMgr->deallocate(seq);
 
     // Unbind the application's naming context using the fully-qualified name.
     LOG_TRACE(Application_impl, "Unbinding application naming context " << _waveformContextName);

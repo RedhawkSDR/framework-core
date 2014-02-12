@@ -145,6 +145,41 @@ bool isValidType (const CORBA::Any& lhs, const CORBA::Any& rhs)
     return (tc1->equal(tc2));
 }
 
+  //
+  // convenience routine to convert stringified name to CosNaming path
+  //
+  CosNaming::Name str2name(const char* namestr)
+  {
+    CosNaming::Name name;
+    CORBA::ULong nameLen=0;
+    name.length(nameLen);
+
+    std::string n =namestr;
+    std::string::size_type pos=0;
+    char last='/';
+    while(true)
+      {
+	pos=n.find_first_not_of("/.",pos);
+	if(std::string::npos==pos) break;
+	std::string::size_type sep =n.find_first_of("/.",pos);
+	std::string piece =n.substr(pos, (std::string::npos==sep? sep: sep-pos) );
+	if(last=='/')
+	  {
+	    name.length(++nameLen);
+	    name[nameLen-1].id=CORBA::string_dup(piece.c_str());
+	  }
+	else
+	  {
+	    name[nameLen-1].kind=CORBA::string_dup(piece.c_str());
+	  }
+	if(std::string::npos==sep) break;
+	pos=sep;
+	last=n[sep];
+      }
+    return name;
+  }
+
+
 
 CosNaming::Name* stringToName (const std::string& name)
 {
@@ -166,6 +201,57 @@ CORBA::Object_ptr stringToObject (const std::string& ior)
 {
     return orb->string_to_object(ior.c_str());
 }
+
+ std::vector<std::string> listRootContext( ) {
+    std::vector<std::string> t;
+    if ( CORBA::is_nil(inc) == false )
+      return listContext( InitialNamingContext(),"" );
+    else
+      return t;
+  }
+
+  std::vector<std::string> listContext(const CosNaming::NamingContext_ptr ctx, const std::string &dname ) {
+    CosNaming::BindingIterator_var bi;
+    CosNaming::BindingList_var bl;
+    CosNaming::Binding_var b;
+    const CORBA::ULong CHUNK = 0;
+    
+    //std::cout << " DIR:" << dname << std::endl;
+    std::vector<std::string> t;
+    try{
+      ctx->list(CHUNK, bl, bi);
+      while ( CORBA::is_nil(bi) == false &&  bi->next_one(b) ) {
+	CORBA::String_var s = CORBA::string_dup(b->binding_name[0].id);
+	std::string bname = s.in();
+	if ( b->binding_type == CosNaming::nobject ) {
+	  std::string n = dname;
+	  n = n + "/" + bname;
+	  //std::cout << " OBJ:" << n << std::endl;
+	  t.push_back( n );
+	}
+	else if ( b->binding_type == CosNaming::ncontext ) {
+	  std::vector< std::string > slist;
+	  CORBA::Object_ptr obj=ctx->resolve( b->binding_name );
+	  if ( CORBA::is_nil(obj) == false ) {
+	    CosNaming::NamingContext_ptr nc= CosNaming::NamingContext::_narrow(obj);
+	    std::string sdir=dname;
+	    sdir = sdir+"/"+ bname;
+	    slist = listContext( nc, sdir );
+	    t.insert(t.end(), slist.begin(), slist.end() );
+	  }
+	}
+      }
+	
+    }
+    catch(...) {
+      // skip to end
+    }
+
+    return t;
+  }
+
+
+
 
 void bindObjectToName (const CORBA::Object_ptr obj, const std::string& name)
 {
@@ -189,6 +275,8 @@ unsigned int numberBoundObjectsToContext(CosNaming::NamingContext_ptr context)
     return bl->length();
 }
 
+
+
 void unbindAllFromContext(CosNaming::NamingContext_ptr context)
 {
     ///\todo Add support for deleting more than 100 names
@@ -202,6 +290,7 @@ void unbindAllFromContext(CosNaming::NamingContext_ptr context)
         context->unbind(bl[ii].binding_name);
     }
 }
+
 
 PortableServer::ObjectId* activatePersistentObject (PortableServer::POA_ptr poa, PortableServer::Servant servant, const std::string& identifier)
 {

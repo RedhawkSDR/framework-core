@@ -50,6 +50,7 @@ import org.omg.PortableServer.POAPackage.ServantNotActive;
 import org.omg.PortableServer.POAPackage.WrongPolicy;
 import org.ossie.properties.AnyUtils;
 import org.ossie.properties.IProperty;
+import org.ossie.logging;
 
 import CF.AggregateDevice;
 import CF.AggregateDeviceHelper;
@@ -323,15 +324,19 @@ public abstract class Device extends Resource implements DeviceOperations {
         Map<String, String> execparams = parseArgs(args);
 
         // Configure log4j from the execparams (or use default settings).
-        Resource.configureLogging(execparams, orb);
+        //Resource.configureLogging(execparams, orb);
 
         DeviceManager devMgr = null;
+	String devMgr_ior=null;
         if (execparams.containsKey("DEVICE_MGR_IOR")) {
+	    devMgr_ior=execparams.get("DEVICE_MGR_IOR");
             devMgr = DeviceManagerHelper.narrow(orb.string_to_object(execparams.get("DEVICE_MGR_IOR")));
         }
 
         AggregateDevice compositeDevice = null;
+	String composite_ior=null;
         if (execparams.containsKey("COMPOSITE_DEVICE_IOR")) {
+	    composite_ior=execparams.get("COMPOSITE_DEVICE_IOR");
             compositeDevice = AggregateDeviceHelper.narrow(orb.string_to_object(execparams.get("COMPOSITE_DEVICE_IOR")));
         }
 
@@ -349,6 +354,38 @@ public abstract class Device extends Resource implements DeviceOperations {
         if (execparams.containsKey("PROFILE_NAME")) {
             profile = execparams.get("PROFILE_NAME");
         }
+
+        String dom_path = "";
+        if (execparams.containsKey("DOM_PATH")) {
+            dom_path = execparams.get("DOM_PATH");
+        }
+
+        String logcfg_uri = "";
+        if (execparams.containsKey("LOGGING_CONFIG_URI")) {
+            logcfg_uri = execparams.get("LOGGING_CONFIG_URI");
+        }
+
+	int debugLevel = 3; // Default level is INFO
+	if (execparams.containsKey("DEBUG_LEVEL")) {
+	    debugLevel = Integer.parseInt(execparams.get("DEBUG_LEVEL"));
+	}
+
+	if ( debugLevel > 3 ) {
+	    System.out.println("Device Args: " );
+	    System.out.println("                DEVICE_LABEL:"+ label );
+	    System.out.println("                DEVICE_ID:"+ identifier );
+	    System.out.println("                PROFILE_NAME:"+ profile );
+	    System.out.println("                COMPONENT_IDENTIFIER:"+ identifier );
+	    System.out.println("                COMPOSITE_IOR:"+ composite_ior );
+	    System.out.println("                DEVICE_MGR_IOR:"+ devMgr_ior );
+	    System.out.println("                DOM_PATH:"+ dom_path );
+	    System.out.println("                LOG_CONFIG_URI:"+ logcfg_uri );
+	    System.out.println("                DEBUG_LEVEL:"+ debugLevel );
+	}
+
+
+        logging.DeviceCtx ctx = new logging.DeviceCtx( label, identifier, dom_path );
+	logging.Configure( logcfg_uri, debugLevel, ctx );
 
         final Device device_i = clazz.newInstance();
         device_i.initializeProperties(execparams);

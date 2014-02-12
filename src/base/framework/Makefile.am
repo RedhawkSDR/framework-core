@@ -18,7 +18,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-INCLUDES = -I../include
+INCLUDES = -I../include 
 
 lib_LTLIBRARIES = libossiecf.la
 libossiecf_la_SOURCES = AggregateDevice_impl.cpp \
@@ -26,6 +26,7 @@ libossiecf_la_SOURCES = AggregateDevice_impl.cpp \
                         Device_impl.cpp \
                         PropertySet_impl.cpp \
                         LifeCycle_impl.cpp \
+                        Logging_impl.cpp \
                         Resource_impl.cpp \
                         ExecutableDevice_impl.cpp \
                         LoadableDevice_impl.cpp \
@@ -42,6 +43,8 @@ libossiecf_la_SOURCES = AggregateDevice_impl.cpp \
                         Service_impl.cpp \
                         type_traits.cpp \
                         AnyUtils.cpp \
+                        logging/loghelpers.cpp \
+                        logging/StringInputStream.cpp \
                         EventChannelSupport.cpp
 
 libossiecf_la_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(OMNICOS_CFLAGS) $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS)

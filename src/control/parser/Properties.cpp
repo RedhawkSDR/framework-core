@@ -22,6 +22,7 @@
 #include"ossie/Properties.h"
 #include"internal/prf-parser.h"
 #include"ossie/ossieparser.h"
+#include <ossie/componentProfile.h>
 
 using namespace ossie;
 
@@ -163,6 +164,19 @@ void Properties::join(ossie::Properties& props) throw (ossie::parser_error) {
     LOG_TRACE(Properties, "Done merging property sets, cleaning up")
 }
 
+void Properties::override(const std::vector<ComponentProperty*>& values)
+{
+    for (std::vector<ComponentProperty*>::const_iterator iter = values.begin(); iter != values.end(); ++iter) {
+        const ComponentProperty* new_value = *iter;
+        Property* property = const_cast<Property*>(getProperty(new_value->getID()));
+        if (!property) {
+            LOG_TRACE(Properties, "Skipping override of non-existent property " << new_value->getID());
+        } else {
+            property->override(new_value);
+        }
+    }
+}
+
 const std::vector<const Property*>& Properties::getProperties() const
 {
     assert(_prf.get() != 0);
@@ -190,6 +204,15 @@ const std::vector<const Property*>& Properties::getAllocationProperties() const
 {
     assert(_prf.get() != 0);
     return _prf->_allocationProperties;
+}
+
+const Property* Properties::getAllocationProperty(const std::string& id)
+{
+    const Property* property = getProperty(id);
+    if (!property || !property->isAllocation()) {
+        return 0;
+    }
+    return property;
 }
 
 const std::vector<const Property*>& Properties::getExecParamProperties() const
@@ -446,6 +469,15 @@ void SimpleProperty::override(const Property* otherProp) {
     }
 }
 
+void SimpleProperty::override(const ComponentProperty* newValue) {
+    const SimplePropertyRef* simpleRef = dynamic_cast<const SimplePropertyRef*>(newValue);
+    if (simpleRef) {
+        value = simpleRef->getValue();
+    } else {
+        LOG_WARN(SimpleProperty, "Ignoring override request, simple properties can only override simple properties");
+    }
+}
+
 const char* SimpleProperty::getType() const
 {
     return type.c_str();
@@ -556,6 +588,15 @@ void SimpleSequenceProperty::override(const Property* otherProp) {
     }
 }
 
+void SimpleSequenceProperty::override(const ComponentProperty* newValue) {
+    const SimpleSequencePropertyRef* simpleSequenceRef = dynamic_cast<const SimpleSequencePropertyRef*>(newValue);
+    if (simpleSequenceRef) {
+        values = simpleSequenceRef->getValues();
+    } else {
+        LOG_WARN(SimpleSequenceProperty, "Ignoring override request");
+    }
+}
+
 const char* SimpleSequenceProperty::getType() const
 {
     return type.c_str();
@@ -610,6 +651,16 @@ void StructProperty::override(const Property* otherProp) {
     }
 }
 
+void StructProperty::override(const ComponentProperty* newValue) {
+    const StructPropertyRef* structRef = dynamic_cast<const StructPropertyRef*>(newValue);
+    if (structRef) {
+        const std::map<std::string, std::string>& values = structRef->getValue();
+        // TODO
+    } else {
+        LOG_WARN(StructProperty, "Ignoring override request");
+    }
+}
+
 const std::string StructProperty::asString() const {
     std::ostringstream out;
     out << "'" << this->id << "' '" << this->name;
@@ -628,6 +679,15 @@ const std::vector<SimpleProperty>& StructProperty::getValue() const {
     return value;
 }
 
+const SimpleProperty* StructProperty::getField(const std::string& fieldId) const {
+    for (std::vector<SimpleProperty>::const_iterator field = value.begin(); field !=value.end(); ++field) {
+        if (fieldId == field->getID()) {
+            return &(*field);
+        }
+    }
+    return 0;
+}
+
 /**
  * StructSequenceProperty class
  */
@@ -643,6 +703,15 @@ void StructSequenceProperty::override(const Property* otherProp) {
     const StructSequenceProperty* otherStructSeqProp = dynamic_cast<const StructSequenceProperty*>(otherProp);
     if (otherStructSeqProp) {
         values = otherStructSeqProp->values;
+    } else {
+        LOG_WARN(StructSequenceProperty, "Ignoring override request");
+    }
+}
+
+void StructSequenceProperty::override(const ComponentProperty* newValue) {
+    const StructSequencePropertyRef* structSeqRef = dynamic_cast<const StructSequencePropertyRef*>(newValue);
+    if (structSeqRef) {
+        // TODO
     } else {
         LOG_WARN(StructSequenceProperty, "Ignoring override request");
     }

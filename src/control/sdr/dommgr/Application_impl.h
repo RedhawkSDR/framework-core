@@ -28,13 +28,15 @@
 
 #include <ossie/CF/cf.h>
 #include <ossie/debug.h>
+#include <ossie/Logging_impl.h>
 
 #include "applicationSupport.h"
 #include "connectionSupport.h"
 
+
 class DomainManager_impl;
 
-class Application_impl : public virtual POA_CF::Application
+class Application_impl : public virtual POA_CF::Application, public Logging_impl
 {
     ENABLE_LOGGING
     friend class DomainManager_impl;
@@ -59,7 +61,7 @@ public:
                               CF::Application::ComponentProcessIdSequence* _procIdSequence,
                               std::vector<ossie::ConnectionNode>& connections,
                               std::map<std::string, std::string>& fileTable,
-                              CF::AllocationManager::AllocationResponseSequence* _allocationResponses);
+                              std::vector<std::string> allocationIDs);
 
     ~Application_impl ();
 
@@ -154,7 +156,7 @@ private:
     std::vector<CF::Resource_ptr> _appStartSeq;
     std::map<std::string, std::string> _fileTable;
     std::map<std::string, unsigned long> _pidTable;
-    CF::AllocationManager::AllocationResponseSequence appAllocationResponses;
+    std::vector<std::string> _allocationIDs;
     /*std::map<std::string, std::vector<ossie::AllocPropsInfo> >_allocPropsTable;
     std::vector<ossie::AllocPropsInfo> _usesDeviceCapacities;*/
     std::auto_ptr<ossie::AppConnectionManager> connectionManager;

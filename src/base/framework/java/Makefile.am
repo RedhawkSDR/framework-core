@@ -62,6 +62,7 @@ Cos%.omnijni: $(OMNICOS_IDLDIR)/Cos%.idl | cf/src
 	touch $@
 
 IDLSRC = CosEventComm.idl CosEventChannelAdmin.idl \
+	 LogInterfaces.idl \
 	 cf.idl PortTypes.idl StandardEvent.idl AggregateDevices.idl \
 	 ExtendedEvent.idl QueryablePort.idl WellKnownProperties.idl sandbox.idl
 

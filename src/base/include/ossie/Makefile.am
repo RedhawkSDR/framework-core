@@ -23,9 +23,11 @@ pkginclude_HEADERS = AggregateDevice_impl.h \
              Port_impl.h \
              PortSupplier_impl.h \
              PropertySet_impl.h \
+             Logging_impl.h \
              Resource_impl.h \
              Device_impl.h \
              ExecutableDevice_impl.h \
+             EventChannelSupport.h \
              TestableObject_impl.h \
              LifeCycle_impl.h \
              ossieSupport.h \
@@ -42,4 +44,7 @@ pkginclude_HEADERS = AggregateDevice_impl.h \
              AnyUtils.h \
              exceptions.h
 
-nobase_pkginclude_HEADERS = internal/equals.h
+nobase_pkginclude_HEADERS = internal/equals.h \
+	     logging/logdebug.h \
+	     logging/loghelpers.h \
+	     logging/StringInputStream.h

@@ -106,6 +106,11 @@ void UsesDeviceInfo::setAssignedDeviceId(const std::string& deviceId)
     assignedDeviceId = deviceId;
 }
 
+void UsesDeviceInfo::clearAssignedDeviceId()
+{
+    assignedDeviceId.clear();
+}
+
 ////////////////////////////////////////////////////
 /**
  * ComponentImplementationInfo member function definitions

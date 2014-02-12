@@ -38,6 +38,7 @@ dnl 4. If any interfaces have been removed or changed, then set
 dnl    age to 0
 AC_SUBST([LIBOSSIECF_VERSION_INFO], [3:0:0])
 AC_SUBST([LIBOSSIEPARSER_VERSION_INFO], [2:0:0])
+AC_SUBST([LIBREDHAWK_LOGGING_VERSION_INFO], [1:0:0])
 
 
 dnl AC_CONFIG_MACRO_DIR([m4])
@@ -63,6 +64,7 @@ AX_BOOST_SYSTEM
 AC_DEFINE(BOOST_FILESYSTEM_VERSION, 2)
 AX_BOOST_FILESYSTEM
 AX_BOOST_SERIALIZATION
+AX_BOOST_REGEX
 AX_BOOST_THREAD
 AX_BOOST_DATE_TIME
 
@@ -274,6 +276,7 @@ AC_CONFIG_FILES(Makefile \
                 base/parser/Makefile \
                 idl/Makefile \
                 xml/Makefile \
+                tools/LogEventAppender/Makefile \
                 testing/Makefile \
                 testing/_unitTestHelpers/buildconfig.py \
                 testing/sdr/dev/devices/ExecutableDevice/Makefile \
@@ -285,6 +288,8 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dev/devices/props_test_device/props_test_device_cpp_impl1/Makefile \
                 testing/sdr/dev/devices/issue_111_cpp/cpp/Makefile \
                 testing/sdr/dev/devices/issue_111_java/java/Makefile \
+                testing/sdr/dev/devices/PersonaDevice/cpp/Makefile \
+                testing/sdr/dev/devices/ProgrammableDevice/cpp/Makefile \
                 testing/sdr/dev/services/BasicService_java/java/Makefile \
                 testing/sdr/dom/components/CppCallbacks/cpp/Makefile \
                 testing/sdr/dom/components/TestCppProps/Makefile \

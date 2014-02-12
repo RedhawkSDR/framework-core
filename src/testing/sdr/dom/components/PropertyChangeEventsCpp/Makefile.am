@@ -25,4 +25,4 @@ noinst_PROGRAMS = PropertyChangeSenderCpp
 
 PropertyChangeSenderCpp_SOURCES = PropertyChangeSenderCpp.cpp main.cpp 
 PropertyChangeSenderCpp_CXXFLAGS = $(BOOST_CPPFLAGS)
-PropertyChangeSenderCpp_LDADD = $(CFDIR)/framework/libossiecf.la $(OMNICOS_LIBS) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/idl/libossieidl.la
+PropertyChangeSenderCpp_LDADD = $(BOOST_REGEX_LIB) $(CFDIR)/framework/libossiecf.la $(OMNICOS_LIBS) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/idl/libossieidl.la

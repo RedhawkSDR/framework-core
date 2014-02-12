@@ -62,6 +62,7 @@ import org.omg.PortableServer.POAPackage.WrongPolicy;
 import org.ossie.events.PropertyEventSupplier;
 import org.ossie.properties.IProperty;
 import org.ossie.properties.AnyUtils;
+import org.ossie.logging;
 
 import CF.AggregateDevice;
 import CF.AggregateDeviceHelper;
@@ -71,6 +72,7 @@ import CF.DeviceHelper;
 import CF.DeviceManager;
 import CF.DeviceManagerHelper;
 import CF.InvalidObjectReference;
+import CF.LogLevels;
 import CF.PortPOA;
 import CF.PropertiesHolder;
 import CF.ResourceHelper;
@@ -78,6 +80,7 @@ import CF.ResourceOperations;
 import CF.ResourcePOA;
 import CF.ResourcePOATie;
 import CF.UnknownProperties;
+import CF.UnknownIdentifier;
 import CF.LifeCyclePackage.InitializeError;
 import CF.LifeCyclePackage.ReleaseError;
 import CF.PortSupplierPackage.UnknownPort;
@@ -88,7 +91,45 @@ import CF.ResourcePackage.StopError;
 import CF.TestableObjectPackage.UnknownTest;
 
 public abstract class Resource implements ResourceOperations, Runnable { // SUPPRESS CHECKSTYLE Name
+
+    /**
+     *  LoggingListener 
+     *  This interface allows developers to modify the normal behavior when a request to 
+     *  change the logging level or configuration context.
+     *
+     *  Developers can provide an interface to the Resource through the 
+     *  setNewLoggingListener method.
+     */
+    public interface LoggingListener {
+
+	/**
+	 * logLevelChanged 
+	 *
+	 * This method is called when a logging level request is made for this resource. The name of the
+	 * the logger to affect and the new level are provided.  Logging level values are defined by the 
+         * CF::LogLevels constants.
+	 *
+	 * @param logId name of the logger to change the level,  logId=="" is the root logger 
+	 * @param newLevel the new logging level to apply
+	 *
+	 */
+	public void logLevelChanged( String logId, int newLevel );
+
+	/**
+	 * logConfigChanged
+	 *
+	 * This method is called when the logging configuration change is requested.  The configuration
+	 * data follows the log4j configuration format (java props or xml).
+	 *
+	 * @param config_data  the log4j formatted configuration data, either java properties or xml.
+	 */
+	public void logConfigChanged( String config_data );
+    }
+
+
     public final static Logger logger = Logger.getLogger(Resource.class.getName());
+
+    public  static logging.ResourceCtx loggerCtx = null;
     
     protected CF.Resource resource;
 
@@ -124,6 +165,27 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
     protected PropertyEventSupplier propertyChangePort;
     protected String softwareProfile;
 
+    /** log identifier, by default uses root logger or "" **/
+    protected String               logName;
+
+    /** current log level assigned to the resource **/
+    protected int                  logLevel;
+    
+    /** current string used go configure the log **/
+    protected String               logConfig;
+    
+    /** callback listener **/
+    protected LoggingListener      logListener;
+
+    /** logging macro definitions maintained by resource */
+    protected logging.MacroTable   loggingMacros;
+
+    /** logging context assigned  to resource */
+    protected logging.ResourceCtx  loggingCtx=null;
+
+    /** holds the url for the logging configuration */
+    protected String               loggingURL;
+
     /**
      * Constructor intended to be used by start_component.
      */
@@ -137,6 +199,15 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         this.portObjects = new Hashtable<String, Object>();
         this.nativePorts = new Hashtable<String, omnijni.Servant>();
         this.propSet = new Hashtable<String, IProperty>();
+
+	// support for logging idl
+	this.logName=Resource.class.getName();
+	this.logLevel=CF.LogLevels.INFO;
+	this.logConfig ="";
+	this.logListener=null;
+	this.loggingCtx = null;
+	this.loggingMacros=logging.GetDefaultMacros();
+	
     }
     
     public void addProperty(IProperty prop) {
@@ -511,6 +582,336 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         return resource;
     }
 
+
+    ///////////////////////////////////////////////////////////////////////
+    //
+    //        Logging Configuration Section
+    //
+    ///////////////////////////////////////////////////////////////////////
+
+    /**
+     * setNewLoggingListener
+     *
+     * Assign callback listeners for log level changes and log configuration
+     * changes
+     *
+     * @param Resource.LoggingListener  callback interface definition
+     *
+     */
+    public void setNewLoggingListener( Resource.LoggingListener newListener ) {
+	this.logListener = newListener;
+    }
+
+    /**
+     *  getLogger
+     *  
+     *  @returns Logger return the logger assigned to this resource
+     */
+    public Logger     getLogger() {
+	return logger;
+    }
+
+    /**
+     *  getLogger
+     * 
+     *  return the logger assigned to this resource
+     *  @param String name of logger to retrieve
+     *  @param boolan true, will reassign new logger to the resource, false do not assign
+     *  @returns Logger return the named logger 
+     */
+    public Logger     getLogger( String logid,  boolean assignToResource ) {
+
+	Logger log =null;
+	if ( logid != null )  {
+	    log = Logger.getLogger( logid );
+	}
+	if ( assignToResource && logger != null ) {
+	    //RESOLVE logger = log;
+	}
+	return log;
+    }
+
+
+    /**
+     *  setLoggingMacros
+     * 
+     *  Use the logging resource context class to set any logging macro definitions.
+     *
+     * @param logging.Resource  a content class from the logging.ResourceCtx tree
+     */
+    public void setLoggingMacros( logging.MacroTable newTbl, boolean applyCtx ) {
+	if ( newTbl != null  ) {
+	    this.loggingMacros = newTbl;
+	    this.loggingCtx.apply( this.loggingMacros );
+	}
+    }
+
+    /**
+     *  setResourceContext
+     * 
+     *  Use the logging resource context class to set any logging macro definitions.
+     *
+     * @param logging.Resource  a content class from the logging.ResourceCtx tree
+     */
+    public void setResourceContext( logging.ResourceCtx ctx ) {
+	if ( ctx !=  null ) {
+	    ctx.apply( this.loggingMacros );
+	    this.loggingCtx = ctx;
+	}
+    }
+
+
+
+    /**
+     *  setLoggingContext
+     * 
+     *  Set the logging configuration and logging level for this resource
+     *
+     * @param logging.Resource  a content class from the logging.ResourceCtx tree
+     */
+    public void setLoggingContext( logging.ResourceCtx ctx ) {
+
+	// apply any context data
+	if ( ctx !=  null ) {
+	    ctx.apply( this.loggingMacros );
+	    this.loggingCtx = ctx;
+	}
+	else if ( this.loggingCtx != null ) {
+	    this.loggingCtx.apply( this.loggingMacros );
+	}
+
+	// call setLogConfigURL to load configuration and set log4j
+	if ( this.loggingURL != null  ) {
+	    setLogConfigURL( this.loggingURL );
+	}
+
+	try {
+	    // set log level for this logger 
+	    setLogLevel( this.logName,  this.logLevel );
+	}
+	catch( Exception e ){
+	}
+    }
+
+
+
+    /**
+     *  setLoggingContext
+     * 
+     *  Set the logging configuration and logging level for this resource.
+     *
+     * @param String  URL of the logging configuration file to load
+     * @param int  oldstyle_loglevel used from command line startup of a resource
+     * @param logging.Resource  a content class from the logging.ResourceCtx tree
+     */
+    public void setLoggingContext( String logcfg_url, int oldstyle_loglevel, logging.ResourceCtx ctx ) {
+
+	// test we have a logging URI
+	if ( logcfg_url != null || logcfg_url == "" ) {
+	    logging.ConfigureDefault();
+	}
+	else {
+	    // apply any context data
+	    if ( ctx !=  null ) {
+		ctx.apply( this.loggingMacros );
+		this.loggingCtx = ctx;
+	    }
+
+	    // call setLogConfigURL to load configuration and set log4j
+	    if ( logcfg_url != null ) {
+		setLogConfigURL( logcfg_url );
+	    }
+	}
+
+	try {
+	    // set log level for this logger 
+	    setLogLevel( logName, logging.ConvertLogLevel(oldstyle_loglevel) );
+	}
+	catch( Exception e ){
+	}
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //
+    // LogConfiguration IDL Support
+    //
+    //////////////////////////////////////////////////////////////////////////////
+
+    /**
+     *  log_level
+     * 
+     *  Return the current logging level as defined by the Logging Interface  IDL
+     *
+     * @return int value of a CF::LogLevels enumeration
+     */
+    public int log_level() {
+	return logLevel;
+    }
+
+    /**
+     *  log_level
+     * 
+     *  Set the logging level for the logger assigned to the resource. If a callback listener 
+     *  is assigned to the resource then invoke the listener to handle the assignment
+     *
+     * @param int value of a CF::LogLevels enumeration
+     */
+    public void log_level( int newLogLevel ) {
+	if ( this.logListener != null  ) {
+	    logLevel = newLogLevel;
+	    this.logListener.logLevelChanged( logName, newLogLevel );
+	}
+	else {
+	    logLevel = newLogLevel;
+	    Level tlevel= logging.ConvertToLog4Level(newLogLevel);
+	    if ( logger != null ) {
+		logger.setLevel(tlevel);
+	    }
+	    else {
+		Logger.getRootLogger().setLevel(tlevel);
+	    }
+	}
+	
+    }
+
+
+    /**
+     *  setLogLevel
+     * 
+     *  Set the logging level for a named logger associated with this resource. If a callback listener 
+     *  is assigned to the resource then invoke the listener to handle the assignment
+     *
+     * @param int value of a CF::LogLevels enumeration
+     */
+    public void setLogLevel( String logger_id, int newLogLevel ) throws UnknownIdentifier {
+
+	if ( this.logListener != null ) {
+	    if ( logger_id == logName ){
+		this.logLevel = newLogLevel;
+	    }
+
+	    this.logListener.logLevelChanged( logger_id, newLogLevel );
+	}
+	else {
+	    logLevel = newLogLevel;
+	    Level tlevel=Level.INFO;
+	    tlevel = logging.ConvertToLog4Level(newLogLevel);	       
+	    
+	    if ( logger_id != null ){
+		Logger logger = Logger.getLogger( logger_id );
+		if ( logger != null ) {
+		    logger.setLevel( tlevel );
+		}
+	    }
+	    else {
+		Logger.getRootLogger().setLevel(tlevel);
+	    }
+
+	}
+    }
+
+    /**
+     *  getLogConfig
+     * 
+     *  return the logging configration information used to configure the log4j library
+     *
+     * @returns String contents of the configuration file 
+     */
+    public  String getLogConfig() {
+	return logConfig;
+    }
+
+
+    /**
+     *  setLogConfig
+     * 
+     * Process the config_contents param as the contents for the log4j configuration
+     * information. 
+     * 
+     * First, run the configuration information against the current macro defintion
+     * list and then assigned that data to the log4j library.  If this operation
+     * completed sucessfully, the new configuration is saved.
+     *
+     *
+     * @param String contents of the configuration file 
+     */
+    public void setLogConfig( String config_contents ) {
+	if ( this.logListener != null ) {
+	    this.logConfig = config_contents;
+	    this.logListener.logConfigChanged( config_contents );
+	}
+	else {
+	    try {
+		String newcfg="";
+		logging.Configure( config_contents, loggingMacros, newcfg );
+
+		this.logConfig = newcfg;
+	    }
+	    catch( Exception e ) {
+		logger.warn("setLogConfig failed, reason:" + e.getMessage() );
+	    }
+	}
+    }
+
+    /**
+     *  setLogConfig
+     * 
+     *  Use the config_url value to read in the contents of the file as the new log4j
+     *  configuration context. If the file is sucessfully loaded then setLogConfig
+     *  is called to finish the processing.
+     *
+     * @param String URL of file to load
+     */
+    public void setLogConfigURL( String config_url ) {
+
+	//
+	// Get File contents....
+	//
+	try{
+	    String config_contents="";
+	    
+	    config_contents = logging.GetConfigFileContents(config_url);
+	    
+	    if ( config_contents.length() > 0  ){
+		this.loggingURL = config_url;
+		//  apply contents of file to configuration
+		this.setLogConfig( config_contents );
+	    }
+	    else {
+		logger.warn( "URL contents could not be resolved, url: " + config_url );
+	    }
+
+	}
+	catch( Exception e ){
+	    logger.warn( "Exception caught during logging configuration using URL, url: "+ config_url );
+	}
+    }
+
+
+    //////////////////////////////////////////////////////////////////////////////
+    //
+    // LogEventConsumer IDL Support
+    //
+    //////////////////////////////////////////////////////////////////////////////
+
+    public CF.LogEvent[] retrieve_records( org.omg.CORBA.IntHolder howMany, int startingPoint ) {
+        howMany=new org.omg.CORBA.IntHolder(0);
+        CF.LogEvent[] seq = new CF.LogEvent[0]; 
+	return seq;
+    }
+
+    public CF.LogEvent[] retrieve_records_by_date( org.omg.CORBA.IntHolder howMany, long to_timeStamp ) {
+        howMany=new org.omg.CORBA.IntHolder(0);
+        CF.LogEvent[] seq = new CF.LogEvent[0]; 
+	return seq;
+    }
+
+    public CF.LogEvent[] retrieve_records_from_date( org.omg.CORBA.IntHolder howMany, long from_timeStamp ) {
+        howMany=new org.omg.CORBA.IntHolder(0);
+        CF.LogEvent[] seq = new CF.LogEvent[0]; 
+	return seq;
+    }
+
     /**
      * Parse the set of SCA execparam arguments into a Map
      * 
@@ -545,7 +946,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      * @throws ServantNotActive 
      */
     public static void start_component(final Class<? extends Resource> clazz, final String[] args, final boolean builtInORB, final int fragSize, final int bufSize) 
-    throws InstantiationException, IllegalAccessException, InvalidObjectReference, NotFound, CannotProceed, org.omg.CosNaming.NamingContextPackage.InvalidName, ServantNotActive, WrongPolicy 
+	throws InstantiationException, IllegalAccessException, InvalidObjectReference, NotFound, CannotProceed, org.omg.CosNaming.NamingContextPackage.InvalidName, ServantNotActive, WrongPolicy 
     {
         final Properties props = new Properties();
         if (!builtInORB) {
@@ -579,7 +980,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      * @throws ServantNotActive 
      */
     public static void start_component(final Class<? extends Resource> clazz,  final String[] args, final Properties props) 
-    throws InstantiationException, IllegalAccessException, InvalidObjectReference, NotFound, CannotProceed, org.omg.CosNaming.NamingContextPackage.InvalidName, ServantNotActive, WrongPolicy 
+	throws InstantiationException, IllegalAccessException, InvalidObjectReference, NotFound, CannotProceed, org.omg.CosNaming.NamingContextPackage.InvalidName, ServantNotActive, WrongPolicy 
     {
         final org.omg.CORBA.ORB orb = ORB.init((String[]) null, props);
 
@@ -598,7 +999,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         Map<String, String> execparams = parseArgs(args);
 
         // Configure log4j from the execparams (or use default settings).
-        Resource.configureLogging(execparams, orb);
+        // TOBERM Resource.configureLogging(execparams, orb);
 
         NamingContextExt nameContext = null;
         if (execparams.containsKey("NAMING_CONTEXT_IOR")) {
@@ -614,6 +1015,31 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         if (execparams.containsKey("NAME_BINDING")) {
             nameBinding = execparams.get("NAME_BINDING");
         }
+
+        String dom_path = "";
+        if (execparams.containsKey("DOM_PATH")) {
+            dom_path = execparams.get("DOM_PATH");
+        }
+
+        String logcfg_uri = "";
+        if (execparams.containsKey("LOGGING_CONFIG_URI")) {
+            logcfg_uri = execparams.get("LOGGING_CONFIG_URI");
+        }
+
+	int debugLevel = 3; // Default level is INFO
+	if (execparams.containsKey("DEBUG_LEVEL")) {
+	    debugLevel = Integer.parseInt(execparams.get("DEBUG_LEVEL"));
+	}
+
+	if ( debugLevel > 3 ) {
+	    System.out.println("Resource Args: " );
+	    System.out.println("                NAME_BINDING:"+ nameBinding );
+	    System.out.println("                COMPONENT_IDENTIFIER:"+ identifier );
+	    System.out.println("                NAMING_CONTEXT_IOR:"+ nameContext );
+	    System.out.println("                DOM_PATH:"+ dom_path );
+	    System.out.println("                LOG_CONFIG_URI:"+ logcfg_uri );
+	    System.out.println("                DEBUG_LEVEL:"+ debugLevel );
+	}
 
         String profile = null;
         if (execparams.containsKey("PROFILE_NAME")) {
@@ -632,10 +1058,15 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
             }
         }
 
+	logging.ComponentCtx ctx = new	logging.ComponentCtx( nameBinding, identifier, dom_path );
+	logging.Configure( logcfg_uri, debugLevel, ctx );
+
         final Resource resource_i = clazz.newInstance();
         final CF.Resource resource = resource_i.setup(identifier, nameBinding, orb, rootpoa);
         resource_i.setAdditionalParameters(profile);
         resource_i.initializeProperties(execparams);
+
+	resource_i.setLoggingContext( logcfg_uri, debugLevel, ctx );
 
         if ((nameContext != null) && (nameBinding != null)) {
             nameContext.rebind(nameContext.to_name(nameBinding), resource);
@@ -646,12 +1077,12 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 
         // Create a thread that watches for the resource to be deactivated
         Thread shutdownWatcher = new Thread(new Runnable() {
-            public void run() {
-                resource_i.waitDisposed();
-                logger.trace("Shutting down orb");
-                orb.shutdown(true);
-            }
-        });
+		public void run() {
+		    resource_i.waitDisposed();
+		    logger.trace("Shutting down orb");
+		    orb.shutdown(true);
+		}
+	    });
 
         shutdownWatcher.start();
 
@@ -692,50 +1123,36 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      *   2. DEBUG_LEVEL execparam
      *   3. Default debug level (INFO)
      *
+     * @deprecated use ossie.logging.Configure
      * @param execparams Map of component execparam values
      * @param orb CORBA ORB instance for contacting SCA FileSystem (if LOGGING_CONFIG_URI is an SCA URI)
      */
     protected static void configureLogging(final Map<String, String> execparams, final org.omg.CORBA.ORB orb) {
-        // Sets up the logging
-        String loggingConfigURI = null;
-        if (execparams.containsKey("LOGGING_CONFIG_URI")) {
-            loggingConfigURI = execparams.get("LOGGING_CONFIG_URI");
-            if (loggingConfigURI.indexOf("file://") != -1){
-                int startIndex = loggingConfigURI.indexOf("file://") + 7;
-                PropertyConfigurator.configure(loggingConfigURI.substring(startIndex));
-            }else if (loggingConfigURI.indexOf("sca:") != -1){
-                int startIndex = loggingConfigURI.indexOf("sca:") + 4;
-                String localFile = Resource.getLogConfig(loggingConfigURI.substring(startIndex), orb);
-                File testLocalFile = new File(localFile);
-                if (localFile.length() > 0 && testLocalFile.exists()){
-                    PropertyConfigurator.configure(localFile);
-                }
-            }
-        } else {
-            // If no logging config file, then set up logging using DEBUG_LEVEL exec param
-            int debugLevel = 3; // Default level is INFO
-            if (execparams.containsKey("DEBUG_LEVEL")) {
-                debugLevel = Integer.parseInt(execparams.get("DEBUG_LEVEL"));
-            }
-            LogManager.getLoggerRepository().resetConfiguration();
-            Logger root = Logger.getRootLogger();
-            Layout layout = new PatternLayout("%p:%c - %m%n");
-            Appender appender = new ConsoleAppender(layout);
-            root.addAppender(appender);
-            if (debugLevel == 0) {
-                root.setLevel(Level.FATAL);
-            } else if (debugLevel == 1) {
-                root.setLevel(Level.ERROR);
-            } else if (debugLevel == 2) {
-                root.setLevel(Level.WARN);
-            } else if (debugLevel == 3) {
-                root.setLevel(Level.INFO);
-            } else if (debugLevel == 4) {
-                root.setLevel(Level.DEBUG);
-            } else if (debugLevel >= 5) {
-                root.setLevel(Level.ALL);
-            }
-        }
+	// Sets up the logging
+	String loggingConfigURI = null;
+	if (execparams.containsKey("LOGGING_CONFIG_URI")) {
+	    loggingConfigURI = execparams.get("LOGGING_CONFIG_URI");
+	    if (loggingConfigURI.indexOf("file://") != -1){
+		int startIndex = loggingConfigURI.indexOf("file://") + 7;
+		PropertyConfigurator.configure(loggingConfigURI.substring(startIndex));
+	    }else if (loggingConfigURI.indexOf("sca:") != -1){
+		int startIndex = loggingConfigURI.indexOf("sca:") + 4;
+		String localFile = Resource.getLogConfig(loggingConfigURI.substring(startIndex), orb);
+		File testLocalFile = new File(localFile);
+		if (localFile.length() > 0 && testLocalFile.exists()){
+		    PropertyConfigurator.configure(localFile);
+		}
+	    }
+	} else {
+	    int debugLevel = 3; // Default level is INFO
+	    if (execparams.containsKey("DEBUG_LEVEL")) {
+		debugLevel = Integer.parseInt(execparams.get("DEBUG_LEVEL"));
+	    }
+
+	    logging.ConfigureDefault();
+
+	    logging.SetLevel( null, debugLevel );
+	}
     }
 
     /**
@@ -746,46 +1163,47 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      * @return the string reprenting the local logging configuration filename
      */
     protected static String getLogConfig(String uri, org.omg.CORBA.ORB orb) {
-        String localPath = "";
+	String localPath = "";
 
-        int fsPos = uri.indexOf("?fs=");
-        if (fsPos == -1) {
-            return localPath;
-        }
+	int fsPos = uri.indexOf("?fs=");
+	if (fsPos == -1) {
+	    return localPath;
+	}
 
-        String IOR = uri.substring(fsPos + 4);
-        org.omg.CORBA.Object obj = orb.string_to_object(IOR);
-        if (obj == null) {
-            return localPath;
-        }
+	String IOR = uri.substring(fsPos + 4);
+	org.omg.CORBA.Object obj = orb.string_to_object(IOR);
+	if (obj == null) {
+	    return localPath;
+	}
 
-        CF.FileSystem fileSystem = CF.FileSystemHelper.narrow(obj);
-        if (fileSystem == null) {
-            return localPath;
-        }
+	CF.FileSystem fileSystem = CF.FileSystemHelper.narrow(obj);
+	if (fileSystem == null) {
+	    return localPath;
+	}
 
-        String remotePath = uri.substring(0, fsPos);
-        CF.OctetSequenceHolder data = new CF.OctetSequenceHolder ();
-        try {
-            CF.File remoteFile = fileSystem.open(remotePath, true);
-            int size = remoteFile.sizeOf();
-            remoteFile.read(data, size);
+	String remotePath = uri.substring(0, fsPos);
+	CF.OctetSequenceHolder data = new CF.OctetSequenceHolder ();
+	try {
+	    CF.File remoteFile = fileSystem.open(remotePath, true);
+	    int size = remoteFile.sizeOf();
+	    remoteFile.read(data, size);
 
-            String tempPath = remotePath;
-            int slashPos = remotePath.lastIndexOf('/');
-            if (slashPos != -1) {
-                tempPath = tempPath.substring(slashPos + 1);
-            }
+	    String tempPath = remotePath;
+	    int slashPos = remotePath.lastIndexOf('/');
+	    if (slashPos != -1) {
+		tempPath = tempPath.substring(slashPos + 1);
+	    }
             
-            FileOutputStream localFile = new FileOutputStream(tempPath);
-            localFile.write(data.value);
-            localPath = tempPath;
-            localFile.close();
-            return localPath;
-        } catch (Exception e){
-            return localPath;
-        }
+	    FileOutputStream localFile = new FileOutputStream(tempPath);
+	    localFile.write(data.value);
+	    localPath = tempPath;
+	    localFile.close();
+	    return localPath;
+	} catch (Exception e){
+	    return localPath;
+	}
     }
+
 
     /**
      * This function returns the filename of the local logging configuration file given an SCA FileSystem logging file.
@@ -794,6 +1212,9 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      * @return the string reprenting the local logging configuration filename
      */
     protected String getLogConfig(String uri) {
-        return Resource.getLogConfig(uri, this.orb);
+	return Resource.getLogConfig(uri, this.orb);
     }
+
+
+       
 }

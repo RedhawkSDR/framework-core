@@ -719,7 +719,6 @@ class ComponentBase(object):
            if propSet != None:
                for prop in propSet: 
                    if name == prop.id or name == prop.clean_name:
-                       print "\nprop: ", prop.id
                        if _DEBUG == True:
                            print 'Component:__getattribute__()', prop
                        return prop

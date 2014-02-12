@@ -249,3 +249,136 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
 
 
         self._domMgr.uninstallApplication(appFact._get_identifier())
+
+    def test_collocationFailFast(self):
+        nodebooter, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+
+        # Launch the node with a device that can handle one component first,
+        # then launch the node that can't handle any (it also helps that
+        # 'test_collocation_bad1_node:bad_device_1' comes before
+        # 'test_collocation_bad2_node:bad_device_2' in lexicographical order)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_collocation_bad1_node/DeviceManager.dcd.xml", debug=3)
+        self.assertNotEqual(devMgr, None)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_collocation_bad2_node/DeviceManager.dcd.xml", debug=3)
+        self.assertNotEqual(devMgr, None)
+
+        # Find the no-capacity device
+        device = devMgr._get_registeredDevices()[0]
+        self.assertEqual(self._getProperty(device, 'supported_components'), 0)
+
+        # Use the 'test_collocation_single' waveform, which has just a single
+        # 2-element collocation; the first node will be able to place one
+        # component, while the second should fail on the first component.
+        domMgr.installApplication("/waveforms/test_collocation_single/test_collocation_single.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        appFact = domMgr._get_applicationFactories()[0]
+
+        # Mark the number of allocations attempted so far on our no-capacity
+        # device, then try to create a the application. The first device
+        # can place the first component, but fails to place the second; the
+        # second device should fail when placing the first component.
+        allocations_pre = self._getProperty(device, 'allocation_attempts')
+        try:
+            app = appFact.create(appFact._get_name(), [], [])
+            app.releaseObject()
+            self.fail("Expected app creation to fail")
+        except CF.ApplicationFactory.CreateApplicationRequestError:
+            # This is expected
+            pass
+
+        # Clean up a little
+        domMgr.uninstallApplication(appFact._get_identifier())
+
+        # Determine the number of allocations attempted on our no-capacity
+        # device; it should be 1 (for the first attempted component placement).
+        # In prior releases, it would attempt to place the second component
+        # (and so on), leading to extra allocation calls.
+        allocations_delta = self._getProperty(device, 'allocation_attempts') - allocations_pre
+
+        # Fail if more than one allocation was attempted
+        self.assertTrue(allocations_delta <= 1, 'ApplicationFactory continued to attempt allocations on device after failure')
+
+    def _getProperty(self, device, identifier):
+        return device.query([CF.DataType(identifier, any.to_any(None))])[0].value._v
+
+    def test_collocationNoExecDevice(self):
+        """
+        This test requires visual inspection to ensure that non-executable
+        devices do not cause error messages when the ApplicationFactory tries
+        to place collocated components.
+        """
+        nodebooter, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_collocation_noexec_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication("/waveforms/test_collocation_single/test_collocation_single.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        appFact = domMgr._get_applicationFactories()[0]
+
+        try:
+          app = appFact.create(appFact._get_name(), [], [])
+          app.releaseObject()
+          self.fail('Application created with no executable devices')
+        except:
+          pass
+
+    def test_collocationLastSuccessfulDevice(self):
+        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        self.assertNotEqual(domMgr, None)
+
+        # Launch the node with a device that can't satisfy the host collocation
+        # first, then launch the node with a device that can (it also helps
+        # that 'test_collocation_bad1_node:bad_device_1' comes before
+        # 'test_collocation_good_node:good_device_1' in lexicographical order)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_collocation_bad1_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        self.assertNotEqual(devMgr, None)
+        # Store a reference to the "bad" device
+        bad_device = devMgr._get_registeredDevices()[0]
+        self.assertTrue('bad' in bad_device._get_identifier())
+
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_collocation_good_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        self.assertNotEqual(devMgr, None)
+
+        # Use the "single" collocation waveform, which should fail on the "bad"
+        # device, but succeed on the "good" device
+        domMgr.installApplication("/waveforms/test_collocation_single/test_collocation_single.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        appFact = domMgr._get_applicationFactories()[0]
+
+        # Save pre-create allocation attempt total on bad device
+        allocations_pre = self._getProperty(bad_device, 'allocation_attempts')
+
+        # Create the first instance of the application; we expect the creation
+        # to succeed, advancing the domain's "last successful device" pointer
+        try:
+            app = appFact.create(appFact._get_name(), [], [])
+        except:
+            self.fail('Unable to create application')
+
+        # Release the application to free up the capacity
+        app.releaseObject()
+
+        # Ensure that the bad device was considered for deployment; this is the
+        # only externally visible information we can determine about the "last
+        # successful device" pointer
+        allocations_post = self._getProperty(bad_device, 'allocation_attempts')
+        self.assertTrue(allocations_post > allocations_pre)
+
+        # Try to create another instance of the application; it should start
+        # with the good device, not considering the bad one
+        try:
+            app = appFact.create(appFact._get_name(), [], [])
+        except:
+            self.fail('Unable to create application again')
+
+        # Release the application to free up the capacity
+        app.releaseObject()
+
+        # Clean up a little
+        domMgr.uninstallApplication(appFact._get_identifier())
+
+        # Verify that no allocation attempts were made on the bad device
+        self.assertEqual(allocations_post, self._getProperty(bad_device, "allocation_attempts"))

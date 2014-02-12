@@ -60,6 +60,14 @@ namespace ossie
 
     bool checkProcessor(const std::vector<std::string>& processorDeps, const std::vector<const Property*>& props);
     bool checkOs(const std::vector<ossie::SPD::NameVersionPair>& osDeps, const std::vector<const Property*>& props);
+
+    CF::DataType convertDataTypeToPropertyType(const CF::DataType& value, const Property* prop);
+
+    CORBA::Any convertAnyToPropertyType(const CORBA::Any& value, const Property* prop);
+    CORBA::Any convertAnyToPropertyType(const CORBA::Any& value, const SimpleProperty* prop);
+    CORBA::Any convertAnyToPropertyType(const CORBA::Any& value, const SimpleSequenceProperty* prop);
+    CORBA::Any convertAnyToPropertyType(const CORBA::Any& value, const StructProperty* prop);
+    CORBA::Any convertAnyToPropertyType(const CORBA::Any& value, const StructSequenceProperty* prop);
 }
 
 #endif

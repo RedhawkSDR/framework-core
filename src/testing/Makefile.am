@@ -26,6 +26,8 @@ SUBDIRS = sdr/dev/devices/ExecutableDevice \
           sdr/dev/devices/SimpleDevice/SimpleDevice_cpp_impl1 \
           sdr/dev/devices/props_test_device/props_test_device_cpp_impl1 \
           sdr/dev/devices/issue_111_cpp/cpp \
+					sdr/dev/devices/PersonaDevice/cpp \
+					sdr/dev/devices/ProgrammableDevice/cpp \
           sdr/dom/components/TestCppProps \
           sdr/dom/components/linkedLibraryTest \
           sdr/dom/components/TestCppsoftpkgDeps \

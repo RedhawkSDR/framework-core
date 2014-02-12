@@ -46,7 +46,8 @@ BUILT_SOURCES = \
  ossie/cf/AggregateDevices_idl.py \
  ossie/cf/QueryablePort_idl.py \
  ossie/cf/WellKnownProperties_idl.py \
- ossie/cf/sandbox_idl.py
+ ossie/cf/sandbox_idl.py \
+ ossie/cf/LogInterfaces_idl.py
 
 CLEANFILES = $(BUILT_SOURCES)
 

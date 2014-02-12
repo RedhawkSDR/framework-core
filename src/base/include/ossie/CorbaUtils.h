@@ -22,9 +22,8 @@
 #define OSSIE_CORBAUTILS_H
 
 #include <string>
-
+#include <vector>
 #include <omniORB4/CORBA.h>
-
 #include "CorbaSequence.h"
 #include "ossie/debug.h"
 
@@ -62,12 +61,18 @@ namespace ossie {
         PortableServer::ObjectId* activatePersistentObject (PortableServer::POA_ptr poa, PortableServer::Servant servant, const std::string& identifier);
 
         // CosNaming utilities
+	CosNaming::Name str2name(const char* namestr);
         CosNaming::Name* stringToName (const std::string& name);
         CORBA::Object_ptr objectFromName (const std::string& name);
 
         // String (IOR) to/from object utilities
         std::string objectToString (const CORBA::Object_ptr obj);
         CORBA::Object_ptr stringToObject (const std::string& ior);
+
+	// list NamingContext contents as vector of strings...
+	std::vector<std::string> listRootContext( );
+	std::vector<std::string> listContext(const CosNaming::NamingContext_ptr ctx, const std::string &dname );
+
 
         // narrow utility
         template <class T> typename T::_ptr_type _narrowSafe(const CORBA::Object_ptr obj) {
@@ -82,6 +87,9 @@ namespace ossie {
                 return T::_nil();
             }
         };
+
+	// naming service actions
+	enum  NS_ACTION { NS_NOBIND=0, NS_BIND=1, NS_REBIND=2, NS_UNBIND=3 };
 
         // Bind an object to a a name in the specified NamingContext.
         void bindObjectToContext (const CORBA::Object_ptr obj, const CosNaming::NamingContext_ptr context, const std::string& name);

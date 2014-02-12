@@ -48,6 +48,7 @@ import org.omg.PortableServer.POAHelper;
 import org.omg.PortableServer.POAManagerPackage.AdapterInactive;
 import org.omg.PortableServer.POAPackage.ServantNotActive;
 import org.omg.PortableServer.POAPackage.WrongPolicy;
+import org.ossie.logging;
 
 import CF.DeviceManager;
 import CF.DeviceManagerHelper;
@@ -174,62 +175,53 @@ public abstract class Service
 
         Map<String, String> execparams = parseArgs(args);
 
-        // Sets up the logging
-        String loggingConfigURI = null;
-        if (execparams.containsKey("LOGGING_CONFIG_URI")) {
-            loggingConfigURI = execparams.get("LOGGING_CONFIG_URI");
-            if (loggingConfigURI.indexOf("file://") != -1){
-                int startIndex = loggingConfigURI.indexOf("file://") + 7;
-                PropertyConfigurator.configure(loggingConfigURI.substring(startIndex));
-            }else if (loggingConfigURI.indexOf("sca:") != -1){
-                int startIndex = loggingConfigURI.indexOf("sca:") + 4;
-                String localFile = getLogConfig(loggingConfigURI.substring(startIndex), orb);
-                File testLocalFile = new File(localFile);
-                if (localFile.length() > 0 && testLocalFile.exists()){
-                    PropertyConfigurator.configure(localFile);
-                }
-            }
-        } else {
-            // If no logging config file, then set up logging using DEBUG_LEVEL exec param
-            int debugLevel = 3; // Default level is INFO
-            if (execparams.containsKey("DEBUG_LEVEL")) {
-                debugLevel = Integer.parseInt(execparams.get("DEBUG_LEVEL"));
-            }
-            LogManager.getLoggerRepository().resetConfiguration();
-            Logger root = Logger.getRootLogger();
-            Layout layout = new PatternLayout("%p:%c - %m%n");
-            Appender appender = new ConsoleAppender(layout);
-            root.addAppender(appender);
-            if (debugLevel == 0) {
-                root.setLevel(Level.FATAL);
-            } else if (debugLevel == 1) {
-                root.setLevel(Level.ERROR);
-            } else if (debugLevel == 2) {
-                root.setLevel(Level.WARN);
-            } else if (debugLevel == 3) {
-                root.setLevel(Level.INFO);
-            } else if (debugLevel == 4) {
-                root.setLevel(Level.DEBUG);
-            } else if (debugLevel >= 5) {
-                root.setLevel(Level.ALL);
-            }
-        }
-        
         DeviceManager deviceMgr = null;
+	String devMgr_ior=null;
         if (execparams.containsKey("DEVICE_MGR_IOR")) {
             deviceMgr = DeviceManagerHelper.narrow(orb.string_to_object(execparams.get("DEVICE_MGR_IOR")));
         }
 
+	String sname= null;
         if (!execparams.containsKey("SERVICE_NAME")) {
             logger.warn("No 'SERVICE_NAME' argument provided");
             execparams.put("SERVICE_NAME", "");
         }
+	else {
+	    sname=execparams.get("SERVICE_NAME");
+	}
+
+        String dom_path = "";
+        if (execparams.containsKey("DOM_PATH")) {
+            dom_path = execparams.get("DOM_PATH");
+        }
+
+        String logcfg_uri = "";
+        if (execparams.containsKey("LOGGING_CONFIG_URI")) {
+            logcfg_uri = execparams.get("LOGGING_CONFIG_URI");
+        }
+
+	int debugLevel = 3; // Default level is INFO
+	if (execparams.containsKey("DEBUG_LEVEL")) {
+	    debugLevel = Integer.parseInt(execparams.get("DEBUG_LEVEL"));
+	}
+
+	if ( debugLevel > 3 ) {
+	    System.out.println("Service Args: " );
+	    System.out.println("                NAME:"+ sname );
+	    System.out.println("                DEVICE_MGR_IOR:"+ devMgr_ior );
+	    System.out.println("                DOM_PATH:"+ dom_path );
+	    System.out.println("                LOG_CONFIG_URI:"+ logcfg_uri );
+	    System.out.println("                DEBUG_LEVEL:"+ debugLevel );
+	}
+
+	logging.ServiceCtx ctx = new logging.ServiceCtx( sname, dom_path );
+	logging.Configure( logcfg_uri, debugLevel, ctx );	
         
         final Service service_i = clazz.getConstructor(Map.class).newInstance(execparams);
         Servant tie = service_i.newServant(rootpoa);
         tie._this_object(orb);
         service_i.devMgr = deviceMgr;
-        
+
         if (service_i.devMgr != null) {
             logger.debug("Registering service with device manager");
             try {

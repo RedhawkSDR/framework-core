@@ -66,6 +66,9 @@ public:
         char* composite_device = 0;
         const char* logging_config_uri = 0;
         int debug_level = 3; // Default level is INFO.
+	std::string logcfg_uri("");
+	std::string dpath("");
+        bool skip_run = false;
         
         std::map<std::string, char*> execparams;
                 
@@ -87,6 +90,10 @@ public:
                 logging_config_uri = argv[++i];
             } else if (strcmp("DEBUG_LEVEL", argv[i]) == 0) {
                 debug_level = atoi(argv[++i]);
+            } else if (strcmp("DOM_PATH", argv[i]) == 0) {
+                dpath = argv[++i];
+            } else if (strcmp("SKIP_RUN", argv[i]) == 0){
+                skip_run = true;
             } else if (i > 0) {  // any other argument besides the first one is part of the execparams
                 std::string paramName = argv[i];
                 execparams[paramName] = argv[++i];
@@ -98,8 +105,17 @@ public:
         // CORBA to get its configuration file. Devices do not need persistent IORs.
         ossie::corba::CorbaInit(argc, argv);
 
+	// check if logging config URL was specified...
+	if ( logging_config_uri ) logcfg_uri=logging_config_uri;
+
+	// setup logging context for this resource
+	ossie::logging::ResourceCtxPtr ctx( new ossie::logging::DeviceCtx( label, id, dpath ) );
+
         // configure logging
-          ossie::configureLogging(logging_config_uri, debug_level);
+        if (!skip_run){
+	  // configure the logging library 
+	  ossie::logging::Configure(logcfg_uri, debug_level, ctx);
+	}
 
         if ((devMgr_ior == 0) || (id == 0) || (profile == 0) || (label == 0)) {
             LOG_FATAL(Device_impl, "Per SCA specification SR:478, DEVICE_MGR_IOR, PROFILE_NAME, DEVICE_ID, and DEVICE_LABEL must be provided");
@@ -140,6 +156,11 @@ public:
             PortableServer::ObjectId_var oid = ossie::corba::RootPOA()->activate_object(*devPtr);
         }
         
+	if ( !skip_run ) {
+	  // assign logging context to the resource..to support logging interface
+	  (*devPtr)->setLoggingContext( logcfg_uri, debug_level, ctx );
+	}
+
         // setting all the execparams passed as argument, this method resides in the Resource_impl class
         (*devPtr)->setExecparamProperties(execparams);
 
@@ -155,7 +176,9 @@ public:
             }
             CATCH_LOG_WARN(Device_impl, "Unable to connect to IDM channel");
         }
-
+        if (skip_run) {
+            return;
+        }    
         (*devPtr)->run();
         LOG_DEBUG(Device_impl, "Goodbye!");
         (*devPtr)->_remove_ref();

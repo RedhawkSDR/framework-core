@@ -46,6 +46,20 @@
 using namespace ossie;
 using namespace std;
 
+static const ComponentInstantiation* findComponentInstantiation (const std::vector<ComponentPlacement>& placements,
+                                                                 const std::string& identifier)
+{
+    for (std::vector<ComponentPlacement>::const_iterator iter = placements.begin(); iter != placements.end(); ++iter) {
+        const std::vector<ComponentInstantiation>& instantiations = iter->getInstantiations();
+        for (std::vector<ComponentInstantiation>::const_iterator ii = instantiations.begin(); ii != instantiations.end(); ++ii) {
+            if (identifier == ii->getID()) {
+                return &(*ii);
+            }
+        }
+    }
+    return 0;
+}
+
 PREPARE_LOGGING(DomainManager_impl)
 
 // If _overrideDomainName == NULL read the domain name from the DMD file
@@ -83,15 +97,11 @@ DomainManager_impl::DomainManager_impl (const char* _dmdFile, const char* _rootp
     fileMgr_servant->_remove_ref();
     _fileMgr = fileMgr_servant->_this();
     
-    // Create allocation manager and register with the parent POA if it won't be restored
-    if (db_uri == NULL) {
-        AllocationManager_impl* allocationMgr_servant = new AllocationManager_impl (this);
-        std::string allocationManagerId = _domainName + "/AllocationManager";
-        oid = ossie::corba::activatePersistentObject(poa, allocationMgr_servant, allocationManagerId);
-        allocationMgr_servant->_remove_ref();
-        _allocationMgr = allocationMgr_servant->_this();
-        _allocationMgrNode.allocationManager = CF::AllocationManager::_duplicate(_allocationMgr);
-    }
+    // Create allocation manager and register with the parent POA
+    _allocationMgr = new AllocationManager_impl (this);
+    std::string allocationManagerId = _domainName + "/AllocationManager";
+    oid = ossie::corba::activatePersistentObject(poa, _allocationMgr, allocationManagerId);
+    _allocationMgr->_remove_ref();
     
     // Parse the DMD profile
     parseDMDProfile();
@@ -324,7 +334,8 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
         LOG_ERROR(DomainManager_impl, eout.str())
     }
 
-    for (DeviceList::iterator i = _restoredDevices.begin(); i != _restoredDevices.end(); ++i) {
+    for (DeviceList::iterator iter = _restoredDevices.begin(); iter != _restoredDevices.end(); ++iter) {
+        boost::shared_ptr<DeviceNode> i = *iter;
         LOG_TRACE(DomainManager_impl, "Attempting to recover connection to Device " << i->identifier << " " << i->label);
         try {
             if (ossie::corba::objectExists(i->device)) {
@@ -485,7 +496,7 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
                                                   &(i->componentProcessIds),
                                                   i->connections,
                                                   i->fileTable,
-                                                  &(i->appAllocationResponses));
+                                                  i->allocationIDs);
 
                 // Recover and register components
                 for (unsigned int ii = 0; ii < i->components.size() ; ++ii) {
@@ -535,9 +546,9 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
 
     LOG_DEBUG(DomainManager_impl, "Recovering allocation manager");
     // Recover allocation manager and consume the value
-    AllocationManagerNode _restoredAllocationManager;
+    AllocationManagerNode _restoredAllocations;
     try {
-        db.fetch("ALLOCATION_MANAGER", _restoredAllocationManager, true);
+        db.fetch("ALLOCATION_MANAGER", _restoredAllocations, true);
     } catch (ossie::PersistenceException& e) {
         LOG_ERROR(DomainManager_impl, "Error loading allocation manager persistent state: " << e.what());
     } catch ( std::exception& ex ) {
@@ -549,13 +560,7 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
         eout << "The following CORBA exception occurred: "<<ex._name()<<" while recovering the allocation manager";
         LOG_ERROR(DomainManager_impl, eout.str())
     }
-    // Create allocation manager and register with the parent POA.
-    AllocationManager_impl* allocationMgr_servant = new AllocationManager_impl (this, _restoredAllocationManager._allocations, _restoredAllocationManager._remoteAllocations);
-    std::string allocationManagerId = _domainName + "/AllocationManager";
-    PortableServer::ObjectId_var oid = ossie::corba::activatePersistentObject(poa, allocationMgr_servant, allocationManagerId);
-    allocationMgr_servant->_remove_ref();
-    _allocationMgr = allocationMgr_servant->_this();
-    _allocationMgrNode.allocationManager = CF::AllocationManager::_duplicate(_allocationMgr);
+    _allocationMgr->restoreAllocations(_restoredAllocations._allocations, _restoredAllocations._remoteAllocations);
 
     LOG_DEBUG(DomainManager_impl, "Done restoring state from URL " << _db_uri);
 }
@@ -675,6 +680,10 @@ void DomainManager_impl::shutdown (int signal)
     }
     appFact_poa->destroy(false, true);
 
+    // Deactivate and destroy the AllocationManager
+    oid = poa->servant_to_id(_allocationMgr);
+    poa->deactivate_object(oid);
+
     oid = poa->reference_to_id(_fileMgr);
     poa->deactivate_object(oid);
 
@@ -748,7 +757,7 @@ CF::AllocationManager_ptr DomainManager_impl::allocationMgr (void) throw (CORBA:
     TRACE_ENTER(DomainManager_impl)
 
     TRACE_EXIT(DomainManager_impl)
-    return CF::AllocationManager::_duplicate(_allocationMgr);
+    return _allocationMgr->_this();
 }
 
 
@@ -1278,8 +1287,8 @@ void DomainManager_impl::removeDeviceManagerDevices (const std::string& deviceMa
 
     // Unregister all devices for the DeviceManager
     for (DeviceList::iterator device = _registeredDevices.begin(); device != _registeredDevices.end(); ) {
-        if (device->devMgr.identifier == deviceManagerId) {
-            LOG_TRACE(DomainManager_impl, "Unregistering device " << device->label << " " << device->identifier);
+        if ((*device)->devMgr.identifier == deviceManagerId) {
+            LOG_TRACE(DomainManager_impl, "Unregistering device " << (*device)->label << " " << (*device)->identifier);
             device = _local_unregisterDevice(device);
         } else {
             ++device;
@@ -1378,7 +1387,7 @@ throw (CORBA::SystemException, CF::InvalidObjectReference, CF::InvalidProfile,
     DeviceList::iterator deviceNode = findDeviceById(devId);
     if (deviceNode != _registeredDevices.end()) {
         LOG_TRACE(DomainManager_impl, "Device <" << devId << "> already registered; checking existence");
-        if (!ossie::corba::objectExists(deviceNode->device)) {
+        if (!ossie::corba::objectExists((*deviceNode)->device)) {
             LOG_WARN(DomainManager_impl, "Cleaning up registration; device <" << devId << "> is registered and no longer exists");
             try {
                 _local_unregisterDevice(deviceNode);
@@ -1456,14 +1465,19 @@ void DomainManager_impl::storeDeviceInDomainMgr (CF::Device_ptr registeringDevic
         return;
     }
 
-//If this part is reached, the registering device has to be added
-//Get read-only attributes from registeringDevice
-    DeviceNode newDeviceNode;
-    newDeviceNode.device = CF::Device::_duplicate(registeringDevice);
-    newDeviceNode.devMgr = *pDevMgr;
-    newDeviceNode.label = ossie::corba::returnString(registeringDevice->label());
-    newDeviceNode.softwareProfile = ossie::corba::returnString(registeringDevice->softwareProfile());
-    newDeviceNode.identifier = ossie::corba::returnString(registeringDevice->identifier());
+    // If this part is reached, the registering device has to be added
+    // Get read-only attributes from registeringDevice
+    boost::shared_ptr<DeviceNode> newDeviceNode(new DeviceNode());
+    newDeviceNode->device = CF::Device::_duplicate(registeringDevice);
+    newDeviceNode->devMgr = *pDevMgr;
+    newDeviceNode->label = ossie::corba::returnString(registeringDevice->label());
+    newDeviceNode->softwareProfile = ossie::corba::returnString(registeringDevice->softwareProfile());
+    newDeviceNode->identifier = ossie::corba::returnString(registeringDevice->identifier());
+    newDeviceNode->implementationId = ossie::corba::returnString(registeredDeviceMgr->getComponentImplementationId(newDeviceNode->identifier.c_str()));
+    newDeviceNode->isLoadable = registeringDevice->_is_a(CF::LoadableDevice::_PD_repoId);
+    newDeviceNode->isExecutable = registeringDevice->_is_a(CF::ExecutableDevice::_PD_repoId);
+
+    parseDeviceProfile(*newDeviceNode);
 
     _registeredDevices.push_back (newDeviceNode);
 
@@ -1479,40 +1493,6 @@ void DomainManager_impl::storeDeviceInDomainMgr (CF::Device_ptr registeringDevic
 
     TRACE_EXIT(DomainManager_impl)
 }
-
-
-void
-DomainManager_impl::getDeviceProperties (DeviceNode& registeringDeviceNode)
-{
-    TRACE_ENTER(DomainManager_impl)
-
-    /*PRFProperty parsedProperties;
-       //parse SPD
-       SPDParser SPDFile( registeringDeviceNode.softwareProfile );
-
-       if( SPDFile.isScaCompliant() )
-       {
-       //Parse PRF file to get device's properties
-       PRFParser PRFFile( SPDFile.getPRFFile() );
-       parsedProperties = PRFFile.getProperties();
-       //store properties in registeringDeviceNode
-       CORBA::Any anyVar;
-    for(int i = 0; i < parsedProperties.size(); i++)
-    {
-    registeringDeviceNode.properties[i].id = CORBA::string_dup( parsedProperties[i]->getID() );
-    ORB_WRAP::anyType( parsedProperties[i]->getType(), parsedProperties[i]->getValue(), anyVar );
-    registeringDeviceNode.properties[i].value = anyVar;
-    }
-    //return result
-    return NULL_ERROR;
-    }
-    else
-    {
-    return NOT_SCA_COMPLIANT;
-    } */
-    TRACE_EXIT(DomainManager_impl)
-}
-
 
 //This function adds the registeringService and its name to the DomainMgr.
 //if the service already exists it does nothing
@@ -1577,8 +1557,13 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
     TRACE_ENTER(DomainManager_impl)
     boost::recursive_mutex::scoped_lock lock(stateAccess);
 
+    // Reset the last successful device pointer for deployments
+    if ((*deviceNode)->identifier == _lastDeviceUsedForDeployment) {
+        _lastDeviceUsedForDeployment.clear();
+    }
+
     // Break any connections depending on the device.
-    _connectionManager.deviceUnregistered(deviceNode->identifier);
+    _connectionManager.deviceUnregistered((*deviceNode)->identifier);
     try {
         db.store("CONNECTIONS", _connectionManager.getConnections());
     } catch (ossie::PersistenceException& ex) {
@@ -1609,8 +1594,8 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
                 CF::DeviceAssignmentSequence* compDevices = app->componentDevices();
                 bool foundMatch = false;
                 for  (unsigned int j = 0; j < compDevices->length(); j++) {
-                    if (strcmp(deviceNode->identifier.c_str(), (*compDevices)[j].assignedDeviceId) == 0) {
-                        LOG_WARN(DomainManager_impl, "Releasing application that depends on registered device " << deviceNode->identifier)
+                    if (strcmp((*deviceNode)->identifier.c_str(), (*compDevices)[j].assignedDeviceId) == 0) {
+                        LOG_WARN(DomainManager_impl, "Releasing application that depends on registered device " << (*deviceNode)->identifier)
                         app->releaseObject();
                         foundMatch = true;
                         break;  // No need to call releaseObject twice
@@ -1634,7 +1619,7 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
 
     // Sent event here (as opposed to unregisterDevice), so we see the event on regular
     // unregisterDevice calls, and on cleanup (deviceManager shutdown, catastropic cleanup, etc.)
-    ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _configuration.getID(), deviceNode->identifier.c_str(), deviceNode->label.c_str(),
+    ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _configuration.getID(), (*deviceNode)->identifier.c_str(), (*deviceNode)->label.c_str(),
                                   StandardEvent::DEVICE, proxy_consumer);
 
     // Remove the device from the internal list.
@@ -1952,14 +1937,13 @@ throw (CORBA::SystemException, CF::DomainManager::InvalidIdentifier,
     }
 }
 
-void DomainManager_impl::updateAllocations(std::map<std::string, ossie::_allocationsType> &ref_allocations, std::map<std::string, CF::AllocationManager_var> &ref_remoteAllocations)
+void DomainManager_impl::updateAllocations(AllocationTable &ref_allocations, std::map<std::string, CF::AllocationManager_var> &ref_remoteAllocations)
 {
     TRACE_ENTER(DomainManager_impl)
     boost::recursive_mutex::scoped_lock lock(stateAccess);
     AllocationManagerNode allocNode;
     allocNode._allocations = ref_allocations;
     allocNode._remoteAllocations = ref_remoteAllocations;
-    allocNode.allocationManager = CF::AllocationManager::_duplicate(this->_allocationMgr);
     try {
         db.store("ALLOCATION_MANAGER", allocNode);
     } catch ( ossie::PersistenceException& ex) {
@@ -1999,7 +1983,7 @@ DomainManager_impl::addApplication(Application_impl* new_app)
             appNode.componentIORS.push_back(ossie::corba::objectToString(new_app->_appStartSeq[i]));
         }
         appNode.fileTable = new_app->_fileTable;
-        appNode.appAllocationResponses = new_app->appAllocationResponses;
+        appNode.allocationIDs = new_app->_allocationIDs;
         //appNode.allocPropsTable = new_app->_allocPropsTable;
         appNode.connections = new_app->_connections;
         //appNode.usesDeviceCapacities = new_app->_usesDeviceCapacities;
@@ -2551,100 +2535,6 @@ DomainManager_impl::validateSPD (const char* _spdProfile, int _cnt) throw (CF::D
     }
 }
 
-
-/*
-// It's unclear whether this function should exist, so until the ambiguity is resolved, it'll be commented-out
-void
-DomainManager_impl::removeSPD (const char *_spdProfile, int _cnt)
-{
-    if (_spdProfile == NULL) return;
-
-    CF::File_var _spd;
-
-     _spd = _fileMgr->open( _spdProfile, true );
-    SPDParser *_spdParser = new SPDParser ( _spd );
-    _spd->close();
-
-    try
-    {
-        _fileMgr->remove (_spdParser->getPRFFile ());
-    }
-    catch (CF::InvalidFileName &)
-    {
-// TODO: write FAILURE_ALARM
-// TODO: output the error message from the invalid file name
-
-        delete _spdParser;
-        _spdParser = NULL;
-
-        throw CF::DomainManager::ApplicationUninstallationError (CF::CF_EBADF,
-            "[DomainManager:removeSPD] invalid PRF file");
-    }
-    catch (CF::FileException &)
-    {
-// TODO: write FAILURE_ALARM
-// TODO: output the error message from the file exception
-
-        delete _spdParser;
-        _spdParser = NULL;
-
-        throw CF::DomainManager::ApplicationUninstallationError (CF::CF_EBADF,
-            "[DomainManager:removeSPD] PRF file exception");
-    }
-
-    try
-    {
-        _fileMgr->remove (_spdParser->getSCDFile ());
-    }
-    catch (CF::InvalidFileName &)
-    {
-// TODO: write FAILURE_ALARM
-// TODO: output the error message from the invalid file name
-
-        delete _spdParser;
-        _spdParser = NULL;
-
-        throw CF::DomainManager::ApplicationUninstallationError (CF::CF_EBADF,
-            "[DomainManager:removeSPD] invalid SCD file");
-    }
-    catch (CF::FileException &)
-    {
-// TODO: write FAILURE_ALARM
-// TODO: output the error message from the file exception
-
-        delete _spdParser;
-        _spdParser = NULL;
-
-        throw CF::DomainManager::ApplicationUninstallationError (CF::CF_EBADF,
-            "[DomainManager:removeSPD] SCD file exception");
-    }
-
-    removeSPD (_spdParser->getSPDFile (), ++_cnt);
-
-    delete _spdParser;
-    _spdParser = NULL;
-
-    try
-    {
-        _fileMgr->remove (_spdProfile);
-    }
-    catch (CF::InvalidFileName &)
-    {
-/// \todo write FAILURE_ALARM
-/// \todo output the error message from the invalid file name
-        throw CF::DomainManager::ApplicationUninstallationError (CF::CF_EBADF,
-            "[DomainManager:removeSPD] invalid SPD file");
-    }
-    catch (CF::FileException &)
-    {
-/// \todo write FAILURE_ALARM
-/// \todo output the error message from the file exception
-        throw CF::DomainManager::ApplicationUninstallationError (CF::CF_EBADF,
-            "[DomainManager:removeSPD] SPD file exception");
-    }
-}
-*/
-
 CosEventChannelAdmin::EventChannel_ptr DomainManager_impl::getEventChannel(const std::string &name) {
 
     vector < ossie::EventChannelNode >::iterator _iter = _eventChannels.begin();
@@ -2741,7 +2631,7 @@ CF::Resource_ptr DomainManager_impl::lookupComponentByInstantiationId(const std:
     boost::recursive_mutex::scoped_lock lock(stateAccess);
     DeviceList::iterator deviceNode = findDeviceById(identifier);
     if (deviceNode != _registeredDevices.end()) {
-        return CF::Resource::_duplicate(deviceNode->device);
+        return CF::Resource::_duplicate((*deviceNode)->device);
     }
 
     return CF::Resource::_nil();
@@ -2817,11 +2707,11 @@ void DomainManager_impl::catastrophicUnregisterDeviceManager (ossie::DeviceManag
     // Release all devices associated with the DeviceManager that is being unregistered.
     LOG_TRACE(DomainManager_impl, "Finding devices for device manager " << deviceManager->identifier);
     for (DeviceList::iterator device = _registeredDevices.begin(); device != _registeredDevices.end(); ++device) {
-        if (device->devMgr.identifier == deviceManager->identifier) {
-            LOG_TRACE(DomainManager_impl, "Releasing registered device " << device->label);
+        if ((*device)->devMgr.identifier == deviceManager->identifier) {
+            LOG_TRACE(DomainManager_impl, "Releasing registered device " << (*device)->label);
             try {
-                device->device->releaseObject();
-            } CATCH_LOG_WARN(DomainManager_impl, "Failed to release device " << device->label);
+                (*device)->device->releaseObject();
+            } CATCH_LOG_WARN(DomainManager_impl, "Failed to release device " << (*device)->label);
         }
     }
 
@@ -2838,7 +2728,7 @@ ossie::DeviceList::iterator DomainManager_impl::findDeviceById (const std::strin
 
     DeviceList::iterator device;
     for (device = _registeredDevices.begin(); device != _registeredDevices.end(); ++device) {
-        if (identifier == device->identifier) {
+        if (identifier == (*device)->identifier) {
             break;
         }
     }
@@ -2858,7 +2748,7 @@ ossie::DeviceList::iterator DomainManager_impl::findDeviceByObject (CF::Device_p
 
     DeviceList::iterator node;
     for (node = _registeredDevices.begin(); node != _registeredDevices.end(); ++node) {
-        if (device->_is_equivalent(node->device)) {
+        if (device->_is_equivalent((*node)->device)) {
             break;
         }
     }
@@ -2868,6 +2758,18 @@ ossie::DeviceList::iterator DomainManager_impl::findDeviceByObject (CF::Device_p
 ossie::DeviceList DomainManager_impl::getRegisteredDevices() {
     boost::recursive_mutex::scoped_lock lock(stateAccess);
     return _registeredDevices;
+}
+
+std::string DomainManager_impl::getLastDeviceUsedForDeployment ()
+{
+    boost::recursive_mutex::scoped_lock lock(stateAccess);
+    return _lastDeviceUsedForDeployment;
+}
+
+void DomainManager_impl::setLastDeviceUsedForDeployment (const std::string& identifier)
+{
+    boost::recursive_mutex::scoped_lock lock(stateAccess);
+    _lastDeviceUsedForDeployment = identifier;
 }
 
 ossie::DomainManagerList DomainManager_impl::getRegisteredRemoteDomainManagers() {
@@ -2941,4 +2843,74 @@ ossie::ServiceList::iterator DomainManager_impl::findServiceByType (const std::s
         }
     }
     return node;
- }
+}
+
+
+void DomainManager_impl::parseDeviceProfile (ossie::DeviceNode& node)
+{
+    // TODO: Exception handling
+    CF::FileSystem_var devMgrFS = node.devMgr.deviceManager->fileSys();
+
+    // Parse and cache the device's SPD
+    LOG_TRACE(DomainManager_impl, "Parsing SPD for device " << node.identifier);
+    try {
+        File_stream spd(devMgrFS, node.softwareProfile.c_str());
+        node.spd.load(spd, node.softwareProfile);
+    } catch (const ossie::parser_error& error) {
+        LOG_WARN(DomainManager_impl, "Error parsing SPD for device " << node.identifier << ": " << error.what());
+    } catch (...) {
+        LOG_WARN(DomainManager_impl, "Unable to cache SPD for device " << node.identifier);
+    }
+
+    // Parse and cache the device's PRF, if it has one
+    if (node.spd.getPRFFile()) {
+        LOG_TRACE(DomainManager_impl, "Parsing PRF for device " << node.identifier);
+        try {
+            File_stream prf(devMgrFS, node.spd.getPRFFile());
+            node.prf.load(prf);
+        } catch (const ossie::parser_error& error) {
+            LOG_WARN(DomainManager_impl, "Error parsing PRF for device " << node.identifier << ": " << error.what());
+        } catch (...) {
+            LOG_WARN(DomainManager_impl, "Unable to cache PRF for device " << node.identifier);
+        }
+    }
+
+    // Check for an implementation-specific PRF
+    for (std::vector<ossie::SPD::Implementation>::const_iterator impl = node.spd.getImplementations().begin(); impl != node.spd.getImplementations().end(); ++impl) {
+        if (impl->getID() != node.implementationId) {
+            continue;
+        }
+        if (impl->getPRFFile()) {
+            LOG_TRACE(DomainManager_impl, "Parsing implementation-specific PRF for device " << node.identifier);
+            try {
+                File_stream prf_file(devMgrFS, impl->getPRFFile());
+                node.prf.join(prf_file);
+            } catch (const ossie::parser_error& error) {
+                LOG_WARN(DomainManager_impl, "Error parsing implementation-specific PRF for device " << node.identifier << ": " << error.what());
+            } catch (...) {
+                LOG_WARN(DomainManager_impl, "Unable to cache implementation-specific PRF for device " << node.identifier);
+            }
+        }
+    }
+
+    // Override with values from the DCD
+    LOG_TRACE(DomainManager_impl, "Parsing DCD overrides for device " << node.identifier);
+    ossie::DeviceManagerConfiguration dcd;
+    const std::string deviceManagerProfile = ossie::corba::returnString(node.devMgr.deviceManager->deviceConfigurationProfile());
+    try {
+        File_stream dcd_file(devMgrFS, deviceManagerProfile.c_str());
+        dcd.load(dcd_file);
+    } catch (const ossie::parser_error& error) {
+        LOG_WARN(DomainManager_impl, "Error parsing DCD overrides for device " << node.identifier << ": " << error.what());
+    } catch (...) {
+        LOG_WARN(DomainManager_impl, "Unable to cache DCD overrides for device " << node.identifier);
+    }
+
+
+    const ComponentInstantiation* instantiation = findComponentInstantiation(dcd.getComponentPlacements(), node.identifier);
+    if (instantiation) {
+        node.prf.override(instantiation->properties);
+    } else {
+        LOG_WARN(DomainManager_impl, "Unable to find device " << node.identifier << " in DCD");
+    }
+}

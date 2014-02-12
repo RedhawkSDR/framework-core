@@ -287,7 +287,6 @@ bool DeviceManager_impl::getCodeFilePath(
         LOG_ERROR(DeviceManager_impl, "not instantiating device; no entry point provided");
         return false;
     }
-
     codeFilePath = fs_servant->getLocalPath(entryPoint.string().c_str());
 
     if (codeFilePath.length() == 0) {
@@ -737,6 +736,13 @@ void DeviceManager_impl::createDeviceExecStatement(
         new_argv[new_argc++] = const_cast<char*>(debug_level.c_str());
     }
 
+    std::string dpath;
+    dpath = _domainName + "/" + _label;
+    new_argv[new_argc] = "DOM_PATH";
+    new_argc++;
+    new_argv[new_argc] = (char*)dpath.c_str();
+    new_argc++;
+    
     std::map<std::string, std::string>::iterator prop_iter;
     for (prop_iter = pOverloadprops->begin(); prop_iter != pOverloadprops->end(); prop_iter++) {
         new_argv[new_argc] = (char*)prop_iter->first.c_str();
@@ -754,6 +760,7 @@ void DeviceManager_impl::createDeviceThreadAndHandleExceptions(
         const std::string&                            componentType,
         std::map<std::string, std::string>*           pOverloadprops,
         const std::string&                            codeFilePath,
+        const ossie::SoftPkg&                         SPDParser,
         ossie::DeviceManagerConfiguration&            DCDParser,
         const ossie::ComponentInstantiation&          instantiation,
         const std::vector<ossie::ComponentPlacement>& componentPlacements,
@@ -768,6 +775,7 @@ void DeviceManager_impl::createDeviceThreadAndHandleExceptions(
                            componentType,
                            pOverloadprops,
                            codeFilePath,
+                           SPDParser,
                            DCDParser,
                            instantiation,
                            devcache,
@@ -799,6 +807,7 @@ void DeviceManager_impl::createDeviceThread(
         const std::string&                            componentType,
         std::map<std::string, std::string>*           pOverloadprops,
         const std::string&                            codeFilePath,
+        const ossie::SoftPkg&                         SPDParser,
         ossie::DeviceManagerConfiguration&            DCDParser,
         const ossie::ComponentInstantiation&          instantiation,
         const std::string&                            devcache,
@@ -808,48 +817,54 @@ void DeviceManager_impl::createDeviceThread(
         const std::vector<ComponentProperty*>&        instanceprops) {
  
     int pid;
+    skip_fork = false;
 
     LOG_TRACE(DeviceManager_impl, "Launching " << componentType << " file " 
                                   << codeFilePath << " Usage name " 
                                   << instantiation.getUsageName());
-
-    if ((pid = fork()) > 0) {
-        // parent process: pid is the process ID of the child
-        LOG_TRACE(DeviceManager_impl, "Resulting PID: " << pid);
-
-        // Add the new device/service to the pending list. When it registers, the remaining
-        // fields will be filled out and it will be moved to the registered list.
-        if (componentType == "service") {
-            ServiceNode* serviceNode = new ServiceNode;
-            serviceNode->identifier = instantiation.getID();
-            serviceNode->label = usageName;
-            serviceNode->pid = pid;
-            boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
-            _pendingServices.push_back(serviceNode);
-        } else {
-            DeviceNode* deviceNode = new DeviceNode;
-            deviceNode->identifier = instantiation.getID();
-            deviceNode->label      = usageName;
-            deviceNode->pid        = pid;
-            boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
-            _pendingDevices.push_back(deviceNode);
-        }
+    
+    //get code type of persona
+    SoftPkg devmgrspdparser;
+    parseSpd(DCDParser,devmgrspdparser);
+    const SPD::Implementation* devManImpl = 0;
+    getDevManImpl(devManImpl, devmgrspdparser);
+    const SPD::Implementation* matchedDeviceImpl = locateMatchingDeviceImpl(SPDParser,devManImpl);
+    if (matchedDeviceImpl == NULL) {
+        LOG_ERROR(DeviceManager_impl,
+            "unable to find matchedDeviceImpl");
     }
-    else if (pid == 0) {
-        // Child process
+    bool isSharedLibrary = (std::string(matchedDeviceImpl->getCodeType()) == "SharedLibrary");
+    // Logic for persona devices
+    // check is parent exists and if the code type is "SharedLibrary"
+    if (componentPlacement.isCompositePartOf() && isSharedLibrary) {
+   
+        // Locate the parent device via the IOR
+        CORBA::Object_var _aggDev_obj = ossie::corba::Orb()->string_to_object(compositeDeviceIOR.c_str());
+        if (CORBA::is_nil(_aggDev_obj)) {
+            LOG_ERROR(DeviceManager_impl, "Failed to deploy '" << usageName << 
+                "': Invalid composite device IOR: " << compositeDeviceIOR);
+            return;
+        }
 
-        //////////////////////////////////////////////////////////////
-        // DO not put any LOG calls between the fork and the execv
-        //////////////////////////////////////////////////////////////
-
-        // switch to working directory
-        chdir(devcache.c_str());
-
+        // Attempt to narrow the parent device to an Executable Device
+        CF::ExecutableDevice_var execDevice = ossie::corba::_narrowSafe<CF::ExecutableDevice>(_aggDev_obj);
+        if (CORBA::is_nil(execDevice)) {
+            LOG_ERROR(DeviceManager_impl, "Failed to deploy '" << usageName <<
+                "': DeployOnDevice must be an Executable Device:  Unable to narrow to Executable Device")
+            return;
+        }
+	      //all conditions are met for a persona	
+		    // Load shared library into device using load mechanism
+		    LOG_DEBUG(DeviceManager_impl, "Loading '" << codeFilePath << "' to parent device: " << execDevice->identifier());
+		    execDevice->load(_dmnMgr->fileMgr(), codeFilePath.c_str(), CF::LoadableDevice::SHARED_LIBRARY);
+		    LOG_DEBUG(DeviceManager_impl, "Load complete");
+       
+        const std::string realCompType = "device";
+        // Build up the argv array used for launch		
         const char* new_argv[pOverloadprops->size() + 30];
-
-        createDeviceExecStatement(new_argv, 
+        createDeviceExecStatement(new_argv,
                                   componentPlacement,
-                                  componentType,
+                                  realCompType,
                                   pOverloadprops,
                                   codeFilePath,
                                   DCDParser,
@@ -858,25 +873,97 @@ void DeviceManager_impl::createDeviceThread(
                                   componentPlacements,
                                   compositeDeviceIOR,
                                   instanceprops) ;
-
-        // now exec - we should not return from this
-        execv(new_argv[0], (char * const*) new_argv);
-
-        LOG_ERROR(DeviceManager_impl, new_argv[0] << " did not execute : " << strerror(errno));
-        exit(-1);
+		
+        // Coerce argv into CF::Properties to send to the parent
+		    CORBA::Any anyVal;
+		    CF::Properties personaProps;
+        personaProps.length(30);
+        unsigned int propCounter = 0;
+		    for (unsigned int ii = 1; ii < pOverloadprops->size() + 30; ii++) {
+            if (new_argv[ii] == NULL) {
+                personaProps.length(propCounter);
+                break;
+        }
+		    personaProps[propCounter].id = CORBA::string_dup(new_argv[ii++]);
+		    anyVal <<= (std::string) new_argv[ii];
+		    personaProps[propCounter].value = anyVal;
+        propCounter++;
+		}
+    CF::Properties options;
+    options.length(0);
+		// Tell parent device to execute shared library using execute mechanism
+		LOG_DEBUG(DeviceManager_impl, "Execute '" << codeFilePath << "' on parent device: " << execDevice->identifier());
+    execDevice->execute(codeFilePath.c_str(), options, personaProps);
+		LOG_DEBUG(DeviceManager_impl, "Execute complete");
+            
+    skip_fork = true;
     }
-    else {
-        // The system cannot support deployment of the device
-        // The most likely cause is the operating system running out of 
-        // threads, in which case the system is in bad shape.  Exit
-        // with an error to allow the system to recover.
-        LOG_ERROR(DeviceManager_impl, "[DeviceManager::execute] Cannot create device thread: " << strerror(errno)); 
+    if (!skip_fork) {
+        if ((pid = fork()) > 0) {
+            // parent process: pid is the process ID of the child
+            LOG_TRACE(DeviceManager_impl, "Resulting PID: " << pid);
 
-        // If we could not get a thread to create the device, previously created 
-        // devices will likely have trouble with registration.
-        abort();
+            // Add the new device/service to the pending list. When it registers, the remaining
+            // fields will be filled out and it will be moved to the registered list.
+            if (componentType == "service") {
+                ServiceNode* serviceNode = new ServiceNode;
+                serviceNode->identifier = instantiation.getID();
+                serviceNode->label = usageName;
+                serviceNode->pid = pid;
+                boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
+                _pendingServices.push_back(serviceNode);
+            } else {
+                DeviceNode* deviceNode = new DeviceNode;
+                deviceNode->identifier = instantiation.getID();
+                deviceNode->label      = usageName;
+                deviceNode->pid        = pid;
+                boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
+                _pendingDevices.push_back(deviceNode);
+            }
+        }
+        else if (pid == 0) {
+            // Child process
 
-        throw;
+            //////////////////////////////////////////////////////////////
+            // DO not put any LOG calls between the fork and the execv
+            //////////////////////////////////////////////////////////////
+
+            // switch to working directory
+            chdir(devcache.c_str());
+
+            const char* new_argv[pOverloadprops->size() + 30];
+
+            createDeviceExecStatement(new_argv, 
+                                      componentPlacement,
+                                      componentType,
+                                      pOverloadprops,
+                                      codeFilePath,
+                                      DCDParser,
+                                      instantiation,
+                                      usageName,
+                                      componentPlacements,
+                                      compositeDeviceIOR,
+                                      instanceprops) ;
+
+            // now exec - we should not return from this
+            execv(new_argv[0], (char * const*) new_argv);
+
+            LOG_ERROR(DeviceManager_impl, new_argv[0] << " did not execute : " << strerror(errno));
+            exit(-1);
+        }
+        else {
+            // The system cannot support deployment of the device
+            // The most likely cause is the operating system running out of 
+            // threads, in which case the system is in bad shape.  Exit
+            // with an error to allow the system to recover.
+            LOG_ERROR(DeviceManager_impl, "[DeviceManager::execute] Cannot create device thread: " << strerror(errno)); 
+
+            // If we could not get a thread to create the device, previously created 
+            // devices will likely have trouble with registration.
+            abort();
+
+            throw;
+        }
     }
 }
 
@@ -1003,9 +1090,48 @@ void DeviceManager_impl::post_constructor (
     const std::vector<ossie::ComponentPlacement>& componentPlacements = DCDParser.getComponentPlacements();
     LOG_TRACE(DeviceManager_impl, "ComponentPlacement size is " << componentPlacements.size())
 
-    std::vector<ossie::ComponentPlacement>::const_iterator compPlaceIter;
-    for (compPlaceIter =  componentPlacements.begin(); 
-         compPlaceIter != componentPlacements.end();  
+    // Organize componentPlacements by standalone/deployOnDevice
+    std::vector<ossie::ComponentPlacement>::const_iterator constCompPlaceIter;
+    std::vector<ossie::ComponentPlacement>::iterator compPlaceIter;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Split component placements by compositePartOf tag
+    //      The following logic exists below:
+    //      - Split non-deployOnDevice from deployOnDevice compPlacements
+    //      - Iterate and launch all non-deployOnDevice compPlacements
+    //      - Iterate and launch all deployOnDevice compPlacements
+    std::vector<ossie::ComponentPlacement> standaloneComponentPlacements;
+    std::vector<ossie::ComponentPlacement> compositePartDeviceComponentPlacements;
+    for (constCompPlaceIter =  componentPlacements.begin();
+         constCompPlaceIter != componentPlacements.end();
+         constCompPlaceIter++) {
+        
+         SoftPkg SPDParser;
+
+         if (!loadSPD(SPDParser, DCDParser, *constCompPlaceIter)) {
+             continue;
+         }
+         const SPD::Implementation* matchedDeviceImpl = locateMatchingDeviceImpl(SPDParser, devManImpl);
+         if (matchedDeviceImpl == NULL) {
+            LOG_ERROR(DeviceManager_impl, 
+                  "Skipping instantiation of device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "; "
+                  << "no available device implementations match device manager properties for deployOnDevice")
+            continue;
+        }
+        bool isSharedLibrary = (std::string(matchedDeviceImpl->getCodeType()) == "SharedLibrary");
+        bool isCompositePartOf = constCompPlaceIter->isCompositePartOf();
+
+        if (isCompositePartOf && isSharedLibrary) {
+            compositePartDeviceComponentPlacements.push_back(*constCompPlaceIter);
+        } else {
+            standaloneComponentPlacements.push_back(*constCompPlaceIter);
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Iterate and launch all non-deployOnDevice compPlacements
+    for (compPlaceIter =  standaloneComponentPlacements.begin();
+         compPlaceIter != standaloneComponentPlacements.end();
          compPlaceIter++) {
 
         SoftPkg SPDParser;
@@ -1025,24 +1151,7 @@ void DeviceManager_impl::post_constructor (
         // it also assumes that there is a single device manager implementation)
 
         // get Device Manager implementation
-        const SPD::Implementation* matchedDeviceImpl = NULL;
-
-        // If there is no deployon element, deploy the implementation that
-        // matches the device manager implementation.  Otherwise, access
-        // the deployon device and match implementation properties
-        if (!compPlaceIter->isDeployOn()) {
-            matchedDeviceImpl = locateMatchingDeviceImpl(SPDParser, devManImpl);
-        } else {
-            // Before we can implement this, we need to determine the following:
-            //  1. Does the refid reference only devices in the DCD or in the entire domain
-            //  2. The DeviceManager needs to spawn any deployondependencies first
-            //     so it can issue the ExecutableDevice->execute() function on those devices
-            //  3. How are matching properties to be used in this context?
-            LOG_ERROR(DeviceManager_impl, 
-                "Skipping instantiation of device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "; "
-                << "The <deployondevice> element is currently not supported");
-            continue;
-        }
+        const SPD::Implementation* matchedDeviceImpl = locateMatchingDeviceImpl(SPDParser, devManImpl);
 
         if (matchedDeviceImpl == NULL) {
             LOG_ERROR(DeviceManager_impl, 
@@ -1107,6 +1216,113 @@ void DeviceManager_impl::post_constructor (
                 componentType,
                 &overloadprops,
                 codeFilePath,
+                SPDParser,
+                DCDParser,
+                instantiation,
+                componentPlacements,
+                compositeDeviceIOR,
+                instanceprops);
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Iterate and launch all deployOnDevice compPlacements
+    for (compPlaceIter =  compositePartDeviceComponentPlacements.begin();
+         compPlaceIter != compositePartDeviceComponentPlacements.end();
+         compPlaceIter++) {
+
+        SoftPkg SPDParser;
+        SoftPkg compositePartSPDParser;
+
+        if (!loadSPD(SPDParser, DCDParser, *compPlaceIter)) {
+            continue;
+        }
+
+        // get Device Manager implementation
+        const char* compositePartDeviceID = compPlaceIter->getCompositePartOfDeviceID();
+        const SPD::Implementation* matchedDeviceImpl = NULL;
+
+        bool foundCompositePart = false;
+        std::vector<ComponentPlacement>::iterator compositePartIter;
+        for (compositePartIter =  standaloneComponentPlacements.begin();
+             compositePartIter != standaloneComponentPlacements.end();
+             compositePartIter++) {
+
+            std::vector<ComponentInstantiation> compositePartInstantiations = (*compositePartIter).getInstantiations();
+            std::vector<ComponentInstantiation>::iterator compInstIter;
+            for (compInstIter = compositePartInstantiations.begin();
+                 compInstIter != compositePartInstantiations.end();
+                 compInstIter++) {
+
+                if (compInstIter->getID() == std::string(compositePartDeviceID)) {
+
+                    if (!loadSPD(compositePartSPDParser, DCDParser, *compositePartIter)) {
+                        continue;
+                    }
+
+                    matchedDeviceImpl = locateMatchingDeviceImpl(compositePartSPDParser, devManImpl);
+                    foundCompositePart = true;
+                    break;
+                }
+            }
+        }
+
+        if (foundCompositePart == false) {
+            LOG_ERROR(DeviceManager_impl,
+                     "Unable to locate deployOnDevice '" << compositePartDeviceID << "'... Skipping instantiation of '" << SPDParser.getSoftPkgID() << "'")
+            continue;
+        }
+
+        if (matchedDeviceImpl == NULL) {
+            LOG_ERROR(DeviceManager_impl,
+                  "Skipping instantiation of device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "; "
+                  << "no available device implementations match device manager properties")
+            continue;
+        }
+
+        // store the matchedDeviceImpl's implementation ID in a map for use with "getComponentImplementationId"
+        ossie::Properties deviceProperties;
+        if (!loadDeviceProperties(SPDParser, *matchedDeviceImpl, deviceProperties)) {
+            LOG_INFO(DeviceManager_impl, "Skipping instantiation of device '" << SPDParser.getSoftPkgName() << "'");
+            continue;
+        }
+
+        std::string compositeDeviceIOR;
+        getCompositeDeviceIOR(compositeDeviceIOR,
+                              componentPlacements,
+                              *compPlaceIter);
+
+        std::vector<ComponentInstantiation>::iterator cpInstIter;
+
+        for (cpInstIter =  (*compPlaceIter).instantiations.begin();
+             cpInstIter != (*compPlaceIter).instantiations.end();
+             cpInstIter++) {
+
+            const ComponentInstantiation instantiation = *cpInstIter;
+
+            recordComponentInstantiationId(instantiation, matchedDeviceImpl);
+
+            // get overloaded properties for exec params
+            const std::vector<ComponentProperty*>& instanceprops = instantiation.getProperties();
+            std::map<std::string, std::string> overloadprops;
+
+            getOverloadprops(overloadprops, instanceprops, deviceProperties);
+
+            // Set Code file path
+            ossie::SPD::Implementation impl = SPDParser.getImplementations()[0];
+            fs::path entryPointPath = fs::path(impl.getEntryPoint());
+            entryPointPath = (fs::path(SPDParser.getSPDPath()) / entryPointPath).normalize();
+            std::string codeFilePath = entryPointPath.string();
+
+            // Set ComponentType
+            std::string componentType = "SharedLibrary"; 
+            // Attempt to create the requested device or service
+            createDeviceThreadAndHandleExceptions(
+                *compPlaceIter,
+                componentType,
+                &overloadprops,
+                codeFilePath,
+                SPDParser,
                 DCDParser,
                 instantiation,
                 componentPlacements,
@@ -1414,7 +1630,7 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
     } catch ( std::exception& ex ) {
         LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while attempting to initialize Device " << deviceLabel)
     } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while attempting to initialize Device " << deviceLabel)    
+        LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while attempting to initialize Device " << deviceLabel)
     }
     
     //Get properties from SPD

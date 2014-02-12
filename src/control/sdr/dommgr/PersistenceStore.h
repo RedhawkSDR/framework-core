@@ -37,13 +37,6 @@ namespace ossie {
 
     typedef std::string     ID;
 
-    struct _allocationsType {
-        std::string requestingDomain;
-        CF::Properties allocationProperties;
-        std::string allocatedDevice;
-        std::string allocationDeviceManager;
-    };
-
     class DeviceManagerNode {
         public:
             std::string identifier;
@@ -74,6 +67,13 @@ namespace ossie {
             std::string identifier;
             CF::Properties  properties;
             std::map<std::string, CORBA::Object_var> connections;
+        
+            // Cached profile, not saved to persistence store
+            ossie::SoftPkg spd;
+            ossie::Properties prf;
+            std::string implementationId;
+            bool isLoadable;
+            bool isExecutable;
     };
 
     class ComponentNode {
@@ -83,7 +83,7 @@ namespace ossie {
         std::string ior;
     };
 
-    typedef std::list< DeviceNode > DeviceList;
+    typedef std::list<boost::shared_ptr<DeviceNode> > DeviceList;
     typedef std::list< DeviceID >   DeviceIDList;
 
     class ApplicationFactoryNode {
@@ -93,10 +93,21 @@ namespace ossie {
             std::string identifier;
     };
 
+    struct AllocationType {
+        std::string allocationID;
+        std::string requestingDomain;
+        CF::Properties allocationProperties;
+        CF::Device_var allocatedDevice;
+        CF::DeviceManager_var allocationDeviceManager;
+    };
+
+    typedef std::pair<std::string, boost::shared_ptr<DeviceNode> > AllocationResult;
+
+    typedef std::map<std::string, AllocationType> AllocationTable;
+
     class AllocationManagerNode {
         public:
-            CF::AllocationManager_var allocationManager;
-            std::map<std::string, ossie::_allocationsType> _allocations;
+            AllocationTable _allocations;
             std::map<std::string, CF::AllocationManager_var> _remoteAllocations;
     };
 
@@ -118,7 +129,7 @@ namespace ossie {
             std::map<std::string, std::string> fileTable;
             /*std::map<std::string, std::vector<ossie::AllocPropsInfo> > allocPropsTable;
             std::vector<ossie::AllocPropsInfo> usesDeviceCapacities;*/
-            CF::AllocationManager::AllocationResponseSequence appAllocationResponses;
+            std::vector<std::string> allocationIDs;
             std::vector<std::string> componentIORS;
             std::vector<ossie::ComponentNode> components;
             std::map<std::string, CORBA::Object_var> ports;
@@ -226,6 +237,14 @@ namespace boost {
             ar & (node.device);
             ar & (node.devMgr);
         }
+
+        template<class Archive>
+        void serialize(Archive& ar, boost::shared_ptr<ossie::DeviceNode>& ptr, const unsigned int version) {
+            if (!ptr) {
+                ptr.reset(new ossie::DeviceNode());
+            }
+            ar & (*ptr);
+        }
     
         template<class Archive>
         void serialize(Archive& ar, ossie::ComponentNode& node, const unsigned int version) {
@@ -260,7 +279,7 @@ namespace boost {
             ar & (node.componentProcessIds);
             ar & (node.assemblyController);
             ar & (node.fileTable);
-            ar & (node.appAllocationResponses);
+            ar & (node.allocationIDs);
             //ar & (node.allocPropsTable);
             ar & (node.connections);
             //ar & (node.usesDeviceCapacities);
@@ -274,7 +293,6 @@ namespace boost {
         void serialize(Archive& ar, ossie::AllocationManagerNode& node, const unsigned int version) {
             ar & (node._allocations);
             ar & (node._remoteAllocations);
-            ar & (node.allocationManager);
         }
 
         template<class Archive>
@@ -305,7 +323,8 @@ namespace boost {
         }
 
         template<class Archive>
-        void serialize(Archive& ar, ossie::_allocationsType& at, const unsigned int version) {
+        void serialize(Archive& ar, ossie::AllocationType& at, const unsigned int version) {
+            ar & (at.allocationID);
             ar & (at.requestingDomain);
             ar & (at.allocationProperties);
             ar & (at.allocatedDevice);

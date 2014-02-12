@@ -261,6 +261,7 @@ private:
         const std::string&                            componentType,
         std::map<std::string, std::string>*           pOverloadprops,
         const std::string&                            codeFilePath,
+        const ossie::SoftPkg&                         SPDParser,
         ossie::DeviceManagerConfiguration&            DCDParser,
         const ossie::ComponentInstantiation&          instantiation,
         const std::vector<ossie::ComponentPlacement>& componentPlacements,
@@ -272,6 +273,7 @@ private:
         const std::string&                            componentType,
         std::map<std::string, std::string>*           pOverloadprops,
         const std::string&                            codeFilePath,
+        const ossie::SoftPkg&                         SPDParser,
         ossie::DeviceManagerConfiguration&            DCDParser,
         const ossie::ComponentInstantiation&          instantiation,
         const std::string&                            devcache,
@@ -319,6 +321,8 @@ private:
     std::string deviceMgrIOR;
     std::string fileSysIOR;
     bool *_internalShutdown;
+
+    bool skip_fork;
 
     // this mutex is used for synchronizing _registeredDevices, labelTable, and identifierTable
     boost::mutex componentImplMapmutex;  

@@ -95,6 +95,7 @@ namespace ossie
         const std::string& getAssignedDeviceId() const;
 
         void setAssignedDeviceId(const std::string& deviceId);
+        void clearAssignedDeviceId();
 
     private:
         std::string id;

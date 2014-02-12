@@ -28,6 +28,7 @@ Resource_impl::Resource_impl (const char* _uuid) :
     component_running(&component_running_mutex)
 {
     _identifier = _uuid;
+
 }
 
 

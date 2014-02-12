@@ -34,7 +34,7 @@ clean-local:
 install-data-hook :
 	touch $(DESTDIR)$(pkgincludedir)/CF/*.h
 
-BUILT_SOURCES = cfSK.cpp \
+BUILT_SOURCES =	cfSK.cpp \
 		cfDynSK.cpp \
                 PortTypesSK.cpp \
 		PortTypesDynSK.cpp \
@@ -49,12 +49,15 @@ BUILT_SOURCES = cfSK.cpp \
 		WellKnownPropertiesSK.cpp \
 		WellKnownPropertiesDynSK.cpp \
 		sandboxSK.cpp \
-		sandboxDynSK.cpp
+		sandboxDynSK.cpp \
+		LogInterfacesSK.cpp \
+		LogInterfacesDynSK.cpp
+
 CLEANFILES = $(BUILT_SOURCES)
 
 
 cfheaderdir = $(pkgincludedir)/CF
-dist_cfheader_HEADERS = cf.h PortTypes.h StandardEvent.h AggregateDevices.h ExtendedEvent.h QueryablePort.h WellKnownProperties.h sandbox.h
+dist_cfheader_HEADERS = LogInterfaces.h cf.h PortTypes.h StandardEvent.h AggregateDevices.h ExtendedEvent.h QueryablePort.h WellKnownProperties.h sandbox.h
 #nodist_pkginclude_HEADERS = cf.h PortTypes.h StandardEvent.h
 
 lib_LTLIBRARIES = libossieidl.la

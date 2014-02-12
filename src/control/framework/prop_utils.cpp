@@ -549,3 +549,62 @@ CF::DataType ossie::convertPropertyToDataType(const StructSequencePropertyRef* p
     dataType.value <<= values;
     return dataType;
 }
+
+CORBA::Any ossie::convertAnyToPropertyType(const CORBA::Any& value, const Property* property)
+{
+    if (dynamic_cast<const SimpleProperty*>(property)) {
+        return convertAnyToPropertyType(value, dynamic_cast<const SimpleProperty*>(property));
+    } else if (dynamic_cast<const SimpleSequenceProperty*>(property)) {
+        return convertAnyToPropertyType(value, dynamic_cast<const SimpleSequenceProperty*>(property));
+    } else if (dynamic_cast<const StructProperty*>(property)) {
+        return convertAnyToPropertyType(value, dynamic_cast<const StructProperty*>(property));
+    } else if (dynamic_cast<const StructSequenceProperty*>(property)) {
+        return convertAnyToPropertyType(value, dynamic_cast<const StructSequenceProperty*>(property));
+    }
+    return CORBA::Any();
+}
+
+CORBA::Any ossie::convertAnyToPropertyType(const CORBA::Any& value, const SimpleProperty* property)
+{
+    // Convert the input Any to the property's data type via string
+    return ossie::string_to_any(ossie::any_to_string(value), ossie::getTypeCode(property->getType()));
+}
+
+CF::DataType ossie::convertDataTypeToPropertyType(const CF::DataType& value, const Property* property)
+{
+    CF::DataType result;
+    result.id = value.id;
+    result.value = convertAnyToPropertyType(value.value, property);
+    return result;
+}
+
+CORBA::Any ossie::convertAnyToPropertyType(const CORBA::Any& value, const SimpleSequenceProperty* property)
+{
+    // TODO
+    return CORBA::Any();
+}
+
+CORBA::Any ossie::convertAnyToPropertyType(const CORBA::Any& value, const StructProperty* property)
+{
+    CORBA::Any result;
+    const CF::Properties *depProps;
+    if (value >>= depProps) {
+        CF::Properties tmp_props;
+        std::vector<ossie::SimpleProperty> structval = property->getValue();
+        for (unsigned int index = 0; index < depProps->length(); ++index) {
+            const CF::DataType& item = (*depProps)[index];
+            const std::string propid(item.id);
+            const ossie::SimpleProperty* field = property->getField(propid);
+            if (field) {
+                ossie::corba::push_back(tmp_props, convertDataTypeToPropertyType(item, field));
+            }
+        }
+        result <<= tmp_props;
+    }
+    return result;
+}
+
+CORBA::Any ossie::convertAnyToPropertyType(const CORBA::Any& value, const StructSequenceProperty* property)
+{
+    return CORBA::Any();
+}

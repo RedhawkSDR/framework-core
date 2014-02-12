@@ -37,6 +37,8 @@
 
 namespace ossie {
 
+    class ComponentProperty;
+
     /**
      * Abstract data structure that represents a property. 
      */
@@ -98,6 +100,7 @@ namespace ossie {
         
         // Pure virtual functions
         virtual void override(const Property* otherProp) = 0;
+        virtual void override(const ComponentProperty* newValue) = 0;
     };
 
     /**
@@ -142,6 +145,7 @@ namespace ossie {
 
     protected:
         virtual void override(const Property* otherProp);
+        virtual void override(const ComponentProperty* newValue);
 
     private:
         std::string type;
@@ -189,6 +193,7 @@ namespace ossie {
 
     protected:
         virtual void override(const Property* otherProp);
+        virtual void override(const ComponentProperty* newValue);
 
     private:
         std::string type;
@@ -223,8 +228,11 @@ namespace ossie {
 
         const std::vector<SimpleProperty>& getValue() const ;
 
+        const SimpleProperty* getField(const std::string& id) const;
+
     protected:
         virtual void override(const Property* otherProp);
+        virtual void override(const ComponentProperty* newValue);
 
     private:
         std::vector<SimpleProperty> value;
@@ -262,6 +270,7 @@ namespace ossie {
 
     protected:
         virtual void override(const Property* otherProp);
+        virtual void override(const ComponentProperty* newValue);
 
     private:
         StructProperty structdef;
@@ -349,6 +358,8 @@ namespace ossie {
 
         const std::vector<const Property*>& getAllocationProperties() const;
 
+        const Property* getAllocationProperty(const std::string& id);
+
         const std::vector<const Property*>& getExecParamProperties() const;
 
         const std::vector<const Property*>& getFactoryParamProperties() const;
@@ -364,6 +375,11 @@ namespace ossie {
          */
         void join(std::istream& input) throw (ossie::parser_error);
         void join(ossie::Properties& props) throw (ossie::parser_error);
+
+        /**
+         * Overrides properties with values from another source
+         */
+        void override(const std::vector<ossie::ComponentProperty*>& values);
 
     protected:
         Properties(const Properties&) // Hide copy constructor

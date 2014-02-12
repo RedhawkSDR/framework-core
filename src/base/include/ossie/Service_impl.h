@@ -32,6 +32,7 @@
 #include "ossie/ossieSupport.h"
 #include "ossie/debug.h"
 #include "ossie/CorbaUtils.h"
+#include "ossie/logging/loghelpers.h"
 #include <signal.h>
 
 class Service_impl
@@ -45,6 +46,9 @@ public:
         char* name = 0;
         const char* logging_config_uri = 0;
         int debug_level = 3; // Default level is INFO.
+	std::string logcfg_uri("");
+	std::string dpath("");
+	std::string sname("");
         
         std::map<std::string, char*> execparams;
                 
@@ -54,10 +58,13 @@ public:
                 devMgr_ior = argv[++i];
             } else if (strcmp("SERVICE_NAME", argv[i]) == 0) {
                 name = argv[++i];
+		sname=name;
             } else if (strcmp("LOGGING_CONFIG_URI", argv[i]) == 0) {
                 logging_config_uri = argv[++i];
             } else if (strcmp("DEBUG_LEVEL", argv[i]) == 0) {
                 debug_level = atoi(argv[++i]);
+            } else if (strcmp("DOM_PATH", argv[i]) == 0) {
+                dpath = argv[++i];
             } else if (i > 0) {  // any other argument besides the first one is part of the execparams
                 std::string paramName = argv[i];
                 execparams[paramName] = argv[++i];
@@ -69,8 +76,14 @@ public:
         // CORBA to get its configuration file. Devices do not need persistent IORs.
         ossie::corba::CorbaInit(argc, argv);
 
-        // configure logging
-        ossie::configureLogging(logging_config_uri, debug_level);
+	// check if logging config URL was specified...
+	if ( logging_config_uri ) logcfg_uri=logging_config_uri;
+
+	// setup logging context for a servie
+	ossie::logging::ResourceCtxPtr ctx( new ossie::logging::ServiceCtx( sname, dpath ) );
+
+	// configure the logging library
+	ossie::logging::Configure(logcfg_uri, debug_level, ctx);
 
         if ((devMgr_ior == 0) || (name == 0)) {
             LOG_FATAL(Service_impl, "Per SCA specification, DEVICE_MGR_IOR and SERVICE_NAME must be provided");
@@ -104,12 +117,12 @@ public:
         
         *servPtr = new T(devMgr_ior, name);
         PortableServer::ObjectId_var oid = ossie::corba::RootPOA()->activate_object(*servPtr);
-
         (*servPtr)->resolveDeviceManager();
         (*servPtr)->registerServiceWithDevMgr();
         (*servPtr)->run();
         (*servPtr)->terminateService();
         (*servPtr)->_remove_ref();
+	
         ossie::corba::OrbShutdown(true);
     }
 
