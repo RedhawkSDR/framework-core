@@ -191,16 +191,11 @@ fi
 %{_prefix}/lib/ossie.jar
 %{_prefix}/lib/python
 %exclude %{_prefix}/lib/python/ossie/apps/qtbrowse
-%{_libdir}/libomnijni.so.0
-%{_libdir}/libomnijni.so.0.0.0
-%{_libdir}/libossiecf.so.3
-%{_libdir}/libossiecf.so.3.0.0
-%{_libdir}/libossiecfjni.so.0
-%{_libdir}/libossiecfjni.so.0.0.0
-%{_libdir}/libossieidl.so.3
-%{_libdir}/libossieidl.so.3.0.0
-%{_libdir}/libossieparser.so.2
-%{_libdir}/libossieparser.so.2.0.0
+%{_libdir}/libomnijni.so.*
+%{_libdir}/libossiecf.so.*
+%{_libdir}/libossiecfjni.so.*
+%{_libdir}/libossieidl.so.*
+%{_libdir}/libossieparser.so.*
 %dir %{_libdir}/pkgconfig
 %{_datadir}
 %{_sysconfdir}/profile.d/redhawk.csh

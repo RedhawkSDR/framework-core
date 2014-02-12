@@ -36,8 +36,10 @@ dnl    then increment current and set revision to 0
 dnl 3. If any interfaces have been addded then increment age
 dnl 4. If any interfaces have been removed or changed, then set
 dnl    age to 0
-AC_SUBST([LIBOSSIECF_VERSION_INFO], [3:0:0])
-AC_SUBST([LIBOSSIEPARSER_VERSION_INFO], [2:0:0])
+AC_SUBST([LIBOSSIECF_VERSION_INFO], [4:0:0])
+AC_SUBST([LIBOSSIEPARSER_VERSION_INFO], [3:0:0])
+AC_SUBST([LIBOMNIJNI_VERSION_INFO], [1:0:1])
+AC_SUBST([LIBOSSIECFJNI_VERSION_INFO], [1:0:0])
 AC_SUBST([LIBREDHAWK_LOGGING_VERSION_INFO], [1:0:0])
 
 

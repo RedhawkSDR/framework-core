@@ -35,6 +35,7 @@ nodist_libossiecfjni_la_SOURCES = ossie/CF/jni_LogInterfaces.cpp \
 				  ossie/CF/jni_sandbox.cpp 
 
 libossiecfjni_la_CPPFLAGS = $(OMNIJNI_CPPFLAGS) $(OSSIE_CFLAGS)
+libossiecfjni_la_LDFLAGS = -version-info $(LIBOSSIECFJNI_VERSION_INFO)
 
 nobase_nodist_include_HEADERS = ossie/CF/jni_LogInterfaces.h \
 				ossie/CF/jni_cf.h \
