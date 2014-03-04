@@ -21,6 +21,7 @@
 #include <log4cxx/level.h>
 #include "ossie/Logging_impl.h"
 #include "ossie/logging/loghelpers.h"
+#include "ossie/debug.h"
 
 struct null_deleter
 {
@@ -73,9 +74,9 @@ void Logging_impl::setResourceContext( ossie::logging::ResourceCtxPtr ctx ) {
 
 void Logging_impl::setLoggingContext( ossie::logging::ResourceCtxPtr ctx ) {
 
-  std::cout << "Logging_impl setLoggingContext START:" << std::endl; 
+  STDOUT_DEBUG( "Logging_impl setLoggingContext START:" );
   if ( ctx ) {
-    std::cout << "Logging_impl setLoggingContext Apply Macro Context:" << std::endl; 
+    STDOUT_DEBUG( "Logging_impl setLoggingContext Apply Macro Context:" );
     ctx->apply( _loggingMacros );
     _loggingCtx = ctx;
   }
@@ -83,13 +84,13 @@ void Logging_impl::setLoggingContext( ossie::logging::ResourceCtxPtr ctx ) {
     _loggingCtx->apply( _loggingMacros );
   }
 
-  std::cout << "Logging_impl setLoggingContext setLogConfigURL:" << std::endl; 
+  STDOUT_DEBUG( "Logging_impl setLoggingContext setLogConfigURL:");
   setLogConfigURL( _logCfgURL.c_str() );
 
-  std::cout << "Logging_impl setLoggingContext setLogLevel:" << std::endl; 
+  STDOUT_DEBUG( "Logging_impl setLoggingContext setLogLevel:");
   setLogLevel( _logName.c_str(), _logLevel );
 
-  std::cout << "Logging_impl setLoggingContext END" << std::endl; 
+  STDOUT_DEBUG("Logging_impl setLoggingContext END" );
 
 }
 
@@ -100,23 +101,77 @@ void Logging_impl::setLoggingContext( const std::string &logcfg_url, int logLeve
     ossie::logging::ConfigureDefault();
   }
   else {
-    std::cout << "Logging_impl setLoggingContext START:" << std::endl; 
+    STDOUT_DEBUG( "Logging_impl setLoggingContext START:");
     if ( ctx ) {
-      std::cout << "Logging_impl setLoggingContext Apply Macro Context:" << std::endl; 
+      STDOUT_DEBUG( "Logging_impl setLoggingContext Apply Macro Context:" );
       ctx->apply( _loggingMacros );
       _loggingCtx = ctx;
     }
 
-    std::cout << "Logging_impl setLoggingContext setLogConfigURL:" << std::endl; 
+    STDOUT_DEBUG( "Logging_impl setLoggingContext setLogConfigURL:" );
     setLogConfigURL( logcfg_url.c_str() );
-
   }
 
-  std::cout << "Logging_impl setLoggingContext setLogLevel:" << std::endl; 
-  setLogLevel( "", ossie::logging::ConvertLogLevel(logLevel) );
+  if ( logLevel > -1  ) {
+    STDOUT_DEBUG("Logging_impl setLoggingContext setLogLevel:" );
+    setLogLevel( "", ossie::logging::ConvertLogLevel(logLevel) );
+  }
+  else {
+    LOGGER root = log4cxx::Logger::getRootLogger();
+    if ( root ) {
+      _logLevel = ossie::logging::ConvertLog4ToCFLevel( root->getLevel() );
+    }
+  }
 
-  std::cout << "Logging_impl setLoggingContext END" << std::endl; 
+  STDOUT_DEBUG("Logging_impl setLoggingContext END" );
 }
+
+
+
+void Logging_impl::saveLoggingContext( const std::string &logcfg_url, int logLevel, ossie::logging::ResourceCtxPtr ctx ) {
+
+  STDOUT_DEBUG("Logging_impl saveLoggingContext START:");
+  if ( ctx ) {
+    STDOUT_DEBUG( "Logging_impl saveLoggingContext Apply Macro Context:");
+    ctx->apply( _loggingMacros );
+    _loggingCtx = ctx;
+  }
+
+  try {
+      // save off logging config url
+      _logCfgURL = logcfg_url;
+
+    // test we have a logging URI
+    if ( logcfg_url == "" ) {
+      STDOUT_DEBUG( "Logging_impl saveLoggingContext Default Configuration.");
+      _logCfgContents=ossie::logging::GetDefaultConfig();
+    }
+    else{
+      // grab contents of URL and save
+      _logCfgContents = "";
+      std::string config_contents = ossie::logging::GetConfigFileContents(logcfg_url);
+      if ( config_contents.size() > 0  ){
+	_logCfgContents= ossie::logging::ExpandMacros(config_contents, _loggingMacros);
+      }
+    }
+  }
+  catch( std::exception &e ) {
+  }
+
+  if ( logLevel > -1  ) {
+    STDOUT_DEBUG( "Logging_impl setLoggingContext setLogLevel:" << logLevel );
+    _logLevel = ossie::logging::ConvertLogLevel(logLevel);
+  }
+  else {
+    LOGGER root = log4cxx::Logger::getRootLogger();
+    if ( root ) {
+      _logLevel = ossie::logging::ConvertLog4ToCFLevel( root->getLevel() );
+    }
+  }
+
+  STDOUT_DEBUG("Logging_impl setLoggingContext END" );
+}
+
 
 
 Logging_impl::LOGGER Logging_impl::getLogger () {
@@ -136,7 +191,7 @@ Logging_impl::LOGGER Logging_impl::getLogger (const std::string &logger_name, bo
     _logName = logger_name;
     _logger = retval;
     // assign level to new logger
-    log_level( _logLevel );
+    // RESOLVE, this log_level( _logLevel ) will override resource startup
   }
   
   return retval;
@@ -168,6 +223,7 @@ void Logging_impl::setLogConfigURL( const char *in_url ) {
   try{
     if ( in_url ) url=in_url;
 
+    _logCfgURL = url;
     std::string config_contents = ossie::logging::GetConfigFileContents(url);
 
     if ( config_contents.size() > 0  ){
@@ -194,7 +250,7 @@ void Logging_impl::setLogLevel( const char *logger_id, const CF::LogLevel newLev
   else {
     std::string logid("");
     if ( logger_id )  logid=logger_id;
-    ossie::logging::SetLevel( logid, newLevel );
+    ossie::logging::SetLogLevel( logid, newLevel );
   }
 }
 
@@ -211,16 +267,7 @@ void Logging_impl::log_level( const CF::LogLevel newLevel ) {
   }
   else {
     _logLevel = newLevel;
-    log4cxx::LevelPtr level;
-    if ( newLevel == CF::LogLevels::OFF ) level=log4cxx::Level::getOff();
-    if ( newLevel == CF::LogLevels::FATAL ) level=log4cxx::Level::getFatal();
-    if ( newLevel == CF::LogLevels::ERROR ) level=log4cxx::Level::getError();
-    if ( newLevel == CF::LogLevels::WARN ) level=log4cxx::Level::getWarn();
-    if ( newLevel == CF::LogLevels::INFO) level=log4cxx::Level::getInfo();
-    if ( newLevel == CF::LogLevels::DEBUG) level=log4cxx::Level::getDebug();
-    if ( newLevel == CF::LogLevels::TRACE) level=log4cxx::Level::getTrace();
-    if ( newLevel == CF::LogLevels::ALL) level=log4cxx::Level::getAll();
-
+    log4cxx::LevelPtr level = ossie::logging::ConvertToLog4Level( newLevel );
     // apply new level to resource logger
     if ( _logger ) {
       _logger->setLevel( level );

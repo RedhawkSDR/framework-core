@@ -617,8 +617,8 @@ void DomainManager_impl::cleanupDomainNamingContext (CosNaming::NamingContext_pt
 void DomainManager_impl::releaseAllApplications()
 {
     while (_applicationFactories.length() > 0) {
-        std::string appFactoryId(_applicationFactories[0]->identifier());
-        this->uninstallApplication(appFactoryId.c_str());
+        CORBA::String_var appFactoryId = _applicationFactories[0]->identifier();
+        this->uninstallApplication(appFactoryId);
     }
     while (_applications.length() > 0) {
         unsigned int lenApps = _applications.length();
@@ -1990,8 +1990,8 @@ DomainManager_impl::addApplication(Application_impl* new_app)
         appNode._registeredComponents.length(new_app->_registeredComponents.length());
         for (unsigned int i=0; i<appNode._registeredComponents.length(); i++) {
             ComponentNode compNode;
-            compNode.identifier = CORBA::string_dup(new_app->_registeredComponents[i].identifier);
-            compNode.softwareProfile = CORBA::string_dup(new_app->_registeredComponents[i].softwareProfile);
+            compNode.identifier = new_app->_registeredComponents[i].identifier;
+            compNode.softwareProfile = new_app->_registeredComponents[i].softwareProfile;
             compNode.ior = ossie::corba::objectToString(new_app->_registeredComponents[i].componentObject);
             appNode.components.push_back(compNode);
             appNode._registeredComponents[i].identifier = CORBA::string_dup(new_app->_registeredComponents[i].identifier);

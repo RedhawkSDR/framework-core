@@ -237,7 +237,13 @@ class Device(resource.Resource):
     def _allocateCapacity(self, propname, value):
         """Override this if you want if you don't want magic dispatch"""
         self._log.debug("_allocateCapacity(%s, %s)", propname, value)
-        allocate = _getCallback(self, "allocate_%s" % propname.replace(" ", "_"))
+        modified_propname = ''
+        for ch in propname:
+            if ch.isalnum():
+                modified_propname += ch
+            else:
+                modified_propname += '_'
+        allocate = _getCallback(self, "allocate_%s" % modified_propname)
         if allocate:
             self._log.debug("using callback for _allocateCapacity()", )
             return allocate(value)
@@ -1113,7 +1119,8 @@ def start_device(deviceclass, interactive_callback=None, thread_policy=None,logg
             label = execparams.get("DEVICE_LABEL", "")
             id = execparams.get("DEVICE_ID", "")
             log_config_uri = execparams.get("LOGGING_CONFIG_URI", None)
-            debug_level = execparams.get("DEBUG_LEVEL", 3)
+            debug_level = execparams.get("DEBUG_LEVEL", None)
+            if debug_level != None: debug_level = int(debug_level)
             dpath=execparams.get("DOM_PATH", "")
             ctx = ossie.logger.DeviceCtx( label, id, dpath )
             ossie.logger.Configure( log_config_uri, debug_level, ctx )
@@ -1129,7 +1136,7 @@ def start_device(deviceclass, interactive_callback=None, thread_policy=None,logg
             devicePOA.activate_object(component_Obj)
 
             # set logging context for resource to supoprt CF::Logging
-            component_Obj.setLoggingContext( log_config_uri, debug_level, ctx )
+            component_Obj.saveLoggingContext( log_config_uri, debug_level, ctx )
 
             # Get DomainManager incoming event channel and connect the device to it,
             # where applicable.

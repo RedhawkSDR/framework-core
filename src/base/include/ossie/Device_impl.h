@@ -65,7 +65,7 @@ public:
         char* idm_channel_ior = 0;
         char* composite_device = 0;
         const char* logging_config_uri = 0;
-        int debug_level = 3; // Default level is INFO.
+        int debug_level = -1; // use log level from configuration file 
 	std::string logcfg_uri("");
 	std::string dpath("");
         bool skip_run = false;
@@ -158,7 +158,7 @@ public:
         
 	if ( !skip_run ) {
 	  // assign logging context to the resource..to support logging interface
-	  (*devPtr)->setLoggingContext( logcfg_uri, debug_level, ctx );
+	  (*devPtr)->saveLoggingContext( logcfg_uri, debug_level, ctx );
 	}
 
         // setting all the execparams passed as argument, this method resides in the Resource_impl class

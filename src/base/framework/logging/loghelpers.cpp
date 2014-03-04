@@ -53,8 +53,11 @@ namespace ossie {
       MacroTable ctx;
       ctx["@@@HOST.NAME@@@"] = "HOST.NO_NAME";
       ctx["@@@HOST.IP@@@"] = "HOST.NO_IP";
-      ctx["@@@DOMAIN.PATH@@@"] = "DOMAIN.PATH";
+      ctx["@@@NAME@@@"] = "NO_NAME";
+      ctx["@@@INSTANCE@@@"] = "NO_INST";
+      ctx["@@@PID@@@"] = "NO_PID";
       ctx["@@@DOMAIN.NAME@@@"] = "DOMAIN.NO_NAME";
+      ctx["@@@DOMAIN.PATH@@@"] = "DOMAIN.PATH";
       ctx["@@@DEVICE_MANAGER.NAME@@@"] = "DEV_MGR.NO_NAME";
       ctx["@@@DEVICE_MANAGER.INSTANCE@@@"] = "DEV_MGR.NO_INST";
       ctx["@@@SERVICE.NAME@@@"]  = "SERVICE.NO_NAME";
@@ -221,11 +224,14 @@ namespace ossie {
       tbl["@@@DOMAIN.PATH@@@"] = boost::replace_all_copy( ctx.dom_path, ":", "-" );
       tbl["@@@NAME@@@"] = boost::replace_all_copy( ctx.name, ":", "-" );
       tbl["@@@INSTANCE@@@"] = boost::replace_all_copy( ctx.instance_id, ":", "-" );
+      pid_t pid = getpid();
+      std::ostringstream os;
+      os << pid;
+      tbl["@@@PID@@@"] = os.str();
     }
 
     void SetComponentInfo( MacroTable &tbl, const ComponentCtx &ctx ){
-      tbl["@@@DOMAIN.NAME@@@"] = boost::replace_all_copy( ctx.domain_name, ":", "-" );
-      tbl["@@@DOMAIN.PATH@@@"] = boost::replace_all_copy( ctx.dom_path, ":", "-" );
+      SetResourceInfo( tbl, ctx );
       tbl["@@@WAVEFORM.NAME@@@"] = boost::replace_all_copy( ctx.waveform, ":", "-" );
       tbl["@@@WAVEFORM.ID@@@"] = boost::replace_all_copy( ctx.waveform_id, ":", "-" );
       tbl["@@@COMPONENT.NAME@@@"] = boost::replace_all_copy( ctx.name, ":", "-" );
@@ -237,8 +243,7 @@ namespace ossie {
     }
 
     void SetServiceInfo( MacroTable &tbl, const ServiceCtx & ctx ) {
-      tbl["@@@DOMAIN.NAME@@@"] = boost::replace_all_copy( ctx.domain_name, ":", "-" );
-      tbl["@@@DOMAIN.PATH@@@"] = boost::replace_all_copy( ctx.dom_path, ":", "-" );
+      SetResourceInfo( tbl, ctx );
       tbl["@@@DEVICE_MANAGER.NAME@@@"] =  boost::replace_all_copy( ctx.device_mgr, ":", "-" );
       tbl["@@@DEVICE_MANAGER.INSTANCE@@@"] =  boost::replace_all_copy( ctx.device_mgr_id, ":", "-" );
       tbl["@@@SERVICE.NAME@@@"]  =  boost::replace_all_copy( ctx.name, ":", "-" );
@@ -250,8 +255,7 @@ namespace ossie {
     }
 
     void SetDeviceInfo( MacroTable &tbl, const DeviceCtx & ctx ) {
-      tbl["@@@DOMAIN.NAME@@@"] = boost::replace_all_copy( ctx.domain_name, ":", "-" );
-      tbl["@@@DOMAIN.PATH@@@"] = boost::replace_all_copy( ctx.dom_path, ":", "-" );
+      SetResourceInfo( tbl, ctx );
       tbl["@@@DEVICE_MANAGER.NAME@@@"] =  boost::replace_all_copy( ctx.device_mgr, ":", "-" );
       tbl["@@@DEVICE_MANAGER.INSTANCE@@@"] =  boost::replace_all_copy( ctx.device_mgr_id, ":", "-" );
       tbl["@@@DEVICE.NAME@@@"] =  boost::replace_all_copy( ctx.name, ":", "-" );
@@ -263,8 +267,7 @@ namespace ossie {
     }
 
     void SetDeviceMgrInfo( MacroTable &tbl, const DeviceMgrCtx & ctx ) {
-      tbl["@@@DOMAIN.NAME@@@"] = boost::replace_all_copy( ctx.domain_name, ":", "-" );
-      tbl["@@@DOMAIN.PATH@@@"] = boost::replace_all_copy( ctx.dom_path, ":", "-" );
+      SetResourceInfo( tbl, ctx );
       tbl["@@@DEVICE_MANAGER.NAME@@@"] =  boost::replace_all_copy( ctx.name, ":", "-" );
       tbl["@@@DEVICE_MANAGER.INSTANCE@@@"] =  boost::replace_all_copy( ctx.instance_id, ":", "-" );
     }
@@ -378,8 +381,9 @@ namespace ossie {
     }
 
 
-    static int ConvertLog4ToCFLevel ( log4cxx::LevelPtr l4_level ) {
+    int ConvertLog4ToCFLevel ( log4cxx::LevelPtr l4_level ) {
       if (l4_level == log4cxx::Level::getOff() )   return CF::LogLevels::OFF;
+      if (l4_level == log4cxx::Level::getFatal() ) return CF::LogLevels::FATAL;
       if (l4_level == log4cxx::Level::getError() ) return CF::LogLevels::ERROR;
       if (l4_level == log4cxx::Level::getWarn() )  return CF::LogLevels::WARN;
       if (l4_level == log4cxx::Level::getInfo() )  return CF::LogLevels::INFO;
@@ -389,12 +393,14 @@ namespace ossie {
 	return CF::LogLevels::INFO;
     };
     
-    static log4cxx::LevelPtr ConvertToLog4Level( int newlevel ) {
+    log4cxx::LevelPtr ConvertToLog4Level( int newlevel ) {
+      if ( newlevel == CF::LogLevels::OFF )   return log4cxx::Level::getOff();
       if ( newlevel == CF::LogLevels::FATAL ) return log4cxx::Level::getFatal();
       if ( newlevel == CF::LogLevels::ERROR ) return log4cxx::Level::getError();
       if ( newlevel == CF::LogLevels::WARN )  return log4cxx::Level::getWarn();
       if ( newlevel == CF::LogLevels::INFO )  return log4cxx::Level::getInfo();
       if ( newlevel == CF::LogLevels::DEBUG ) return log4cxx::Level::getDebug();
+      if ( newlevel == CF::LogLevels::TRACE)  return log4cxx::Level::getTrace();
       if ( newlevel ==  CF::LogLevels::ALL )  return log4cxx::Level::getAll();
       return log4cxx::Level::getInfo();
     }
@@ -411,15 +417,15 @@ namespace ossie {
 
 
     void SetLevel( const std::string &logid, int debugLevel) {
-      //      std::cout << " Setting Logger:" << logid << " OLD STYLE Level:" << debugLevel << std::endl;
+      STDOUT_DEBUG( " Setting Logger:" << logid << " OLD STYLE Level:" << debugLevel );
       SetLogLevel( logid, ConvertLogLevel(debugLevel));
-      //std::cout << " Setting Logger: END " << logid << " OLD STYLE Level:" << debugLevel << std::endl;
+      STDOUT_DEBUG( " Setting Logger: END " << logid << " OLD STYLE Level:" << debugLevel );
     }
 
 
     void SetLogLevel( const std::string  &logid, CF::LogLevel newLevel ) {
 
-      //std::cout << " Setting Logger: START log:" << logid << " NEW Level:" << newLevel << std::endl;
+      STDOUT_DEBUG(" Setting Logger: START log:" << logid << " NEW Level:" << newLevel );
       log4cxx::LoggerPtr logger;        
       if ( logid == "" ) {
         logger = log4cxx::Logger::getRootLogger();
@@ -429,9 +435,10 @@ namespace ossie {
       }
       if ( logger ) {
         log4cxx::LevelPtr level = ConvertToLog4Level( newLevel);
+	STDOUT_DEBUG( " Setting L4 LEVEL <" << logid << "> Level4:" << level->toString() );
         logger->setLevel( level );
       }   
-      //std::cout << " Setting Logger: END  log:" << logid << " NEW Level:" << newLevel << std::endl;
+      STDOUT_DEBUG( " Setting Logger: END  log:" << logid << " NEW Level:" << newLevel );
     }
 
     /*
@@ -515,7 +522,7 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
         throw std::runtime_error("malformed uri, no fs= param");
 
       std::string IOR = url.substr(fsPos + 4);
-      //std::cout << "GetSCAFileContents IOR:" << IOR << std::endl;
+      STDOUT_DEBUG( "GetSCAFileContents IOR:" << IOR );
       CORBA::Object_var obj = ossie::corba::stringToObject(IOR);
       if (CORBA::is_nil(obj))
         throw std::runtime_error("cannot access filesystem IOR");
@@ -526,7 +533,7 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
       
       // grab from sca:<this is what we want>?fs=
       std::string remotePath = url.substr(4, fsPos-4);
-      //std::cout << "GetSCAFileContents remove path:" << remotePath << std::endl;
+      STDOUT_DEBUG("GetSCAFileContents remove path:" << remotePath );
       CF::OctetSequence_var data;
       try {
         CF::File_var remoteFile = fileSystem->open(remotePath.c_str(), true);
@@ -538,7 +545,7 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
       }
 
       fileContents.append((const char*)data->get_buffer(), data->length());
-      //std::cout << "GetSCAFileContents fileContents:" << fileContents << std::endl;
+      STDOUT_DEBUG("GetSCAFileContents fileContents:" << fileContents);
       return fileContents;
     }
 
@@ -549,10 +556,10 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
       if ( url.find( "file://") == 0 ) { 
         
         std::string fileName( url.begin()+7, url.end() );
-        //std::cout << " GetLogConfigFile File:" << fileName << std::endl;
+        STDOUT_DEBUG(" GetLogConfigFile File:" << fileName );
         std::ifstream fs(fileName.c_str());
         if ( fs.good() ) {
-          //std::cout << "GetLogConfigfile: Processing File ..." << std::endl;
+          STDOUT_DEBUG( "GetLogConfigfile: Processing File ...");
           std::ostringstream os;
           std::copy( std::istreambuf_iterator<char>(fs), std::istreambuf_iterator<char>(), std::ostream_iterator<char>(os) );
           fileContents= os.str();
@@ -565,7 +572,7 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
       }
 
       if ( url.find( "sca:") == 0 ) { 
-        //std::cout << "GetLogConfigfile: Processing SCA File ..." << url << std::endl;
+        STDOUT_DEBUG("GetLogConfigfile: Processing SCA File ..." << url );
         // use local file path to grab file
         fileContents = GetSCAFileContents( url );
       }
@@ -589,7 +596,7 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
         fileContents = fc;
       }
 
-      //std::cout << "GetLogConfigfile: END File ... fc:" << fileContents << std::endl;
+      STDOUT_DEBUG( "GetLogConfigfile: END File ... fc:" << fileContents );
       return fileContents;
     }
 
@@ -599,7 +606,7 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
     void  ConfigureDefault() {
         std::string fileContents;
         fileContents = ossie::logging::GetDefaultConfig();
-        //std::cout << "Setting Logging Configuration Properties with Default Configuration. " << std::endl;
+        STDOUT_DEBUG( "Setting Logging Configuration Properties with Default Configuration.: " << fileContents );
         log4cxx::helpers::Properties  props;
         // need to allocate heap object...           log4cxx::helpers::Properties  props takes care of deleting the memory...
         log4cxx::helpers::InputStreamPtr is = new log4cxx::helpers::StringInputStream( fileContents );
@@ -612,7 +619,7 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
     // 
     void Configure(const char* logcfgUri, int logLevel)
     {
-      //std::cout << " Configure: Pre-1.10 START logging convention" << std::endl;
+      STDOUT_DEBUG( " Configure: Pre-1.10 START logging convention" );
       if (logcfgUri) {
         if (strncmp("file://", logcfgUri, 7) == 0) {
           log4cxx::PropertyConfigurator::configure(logcfgUri + 7);
@@ -630,28 +637,29 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
         ConfigureDefault();
       }
 
-      //std::cout << " Configure: Pre-1.10 END logging convention" << std::endl;
+      STDOUT_DEBUG( " Configure: Pre-1.10 END logging convention" );
       SetLevel( "", logLevel);
     }
 
 
     //
-    // Default logging configuration method for c++ resource, 1.9 and prior
+    // 
     //
     void Configure(const std::string &logcfgUri, int logLevel, ossie::logging::ResourceCtxPtr ctx )  {
 
-      //std::cout << "ossie::logging::Configure Rel 1.10 START url:" << logcfgUri << std::endl;
+      STDOUT_DEBUG( "ossie::logging::Configure Rel 1.10 START url:" << logcfgUri );
       std::string fileContents("");
       try {
 
         if ( logcfgUri=="" ) {
+          STDOUT_DEBUG(" ossie::logging::Configure Default Configuration" );
           ConfigureDefault();
         }
         else {
           // get configuration file contents
           fileContents = GetConfigFileContents(logcfgUri);
 
-          //std::cout <<" ossie::logging::Configure default cfg:" << fileContents << std::endl;
+          STDOUT_DEBUG(" ossie::logging::Configure URL configuration::" << fileContents );
          
           // get default macro defintions
           MacroTable tbl=GetDefaultMacros();
@@ -676,8 +684,13 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
          std::cerr <<" ossie::logging::Configure ExceException during configuration url:" << logcfgUri << std::endl;
        }
 
-       SetLevel( "", logLevel);
-       //std::cout <<" ossie::logging::Configure Rel 1.10  END url:" << logcfgUri << std::endl;
+      if ( logLevel > -1 ) {
+	STDOUT_DEBUG( "ossie::logging::Configure Rel 1.10  LEVEL (oldstyle):" << logLevel );
+	SetLevel( "", logLevel);
+      }
+      else {
+	STDOUT_DEBUG( "ossie::logging::Configure Rel 1.10  Using logging config URI as default level." );
+      }
 
     }
 
@@ -693,14 +706,14 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
         size_t isxml = fc_raw.find("<log4j:configuration");
         if ( isxml != std::string::npos ) ptype= XML_PROPS;
 
-        //std::cout << "MACRO TABLE " << std::endl;
+        STDOUT_DEBUG( "MACRO TABLE " );
         MacroTable::const_iterator it = tbl.begin();
-        //for( ; it != tbl.end(); it++ ) std::cout << " K/V " << it->first << "/" << it->second <<std::endl;
+        for( ; it != tbl.end(); it++ ) STDOUT_DEBUG(" K/V " << it->first << "/" << it->second );
 
-        //std::cout << "Configure rc:" << fc_raw << std::endl;
+        STDOUT_DEBUG( "Configure rc:" << fc_raw );
         // process file with macro expansion....
         fileContents= ExpandMacros(fc_raw, tbl);
-        //std::cout << "Configure conversion:" << fileContents << std::endl;
+        STDOUT_DEBUG( "Configure conversion:" << fileContents );
 
         // if we expanded macros then we need to cache the expansion
         if ( ptype == XML_PROPS ) {
@@ -709,16 +722,16 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
         }
 
         if ( ptype == XML_PROPS ) {
-          //std::cout << "Setting Logging Configuration, XML Properties: " << fname << std::endl;
+          STDOUT_DEBUG("Setting Logging Configuration, XML Properties: " << fname );
           log4cxx::xml::DOMConfigurator::configure(fname);
         }
         else {
-          //std::cout << "Setting Logging Configuration, Java Properties: " << std::endl;
+          STDOUT_DEBUG( "Setting Logging Configuration, Java Properties: " );
           log4cxx::helpers::Properties  props;
           // need to allocate heap object...           log4cxx::helpers::Properties  props takes care of deleting the memory...
           log4cxx::helpers::InputStreamPtr is = new log4cxx::helpers::StringInputStream( fileContents );
           props.load(is);
-          //std::cout << "Setting Logging Configuration,  Properties using StringStream: " << std::endl;
+          STDOUT_DEBUG("Setting Logging Configuration,  Properties using StringStream: " );
           log4cxx::PropertyConfigurator::configure(props);
 
           if (saveTemp)  boost::filesystem::remove(fname);

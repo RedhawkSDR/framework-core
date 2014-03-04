@@ -324,7 +324,10 @@ class PortSupplier(object):
         manager = ConnectionManager.instance()
         for connectionId, (uses, provides) in manager.getConnectionsBetween(self, providesComponent).items():
             usesPortRef = uses.getReference()
-            usesPortRef.disconnectPort(connectionId)
+            try:
+                usesPortRef.disconnectPort(connectionId)
+            except:
+                pass
             if isinstance(providesComponent, PortSupplier):
                 providesComponent._disconnected(connectionId)
             manager.unregisterConnection(connectionId)
@@ -401,6 +404,7 @@ class PropertySet(object):
                 writeOnly = True
                 currentValue = "N/A"
 
+            scaType = _formatType(prop.type)
             if prop.type == 'structSeq':
                 table.append(name, '('+scaType+')')
                 if writeOnly:
@@ -428,7 +432,6 @@ class PropertySet(object):
                         _currentValue = "N/A"
                     table.append(' '+name, '('+scaType+')', str(member.defValue), _currentValue)
             else:
-                scaType = _formatType(prop.type)
                 currentValue = _formatSimple(prop, currentValue,prop.id)
                 table.append(name, '('+scaType+')', str(prop.defValue), currentValue)
 

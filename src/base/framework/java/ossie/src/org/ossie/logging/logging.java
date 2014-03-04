@@ -19,7 +19,7 @@
  */
 
 
-package org.ossie;
+package org.ossie.logging;
 
 import java.util.Map;
 import java.util.HashMap;
@@ -51,7 +51,7 @@ import org.omg.CORBA.ORB;
 import CF.LogLevels;
 
 
-public class  logging {
+public class logging {
 
     //
     // This keys of the table are tokens to perform a match search against a stream of data. The values for the
@@ -217,6 +217,9 @@ public class  logging {
         MacroTable ctx = new MacroTable();
         ctx.put("@@@HOST.NAME@@@", "HOST.NO_NAME");
         ctx.put("@@@HOST.IP@@@", "HOST.NO_IP");
+        ctx.put("@@@NAME@@@", "NO_NAME");
+        ctx.put("@@@INSTANCE@@@", "NO_INST");
+        ctx.put("@@@PID@@@", "NO_PID");
         ctx.put("@@@DOMAIN.NAME@@@", "DOMAIN.NO_NAME");
         ctx.put("@@@DOMAIN.PATH@@@", "DOMAIN.NO_PATH");
         ctx.put("@@@DEVICE_MANAGER.NAME@@@", "DEV_MGR.NO_NAME");
@@ -293,6 +296,7 @@ public class  logging {
         tbl.put("@@@DOMAIN.NAME@@@", ctx.domain_name.replaceAll(":", "-" ) );
         tbl.put("@@@NAME@@@",  ctx.name.replaceAll(":", "-" ));
         tbl.put("@@@INSTANCE@@@", ctx.instance_id.replaceAll( ":", "-" ) );
+	tbl.put("@@@PID@@@", GetPid() );
     };
 
     //
@@ -301,7 +305,7 @@ public class  logging {
     // Set the component context
     //
     public static void SetComponentInfo( MacroTable tbl, ComponentCtx ctx ) {
-	tbl.put("@@@DOMAIN.NAME@@@", ctx.domain_name.replaceAll(":", "-" ) );
+	SetResourceInfo( tbl, ctx );
 	tbl.put("@@@WAVEFORM.NAME@@@", ctx.waveform.replaceAll(":", "-" ) );
 	tbl.put("@@@WAVEFORM.ID@@@", ctx.waveform_id.replaceAll(":", "-" ) );
 	tbl.put("@@@COMPONENT.NAME@@@", ctx.name.replaceAll(":", "-" ) );
@@ -315,11 +319,13 @@ public class  logging {
     // Set the service context
     //
     public static void SetServiceInfo( MacroTable tbl, ServiceCtx ctx ) {
-	tbl.put("@@@DOMAIN.NAME@@@", ctx.domain_name.replaceAll(":", "-" ) );
-	tbl.put("@@@SERVICE.NAME@@@", ctx.name.replaceAll(":", "-" ) );
-	tbl.put("@@@SERVICE.PID@@@", GetPid() );
+	SetResourceInfo( tbl, ctx );
 	tbl.put("@@@DEVICE_MANAGER.NAME@@@", ctx.device_mgr.replaceAll(":", "-" ) );
 	tbl.put("@@@DEVICE_MANAGER.INSTANCE@@@", ctx.device_mgr_id.replaceAll(":", "-" ) );
+	tbl.put("@@@SERVICE.NAME@@@", ctx.name.replaceAll(":", "-" ) );
+	tbl.put("@@@SERVICE.NAME@@@", ctx.instance_id.replaceAll(":", "-" ) );
+	tbl.put("@@@SERVICE.PID@@@", GetPid() );
+
     };
 
     //
@@ -328,12 +334,12 @@ public class  logging {
     // Set the device context
     //
     public static void SetDeviceInfo( MacroTable tbl, DeviceCtx ctx ) {
-	tbl.put("@@@DOMAIN.NAME@@@", ctx.domain_name.replaceAll(":", "-" ) );
+	SetResourceInfo( tbl, ctx );
+	tbl.put("@@@DEVICE_MANAGER.NAME@@@", ctx.device_mgr.replaceAll(":", "-" ) );
+	tbl.put("@@@DEVICE_MANAGER.INSTANCE@@@", ctx.device_mgr_id.replaceAll(":", "-" ) );
 	tbl.put("@@@DEVICE.NAME@@@", ctx.name.replaceAll(":", "-" ) );
 	tbl.put("@@@DEVICE.INSTANCE@@@", ctx.instance_id.replaceAll(":", "-" ) );
 	tbl.put("@@@DEVICE.PID@@@", GetPid() );
-	tbl.put("@@@DEVICE_MANAGER.NAME@@@", ctx.device_mgr.replaceAll(":", "-" ) );
-	tbl.put("@@@DEVICE_MANAGER.INSTANCE@@@", ctx.device_mgr_id.replaceAll(":", "-" ) );
     };
 
     //
@@ -342,7 +348,7 @@ public class  logging {
     // Set the device manager context
     //
     public static void SetDeviceMgrInfo( MacroTable tbl, DeviceMgrCtx ctx ) {
-	tbl.put("@@@DOMAIN.NAME@@@", ctx.domain_name.replaceAll(":", "-" ) );
+	SetResourceInfo( tbl, ctx );
 	tbl.put("@@@DEVICE_MANAGER.NAME@@@", ctx.name.replaceAll(":", "-" ) );
 	tbl.put("@@@DEVICE_MANAGER.INSTANCE@@@", ctx.instance_id.replaceAll(":", "-" ) );
     };
@@ -350,6 +356,7 @@ public class  logging {
 
     public static int ConvertLog4ToCFLevel ( Level l4_level ) {
 	if (l4_level == Level.OFF )   return CF.LogLevels.OFF;
+	if (l4_level == Level.FATAL ) return CF.LogLevels.FATAL;
 	if (l4_level == Level.ERROR ) return CF.LogLevels.ERROR;
 	if (l4_level == Level.WARN )  return CF.LogLevels.WARN;
 	if (l4_level == Level.INFO )  return CF.LogLevels.INFO;
@@ -360,11 +367,13 @@ public class  logging {
     };
 
     public static Level ConvertToLog4Level( int newlevel ) {
+        if ( newlevel == CF.LogLevels.OFF ) return Level.OFF;
         if ( newlevel == CF.LogLevels.FATAL ) return Level.FATAL;
         if ( newlevel == CF.LogLevels.ERROR ) return Level.ERROR;
         if ( newlevel == CF.LogLevels.WARN )  return Level.WARN;
         if ( newlevel == CF.LogLevels.INFO )  return Level.INFO;
 	if ( newlevel == CF.LogLevels.DEBUG ) return Level.DEBUG;
+	if ( newlevel == CF.LogLevels.TRACE ) return Level.TRACE;
         if ( newlevel ==  CF.LogLevels.ALL )  return Level.ALL;
         return Level.INFO;
     };
@@ -389,12 +398,9 @@ public class  logging {
         tlevel = ConvertToLog4Level( newLogLevel );
 	Logger logger = null;
 	if ( logid != null )  {
-	    System.out.println("SetLogLevel:" + logid );
 	    logger = Logger.getLogger(logid);
-	    System.out.println("SetLogLevel: GOT Logger" + logid );
 	}
 	else {
-	    System.out.println("SetLogLevel: Need Root Logger" );
 	    logger = Logger.getRootLogger();
 	}
         if ( logger != null  ) {
@@ -584,7 +590,7 @@ public class  logging {
     // Default logging, stdout with level == INFO 
     //
     public static void  ConfigureDefault() {
-	System.out.println("ConfigureDefault START" );
+	//System.out.println("ConfigureDefault START" );
         String fileContents;
         fileContents = GetDefaultConfig();
         try {
@@ -596,7 +602,7 @@ public class  logging {
         catch(Exception e  ){
 	    System.out.println("Log4J Exception:" + e.getMessage() );
         }
-	System.out.println("ConfigureDefault END" );
+	//System.out.println("ConfigureDefault END" );
     }
 
 
@@ -616,7 +622,7 @@ public class  logging {
 		fileContents = GetConfigFileContents(logcfgUri);
 	    }
 	    catch( Exception e ) {
-		System.out.println("ossie.logging.Configure,  Exception:" + e.getMessage() );
+		System.out.println("org.ossie.logging.logging.Configure,  Exception:" + e.getMessage() );
 	    }
 
             if ( fileContents.length() != 0 ) {
@@ -627,16 +633,15 @@ public class  logging {
 		    PropertyConfigurator.configure(props);
 		}
 		catch(Exception e  ){
-		    System.out.println("ossie.logging.Configure,  Exception:" + e.getMessage() );
+		    System.out.println("org.ossie.logging.logging.Configure,  Exception:" + e.getMessage() );
 
 		}
             }
 
         }
 
-        SetLevel( null, logLevel );
+	SetLevel( null, logLevel );
     };
-
 
 
     //
@@ -674,7 +679,9 @@ public class  logging {
 
         }
 
-        SetLevel( null, logLevel );
+	if ( logLevel > -1 ) {
+	    SetLevel( null, logLevel );
+	}
     };
 
     //
@@ -733,10 +740,6 @@ public class  logging {
 	    // RESOLVE
 	}
     };   
-
-
-
-
 
 
 };  // namespace wrapper for logging convenience routines

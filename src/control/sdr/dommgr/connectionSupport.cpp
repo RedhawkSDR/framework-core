@@ -840,14 +840,7 @@ Endpoint* Endpoint::ParseProvidesEndpoint(const Connection& connection)
         assert(connection.getFindBy() != 0);
         return Endpoint::ParseFindBy(connection.getFindBy());
     } else if (connection.isComponentSupportedInterface()) {
-        const ComponentSupportedInterface* interface = connection.getComponentSupportedInterface();
-        if (interface->isComponentInstantiationRef()) {
-            return new ComponentEndpoint(interface->getComponentInstantiationRefId());
-        } else if (interface->isFindBy()) {
-            return Endpoint::ParseFindBy(interface->getFindBy());
-        } else {
-            LOG_ERROR(Endpoint, "Component supported interface is neither findby or componentinstantiationref")
-        }
+        return Endpoint::ParsePortSupplier(connection.getComponentSupportedInterface());
     } else {
         LOG_ERROR(Endpoint, "Cannot find port information for provides port");
     }

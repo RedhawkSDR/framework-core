@@ -86,10 +86,6 @@ std::string ossie::generateUUID()
 }
 
 // deprecate this method... moved to ossie:logging
-static std::string getLogConfig(std::string uri)
-{
-  return ossie::logging::CacheSCAFile( uri );
-}
 
 // deprecate this method... moved to ossie:logging
 void ossie::configureLogging(const char* logcfgUri, int defaultLevel)

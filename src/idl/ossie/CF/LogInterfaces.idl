@@ -17,14 +17,14 @@ module CF {
     //
     // log4cxx levels
     //
-    const long   OFF =0 ;
+    const long   OFF =  60000 ;
     const long   FATAL = 50000;
     const long   ERROR = 40000;
     const long   WARN = 30000;
     const long   INFO = 20000;
     const long   DEBUG = 10000;
     const long   TRACE = 5000;
-    const long   ALL = 60000;
+    const long   ALL = 0;
 
   };
 

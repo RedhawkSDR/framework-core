@@ -45,7 +45,7 @@ public:
         char* devMgr_ior = 0;
         char* name = 0;
         const char* logging_config_uri = 0;
-        int debug_level = 3; // Default level is INFO.
+        int debug_level = -1; // use log config uri as log level context 
 	std::string logcfg_uri("");
 	std::string dpath("");
 	std::string sname("");

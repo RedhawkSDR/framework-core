@@ -101,6 +101,15 @@ class Logging_impl: public virtual POA_CF::Logging
    */
   void    setLoggingContext( const std::string &url, int loglevel, ossie::logging::ResourceCtxPtr ctx );
 
+  /**
+   *  saveLoggingContext
+   * Save the logging context for each type of Resource, do not apply setting to 
+   * underlying logging library
+   * 
+   */
+  void    saveLoggingContext( const std::string &url, int loglevel, ossie::logging::ResourceCtxPtr ctx );
+
+
   //
   // RESOLVE: refactor to use boost::function and boost::bind 
   //
@@ -271,23 +280,23 @@ class Logging_impl: public virtual POA_CF::Logging
   virtual void setLogLevelCallback(LogLevelCallbackFn  func);
 
   /// logger identifier
-  std::string              _logName;
+  std::string                    _logName;
 
   /// current logging level set for this component via execparams, or  LogConfiguration API
-  CF::LogLevel             _logLevel;
+  CF::LogLevel                   _logLevel;
 
   /// current logging object
-  LOGGER                   _logger;
+  LOGGER                         _logger;
 
   /// logging macro defintion table;
-  ossie::logging::MacroTable  _loggingMacros;
+  ossie::logging::MacroTable     _loggingMacros;
   
  private:
 
   /// logging configuration data, 
-  std::string             _logCfgContents;
+  std::string                    _logCfgContents;
 
-  std::string             _logCfgURL;
+  std::string                    _logCfgURL;
 
   ossie::logging::ResourceCtxPtr _loggingCtx;
 

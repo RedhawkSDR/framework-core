@@ -35,9 +35,10 @@ import weakref
 import threading
 import logging
 from ossie import parsers
-from ossie.utils.sca import importIDL as _importIDL
+from ossie.utils import idllib
 from ossie.utils.model import _Port
 from ossie.utils.model import _readProfile
+from ossie.utils.model import _idllib
 from ossie.utils.model import *
 from ossie.utils.notify import notification
 from ossie.utils.weakmethod import WeakBoundMethod
@@ -51,15 +52,6 @@ from model import DomainObjectList
 __all__ = ('App', 'Component', 'Device', 'DeviceManager', 'Domain',
            'getCFType', 'getCurrentDateTimeString', 'getDEBUG',
            'getMemberType', 'setDEBUG')
-
-_ossiehome = _os.getenv('OSSIEHOME')
-
-if _ossiehome == None:
-    _ossiehome = ''
-
-_interface_list = []
-_loadedInterfaceList = False
-_interfaces = {}
 
 _launchedApps = []
 
@@ -108,7 +100,7 @@ class App(_CF__POA.Application, Resource):
                                   ----------
        
     """
-    def __init__(self, name="", int_list=None, domain=None, sad=None):
+    def __init__(self, name="", domain=None, sad=None):
         # _componentsUpdated needs to be set first to prevent __setattr__ from entering an error state
         self._componentsUpdated = False
         Resource.__init__(self, None)
@@ -117,7 +109,6 @@ class App(_CF__POA.Application, Resource):
         self.ports = []
         self._portsUpdated = False
         self.ns_name = ''
-        self._interface_list = int_list
         self._domain = domain
         self._sad = sad
         self._externalProps = self._getExternalProperties()
@@ -352,10 +343,6 @@ class App(_CF__POA.Application, Resource):
     
         interface_modules = ['BULKIO', 'BULKIO__POA']
         
-        int_list = {}
-        for int_entry in object.__getattribute__(self,'_interface_list'):
-            int_list[int_entry.repoId]=int_entry
-
         if not sad.get_externalports():
             # Nothing to do
             return
@@ -411,10 +398,11 @@ class App(_CF__POA.Application, Resource):
                 if usesName != portName:
                     continue
                 idl_repid = str(uses.get_repid())
-                if not int_list.has_key(idl_repid):
+                try:
+                    int_entry = _idllib.getInterface(idl_repid)
+                except idllib.IDLError:
                     print "Invalid port descriptor in scd for " + self.name + " for " + idl_repid
                     continue
-                int_entry = int_list[idl_repid]
                 #Checks if this external port was renamed
                 if externalport.get_externalname():
                     usesName = externalport.get_externalname()
@@ -429,10 +417,11 @@ class App(_CF__POA.Application, Resource):
                 self._usesPortDict[usesName] = {'Port Name': usesName, 'Port Interface':idl_repid}
 
                 idl_repid = new_port.ref._NP_RepositoryId
-                if not int_list.has_key(idl_repid):
+                try:
+                    int_entry = _idllib.getInterface(idl_repid)
+                except idllib.IDLError:
                     print "Unable to find port description for " + self.name + " for " + idl_repid
                     continue
-                int_entry = int_list[idl_repid]
                 new_port._interface = int_entry
     
                 ports.append(new_port)
@@ -442,10 +431,11 @@ class App(_CF__POA.Application, Resource):
                 if providesName != portName:
                     continue
                 idl_repid = str(provides.get_repid())
-                if not int_list.has_key(idl_repid):
+                try:
+                    int_entry = _idllib.getInterface(idl_repid)
+                except idllib.IDLError:
                     print "Invalid port descriptor in scd for " + self.name + " for " + idl_repid
                     continue
-                int_entry = int_list[idl_repid]
                 #checks if this external port was renamed
                 if externalport.get_externalname():
                     providesName = externalport.get_externalname()
@@ -541,7 +531,7 @@ class DeviceManager(_CF__POA.DeviceManager, object):
         """
         pass
 
-    def __init__(self, name="", devMgr=None, int_list=None, dcd=None, domain=None, idmListener=None, odmListener=None):
+    def __init__(self, name="", devMgr=None, dcd=None, domain=None, idmListener=None, odmListener=None):
         self.name = name
         self.ref = devMgr
         self.id = self.ref._get_identifier()
@@ -861,7 +851,7 @@ class Domain(_CF__POA.DomainManager, object):
         """
         log.trace('serviceUnregistered %s', name)
 
-    def __init__(self, name="DomainName1", int_list=None, location=None):
+    def __init__(self, name="DomainName1", location=None):
         self.name = name
         self._sads = []
         self.ref = None
@@ -906,14 +896,6 @@ class Domain(_CF__POA.DomainManager, object):
                 
         self.ref = obj._narrow(_CF.DomainManager)
         self.fileManager = self.ref._get_fileMgr()
-
-        if int_list == None:
-            self._interface_list = _importIDL.importStandardIdl()
-        else:
-            self._interface_list = int_list
-
-        for int_entry in self._interface_list:
-            _interfaces[int_entry.repoId]=int_entry
 
         self.__deviceManagers = DomainObjectList(WeakBoundMethod(self._get_deviceManagers),
                                                  WeakBoundMethod(self.__newDeviceManager),
@@ -1005,7 +987,7 @@ class Domain(_CF__POA.DomainManager, object):
             waveform_name = app_name[7:]
         else:
             waveform_name = app_name
-        waveform_entry = App(name=waveform_name, int_list=self._interface_list, domain=weakref.proxy(self), sad=doc_sad)
+        waveform_entry = App(name=waveform_name, domain=weakref.proxy(self), sad=doc_sad)
         waveform_entry.ref = app
         waveform_entry.ns_name = waveform_ns_name
         waveform_entry.update()

@@ -81,11 +81,6 @@ def start_service(serviceclass, thread_policy=None):
         try:
             orb = CORBA.ORB_init()
 
-            if execparams.has_key('LOGGING_CONFIG_URI'):
-                load_logging_config_uri(orb, execparams["LOGGING_CONFIG_URI"])
-            else:
-                ossie.logger.ConfigureDefault()
-
             # get the POA
             obj_poa = orb.resolve_initial_references("RootPOA")
             poaManager = obj_poa._get_the_POAManager()
@@ -108,10 +103,11 @@ def start_service(serviceclass, thread_policy=None):
                 execparams["SERVICE_NAME"] = ""
 
 
-            # Configure logging (defaulting to INFO level).
+            # Configure logging context for the service
             name = execparams.get("SERVICE_NAME", "")
             log_config_uri = execparams.get("LOGGING_CONFIG_URI", None)
-            debug_level = execparams.get("DEBUG_LEVEL", 3)
+            debug_level = execparams.get("DEBUG_LEVEL", None)
+            if debug_level != None: debug_level = int(debug_level)
             dpath=execparams.get("DOM_PATH", "")
             ctx = ossie.logger.ServiceCtx( name, dpath )
             ossie.logger.Configure( log_config_uri, debug_level, ctx )

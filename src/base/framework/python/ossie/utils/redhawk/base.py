@@ -28,13 +28,6 @@ from ossie.cf import CF as _CF
 import ossie.utils as _utils
 from ossie.utils.sca import importIDL as _importIDL
 
-_ossiehome = _os.getenv('OSSIEHOME')
-if _ossiehome == None:
-    _ossiehome = ''
-    _interface_list = []
-else:
-    _interface_list = _importIDL.importStandardIdl()
-
 class _envContainer(object):
     def __init__(self, domain, stdout):
         self.domain = int(domain)
@@ -189,6 +182,6 @@ def attach(domain=None, location=None):
     if domain == None:
         return None
     
-    dom_entry = _core.Domain(name=domain, int_list = _interface_list, location=location)
+    dom_entry = _core.Domain(name=domain, location=location)
     
     return dom_entry

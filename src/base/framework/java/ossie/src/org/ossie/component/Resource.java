@@ -62,7 +62,7 @@ import org.omg.PortableServer.POAPackage.WrongPolicy;
 import org.ossie.events.PropertyEventSupplier;
 import org.ossie.properties.IProperty;
 import org.ossie.properties.AnyUtils;
-import org.ossie.logging;
+import org.ossie.logging.logging;
 
 import CF.AggregateDevice;
 import CF.AggregateDeviceHelper;
@@ -171,7 +171,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
     /** current log level assigned to the resource **/
     protected int                  logLevel;
     
-    /** current string used go configure the log **/
+    /** current string used configure the log **/
     protected String               logConfig;
     
     /** callback listener **/
@@ -206,7 +206,9 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 	this.logConfig ="";
 	this.logListener=null;
 	this.loggingCtx = null;
+	this.loggingURL = null;
 	this.loggingMacros=logging.GetDefaultMacros();
+	logging.ResolveHostInfo( this.loggingMacros );
 	
     }
     
@@ -660,8 +662,6 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 	}
     }
 
-
-
     /**
      *  setLoggingContext
      * 
@@ -704,10 +704,60 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      * @param int  oldstyle_loglevel used from command line startup of a resource
      * @param logging.Resource  a content class from the logging.ResourceCtx tree
      */
+    public void saveLoggingContext( String logcfg_url, int oldstyle_loglevel, logging.ResourceCtx ctx ) {
+
+	// apply any context data
+	if ( ctx !=  null ) {
+	    ctx.apply( this.loggingMacros );
+	    this.loggingCtx = ctx;
+	}
+
+	// save off configuration that we are given
+	try{
+	    this.loggingURL = logcfg_url;	    
+	    if ( logcfg_url == null || logcfg_url == "" ) {
+		this.logConfig= logging.GetDefaultConfig();
+	    }
+	    else {
+		String cfg_data="";
+		cfg_data = logging.GetConfigFileContents(logcfg_url);
+	    
+		if ( cfg_data.length() > 0  ){
+		    // process file with macro expansion....
+		    this.logConfig = logging.ExpandMacros(cfg_data, loggingMacros );
+		}
+		else {
+		    logger.warn( "URL contents could not be resolved, url: " + logcfg_url );
+		}
+	    }
+	}
+	catch( Exception e ){
+	    logger.warn( "Exception caught during logging configuration using URL, url: "+ logcfg_url );
+	}
+
+	if  ( oldstyle_loglevel > -1  ) {
+	    logLevel = logging.ConvertLogLevel(oldstyle_loglevel);
+	}
+	else {
+	    // grab root logger's level
+	    logLevel = logging.ConvertLog4ToCFLevel( Logger.getRootLogger().getLevel() );
+	}
+    }
+
+
+    /**
+     *  setLoggingContext
+     * 
+     *  Set the logging configuration and logging level for this resource.
+     *
+     * @param String  URL of the logging configuration file to load
+     * @param int  oldstyle_loglevel used from command line startup of a resource
+     * @param logging.Resource  a content class from the logging.ResourceCtx tree
+     */
     public void setLoggingContext( String logcfg_url, int oldstyle_loglevel, logging.ResourceCtx ctx ) {
 
 	// test we have a logging URI
-	if ( logcfg_url != null || logcfg_url == "" ) {
+	if ( logcfg_url == null || logcfg_url == "" ) {
 	    logging.ConfigureDefault();
 	}
 	else {
@@ -724,8 +774,14 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 	}
 
 	try {
-	    // set log level for this logger 
-	    setLogLevel( logName, logging.ConvertLogLevel(oldstyle_loglevel) );
+	    if  ( oldstyle_loglevel > -1  ) {
+		// set log level for this logger 
+		setLogLevel( logName, logging.ConvertLogLevel(oldstyle_loglevel) );
+	    }
+	    else {
+		// grab root logger's level
+		logLevel = logging.ConvertLog4ToCFLevel( Logger.getRootLogger().getLevel() );
+	    }
 	}
 	catch( Exception e ){
 	}
@@ -1026,7 +1082,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
             logcfg_uri = execparams.get("LOGGING_CONFIG_URI");
         }
 
-	int debugLevel = 3; // Default level is INFO
+	int debugLevel = -1; // use logging config properties for level
 	if (execparams.containsKey("DEBUG_LEVEL")) {
 	    debugLevel = Integer.parseInt(execparams.get("DEBUG_LEVEL"));
 	}
@@ -1066,7 +1122,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         resource_i.setAdditionalParameters(profile);
         resource_i.initializeProperties(execparams);
 
-	resource_i.setLoggingContext( logcfg_uri, debugLevel, ctx );
+	resource_i.saveLoggingContext( logcfg_uri, debugLevel, ctx );
 
         if ((nameContext != null) && (nameBinding != null)) {
             nameContext.rebind(nameContext.to_name(nameBinding), resource);
@@ -1123,7 +1179,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      *   2. DEBUG_LEVEL execparam
      *   3. Default debug level (INFO)
      *
-     * @deprecated use ossie.logging.Configure
+     * @deprecated use {@link logging#Configure(String, int)}
      * @param execparams Map of component execparam values
      * @param orb CORBA ORB instance for contacting SCA FileSystem (if LOGGING_CONFIG_URI is an SCA URI)
      */

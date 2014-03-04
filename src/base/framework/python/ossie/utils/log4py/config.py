@@ -31,7 +31,7 @@ from layouts import *
 # Map log4j levels to python logging levels
 _LEVEL_TRANS = {"ALL": logging.NOTSET,
                 "DEBUG": logging.DEBUG,
-                "TRACE": logging.DEBUG,
+                "TRACE": logging.TRACE,
                 "INFO": logging.INFO,
                 "WARN": logging.WARNING,
                 "ERROR": logging.ERROR,

@@ -504,7 +504,22 @@ class DeviceManagerTest(scatest.CorbaTestCase):
             else:
                 self.assertTrue(False)
 
+    def test_AllocateCapacities_python_callbacks(self):
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/ticket_1502_node/DeviceManager.dcd.xml", debug=2)
+        self.assertNotEqual(devMgr, None)
 
+        # NOTE These assert check must be kept in-line with the DeviceManager.dcd.xml
+        self.assertEqual(len(devMgr._get_registeredDevices()), 1)
+
+        device = devMgr._get_registeredDevices()[0]
+        self.assertNotEqual(device, None)
+
+        props = [CF.DataType(id='simple_prop', value=any.to_any(123.0)),
+                 CF.DataType(id='prop with spaces', value=any.to_any(456)),
+                 CF.DataType(id='prop::with_colons', value=any.to_any(789))
+                ]
+
+        self.assertEqual(device.allocateCapacity(props),True)
 
     def test_ComponentPropertyOverride_cpp(self):
         devmgr_nb, devMgr = self.launchDeviceManager("/nodes/SimpleDevMgr/DeviceManager.dcd.xml", debug=self.debuglevel)

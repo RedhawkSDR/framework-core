@@ -50,7 +50,7 @@ import org.omg.PortableServer.POAPackage.ServantNotActive;
 import org.omg.PortableServer.POAPackage.WrongPolicy;
 import org.ossie.properties.AnyUtils;
 import org.ossie.properties.IProperty;
-import org.ossie.logging;
+import org.ossie.logging.logging;
 
 import CF.AggregateDevice;
 import CF.AggregateDeviceHelper;
@@ -365,7 +365,7 @@ public abstract class Device extends Resource implements DeviceOperations {
             logcfg_uri = execparams.get("LOGGING_CONFIG_URI");
         }
 
-	int debugLevel = 3; // Default level is INFO
+	int debugLevel = -1;   // use logging config URI if specified
 	if (execparams.containsKey("DEBUG_LEVEL")) {
 	    debugLevel = Integer.parseInt(execparams.get("DEBUG_LEVEL"));
 	}

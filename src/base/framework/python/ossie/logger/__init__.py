@@ -30,6 +30,9 @@ def GetDefaultMacros():
     ## No ":" , this will fail the regular expression
     ctx["@@@HOST.NAME@@@"] = "HOST.NO_NAME";
     ctx["@@@HOST.IP@@@"] = "HOST.NO_IP";
+    ctx["@@@NAME@@@"] = "NO_NAME";
+    ctx["@@@INSTANCE@@@"] = "NO_INST";
+    ctx["@@@PID@@@"] = "NO_PID";
     ctx["@@@DOMAIN.NAME@@@"] = "DOMAIN.NO_NAME";
     ctx["@@@DOMAIN.PATH@@@"] = "DOMAIN.NO_PATH";
     ctx["@@@DEVICE_MANAGER.NAME@@@"] = "DEV_MGR.NO_NAME";
@@ -144,6 +147,7 @@ def SetResourceInfo( tbl, ctx ):
     tbl["@@@DOMAIN.PATH@@@"] = ctx.dom_path.replace(":", "-" )
     tbl["@@@NAME@@@"] =  ctx.name.replace( ":", "-" )
     tbl["@@@INSTANCE@@@"] = ctx.instance_id.replace( ":", "-" )
+    tbl["@@@PID@@@"] = str(os.getpid())
 
 
 def SetComponentInfo( tbl, ctx ):
@@ -191,45 +195,67 @@ def ExpandMacros( source,  macrotable ):
     return text
 
 def ConvertLogLevel( oldstyle_level ):
-      if  oldstyle_level == 0 :
+    if  oldstyle_level == 0 :
+        return CF.LogLevels.FATAL
+    if  oldstyle_level == 1 :
+        return CF.LogLevels.ERROR
+    if  oldstyle_level == 2 :
+        return CF.LogLevels.WARN
+    if  oldstyle_level == 3 :
+        return CF.LogLevels.INFO
+    if  oldstyle_level == 4 :
+        return CF.LogLevels.DEBUG
+    if  oldstyle_level == 5 :
+        return CF.LogLevels.ALL
+    return CF.LogLevels.INFO
+
+def ConvertLog4ToCFLevel( log4level ):
+      if  log4level == logging.FATAL+1 :
+          return CF.LogLevels.OFF
+      if  log4level == logging.FATAL :
           return CF.LogLevels.FATAL
-      if  oldstyle_level == 1 :
+      if  log4level == logging.ERROR :
           return CF.LogLevels.ERROR
-      if  oldstyle_level == 2 :
+      if  log4level == logging.WARN :
           return CF.LogLevels.WARN
-      if  oldstyle_level == 3 :
+      if  log4level == logging.INFO :
           return CF.LogLevels.INFO
-      if  oldstyle_level == 4 :
+      if  log4level == logging.DEBUG :
           return CF.LogLevels.DEBUG
-      if  oldstyle_level == 5 :
-          # TODO: verify that this is supported
+      if  log4level == logging.TRACE :
+          return CF.LogLevels.TRACE
+      if  log4level == logging.NOTSET:
           return CF.LogLevels.ALL
       return CF.LogLevels.INFO
 
-def SetLevel( logid=None, debugLevel=3):
+def ConvertToLog4Level( newLevel ):
+    level = logging.INFO
+    if  newLevel == CF.LogLevels.OFF :
+            level=logging.FATAL+1
+    if  newLevel == CF.LogLevels.FATAL :
+            level=logging.FATAL
+    if  newLevel == CF.LogLevels.ERROR :
+            level=logging.ERROR
+    if  newLevel == CF.LogLevels.WARN :
+            level=logging.WARN
+    if  newLevel == CF.LogLevels.INFO:
+            level=logging.INFO
+    if  newLevel == CF.LogLevels.DEBUG:
+            level=logging.DEBUG
+    if  newLevel == CF.LogLevels.TRACE:
+            level=logging.TRACE
+    if  newLevel == CF.LogLevels.ALL:
+            level=logging.NOTSET
+    return level
+
+def SetLevel( logid, debugLevel):
     SetLogLevel( logid, ConvertLogLevel(debugLevel))
 
 
 def SetLogLevel( logid, newLevel ):
     logger = logging.getLogger(logid )
+    level = ConvertToLog4Level( newLevel )
     if logger:
-        level = logging.INFO
-        if  newLevel == CF.LogLevels.OFF :
-            level=logging.OFF
-        if  newLevel == CF.LogLevels.FATAL :
-            level=logging.FATAL
-        if  newLevel == CF.LogLevels.ERROR :
-            level=logging.ERROR
-        if  newLevel == CF.LogLevels.WARN :
-            level=logging.WARN
-        if  newLevel == CF.LogLevels.INFO:
-            level=logging.INFO
-        if  newLevel == CF.LogLevels.DEBUG:
-            level=logging.DEBUG
-        if  newLevel == CF.LogLevels.TRACE:
-            level=logging.TRACE
-        if  newLevel == CF.LogLevels.ALL:
-            level=logging.ALL
         logger.setLevel( level )
 
 
@@ -273,9 +299,12 @@ def GetConfigFileContents( url ):
     scheme, netloc, path, params, query, fragment = urlparse.urlparse(url)
     if scheme == "file":
         try:
-            with open(path, 'r') as content_file:
-                fc = content_file.read()
+            f = open(path,'r')
+            fc=""
+            for line in f:
+                fc += line
         finally:
+            f.close()
             fc=None
     elif scheme == "sca":
         fc=GetSCAFileContents(url)
@@ -308,7 +337,8 @@ def ConfigureDefault():
     logging.getLogger().setLevel( logging.INFO )
 
 
-def ConfigureWithContext( cfg_data, tbl, cfg=None ):
+def ConfigureWithContext( cfg_data, tbl ):
+    cfg=None
     try:
         fileContents=""
         fc_raw=cfg_data
@@ -325,6 +355,7 @@ def ConfigureWithContext( cfg_data, tbl, cfg=None ):
         print e
         # TODO: report an error?
         pass
+    return cfg
 
 def Configure( logcfgUri, logLevel=None, ctx=None ):
 
@@ -343,7 +374,7 @@ def Configure( logcfgUri, logLevel=None, ctx=None ):
                 ctx.apply(tbl)
 
             if fileContents and len(fileContents) != 0:
-                ConfigureWithContext( fileContents, tbl)
+                fc=ConfigureWithContext( fileContents, tbl)
         except Exception,e:
             print e
             pass
@@ -351,5 +382,6 @@ def Configure( logcfgUri, logLevel=None, ctx=None ):
     # If a log level was explicitly stated, set it here, potentially
     # overloading the value set by the context.
     # if a log level was not specified, set to default
-    SetLevel(debugLevel=logLevel)
+    if logLevel != None and logLevel > -1 :
+        SetLevel(None, logLevel)
 

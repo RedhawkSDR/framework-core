@@ -45,7 +45,7 @@ public:
         std::string name_binding;
         std::string profile = "";
         const char* logging_config_uri = 0;
-        int debug_level = 3; // Default level is INFO.
+        int debug_level = -1; // use log config uri as log level context
         bool standAlone = false;
         std::map<std::string, char*> execparams;
         std::string logcfg_uri("");
@@ -109,8 +109,9 @@ public:
 
         if (!skip_run) {
 	  // configure the  logging library
+	  std::cout << "Resource::Main debug_level:" << debug_level << std::endl;
 	  ossie::logging::Configure(logcfg_uri, debug_level, ctx);
-	  std::cout << "Resource debug_level:" << debug_level << std::endl;
+	  //std::cout << "Resource debug_level:" << debug_level << std::endl;
 	}
 
 
@@ -121,8 +122,9 @@ public:
         component->setAdditionalParameters(profile);
 
 	if ( !skip_run ) {
+	  std::cout << "Resource::Main Save Logging Context to Resource:"<< name_binding << "  LEVEL:" << debug_level << std::endl;
 	  // assign the logging context to the resource to support logging interface
-	  component->setLoggingContext( logcfg_uri, debug_level, ctx );
+	  component->saveLoggingContext( logcfg_uri, debug_level, ctx );
 	}
 
         // setting all the execparams passed as argument, this method resides in the Resource_impl class

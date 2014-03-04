@@ -277,12 +277,43 @@ namespace ossie {
         std::string componentRefId;
         std::string usesRefId;
 
+        /*
+         * componentinstantiationref
+         */
+        bool isComponentInstantiationRef() const {
+            return (type == COMPONENTINSTANTIATIONREF);
+        }
+
         const char* getComponentInstantiationRefID() const {
             return componentRefId.c_str();
         }
 
+        void setComponentInstantiationRef(const std::string& refID) {
+            componentRefId = refID;
+            type = COMPONENTINSTANTIATIONREF;
+        }
+
+        /*
+         * devicethatloadedthiscomponentref
+         */
+        bool isDeviceThatLoadedThisComponentRef() const {
+            return (type == DEVICETHATLOADEDTHISCOMPONENTREF);
+        }
+
         const char* getDeviceThatLoadedThisComponentRef() const {
             return componentRefId.c_str();
+        }
+
+        void setDeviceThatLoadedThisComponentRef(const std::string& refID) {
+            componentRefId = refID;
+            type = DEVICETHATLOADEDTHISCOMPONENTREF;
+        }
+
+        /*
+         * deviceusedbythiscomponentref
+         */
+        bool isDeviceUsedByThisComponentRef() const {
+            return (type == DEVICEUSEDBYTHISCOMPONENTREF);
         }
 
         const char* getDeviceUsedByThisComponentRefID() const {
@@ -293,32 +324,42 @@ namespace ossie {
             return usesRefId.c_str();
         }
 
+        void setDeviceUsedByThisComponentRef(const std::string& componentRef, const std::string& usesRef) {
+            componentRefId = componentRef;
+            usesRefId = usesRef;
+            type = DEVICEUSEDBYTHISCOMPONENTREF;
+        }
+
+        /*
+         * deviceusedbyapplication
+         */
+        bool isDeviceUsedByApplication() const {
+            return (type == DEVICEUSEDBYAPPLICATION);
+        }
+
         const char* getDeviceUsedByApplicationUsesRefID() const {
             return usesRefId.c_str();
+        }
+
+        void setDeviceUsedByApplication(const std::string& refID) {
+            usesRefId = refID;
+            type = DEVICEUSEDBYAPPLICATION;
+        }
+
+        /*
+         * findby
+         */
+        bool isFindBy() const {
+            return (type == FINDBY);
         }
 
         const FindBy* getFindBy() const {
             return findBy.get();
         }
 
-        bool isComponentInstantiationRef() const {
-            return (type == COMPONENTINSTANTIATIONREF);
-        }
-
-        bool isDeviceThatLoadedThisComponentRef() const {
-            return (type == DEVICETHATLOADEDTHISCOMPONENTREF);
-        }
-
-        bool isDeviceUsedByThisComponentRef() const {
-            return (type == DEVICEUSEDBYTHISCOMPONENTREF);
-        }
-
-        bool isDeviceUsedByApplication() const {
-            return (type == DEVICEUSEDBYAPPLICATION);
-        }
-
-        bool isFindBy() const {
-            return (type == FINDBY);
+        void setFindBy(const FindBy& findby) {
+            findBy = findby;
+            type = FINDBY;
         }
 
         virtual const char* getID() const = 0;
@@ -355,43 +396,14 @@ namespace ossie {
     /**
      *
      */
-    class ComponentSupportedInterface
+    class ComponentSupportedInterface : public Port
     {
     public:
         std::string identifier;
-        ossie::optional_value<std::string>componentInstantiationRefId;
-        ossie::optional_value<FindBy> theFindBy;
-        std::string componentRefId;
-        std::string usesId;
 
-        const std::string& getComponentInstantiationRefId() const {
-            return *componentInstantiationRefId;
+        virtual const char* getID() const {
+            return identifier.c_str();
         }
-
-        const std::string& getID() const {
-            return identifier;
-        }
-
-        const FindBy* getFindBy() const {
-            return theFindBy.get();
-        }
-
-        const std::string& getComponentRefId() const {
-            return componentRefId;
-        }
-
-        const std::string& getUsesId() const {
-            return usesId;
-        }
-
-        bool isComponentInstantiationRef() const {
-            return componentInstantiationRefId.isSet();
-        };
-
-        bool isFindBy() const {
-            return theFindBy.isSet();
-        };
-
     };
 
     /**

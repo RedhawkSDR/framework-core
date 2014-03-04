@@ -9,6 +9,7 @@ sdr/dev/devices/ExecutableDevice/ExecutableDevice
 sdr/dev/devices/SimpleDevice/SimpleDevice_cpp_impl1/SimpleDevice_cpp_impl1
 sdr/dev/devices/issue_111_cpp/cpp/issue_111_cpp
 sdr/dev/devices/props_test_device/props_test_device_cpp_impl1/props_test_device_cpp_impl1
+sdr/dev/devices/ProgrammableDevice/cpp/ProgrammableDevice
 sdr/dev/mgr/DeviceManager*
 sdr/dev/nodes/test_Concurrent_nodes/
 sdr/dom/components/BasicAC/BasicAC_cpp_impl1/BasicAC_cpp_impl1

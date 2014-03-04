@@ -143,9 +143,10 @@ class Resource(object):
         ##
         ## logging context for the resource
         ##
-        self.logLevel =  logging.INFO
+        self.logLevel = logging.INFO
         self.logConfig = ""
         self.loggingMacros = ossie.logger.GetDefaultMacros()
+        ossie.logger.ResolveHostInfo( self.loggingMacros )
         self.loggingCtx = None
         self.loggingURL=None
         if loggerName == None:
@@ -237,6 +238,7 @@ class Resource(object):
         if assignToResource:
             self._logid = logid
             self._log = newLogger
+        return newLogger
 
     # Apply a resource context to the set of logging Macros
     def setLoggingMacros(self, newTbl, applyCtx=False ):
@@ -284,14 +286,44 @@ class Resource(object):
             # apply resource context to macro definitions
             if rscCtx:
                 rscCtx.apply(self.loggingMacros )
-                self.logginCtx = rscCtx
+                self.loggingCtx = rscCtx
 
             # load logging configuration url to resource
             self.setLogConfigURL( logcfg_url )
 
         # apply logging level if explicitly stated
-        if oldstyle_loglevel:
+        if oldstyle_loglevel != None and oldstyle_loglevel > -1 :
             self.setLogLevel( self._logid, ossie.logger.ConvertLogLevel(oldstyle_loglevel) )
+        else:
+            _logLevel = ossie.logger.ConvertLog4ToCFLevel( logging.getLogger(None).getEffectiveLevel() )
+
+
+    def saveLoggingContext(self, logcfg_url, oldstyle_loglevel, rscCtx ):
+
+        # apply resource context to macro definitions
+        if rscCtx:
+            rscCtx.apply(self.loggingMacros )
+            self.loggingCtx = rscCtx
+
+        # test we have a logging URLx
+        self.loggingURL = logcfg_url
+        if logcfg_url==None or logcfg_url=="" :
+            self.logConfig = ossie.logger.GetDefaultConfig()
+        else:
+            # try to process URL and grab contents
+            try:
+                cfg_data=ossie.logger.GetConfigFileContents( logcfg_url )
+                if cfg_data and len(cfg_data) > 0 :
+                    self.logConfig = ossie.logger.ExpandMacros( cfg_data, self.loggingMacros )
+            except:
+                pass
+
+        # apply logging level if explicitly stated
+        if oldstyle_loglevel != None and oldstyle_loglevel > -1 :
+            _logLevel = ossie.logger.ConvertLogLevel(oldstyle_loglevel)
+        else:
+            _logLevel = ossie.logger.ConvertLog4ToCFLevel( logging.getLogger(None).getEffectiveLevel() )
+
 
     def setLogListenerCallback(self, loglistenerCB ):
         self.logListenerCallback=logListenerCB
@@ -323,7 +355,7 @@ class Resource(object):
             self.logConfig = new_log_config;
             self.logListenerCallback.logConfigChanged(new_log_config)
         elif new_log_config:
-            ossie.logger.ConfigureWithContext( new_log_config, self.loggingMacros, self.logConfig )
+            self.logConfig = ossie.logger.ConfigureWithContext( new_log_config, self.loggingMacros  )
         else:
             pass
 
@@ -643,7 +675,7 @@ def start_component(componentclass, interactive_callback=None, thread_policy=Non
             component_identifier=""
             
             # set up backwards-compatable logging
-            configureLogging(execparams, loggerName, orb)
+            #configureLogging(execparams, loggerName, orb)
 
             componentPOA = getPOA(orb, thread_policy, "componentPOA")
           
@@ -665,6 +697,7 @@ def start_component(componentclass, interactive_callback=None, thread_policy=Non
             # Configure logging (defaulting to INFO level).
             log_config_uri = execparams.get("LOGGING_CONFIG_URI", None)
             debug_level = execparams.get("DEBUG_LEVEL", None)
+            if debug_level != None: debug_level = int(debug_level)
             dpath=execparams.get("DOM_PATH", "")
 
             ## sets up logging during component startup
@@ -684,7 +717,7 @@ def start_component(componentclass, interactive_callback=None, thread_policy=Non
             component_Var = component_Obj._this()
 
             ## sets up logging context for resource to support CF::Logging
-            component_Obj.setLoggingContext( log_config_uri, debug_level, ctx )
+            component_Obj.saveLoggingContext( log_config_uri, debug_level, ctx )
 
             # get the naming context and bind to it
             if execparams.has_key("NAMING_CONTEXT_IOR"):

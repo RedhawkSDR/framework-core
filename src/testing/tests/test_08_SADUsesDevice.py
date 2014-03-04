@@ -20,8 +20,9 @@
 
 import unittest
 from _unitTestHelpers import scatest
-from ossie.cf import CF
+from ossie.cf import CF, ExtendedCF
 from omniORB import any, CORBA
+from ossie import properties
 
 class SADUsesDeviceTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -195,3 +196,36 @@ class SADUsesDeviceTest(scatest.CorbaTestCase):
             self.fail('Invalid usesdeviceref crashed domain manager')
         else:
             self.fail('Invalid usesdeviceref did not prevent app creation')
+
+    def test_MultipleUsesDevices(self):
+        devices = dict((dev._get_label(), dev) for dev in self._devMgr._get_registeredDevices())
+
+        appFact = self.createAppFact('Multiple')
+        self._app = appFact.create(appFact._get_name(), [], [])
+
+        # Check the usesdevice connections by inspecting the app's external
+        # ports against the devices
+        for connection in self._app.getPort('resource_out')._get_connections():
+            deviceId = connection.port._get_identifier()
+            if connection.connectionId == 'connection1':
+                self.assertTrue(deviceId, devices['SADUsesDevice_1']._get_identifier())
+            elif connection.connectionId == 'connection2':
+                self.assertTrue(deviceId, devices['BasicTestDevice1']._get_identifier())
+
+        # Try to create another instance of the application; there should only
+        # be enough capacity to satisfy one of the usesdevices
+        prop = CF.DataType('DCE:001fad60-b4b3-4ed2-94cb-40e1d956bf4f', any.to_any(None))
+        pre_value = properties.props_to_dict(devices['BasicTestDevice1'].query([prop])[0].value._v)
+        try:
+            app2 = appFact.create(appFact._get_name(), [], [])
+        except CF.ApplicationFactory.CreateApplicationError:
+            # The first app instance should have exhausted the capacity on the
+            # SADUsesDevice
+            pass
+        else:
+            self.fail('Device should not have enough capacity to satisfy usesdevice')
+
+        # Make sure that the successful usesdevice was deallocated
+        post_value = properties.props_to_dict(devices['BasicTestDevice1'].query([prop])[0].value._v)
+        self.assertEqual(pre_value['long_capacity'], post_value['long_capacity'])
+        self.assertAlmostEqual(pre_value['float_capacity'], post_value['float_capacity'])

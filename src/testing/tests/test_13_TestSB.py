@@ -926,6 +926,11 @@ class SBTestTest(scatest.CorbaTestCase):
 
 
     def test_DataSourceAndSink(self):
+        try:
+            import bulkio
+        except ImportError:
+            self.fail("BULKIO not installed and is needed for this test")
+
         dummySource = sb.DataSource()
         supportedPorts = dummySource.supportedPorts
 

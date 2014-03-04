@@ -48,7 +48,7 @@ import org.omg.PortableServer.POAHelper;
 import org.omg.PortableServer.POAManagerPackage.AdapterInactive;
 import org.omg.PortableServer.POAPackage.ServantNotActive;
 import org.omg.PortableServer.POAPackage.WrongPolicy;
-import org.ossie.logging;
+import org.ossie.logging.logging;
 
 import CF.DeviceManager;
 import CF.DeviceManagerHelper;
@@ -200,7 +200,7 @@ public abstract class Service
             logcfg_uri = execparams.get("LOGGING_CONFIG_URI");
         }
 
-	int debugLevel = 3; // Default level is INFO
+	int debugLevel = -1; // Default level is INFO
 	if (execparams.containsKey("DEBUG_LEVEL")) {
 	    debugLevel = Integer.parseInt(execparams.get("DEBUG_LEVEL"));
 	}

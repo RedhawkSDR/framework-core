@@ -171,7 +171,6 @@ CF::AllocationManager::AllocationResponseSequence* AllocationManager_impl::alloc
             ossie::AllocationType* allocation(result.first);
             const std::string requestID(request.requestID);
             ossie::corba::push_back(response, ossie::assembleResponse(requestID, allocation->allocationID, allocation->allocationProperties, allocation->allocatedDevice, allocation->allocationDeviceManager));
-            break;
         }
     }
 

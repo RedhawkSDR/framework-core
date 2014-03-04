@@ -174,7 +174,26 @@ namespace ossie
     CF::LogLevel ConvertLogLevel( int oldstyle_level );
 
 
+    //
+    // ConvertLog4ToCFLevel
+    //
+    // Convert from log4j to CF::Logging
+    //
+    int ConvertLog4ToCFLevel ( log4cxx::LevelPtr l4_level );
 
+
+    //
+    // ConvertToLog4Level
+    //
+    // Convert from CF::LogLevel to Log4cxx Level
+    //
+    log4cxx::LevelPtr ConvertToLog4Level( int newlevel );
+
+
+
+    //
+    // Set the name logger to the specified CF::LogLevel value
+    //
     void SetLevel( const std::string  &logid, int newLevel );
 
 
@@ -226,7 +245,17 @@ namespace ossie
     // Used by a resource to configure the logging provider 
     //
     //
+    void Configure(const std::string &logcfgUri, ResourceCtxPtr ctx);
+
+    //
+    // Used by a resource to configure the logging provider 
+    //
+    // @param configure_data contents of log4j properties or xml file  
+    // @param logLevel  -1 do not set level, > 0 set level of root logger
+    // @param ctx execution context for the resource
+    //
     void Configure(const std::string &logcfgUri, int logLevel, ResourceCtxPtr ctx);
+
 
     //
     // Configure
