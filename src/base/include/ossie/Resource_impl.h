@@ -109,7 +109,7 @@ public:
 
         if (!skip_run) {
 	  // configure the  logging library
-	  std::cout << "Resource::Main debug_level:" << debug_level << std::endl;
+	  //std::cout << "Resource::Main debug_level:" << debug_level << std::endl;
 	  ossie::logging::Configure(logcfg_uri, debug_level, ctx);
 	  //std::cout << "Resource debug_level:" << debug_level << std::endl;
 	}
@@ -122,7 +122,7 @@ public:
         component->setAdditionalParameters(profile);
 
 	if ( !skip_run ) {
-	  std::cout << "Resource::Main Save Logging Context to Resource:"<< name_binding << "  LEVEL:" << debug_level << std::endl;
+	  //std::cout << "Resource::Main Save Logging Context to Resource:"<< name_binding << "  LEVEL:" << debug_level << std::endl;
 	  // assign the logging context to the resource to support logging interface
 	  component->saveLoggingContext( logcfg_uri, debug_level, ctx );
 	}
