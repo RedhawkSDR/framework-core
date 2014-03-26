@@ -14,7 +14,7 @@ Full REDHAWK Manual: [PDF](http://sourceforge.net/projects/redhawksdr/files/redh
  
 ## Copyrights
 
-This work is protected by Copyright. Please refer to the [Copyright File](COPYRIGHT) for updated copyright information.
+This work is protected by Copyright. Please refer to the [Copyright File](src/COPYRIGHT) for updated copyright information.
 
 ## License
 
