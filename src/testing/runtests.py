@@ -26,6 +26,7 @@ import commands
 import unittest
 import os
 import re
+import shutil
 import sys
 
 if os.path.abspath(os.path.dirname(__file__)) != os.getcwd():
@@ -58,6 +59,7 @@ os.environ['SDRROOT'] = os.path.join(os.getcwd(), "sdr")
 
 # Point the SDR cache to a different location so that it's easy to clean/ignore
 os.environ['SDRCACHE'] = os.path.join(os.environ['SDRROOT'], "cache")
+shutil.rmtree(os.environ['SDRCACHE'], ignore_errors=True)
 
 # Bring in the Python OSSIE stuff for things running in this process
 prependPythonPath("../base/framework/python")

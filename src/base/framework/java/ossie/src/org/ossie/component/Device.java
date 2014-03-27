@@ -85,7 +85,6 @@ public abstract class Device extends Resource implements DeviceOperations {
     protected AggregateDevice compositeDevice;
     protected CF.Device device;
 
-    protected String softwareProfile;
     protected String label;
     protected AdminType adminState = AdminType.UNLOCKED;
     protected UsageType usageState = UsageType.IDLE;
@@ -147,10 +146,6 @@ public abstract class Device extends Resource implements DeviceOperations {
     public Device(final DeviceManager devMgr, final AggregateDevice compositeDevice, final String compId, final String label, final String softwareProfile, final ORB orb, final POA poa) throws InvalidObjectReference, ServantNotActive, WrongPolicy {
         this();
         setup(devMgr, compositeDevice, compId, label, softwareProfile, orb, poa);
-    }
-
-    public String softwareProfile() {
-        return softwareProfile;
     }
 
     public String label() {
@@ -232,12 +227,11 @@ public abstract class Device extends Resource implements DeviceOperations {
             final AggregateDevice compositeDevice, 
             final String compId, 
             final String label, 
-            final String softwareProfile, 
+            final String softwareProfile,
             final ORB orb, 
             final POA poa) throws InvalidObjectReference, ServantNotActive, WrongPolicy {
-        super.setup(compId, label, orb, poa);
+        super.setup(compId, label, softwareProfile, orb, poa);
         this.label = label;
-        this.softwareProfile = softwareProfile;
 
         DevicePOATie tie = new DevicePOATie(this, poa);
         tie._this(orb);

@@ -30,7 +30,7 @@ Prefix:         %{_sysconfdir}
 
 Name:           redhawk
 Version:        1.10.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        REDHAWK is a Software Defined Radio framework
 
 Group:          Applications/Engineering
@@ -43,11 +43,11 @@ Vendor:         REDHAWK
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
 # el6 gives us issues with rpaths
-%if 0%{?rhel} == 6
+%if 0%{?rhel} >= 6 || 0%{?fedora} >= 12
 %define __arch_install_post %{nil}
 %endif
 
-%if 0%{?rhel} >= 6
+%if 0%{?rhel} >= 6 || 0%{?fedora} >= 12
 Requires:       util-linux-ng
 %else
 Requires:       e2fsprogs
@@ -57,9 +57,9 @@ Requires:       python
 Requires:       numpy
 Requires:       libomniorbpy
 
-%if 0%{?rhel} >= 6
+%if 0%{?rhel} >= 6 || 0%{?fedora} >= 12
 BuildRequires:  libuuid-devel
-BuildRequires:  boost-devel = 1.41.0
+BuildRequires:  boost-devel >= 1.41
 %else
 BuildRequires:  e2fsprogs-devel
 BuildRequires:  boost141-devel
@@ -113,9 +113,9 @@ Group:          Applications/Engineering
 Requires:       redhawk = %{version}-%{release}
 
 # Base dependencies
-%if 0%{?rhel} >= 6
+%if 0%{?rhel} >= 6 || 0%{?fedora} >= 12
 Requires:       libuuid-devel
-Requires:       boost-devel = 1.41.0
+Requires:       boost-devel >= 1.41
 %else
 Requires:       e2fsprogs-devel
 Requires:       boost141-devel
@@ -133,7 +133,10 @@ Requires:       python-devel >= 2.4
 Requires:       java-devel >= 1.6
 
 # qtbrowse
+%if 0%{?rhel} == 7
+%else
 Requires:       PyQt
+%endif
 
 %description devel
 This package ensures that all requirements for REDHAWK development are installed. It also provides a useful development utilities.
@@ -158,6 +161,11 @@ rm -rf --preserve-root $RPM_BUILD_ROOT
 cd src
 make install DESTDIR=$RPM_BUILD_ROOT
 cp control/sdr/domain/DomainManager.dmd.xml $RPM_BUILD_ROOT%{_sdrroot}/dom/domain/
+
+%if 0%{?rhel} == 7
+rm $RPM_BUILD_ROOT%{_bindir}/qtbrowse
+rm -r $RPM_BUILD_ROOT%{_prefix}/lib/python/ossie/apps/qtbrowse
+%endif
 
 
 %clean
@@ -234,7 +242,6 @@ fi
 
 %files devel
 %defattr(-,root,root,-)
-%{_bindir}/qtbrowse
 %{_bindir}/prf2py.py
 %{_bindir}/py2prf
 %{_includedir}/ossie
@@ -249,7 +256,12 @@ fi
 %{_libdir}/libossieparser.*a
 %{_libdir}/libossieparser.so
 %{_libdir}/pkgconfig/ossie.pc
+%{_sysconfdir}/bash_completion.d/nodeBooter
+%if 0%{?rhel} == 7
+%else
+%{_bindir}/qtbrowse
 %{_prefix}/lib/python/ossie/apps/qtbrowse
+%endif
 
 
 %post
@@ -260,13 +272,18 @@ fi
 
 
 %changelog
-* Tue Apr 18 2013 1.9.0-1
+* Tue Mar 18 2014 - 1.9.1-1
+- Improve OS version detection for RHEL/CentOS/Fedora
+- Don't constrain boost to exact version
+- Exclude qtbrowse on el7
+
+* Thu Aug 15 2013 - 1.9.0-1
 - Re-work lots of dependencies
 - Package for REDHAWK development
 - Minor fixes for docs, licensing
 - Explicitly require Java for build
 
-* Tue Mar 12 2012 - 1.8.3-4
+* Tue Mar 12 2013 - 1.8.3-4
 - Update licensing information
 - Add URL for website
 - Change group to a standard one, per Fedora
@@ -282,4 +299,4 @@ fi
 
 * Tue Jan 11 2011 - 1.6.0-0
 - Initial spec file for redhawk and redhawk-sdrroot.
-# end of file
+

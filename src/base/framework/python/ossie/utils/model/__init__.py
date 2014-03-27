@@ -558,11 +558,14 @@ class Device(Resource):
         raise KeyError, "No allocation property '%s'" % name
 
     def _capacitiesToAny(self, props):
-        allocProps = []
-        for name, value in props.iteritems():
-            prop = self._getAllocProp(name)
-            allocProps.append(_CF.DataType(prop.id, prop.toAny(value)))
-        return allocProps
+        if isinstance(props, dict):
+            allocProps = []
+            for name, value in props.iteritems():
+                prop = self._getAllocProp(name)
+                allocProps.append(_CF.DataType(prop.id, prop.toAny(value)))
+            return allocProps
+        else:
+            return props
 
     def _get_adminState(self):
         if self.ref:

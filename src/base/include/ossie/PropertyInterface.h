@@ -485,13 +485,13 @@ class PropertyWrapperFactory
 {
 public:
     template <typename T>
-    static PropertyInterface* Create (T& value)
+    static PropertyWrapper<T>* Create (T& value)
     {
         return new StructProperty<T>(value);
     }
 
     template <typename T>
-    static PropertyInterface* Create (std::vector<T>& value)
+    static PropertyWrapper<std::vector<T> >* Create (std::vector<T>& value)
     {
         return new StructSequenceProperty<T>(value);
     }

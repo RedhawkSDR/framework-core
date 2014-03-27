@@ -337,8 +337,8 @@ class LocalLauncher(object):
 
             localfile = os.path.join(os.path.dirname(local_filename), dep_localfile)
             envvars.insert(0, self._getDependencyConfiguration(localfile))
-        if not self._isSharedLibrary(localfile) and not self._isPythonLibrary(localfile) and not self._isJarfile(localfile):
-            envvars.insert(0, ('OCTAVE_PATH', localfile))
+            if not self._isSharedLibrary(localfile) and not self._isPythonLibrary(localfile) and not self._isJarfile(localfile):
+                envvars.insert(0, ('OCTAVE_PATH', localfile))
 
         return envvars
 

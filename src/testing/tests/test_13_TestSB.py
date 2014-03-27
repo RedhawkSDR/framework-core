@@ -858,6 +858,62 @@ class SBTestTest(scatest.CorbaTestCase):
         except RuntimeError:
             self.fail('Launch timeout was not honored')
 
+    def test_ComplexSequenceFromRealSequence(self):
+        """
+        Test that assigning a sequence of real values to a complex sequence
+        property works correctly.
+        """
+        # NB: The default value for 'complexCharProp' raises a non-fatal
+        #     exception during launch. Overriding it avoids the error message,
+        #     though in general, complex char properties should be avoided.
+        comp = sb.launch('TestComplexProps', configure={'complexCharProp':('a','b')})
+        value = range(4)
+        try:
+            comp.complexFloatSequence = value
+        except:
+            self.fail('Could not assign real sequence to complex sequence property')
+        self.assertEqual(value, comp.complexFloatSequence)
+
+    def test_DeviceAllocation(self):
+        """
+        Tests device allocation/deallocation using both dictionaries and lists
+        of CF.DataTypes.
+        """
+        spd = os.path.join(sb.getSDRROOT(), 'dev/devices/CppTestDevice/CppTestDevice.spd.xml')
+        dev = sb.launch(spd)
+
+        # Save the initial state for checking that allocation is working
+        load_average = dev.load_average.queryValue()
+        shared_memory = dev.shared_memory.queryValue()
+
+        # Allocate via dictionary
+        dict_props = {'load_average': 1.25,
+                      'memory_allocation': {'contiguous': False,
+                                            'capacity': 1024,
+                                            'memory_type': 'SHARED'} }
+        self.assertTrue(dev.allocateCapacity(dict_props))
+        self.assertEqual(dev.load_average, load_average+dict_props['load_average'])
+        self.assertEqual(dev.shared_memory, shared_memory-dict_props['memory_allocation']['capacity'])
+
+        dev.deallocateCapacity(dict_props)
+        self.assertEqual(dev.load_average, load_average)
+        self.assertEqual(dev.shared_memory, shared_memory)
+
+        # Allocate with a list of CF.DataTypes
+        cf_props = [self._propertyToDataType(dev, name, value) for name, value in dict_props.iteritems()]
+        self.assertTrue(dev.allocateCapacity(cf_props))
+
+        self.assertEqual(dev.load_average, load_average+dict_props['load_average'])
+        self.assertEqual(dev.shared_memory, shared_memory-dict_props['memory_allocation']['capacity'])
+
+        dev.deallocateCapacity(cf_props)
+        self.assertEqual(dev.load_average, load_average)
+        self.assertEqual(dev.shared_memory, shared_memory)
+
+    def _propertyToDataType(self, comp, name, value):
+        prop = getattr(comp, name)
+        return CF.DataType(prop.id, prop.toAny(value))
+
     def _pushSRIThroughSourceAndSink(
         self,
         EOS          = True,
@@ -924,7 +980,14 @@ class SBTestTest(scatest.CorbaTestCase):
 
         self.assertEquals(receivedData, originalData)
 
-
+    def test_DataSourceWithFormatConnect(self):
+        src = sb.DataSource(dataFormat='short')
+        sink = sb.DataSink()
+        try:
+            src.connect(sink)
+        except Exception, e:
+            self.fail('Automatic connect failed for source that had dataFormat passed in')
+      
     def test_DataSourceAndSink(self):
         try:
             import bulkio

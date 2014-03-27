@@ -503,6 +503,8 @@ class Property(object):
         except ValueError:
             # If enumeration value is invalid, list available enumerations.
             # NB: Should create specific error type for this condition.
+            if not self._enums:
+                raise
             print 'Could not perform configure on ' + str(self.id) + ', invalid enumeration provided'
             print "Valid enumerations: "
             for en in self._enums:
@@ -879,10 +881,17 @@ class sequenceProperty(Property):
         for val in value:
             # value is actually a list.  loop through each val
             # in the list and validate it
-            realValue = _type_helpers.checkValidValue(val.real, 
-                                                      memberTypeStr)
-            imagValue = _type_helpers.checkValidValue(val.imag, 
-                                                      memberTypeStr)
+            try:
+                real = val.real
+                imag = val.imag
+            except AttributeError:
+                # In Python 2.4, basic types don't support 'real' and 'imag',
+                # so assume that val is the real component and use its type to
+                # create an imaginary component with a value of 0
+                real = val
+                imag = type(val)(0)
+            realValue = _type_helpers.checkValidValue(real, memberTypeStr)
+            imagValue = _type_helpers.checkValidValue(imag, memberTypeStr)
         
             # convert to CORBA type (e.g., CF.complexFloat)
             newValues.append(getCFType(self.valueType)(realValue, imagValue))

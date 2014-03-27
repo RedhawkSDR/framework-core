@@ -6,9 +6,7 @@
     AUTO-GENERATED CODE. DO NOT MODIFY
 
 *******************************************************************************************/
-
 #include <ossie/CorbaUtils.h>
-#include <ossie/PropertyInterface.h>
 
 struct memory_allocation_struct {
     memory_allocation_struct ()
@@ -34,10 +32,10 @@ inline bool operator>>= (const CORBA::Any& a, memory_allocation_struct& s) {
         if (!strcmp("capacity", props[idx].id)) {
             if (!(props[idx].value >>= s.capacity)) return false;
         }
-        if (!strcmp("contiguous", props[idx].id)) {
+        else if (!strcmp("contiguous", props[idx].id)) {
             if (!(props[idx].value >>= s.contiguous)) return false;
         }
-        if (!strcmp("memory_type", props[idx].id)) {
+        else if (!strcmp("memory_type", props[idx].id)) {
             if (!(props[idx].value >>= s.memory_type)) return false;
         }
     }

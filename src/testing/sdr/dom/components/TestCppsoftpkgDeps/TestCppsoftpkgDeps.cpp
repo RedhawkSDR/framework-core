@@ -93,7 +93,7 @@ void TestCppsoftpkgDeps::runTest (CORBA::ULong testId, CF::Properties& testValue
         testStaticCallbacks(testValues);
         break;
     default:
-        throw new CF::TestableObject::UnknownTest();
+        throw CF::TestableObject::UnknownTest();
         break;
     }
 }

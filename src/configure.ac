@@ -46,8 +46,9 @@ AC_SUBST([LIBREDHAWK_LOGGING_VERSION_INFO], [1:0:0])
 dnl AC_CONFIG_MACRO_DIR([m4])
 dnl LT_INIT
 
+AC_PREFIX_DEFAULT([/usr/local/redhawk/core])
 OSSIE_OSSIEHOME_AS_PREFIX
-OSSIE_SDRROOT
+OSSIE_SDRROOT_IGNORE_PREFIX
 
 AC_PROG_CXX
 AC_PROG_INSTALL
@@ -284,6 +285,7 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dev/devices/ExecutableDevice/Makefile \
                 testing/sdr/dev/devices/BasicTestDevice_cpp/BasicTestDevice_cpp_impl1/Makefile \
                 testing/sdr/dev/devices/BasicTestDevice_java/java/Makefile \
+                testing/sdr/dev/devices/CppTestDevice/cpp/Makefile \
                 testing/sdr/dev/devices/BasicDevWithExecParam_cpp/BasicDevWithExecParam_cpp_impl1/Makefile \
                 testing/sdr/dev/devices/JavaTestDevice/java/Makefile \
                 testing/sdr/dev/devices/SimpleDevice/SimpleDevice_cpp_impl1/Makefile \

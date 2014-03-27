@@ -19,6 +19,7 @@
 #
 
 import os
+import errno
 from omniidl import idlast, idlvisitor, idltype
 import javacode
 from typeinfo import *
@@ -282,11 +283,14 @@ class JavaVisitor(idlvisitor.AstVisitor):
         package = qualifiedName(node.scopedName()[:-1] + ['jni'])
 
         # Ensure the directory structure is there
-        path = '.'
-        for subdir in package.split('.'):
-            path = os.path.join(path, subdir)
-            if not os.path.isdir(path):
-                os.mkdir(path)
+        path = os.path.join(*package.split('.'))
+        try:
+            os.makedirs(path)
+        except OSError, e:
+            # If the leaf directory already existed (or was created in the
+            # interim), ignore the error
+            if e.errno != errno.EEXIST:
+                raise
 
         # Override library name with argument
         libname = self.__options.get('libname', None)

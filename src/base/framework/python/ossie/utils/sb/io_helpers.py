@@ -439,9 +439,13 @@ class _SourceBase(_DataPortBase):
         self.supportedPorts dictionary as indexed by the self._dataFormat
 
         """
-
-        for port in self.supportedPorts.values():
+        if self._dataFormat != None:
+            port = self.supportedPorts[self._dataFormat]
+            self._srcPortType = port["portType"]
             self._addUsesPort(port)
+        else:
+            for port in self.supportedPorts.values():
+                self._addUsesPort(port)
 
 
         if _domainless._DEBUG == True:

@@ -122,7 +122,7 @@ void CppTestDevice_base::loadProperties()
                 "allocation,configure");
 
     addProperty(disk_space,
-                100000000000,
+                100000000000LL,
                 "disk_space",
                 "disk_space",
                 "readonly",
@@ -140,7 +140,7 @@ void CppTestDevice_base::loadProperties()
                 "allocation,configure");
 
     addProperty(memory_capacity,
-                2147483648,
+                2147483648LL,
                 "memory_capacity",
                 "memory_capacity",
                 "readonly",

@@ -529,6 +529,19 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
                 self.assertEquals(r.value.value()[0], 11)
                 self.assertEquals(r.value.value()[1], 22)
 
+    def test_SimpleSequenceFromNil(self):
+        self.preconditions()
+
+        # Make sure that seq_long has at least 1 value to start
+        seq_long = CF.DataType(id='seq_long', value=any.to_any(None))
+        props = self._app.query([seq_long])
+        self.assertNotEqual(len(props[0].value.value()), 0)
+
+        # Set the sequence to 'nil' and check that it now has no values
+        self._app.configure([seq_long])
+        props = self._app.query([seq_long])
+        self.assertEqual(len(props[0].value.value()), 0)
+
 
 class CppCallbacksTest(scatest.CorbaTestCase):
     def test_Callbacks(self):

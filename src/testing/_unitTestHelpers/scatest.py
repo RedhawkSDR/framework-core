@@ -168,7 +168,7 @@ def spawnNodeBooter(dmdFile=None, dcdFile=None, debug=0, domainname=None, loggin
         args.extend(["-ORBendPoint", endpoint])
 
     if dbURI:
-        args.extend(["-dburl", dbURI])
+        args.extend(["--dburl", dbURI])
 
     args.extend(["-debug", str(debug)])
     if loggingURI is not None:

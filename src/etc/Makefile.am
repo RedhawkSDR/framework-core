@@ -21,6 +21,9 @@
 # Update etc scripts with appropriate paths
 # This setup for scripts taken from http://www.gnu.org/software/autoconf/manual/autoconf.html, section 4.8.2 (Installation Directory Variables)
 
+bashcompletionddir = $(sysconfdir)/bash_completion.d
+bashcompletiond_DATA = bash_completion.d/nodeBooter
+
 ldsoconfddir = $(sysconfdir)/ld.so.conf.d
 ldsoconfd_DATA = ld.so.conf.d/redhawk.conf
 

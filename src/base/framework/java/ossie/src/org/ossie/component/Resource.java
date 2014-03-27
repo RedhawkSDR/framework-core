@@ -247,7 +247,11 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
     }
 
     public String softwareProfile() {
-        return softwareProfile;
+        if (softwareProfile == null) {
+            return "";
+        } else {
+            return softwareProfile;
+        }
     }
 
     /**
@@ -567,6 +571,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
     /**
      * Protected initialize intended only to be used by start_component.
      * 
+     * @deprecated use {@link setup(String, String, String, ORB, POA)}
      * @param compId
      * @param orb
      * @throws WrongPolicy 
@@ -582,6 +587,23 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         tie._this(orb);
         resource = ResourceHelper.narrow(poa.servant_to_reference((Servant)tie));
         return resource;
+    }
+
+    /**
+     * Protected initialize intended only to be used by start_component.
+     * 
+     * @param compId
+     * @param compName
+     * @param softwareProfile
+     * @param orb
+     * @param poa
+     * @throws WrongPolicy 
+     * @throws ServantNotActive 
+     */
+    protected CF.Resource setup(final String compId, final String compName, final String softwareProfile, final ORB orb, final POA poa) throws ServantNotActive, WrongPolicy {
+        CF.Resource result = this.setup(compId, compName, orb, poa);
+        this.softwareProfile = softwareProfile;
+        return result;
     }
 
 
@@ -1097,7 +1119,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 	    System.out.println("                DEBUG_LEVEL:"+ debugLevel );
 	}
 
-        String profile = null;
+        String profile = "";
         if (execparams.containsKey("PROFILE_NAME")) {
             profile = execparams.get("PROFILE_NAME");
         }
@@ -1118,8 +1140,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 	logging.Configure( logcfg_uri, debugLevel, ctx );
 
         final Resource resource_i = clazz.newInstance();
-        final CF.Resource resource = resource_i.setup(identifier, nameBinding, orb, rootpoa);
-        resource_i.setAdditionalParameters(profile);
+        final CF.Resource resource = resource_i.setup(identifier, nameBinding, profile, orb, rootpoa);
         resource_i.initializeProperties(execparams);
 
 	resource_i.saveLoggingContext( logcfg_uri, debugLevel, ctx );
