@@ -188,7 +188,11 @@ class Resource(object):
             self._log.warning("getPort() could not find port %s", name)
             raise CF.PortSupplier.UnknownPort()
         else:
-            port = portdef.__get__(self)._this()
+            portobj = portdef.__get__(self)
+            if portobj == None:
+                self._log.warning("component did not implement port %s",name)
+                raise CF.PortSupplier.UnknownPort()
+            port = portobj._this()
             if not portdef.isValid(port):
                 self._log.warning("getPort() for %s did match required repid", name)
             self._log.trace("getPort() --> %s", port)

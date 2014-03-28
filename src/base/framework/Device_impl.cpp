@@ -155,7 +155,7 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
             _deviceManager->unregisterDevice(this->_this());
         } catch (...) {
             // SR:423
-            throw new CF::LifeCycle::ReleaseError();
+            throw CF::LifeCycle::ReleaseError();
         }
         LOG_DEBUG(Device_impl, "Done Releasing Device")
     }

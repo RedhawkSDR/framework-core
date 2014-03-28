@@ -25,8 +25,8 @@
 %define username redhawk
 
 Name:		redhawk
-Version:	1.8.6
-Release:        3%{?dist}
+Version:	1.8.7
+Release:        1%{?dist}
 Summary:	REDHAWK is a Software Defined Radio framework
 
 Group:		Applications/Engineering
@@ -43,7 +43,7 @@ Requires: libomniORB4.1
 Requires: libomniORBpy3-devel
 Requires: libomniEvents2
 Requires: expat
-%if "%{?rhel}" == "6"
+%if 0%{?rhel} >= 6 || 0%{?fedora} >= 12
 Requires: libuuid
 %define __arch_install_post %{nil}
 %else
@@ -55,7 +55,7 @@ Requires: apache-log4cxx >= 0.10
 Requires: boost >= 1.41
 Requires: java >= 1.6
 BuildRequires: autoconf automake libtool
-%if "%{?rhel}" == "6"
+%if 0%{?rhel} >= 6 || 0%{?fedora} >= 12
 BuildRequires: libuuid-devel
 %else
 BuildRequires: e2fsprogs-devel
@@ -118,7 +118,7 @@ Requires:       redhawk = %{version}-%{release}
 
 # Base dependencies
 Requires:       autoconf automake libtool
-%if "%{?rhel}" == "6"
+%if 0%{?rhel} >= 6 || 0%{?fedora} >= 12
 Requires:       libuuid-devel
 %else
 Requires:       e2fsprogs-devel
@@ -135,6 +135,11 @@ Requires:       gcc-c++
 Requires:       python-devel >= 2.4
 Requires:       java-devel >= 1.6
 
+# qtbrowse
+%if 0%{?rhel} == 7
+%else
+Requires:       PyQt
+%endif
 
 %description devel
 This package ensures that all requirements for REDHAWK development are installed. It also provides a useful development utilities.
@@ -162,6 +167,11 @@ rm -rf --preserve-root $RPM_BUILD_ROOT
 cd src
 make install DESTDIR=$RPM_BUILD_ROOT
 cp control/sdr/domain/DomainManager.dmd.xml $RPM_BUILD_ROOT%{_sdrroot}/dom/domain/
+
+%if 0%{?rhel} == 7
+rm $RPM_BUILD_ROOT%{_bindir}/qtbrowse
+rm -r $RPM_BUILD_ROOT%{_prefix}/lib/python/ossie/apps/qtbrowse
+%endif
 
 
 %clean
@@ -240,11 +250,13 @@ fi
 
 %files devel
 %defattr(-,%{username},%{groupname})
-%{_bindir}/qtbrowse
 %{_bindir}/prf2py.py
 %{_bindir}/py2prf
+%if 0%{?rhel} == 7
+%else
+%{_bindir}/qtbrowse
 %{_prefix}/lib/python/ossie/apps/qtbrowse
-
+%endif
 
 %post
 /sbin/ldconfig
@@ -254,6 +266,10 @@ fi
 
 
 %changelog
+* Tue Mar 18 2014 - 1.8.7-1
+- Improve OS version detection for RHEL/CentOS/Fedora
+- Exclude qtbrowse on el7
+
 * Fri May 24 2013 - 1.8.5-1
 - Stop overloading the python_sitelib macro
 - Don't create a circular dependency by requiring bulkio
@@ -264,7 +280,7 @@ fi
 - Minor fixes for docs, licensing
 - Explicitly require Java for build
 
-* Tue Mar 12 2012 - 1.8.3-4
+* Tue Mar 12 2013 - 1.8.3-4
 - Update licensing information
 - Add URL for website
 - Change group to a standard one, per Fedora

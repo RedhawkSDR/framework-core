@@ -216,10 +216,10 @@ class Device(resource.Resource):
                     # If we couldn't allocate enough capacity, add it back
                     success = len(successfulAllocations) == len(propDict)
                 
-                # if the allocations were not successful, then deallocate 
-                if not success:
-                    self._log.debug("failed")
-                    self._deallocateCapacities(successfulAllocations)
+                    # if the allocations were not successful, then deallocate 
+                    if not success:
+                        self._log.debug("failed")
+                        self._deallocateCapacities(successfulAllocations)
                         
             finally:
                 self._capacityLock.release()
