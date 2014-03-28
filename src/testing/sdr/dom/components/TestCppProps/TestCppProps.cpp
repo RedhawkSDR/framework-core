@@ -96,7 +96,7 @@ void TestCppProps::runTest (CORBA::ULong testId, CF::Properties& testValues)
         testSetNil(testValues);
         break;
     default:
-        throw new CF::TestableObject::UnknownTest();
+        throw CF::TestableObject::UnknownTest();
         break;
     }
 }

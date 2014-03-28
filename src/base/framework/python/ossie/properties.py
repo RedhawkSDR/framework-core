@@ -209,7 +209,7 @@ def to_xmlvalue(data, type_):
                 retval += v[v.find('.')+1:v.find('e')]
                 v=retval
     elif type_ == "boolean":
-        v = str(bool(v)).lower()
+        v = str(bool(data)).lower()
     elif type_ == "string": # Remove quotes added by repr
         v = v[1:-1]
     return v

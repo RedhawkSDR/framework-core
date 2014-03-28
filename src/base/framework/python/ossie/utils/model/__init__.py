@@ -301,7 +301,10 @@ class PortSupplier(object):
         manager = ConnectionManager.instance()
         for connectionId, (uses, provides) in manager.getConnectionsBetween(self, providesComponent).items():
             usesPortRef = uses.getReference()
-            usesPortRef.disconnectPort(connectionId)
+            try:
+                usesPortRef.disconnectPort(connectionId)
+            except:
+                pass
             if isinstance(providesComponent, PortSupplier):
                 providesComponent._disconnected(connectionId)
             manager.unregisterConnection(connectionId)
@@ -627,11 +630,14 @@ class Device(Resource):
         raise KeyError, "No allocation property '%s'" % name
 
     def _capacitiesToAny(self, props):
-        allocProps = []
-        for name, value in props.iteritems():
-            prop = self._getAllocProp(name)
-            allocProps.append(_CF.DataType(prop.id, prop.toAny(value)))
-        return allocProps
+        if isinstance(props, dict):
+            allocProps = []
+            for name, value in props.iteritems():
+                prop = self._getAllocProp(name)
+                allocProps.append(_CF.DataType(prop.id, prop.toAny(value)))
+            return allocProps
+        else:
+            return props
 
     def _get_adminState(self):
         if self.ref:
