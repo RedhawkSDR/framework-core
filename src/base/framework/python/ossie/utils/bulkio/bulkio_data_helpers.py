@@ -52,9 +52,7 @@ class ArraySource(object):
         self.port_type = porttype
         self.outPorts = {}
         self.refreshSRI = False
-        self.sri = BULKIO.StreamSRI(1, 0.0, 0.001, 1, 200, 0.0, 0.001, 1, 1,
-                                    "defaultStreamID", True, [])
-
+        self.sri=bulkio_helpers.defaultSRI
         self.port_lock = threading.Lock()
         self.done = False
 
@@ -208,8 +206,7 @@ class ArraySink(object):
             <porttype>        The BULKIO__POA data type
         """
         self.port_type = porttype
-        self.sri = BULKIO.StreamSRI(1, 0.0, 0.001, 1, 200, 0.0, 0.001, 1,
-                                    1, "defaultStreamID", True, [])
+        self.sri=bulkio_helpers.defaultSRI
         self.data = []
         self.timestamps = []
         self.gotEOS = False
@@ -392,8 +389,7 @@ class ProbeSink(object):
             <porttype>        The BULKIO__POA data type
         """
         self.port_type = porttype
-        self.sri = BULKIO.StreamSRI(1, 0.0, 0.001, 1, 200, 0.0, 0.001, 1,
-                                    1, "defaultStreamID", True, [])
+        self.sri=bulkio_helpers.defaultSRI
         self.data = []
         self.gotEOS = False
         self.port_lock = threading.Lock()
@@ -435,13 +431,19 @@ class ProbeSink(object):
                 log.warn("the received packet has the invalid stream ID: "+stream_id+". Valid stream IDs are:"+str(self.valid_streams.keys()))
             self.received_data[stream_id] = (self.received_data[stream_id][0] + len(data), self.received_data[stream_id][1] + 1)
             if EOS:
-                self.invalid_streams[H.streamID] = self.valid_streams[H.streamID]
-                tmp = self.valid_streams.pop(H.streamID)
+                self.invalid_streams[stream_id] = self.valid_streams[stream_id]
+                del self.valid_streams[stream_id]
                 self.gotEOS = True
             else:
                 self.gotEOS = False
         finally:
             self.port_lock.release()
+
+    def pushPacketXML(self, data, EOS, stream_id):
+        """
+        Adapts dataXML pushPacket to support underlying probe tracking.
+        """
+        self.pushPacket(data, None, EOS, stream_id)
 
     def getPort(self):
         """
@@ -469,9 +471,13 @@ class ProbeSink(object):
         #    bases:       A tuple containing all the base classes to use
         #    dct:         A dictionary containing all the attributes such as
         #                 functions, and class variables
+        if self.port_type == BULKIO__POA.dataXML:
+            pushPacket = self.pushPacketXML
+        else:
+            pushPacket = self.pushPacket
         PortClass = classobj('PortClass',
                              (self.port_type,),
-                             {'pushPacket':self.pushPacket,
+                             {'pushPacket':pushPacket,
                               'pushSRI':self.pushSRI})
 
         # Create a port using the generate Metaclass and return an instance
@@ -637,8 +643,7 @@ class FileSource(object):
         self.usesPortTypeDict = usesPortTypeDict
         self.refreshSRI = False
         # Create default SRI
-        self.sri = BULKIO.StreamSRI(1, 0.0, 0.001, 1, 200, 0.0, 0.001, 1, 1,
-                                        "defaultStreamID", True, [])
+        self.sri=bulkio_helpers.defaultSRI
 
         self.port_lock = threading.Lock()
         self.EOS = False
@@ -883,8 +888,7 @@ class FileSink(object):
             self.outFile = None
 
         self.port_type = porttype
-        self.sri = BULKIO.StreamSRI(1, 0.0, 0.001, 1, 200, 0.0, 0.001, 1,
-                                    1, "defaultStreamID", True, [])
+        self.sri=bulkio_helpers.defaultSRI
         self.data = []
         self.gotEOS = False
         self.port_lock = threading.Lock()

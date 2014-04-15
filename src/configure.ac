@@ -93,6 +93,10 @@ AC_SUBST(ENABLE_EVENTS_FLAGS, [-DENABLE_EVENTS=1])
 AM_CONDITIONAL(ENABLE_EVENTS, [true])
 
 AC_CHECK_PROG([IDL], [omniidl], [omniidl], [no])
+if test "$IDL" = no; then
+  AC_MSG_ERROR([cannot find omniidl program])
+fi
+
 AC_MSG_CHECKING([for default IDL path])
 idldir=`pkg-config --variable=idldir omniORB4`
 AC_MSG_RESULT([$idldir])
@@ -127,10 +131,6 @@ OSSIE_ENABLE_PERSISTENCE
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-if test "$IDL" = no; then
-  AC_MSG_ERROR([cannot find omniidl program])
-fi
-
 AC_ARG_ENABLE([xml_validation], AS_HELP_STRING([--disable-xml-validation], [Disable xml validation in the parsers]))
 AC_MSG_CHECKING([if xml parsers should perform validation])
 if test "x$enable_xml_validation" != "xno"; then
@@ -160,7 +160,7 @@ if test "x$enable_java" != "xno"; then
   RH_JAVA_VENDOR
 
   # Locate headers we need
-  RH_HAVA_JNI_H
+  RH_JAVA_JNI_H
 
   if test "$JAVA_HOME" != "no" -a \
           "$JAVAC" != "no" -a \

@@ -27,11 +27,16 @@ AC_DEFUN([OSSIE_OSSIEHOME],
   AC_CACHE_CHECK([for ossie home], ossie_cv_ossie_home,
   [
     AC_ARG_WITH(ossie,
-      AC_HELP_STRING([--with-ossie], [ossie root directory, defaults to prefix]),
+      AC_HELP_STRING([--with-ossie], [ossie root directory (default from environment variable 'OSSIEHOME', otherwise from prefix)]),
       ossie_cv_ossie_home=$withval,
-      AS_IF([test "x${OSSIEHOME}" != "x"], [ossie_cv_ossie_home=${OSSIEHOME}],
-            [test "x${prefix}" != "xNONE"], [ossie_cv_ossie_home=${prefix}],
-            [ossie_cv_ossie_home=$ac_default_prefix]))
+      if test "x${OSSIEHOME}" != "x"; then
+        ossie_cv_ossie_home=${OSSIEHOME}
+      elif test "x${prefix}" != "xNONE"; then
+        ossie_cv_ossie_home=${prefix}
+      else
+        ossie_cv_ossie_home=$ac_default_prefix
+      fi
+    )
 
     dnl Check if this is a cross, if so prepend the sysroot to the ossie home
     AS_IF([test "x$cross_compiling" = "xyes"], [
@@ -86,7 +91,7 @@ AC_DEFUN([OSSIE_SDRROOT_IGNORE_PREFIX],
   AC_CACHE_CHECK([for sdr root], ossie_cv_sdr_root,
   [
     AC_ARG_WITH(sdr,
-      AC_HELP_STRING([--with-sdr], [sdr root directory, defaults to prefix]),
+      AC_HELP_STRING([--with-sdr], [sdr root directory (default from environment variable 'SDRROOT', otherwise /var/redhawk/sdr)]),
       ossie_cv_sdr_root=$withval,
       AS_IF([test "x${SDRROOT}" != "x"], [ossie_cv_sdr_root=${SDRROOT}],
             [ossie_cv_sdr_root=/var/redhawk/sdr]))
@@ -103,11 +108,16 @@ AC_DEFUN([OSSIE_SDRROOT],
   AC_CACHE_CHECK([for sdr root], ossie_cv_sdr_root,
   [
     AC_ARG_WITH(sdr,
-      AC_HELP_STRING([--with-sdr], [sdr root directory, defaults to prefix]),
+      AC_HELP_STRING([--with-sdr], [sdr root directory (default from environment variable 'SDRROOT', otherwise from prefix)]),
       ossie_cv_sdr_root=$withval,
-      AS_IF([test "x${SDRROOT}" != "x"], [ossie_cv_sdr_root=${SDRROOT}],
-            [test "x${prefix}" != "xNONE"], [ossie_cv_sdr_root=${prefix}],
-            [ossie_cv_sdr_root=$ac_default_prefix]))
+      if test "x${SDRROOT}" != "x"; then
+        ossie_cv_sdr_root=${SDRROOT}
+      elif test "x${prefix}" != "xNONE"; then
+        ossie_cv_sdr_root=${prefix}
+      else
+        ossie_cv_sdr_root=$ac_default_prefix
+      fi
+    )
   ])
   AC_SUBST(SDR_ROOT, $ossie_cv_sdr_root)
 ])

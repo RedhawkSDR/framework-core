@@ -24,20 +24,21 @@
 PREPARE_LOGGING(Resource_impl)
 
 Resource_impl::Resource_impl (const char* _uuid) :
+    _started(false),
     component_running_mutex(),
-    component_running(&component_running_mutex)
+    component_running(&component_running_mutex),
+    _identifier(_uuid)
 {
-    _identifier = _uuid;
-
 }
 
 
 Resource_impl::Resource_impl (const char* _uuid, const char *label) :
+    _started(false),
     component_running_mutex(),
-    component_running(&component_running_mutex)
+    component_running(&component_running_mutex),
+    _identifier(_uuid),
+    naming_service_name(label)
 {
-    _identifier = _uuid;
-    naming_service_name = label;
 }
 
 
@@ -49,12 +50,14 @@ void Resource_impl::setAdditionalParameters(std::string softwareProfile)
 
 void Resource_impl::start () throw (CORBA::SystemException, CF::Resource::StartError)
 {
+    startPorts();
     _started = true;
 }
 
 
 void Resource_impl::stop () throw (CORBA::SystemException, CF::Resource::StopError)
 {
+    stopPorts();
     _started = false;
 }
 
@@ -74,8 +77,10 @@ CORBA::Boolean Resource_impl::started () throw (CORBA::SystemException)
     return _started;
 }
 
-void Resource_impl::releaseObject()
-throw (CORBA::SystemException, CF::LifeCycle::ReleaseError) {
+void Resource_impl::releaseObject() throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
+{
+    releasePorts();
+    
     PortableServer::POA_ptr root_poa = ossie::corba::RootPOA();
     PortableServer::ObjectId_var oid = root_poa->servant_to_id(this);
     root_poa->deactivate_object(oid);
@@ -96,94 +101,6 @@ void Resource_impl::halt() {
     LOG_TRACE(Resource_impl, "Sending device running signal");
     component_running.signal();
     LOG_TRACE(Resource_impl, "Done sending device running signal");
-}
-
-void Resource_impl::registerInPort(Port_Provides_base_impl *port) {
-    std::string portName(port->getName());
-    std::map<std::string, Port_Provides_base_impl *>::iterator p;
-    if (( p = inPorts.find(portName)) != inPorts.end()) {
-        // port is already registered. Assume that the new one must replace the old one
-        PortableServer::ServantBase* ptr = dynamic_cast<PortableServer::ServantBase*>(p->second);
-        if (ptr) {
-            PortableServer::ObjectId_var oid;
-            PortableServer::POA_ptr poa = ossie::corba::RootPOA();
-            oid = poa->servant_to_id(ptr);
-            poa->deactivate_object(oid);
-        }
-        delete p->second;
-        inPorts.erase(p);
-    }
-    inPorts.insert(std::pair<std::string, Port_Provides_base_impl *>(portName, port));
-}
-
-void Resource_impl::registerOutPort(Port_Uses_base_impl *port, CF::Port_ptr ref) {
-    std::string portName(port->getName());
-    std::map<std::string, Port_Uses_base_impl *>::iterator p;
-    if (( p = outPorts.find(portName)) != outPorts.end()) {
-        // port is already registered. Assume that the new one must replace the old one
-        PortableServer::ServantBase* ptr = dynamic_cast<PortableServer::ServantBase*>(p->second);
-        if (ptr) {
-            PortableServer::ObjectId_var oid;
-            PortableServer::POA_ptr poa = ossie::corba::RootPOA();
-            oid = poa->servant_to_id(ptr);
-            poa->deactivate_object(oid);
-        }
-        delete p->second;
-        outPorts.erase(p);
-    }
-    outPorts.insert(std::pair<std::string, Port_Uses_base_impl *>(portName, port));
-    outPorts_var.erase(portName);
-    outPorts_var.insert(std::pair<std::string, CF::Port_var>(portName, ref));
-}
-
-void Resource_impl::releaseInPorts() {
-    deactivateInPorts();
-    std::map<std::string, Port_Provides_base_impl *>::iterator p;
-    while (inPorts.size() != 0) {
-        p = inPorts.begin();
-        inPorts.erase(p);
-    }
-}
-
-void Resource_impl::releaseOutPorts() {
-    deactivateOutPorts();
-    std::map<std::string, Port_Uses_base_impl *>::iterator p;
-    std::map<std::string, CF::Port_var>::iterator p_var;
-    while (outPorts_var.size() != 0) {
-        p_var = outPorts_var.begin();
-        outPorts_var.erase(p_var);
-    }
-    while (! outPorts.empty() ) {
-        p = outPorts.begin();
-        (p->second)->releasePort();
-        outPorts.erase(p);
-    }
-}
-
-void Resource_impl::deactivateOutPorts() {
-    PortableServer::ObjectId_var oid;
-    PortableServer::POA_ptr poa = ossie::corba::RootPOA();
-    std::map<std::string, Port_Uses_base_impl *>::iterator p;
-    for (p = outPorts.begin(); p != outPorts.end(); p++) {
-        PortableServer::ServantBase* ptr = dynamic_cast<PortableServer::ServantBase*>(p->second);
-        if (ptr) {
-            oid = poa->servant_to_id(ptr);
-            poa->deactivate_object(oid);
-        }
-    }
-}
-
-void Resource_impl::deactivateInPorts() {
-    PortableServer::ObjectId_var oid;
-    PortableServer::POA_ptr poa = ossie::corba::RootPOA();
-    std::map<std::string, Port_Provides_base_impl *>::iterator p;
-    for (p = inPorts.begin(); p != inPorts.end(); p++) {
-        PortableServer::ServantBase* ptr = dynamic_cast<PortableServer::ServantBase*>(p->second);
-        if (ptr) {
-            oid = poa->servant_to_id(ptr);
-            poa->deactivate_object(oid);
-        }
-    }
 }
 
 void Resource_impl::setCurrentWorkingDirectory(std::string& cwd) {

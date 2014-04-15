@@ -62,6 +62,8 @@ Helpers are provided to manage data
       Push data from a file into components and back.
   - MessageSource(), MessageSink():
       Push messages from Python to components and back.
+  - SoundSink():
+      Playback audio data from BULKIO streams
   - compareSRI():
       Compares the content of two SRI values
   - orb:
@@ -122,3 +124,4 @@ except:
     pass
 
 from plots import *
+from audio import *

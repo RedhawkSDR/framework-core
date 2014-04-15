@@ -23,6 +23,6 @@ distclean-local:
 include $(srcdir)/Makefile.am.ide
 ProgrammableDevice_SOURCES = $(redhawk_SOURCES_auto)
 ProgrammableDevice_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(OMNIORB_CFLAGS) $(OMNITHREAD_CFLAGS) $(OMNIDYNAMIC_CFLAGS)  $(redhawk_INCLUDES_auto) -I$(CFDIR)/include
-ProgrammableDevice_LDADD = $(BOOST_LDFLAGS) $(BOOST_THREAD_LIB) $(OMNICOS_LIBS) $(OMNITHREAD_LIBS) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la -ldl
+ProgrammableDevice_LDADD = $(BOOST_LDFLAGS) $(BOOST_THREAD_LIB) $(BOOST_SYSTEM_LIB) $(OMNICOS_LIBS) $(OMNITHREAD_LIBS) $(OMNIDYNAMIC_LIBS) $(CFDIR)/framework/libossiecf.la $(CFDIR)/framework/idl/libossieidl.la -ldl
 ProgrammableDevice_LDFLAGS = -Wall $(redhawk_LDFLAGS_auto)
 

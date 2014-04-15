@@ -48,6 +48,9 @@ Plotting (matplotlib/PyQt4-based):
   - RasterPSD():
       Falling raster (2D image) plot of the power spectral density (PSD) of input signal
 
+Sound:
+  - SoundSink()
+
 Plotting (REDHAWK IDE-based)
   - Plot():
       Provides a way to display data from a particular port.
@@ -391,9 +394,9 @@ class overloadContainer:
         self.type = type
 
 def overloadProperty(component, simples=None, simpleseq=None, struct=None, structseq=None):
-    if len(component._propertySet) > 0:
-        allProps = dict([(str(prop.id),prop) for prop in component._propertySet])
-        for entry in component._propertySet:
+    if len(component._properties) > 0:
+        allProps = dict([(str(prop.id),prop) for prop in component._properties])
+        for entry in component._properties:
             if entry.mode == "readonly":
                 continue
             for overload in simples:
@@ -509,7 +512,7 @@ def loadSADFile(filename, props={}):
             log.debug("COMPONENT FILE type '%s'", component.get_type())
             try:
                 localfile = 'dom' + component.get_localfile().get_name()
-                spdFilename = sdrroot.findProfile(localfile)
+                spdFilename = sdrroot.findProfile(localfile,filter="component")
                 log.debug("Found softpkg '%s'", spdFilename)
                 validRequestedComponents[component.get_id()] = spdFilename
             except:
@@ -583,7 +586,7 @@ def loadSADFile(filename, props={}):
                     simple_exec_vals[container.id] = container.value
                 try:
                     # NB: Explicitly request no configure call is made on the component
-                    newComponent = launch(componentName,instanceName,instanceID,configure=None,execparams=simple_exec_vals)
+                    newComponent = launch(componentName, "component", instanceName,instanceID,configure=None,execparams=simple_exec_vals)
                     launchedComponents.append(newComponent)
                 except:
                     log.exception("Failed to launch component '%s'", instanceName)
@@ -725,7 +728,7 @@ def loadSADFile(filename, props={}):
                                 values_vals = props[structseq.refid]
                                 props.pop(structseq.refid)
                             structseq_vals.append(overloadContainer(str(structseq.refid),values_vals))
-                    if len(sandboxComponent._propertySet) > 0:
+                    if len(sandboxComponent._properties) > 0:
                         overloadProperty(sandboxComponent, simple_vals, simpleseq_vals, struct_vals, structseq_vals)
             if assemblyController:
                 prop_types = {}
@@ -743,7 +746,7 @@ def loadSADFile(filename, props={}):
                 prop_types['structseq'] = ([str(prop_iter.get_id()) for prop_iter in prop_set], [])
                 prop_to_pop = []
                 for prop in props:
-                    for prop_check in sandboxComponent._propertySet:
+                    for prop_check in sandboxComponent._properties:
                         if prop_check.id == prop:
                             for prop_type_check in prop_types:
                                 if prop in prop_types[prop_type_check][0]:
@@ -778,11 +781,17 @@ def setSDRROOT(newRoot):
         # Turn RuntimeErrors into AssertionErrors to match legacy expectation.
         raise AssertionError, "Cannot set SDRROOT: '%s'" % e
 
-def catalog(searchPath=None, printResults=False, returnSPDs=False):
+def catalog(searchPath=None, printResults=False, returnSPDs=False, filter="components"):
     '''
-    Lists all available components in $SDRROOT
+    Lists all available types in $SDRROOT
+    Arguments
+     searchPath     - specify the directory to search
+     printResults   - prints results on seperate lines
+     returnSPDs     - prints the name of each spd file
+     filter         - specify the object type to list. Default is components.
+                      devices and services can also be requested
     '''
-    profiles = _getSandbox().catalog(searchPath)
+    profiles = _getSandbox().catalog(searchPath, filter)
     componentNames = profiles.keys()
     componentNames.sort()
     spdFilesWithFullPath = profiles.values()
@@ -799,6 +808,7 @@ def catalog(searchPath=None, printResults=False, returnSPDs=False):
     else:
         return componentNames
 
+
 class Component(object):
     """
     DEPRECATED. Use launch() method to launch components instead.
@@ -814,6 +824,7 @@ class Component(object):
     """
     def __new__(self,
                  componentDescriptor = None,
+                 filter              = None,
                  instanceName        = None,
                  refid               = None,
                  autoKick            = True,
@@ -830,7 +841,7 @@ class Component(object):
                 configure = None
             else:
                 configure = kwargs
-            return launch(componentDescriptor, instanceName, refid, impl, debugger, execparams=execparams, configure=configure)
+            return launch(componentDescriptor, filter, instanceName, refid, impl, debugger, execparams=execparams, configure=configure)
         except RuntimeError, e:
             # Turn RuntimeErrors into AssertionErrors to match legacy expectation.
             raise AssertionError, "Unable to launch component: '%s'" % e
@@ -881,7 +892,7 @@ def start():
 def stop():
     _getSandbox().stop()
 
-def launch(descriptor, instanceName=None, refid=None, impl=None,
+def launch(descriptor, filter=None, instanceName=None, refid=None, impl=None,
            debugger=None, window=None, execparams={}, configure={},
            initialize=True, timeout=None):
     """
@@ -897,6 +908,9 @@ def launch(descriptor, instanceName=None, refid=None, impl=None,
     Arguments:
       descriptor   - An absolute path to an SPD file, or the name of a softpkg
                      in SDRROOT.
+      filter       - The type that you would like to launch. Options are
+                     component, device, or service.  If not given, all 
+                     types will be searched for with the descriptor given.
       instanceName - Unique name of this softpackage instance. If not given,
                      one will be generated based on the SPD name.
       refid        - Unique ID of this softpackage instance. If not given, a
@@ -918,7 +932,7 @@ def launch(descriptor, instanceName=None, refid=None, impl=None,
                      given, the default is 10 seconds, except when running with
                      a debugger, in which case the default is 60 seconds.
     """
-    return _getSandbox().launch(descriptor, instanceName, refid, impl, debugger,
+    return _getSandbox().launch(descriptor, filter, instanceName, refid, impl, debugger,
                                 window, execparams, configure, initialize, timeout)
 
 def createEventChannel(name, exclusive=False):

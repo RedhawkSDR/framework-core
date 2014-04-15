@@ -89,8 +89,12 @@ $(COMPLEX_SEQUENCES) : src/org/ossie/properties/ComplexSequenceProperty.template
 OSSIE_SOURCE = src/org/ossie/component/AllocCapacity.java \
 	       src/org/ossie/component/Device.java \
 	       src/org/ossie/component/ProvidesPort.java \
+	       src/org/ossie/component/ProcessThread.java \
 	       src/org/ossie/component/QueryableUsesPort.java \
 	       src/org/ossie/component/Resource.java \
+	       src/org/ossie/component/ThreadedComponent.java \
+	       src/org/ossie/component/ThreadedDevice.java \
+	       src/org/ossie/component/ThreadedResource.java \
 	       src/org/ossie/component/Service.java \
 	       src/org/ossie/component/UsesPort.java \
 	       src/org/ossie/logging/logging.java \
@@ -138,15 +142,15 @@ OSSIE_SOURCE += $(COMPLEX_PROPERTIES)
 OSSIE_SOURCE += $(COMPLEX_SEQUENCES)
 
 src/fileList.txt : $(OSSIE_SOURCE)
-	echo $^ > src/fileList.txt
+	$(AM_V_at)echo $^ > src/fileList.txt
 
 # Additional Java compiler flags
 CLASSPATH = ../apache-commons-lang-2.4.jar:../CFInterfaces.jar:../log4j-1.2.15.jar
 JAVAFLAGS = -source 1.5 -g -Xlint:deprecation -Xlint:unchecked -cp $(CLASSPATH)
 
 ossie.jar : src/fileList.txt
-	rm -rf bin
-	mkdir -p bin
+	$(AM_V_at)rm -rf bin
+	$(AM_V_at)mkdir -p bin
 	$(JAVAC) $(JAVAFLAGS) -d bin @src/fileList.txt
 	$(JAR) cf ossie.jar -C bin  .
 	$(JAR) uf ossie.jar -C src  .

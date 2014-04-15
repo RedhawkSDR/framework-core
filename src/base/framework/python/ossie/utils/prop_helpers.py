@@ -17,7 +17,6 @@
 # You should have received a copy of the GNU Lesser General Public License 
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
-
 from ossie.properties import _SCA_TYPES
 from ossie.properties import __TYPE_MAP
 from ossie.properties import getPyType 
@@ -39,7 +38,7 @@ import operator as _operator
 import warnings as _warnings
 from ossie.utils.type_helpers import OutOfRangeException
 from ossie.utils.formatting import TablePrinter
-
+from ossie.parsers.prf import configurationKind as _configurationKind
 SCA_TYPES = globals()['_SCA_TYPES']
 
 # Map the type of the complex number (e.g., complexFloat) to the 
@@ -217,7 +216,6 @@ def getPropNameDict(prf):
 
 _displayNames = {}
 _duplicateNames = {}
-
 '''
 -Maps a properties clean, display and access name to its ID
 -Prevents duplicate entries within a component
@@ -266,8 +264,8 @@ def isMatch(prop, modes, kinds, actions):
         matchAction = (a in actions)
 
         matchKind = False
-        if prop.get_kind() == None:
-            k = ["configure"]
+        if prop.get_kind() == None or prop.get_kind() == []:
+            k = [_configurationKind()]
         else:
             k = prop.get_kind()
         for kind in k:
@@ -290,8 +288,8 @@ def isMatch(prop, modes, kinds, actions):
         matchAction = True # There is no action, so always match
 
         matchKind = False
-        if prop.get_configurationkind() == None:
-            k = ["configure"]
+        if prop.get_configurationkind() == None or prop.get_configurationkind() == []:
+            k = [_configurationKind()]
         else:
             k = prop.get_configurationkind()
         for kind in k:
@@ -342,7 +340,7 @@ class Property(object):
         enums = []
         value = None
         defVal = None
-        for i in self.compRef._propertySet:
+        for i in self.compRef._properties:
             if i.clean_name == prop.id_:
                 for k in prop.get_configurationkind():
                     kinds.append(k.get_kindtype())
@@ -411,7 +409,7 @@ class Property(object):
             simpleTable = TablePrinter('Index','Name','Value')
             simpleTable.limit_column(1,30)
             simpleTable.limit_column(2,35)
-            for i in self.compRef._propertySet:
+            for i in self.compRef._properties:
                 if i.type == "structSeq" and self.mode != "writeonly":
                     for s in i:
                         structNum +=1
@@ -787,17 +785,14 @@ class simpleProperty(Property):
         return _CORBA.Any(self.typecode, value)
 
     def __repr__(self, *args):
-        value = self.queryValue()
-        if value != None:
-            print str(value),
+        if self.mode != "writeonly":
+            value = self.queryValue()
+            if value != None:
+                print str(value),
         return ''
         
     def __str__(self, *args):
-        value = self.queryValue()
-        if value != None:
-            return str(value)
-        else:
-            return ''
+        return self.__repr__()
 
     def enums(self):
         print self._enums
@@ -957,10 +952,12 @@ class sequenceProperty(Property):
     sort = Property.proxy_modifier_function(list.sort)
 
     def __repr__(self):
-        return repr(self.queryValue())
+        if self.mode != "writeonly":
+            return repr(self.queryValue())
+        return ''
     
     def __str__(self):
-        return str(self.queryValue())
+        return self.__repr__()
     
             
 class structProperty(Property):
@@ -1042,6 +1039,9 @@ class structProperty(Property):
         for member in self.members.itervalues():
             if name == member.clean_name:
                 return member
+        for member in self.members.itervalues():
+            if name in member.clean_name and _duplicateNames[self.compRef._refid].has_key(name):
+                return member              
         return None
 
     @property
@@ -1102,14 +1102,12 @@ class structProperty(Property):
         super(structProperty,self).configureValue(value)
     
     def __str__(self):
-        currValue = self.queryValue()
-        structView = "ID: " + self.id
-        for key in currValue:
-            structView = structView + '\n  ' + str(self.members[key].clean_name) + ": " + str(currValue[key])
-        return structView
+        return self.__repr__()
     
     def __repr__(self):
-        currValue = self.queryValue()
+        currValue = ""
+        if self.mode != "writeonly":
+            currValue = self.queryValue()
         structView = "ID: " + self.id
         for key in currValue:
             structView = structView + '\n  ' + str(self.members[key].clean_name) + ": " + str(currValue[key])

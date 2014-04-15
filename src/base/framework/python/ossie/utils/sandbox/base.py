@@ -22,7 +22,7 @@ import os
 import logging
 import copy
 import weakref
-
+import warnings as _warnings
 from ossie import parsers
 from ossie.cf import CF
 from ossie.utils import log4py
@@ -59,7 +59,8 @@ class SdrRoot(object):
 
         return spd, scd, prf
 
-    def findProfile(self, descriptor):
+    def findProfile(self, descriptor, filter):
+        filterMatches = []
         if self._fileExists(descriptor):
             try:
                 spd = parsers.spd.parseString(self._readFile(descriptor))
@@ -67,16 +68,24 @@ class SdrRoot(object):
                 return self._sdrPath(descriptor)
             except:
                 pass
-        for profile in self.getProfiles():
+        for profile in self.getProfiles(filter):
             try:
                 spd = parsers.spd.parseString(self._readFile(profile))
                 if spd.get_name() == descriptor:
                     log.trace("Softpkg name '%s' found in '%s'", descriptor, profile)
-                    return profile
+                    filterMatches.append(profile)
             except:
                 log.warning('Could not parse %s', profile)
                 continue
-
+        if len(filterMatches) == 1:
+            return filterMatches[0]
+        elif len(filterMatches) > 1:
+            print "There are multiple object types with the name '%s'" % descriptor
+            for type in filterMatches:
+                print " ", type
+            print 'Filter the object type as a "component", "device", or "service".'
+            print 'Try sb.launch("<descriptor>", filter="<objectType>")'
+            return None
         raise ValueError, "'%s' is not a valid softpkg name or SPD file" % descriptor
 
 
@@ -146,12 +155,15 @@ class Sandbox(object):
             # Bring down current component process and re-launch it.
             component.reset()
 
-    def launch(self, descriptor, instanceName=None, refid=None, impl=None,
+    def launch(self, descriptor, filter, instanceName=None, refid=None, impl=None,
                debugger=None, window=None, execparams={}, configure={},
                initialize=True, timeout=None):
         sdrRoot = self.getSdrRoot()
         # Parse the component XML profile.
-        profile = sdrRoot.findProfile(descriptor)
+        
+        profile = sdrRoot.findProfile(descriptor, filter)
+        if not profile:
+            return None
         spd, scd, prf = sdrRoot.readProfile(profile)
         name = spd.get_name()
         if not scd:
@@ -226,6 +238,12 @@ class SandboxComponent(ComponentBase):
 
     @property
     def _ports(self):
+        #DEPRECATED: replaced with ports
+        _warnings.warn("'_ports' is deprecated", DeprecationWarning)
+        return self.ports
+ 
+    @property
+    def ports(self):
         if self.__ports == None:
             self.__ports = self._populatePorts()
         return self.__ports
@@ -242,6 +260,7 @@ class SandboxComponent(ComponentBase):
 
     def releaseObject(self):
         # Break any connections involving this component.
+        self.__ports = self._populatePorts()
         manager = ConnectionManager.instance()
         for identifier, (uses, provides) in manager.getConnections().items():
             if uses.hasComponent(self) or provides.hasComponent(self):

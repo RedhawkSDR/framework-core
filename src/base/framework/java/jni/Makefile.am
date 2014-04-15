@@ -61,4 +61,4 @@ COSPREFIX = org.omg
 IDLJNIFLAGS = $(COSPKGS:%=-Wbpkgprefix=%:$(COSPREFIX))
 
 ossie/CF/jni_%.cpp ossie/CF/jni_%.h : $(OSSIE_IDLDIR)/ossie/CF/%.idl | ossie/CF
-	$(OMNIJNI_IDLJNI) -Wbincprefix=ossie/CF $(IDLJNIFLAGS) -C ossie/CF $(IDLFLAGS) $<
+	$(AM_V_GEN)$(OMNIJNI_IDLJNI) -Wbincprefix=ossie/CF $(IDLJNIFLAGS) -C ossie/CF $(IDLFLAGS) $<

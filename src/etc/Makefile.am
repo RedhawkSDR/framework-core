@@ -42,7 +42,7 @@ edit = $(SED) \
   -e 's|@lib[@]|$(lib)|g'
 
 $(ldsoconfd_DATA) $(profiled_DATA): Makefile
-	$(edit) $@.in > $@
+	$(AM_V_GEN)$(edit) $@.in > $@
 
 ld.so.conf.d/redhawk.conf: ld.so.conf.d/redhawk.conf.in
 profile.d/redhawk.sh: profile.d/redhawk.sh.in

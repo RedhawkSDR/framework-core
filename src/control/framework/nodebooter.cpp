@@ -410,23 +410,24 @@ void usage()
     std::cerr << "    nodeBooter -D <optional dmd path> -d dcd path <optional flags>" << std::endl << std::endl;
 
     std::cerr << "Configuration:" << std::endl;
-    std::cerr << "    --help                  display this help and exit" << std::endl;
-    std::cerr << "    -D <optional dmd path>  start DomainManager" << std::endl;
-    std::cerr << "    -d <dcd path>           start DeviceManager" << std::endl;
-    std::cerr << "    -sdrroot <abs path>     set sdr root with absolute path to sdr directory" << std::endl;
-    std::cerr << "    -sdrcache <abs path>    set sdr cache with absolute path to cache directory" << std::endl;
-    std::cerr << "    -debug                  Set the threshold used for logging, the default is 3 (5=TRACE,4=DEBUG,3=INFO,2=WARN,1=ERROR,0=FATAL)." << std::endl << std::endl;
-    std::cerr << "    -logcfgfile <config file>  pass in a logging config file uri." << std::endl;
-    std::cerr << "    --dburl                 store domain state in the following URL" << std::endl;
-    std::cerr << "    --nopersist             disable DomainManager IOR persistence" << std::endl;
-    std::cerr << "    --force-rebind          overwrite any existing name binding for the DomainManager" << std::endl;
-    std::cerr << "    --daemon                Run as UNIX daemon." << std::endl;
-    std::cerr << "    --pidfile <filename>    Save PID in the specified file." << std::endl;
-    std::cerr << "    --user <username>       Run as the specified user." << std::endl;
-    std::cerr << "    --group <groupname>     Run as the specified group." << std::endl;
-    std::cerr << "    --ORBport <portnumber>  Change the port number used by the Domain Manager to listen (only valid with the -D option)." << std::endl;
-    std::cerr << "    --ORBInitRef <ip address>  Change the ip address used by the Device Manager to find the naming service (only valid with the -d option)." << std::endl;
-    std::cerr << "    --domainname <domain name> override the domain name specified in the configuration file." << std::endl << std::endl;
+    std::cerr << "    --help                     Display this help and exit" << std::endl;
+    std::cerr << "    -D <optional dmd path>     Start DomainManager" << std::endl;
+    std::cerr << "    -d <dcd path>              Start DeviceManager" << std::endl;
+    std::cerr << "    -sdrroot <abs path>        Set sdr root with absolute path to sdr directory" << std::endl;
+    std::cerr << "    -sdrcache <abs path>       Set sdr cache with absolute path to cache directory" << std::endl;
+    std::cerr << "    -debug                     Set the threshold used for logging, the default is 3 (5=TRACE,4=DEBUG,3=INFO,2=WARN,1=ERROR,0=FATAL)" << std::endl << std::endl;
+    std::cerr << "    -logcfgfile <config file>  Pass in a logging config file uri" << std::endl;
+    std::cerr << "    --dburl                    Store domain state in the following URL" << std::endl;
+    std::cerr << "    --nopersist                Disable DomainManager IOR persistence" << std::endl;
+    std::cerr << "    --force-rebind             Overwrite any existing name binding for the DomainManager" << std::endl;
+    std::cerr << "    --daemon                   Run as UNIX daemon" << std::endl;
+    std::cerr << "    --pidfile <filename>       Save PID in the specified file" << std::endl;
+    std::cerr << "    --user <username>          Run as the specified user" << std::endl;
+    std::cerr << "    --group <groupname>        Run as the specified group" << std::endl;
+    std::cerr << "    --ORBport <portnumber>     Change the port number used by the Domain Manager to listen (only valid with the -D option)" << std::endl;
+    std::cerr << "    --ORBInitRef <ip address>  Change the ip address used by the Device Manager to find the naming service (only valid with the -d option)" << std::endl;
+    std::cerr << "    --domainname <domain name> Override the domain name specified in the configuration file" << std::endl;
+    std::cerr << "    --version                  Print the REDHAWK version and then exit" << std::endl << std::endl;
     std::cerr << std::endl;
 
     std::cerr << "In addition to the arguments mentioned above, there is an special argument '--'." << std::endl;
@@ -891,6 +892,10 @@ int main(int argc, char* argv[])
 
         if( strcmp( argv[i], "--help" ) == 0 ) {
             usage();
+            exit(EXIT_SUCCESS);
+        }
+        if( strcmp( argv[i], "--version" ) == 0 ) {
+            std::cout<<"REDHAWK version: "<<VERSION<<std::endl;
             exit(EXIT_SUCCESS);
         }
         if (strcmp(argv[i], "--nopersist") == 0) {

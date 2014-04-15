@@ -38,10 +38,11 @@ from ossie.properties import getCFType
 from ossie.properties import getMemberType
 from ossie.cf import ExtendedCF as _ExtendedCF
 from ossie.utils.formatting import TablePrinter
-
+import warnings as _warnings
 from connect import *
 
 _DEBUG = False 
+_trackLaunchedApps = True
 
 _idllib = idllib.IDLLibrary()
 if 'OSSIEHOME' in _os.environ:
@@ -60,7 +61,16 @@ def setDEBUG(debug=False):
     _DEBUG = debug
     
 def getDEBUG():
+    global _DEBUG
     return _DEBUG
+
+def setTrackApps(track=False):
+    global _trackLaunchedApps
+    _trackLaunchedApps = track
+
+def getTrackApps():
+    global _trackLaunchedApps
+    return _trackLaunchedApps
 
 def _uuidgen():
     return _commands.getoutput('uuidgen')
@@ -233,7 +243,7 @@ class PortSupplier(object):
             connectionId = str(_uuidgen())
             
         if isinstance(providesComponent, PortSupplier):
-            log.debug('Provides side is PortSupplier')
+            log.trace('Provides side is PortSupplier')
             # Remote side supports multiple ports.
             if providesPortName and usesPortName:
                 # Both ports given.
@@ -260,6 +270,7 @@ class PortSupplier(object):
             else:
                 # No port names given, attempt to negotiate.
                 matches = []
+                uses = None
                 for usesPort in self._usesPortDict.values():
                     uses = PortEndpoint(self, usesPort)
                     matches.extend((uses, provides) for provides in providesComponent._matchUsesPort(usesPort, connectionId))
@@ -270,11 +281,14 @@ class PortSupplier(object):
                         ret_str += "  Interface: "+match[0].getInterface()+", component/port:  "+match[0].getName()+"     "+match[1].getName()+"\n"
                     raise RuntimeError, ret_str
                 elif len(matches) == 0:
-                    raise NoMatchingPorts('No matching interfaces between '+uses.supplier._instanceName+' and '+providesComponent._componentName)
+                    if uses:
+                        raise NoMatchingPorts('No matching interfaces between '+uses.supplier._instanceName+' and '+providesComponent._componentName)
+                    else:
+                        raise NoMatchingPorts('No matching interfaces found')
                 usesEndpoint, providesEndpoint = matches[0]
 
         elif isinstance(providesComponent, OutputBase):
-            log.debug('Provides side is OutputBase')
+            log.trace('Provides side is OutputBase')
             if not usesPortName:
                 usesPort = self._getDefaultUsesPort()
                 usesPortName = usesPort['Port Name']
@@ -288,7 +302,7 @@ class PortSupplier(object):
             # NB: OutputBase interface does not currently support connection management.
             return
         elif isinstance(providesComponent, CorbaObject):
-            log.debug('Provides side is CORBA object')
+            log.trace('Provides side is CORBA object')
             if usesPortName:
                 # Use usesPortName if provided
                 usesPorts = [self._getUsesPort(usesPortName)]
@@ -309,8 +323,8 @@ class PortSupplier(object):
             raise TypeError, "Type '%s' is not supported for provides side connection" % (providesComponent.__class__.__name__)
         
         # Make the actual connection from the endpoints
-        log.debug("Uses endpoint '%s' has interface '%s'", usesEndpoint.getName(), usesEndpoint.getInterface())
-        log.debug("Provides endpoint '%s' has interface '%s'", providesEndpoint.getName(), providesEndpoint.getInterface())
+        log.trace("Uses endpoint '%s' has interface '%s'", usesEndpoint.getName(), usesEndpoint.getInterface())
+        log.trace("Provides endpoint '%s' has interface '%s'", providesEndpoint.getName(), providesEndpoint.getInterface())
         usesPortRef = usesEndpoint.getReference()
         providesPortRef = providesEndpoint.getReference()
 
@@ -337,11 +351,25 @@ class PropertySet(object):
     __log = log.getChild('PropertySet')
 
     def __init__(self):
-        self._propertySet = []
+        self._setProperties = []
         self._execParamPropertySet = []
         self._properties = []
+      
+    @property
+    def _propertySet(self):
+        #DEPRICATED: replaced with _properties, _propertySet did not contain all kinds and actions
+        _warnings.warn("'_propertySet' is deprecated", DeprecationWarning)
+        try:
+            for prop in self._properties:
+                if "execparam" in prop.kinds or "configure" in prop.kinds:
+                    if prop not in self._setProperties:
+                        self._setProperties.append(prop)
+            return self._setProperties
+        except:
+            return None
+    
     def _findProperty(self, name):
-        for prop in self._propertySet:
+        for prop in self._properties:
             if name in (prop.id, prop.clean_name):
                 return prop
         raise KeyError, "Unknown property '%s'" % name
@@ -351,7 +379,7 @@ class PropertySet(object):
         return _CF.DataType(prop.id, prop.toAny(value))
 
     def configure(self, props):
-        self.__log.debug("configure('%s')", str(props))
+        self.__log.trace("configure('%s')", str(props))
         if not self.ref:
             pass
         try:
@@ -364,17 +392,17 @@ class PropertySet(object):
             
     def query(self, props):
         if True:
-            self.__log.debug("query('%s')", str(props))
+            self.__log.trace("query('%s')", str(props))
             if self.ref:
                 return self.ref.query(props)
             else:
                 return None
    
     def api(self, externalPropInfo=None):
-        if not self._propertySet:
+        if not self._properties:
             return
         for p in self._execParamPropertySet:        
-            self._propertySet.append(p)
+            self._properties.append(p)
 
         self._execParamPropertySet = []
         table = TablePrinter('Property Name', '(Data Type)', '[Default Value]', 'Current Value')
@@ -389,7 +417,7 @@ class PropertySet(object):
             table.enable_header(False)
         else:
             print "Properties =============="
-        for prop in self._propertySet:
+        for prop in self._properties:
             if externalPropInfo:
                 # Searching for a particular external property
                 if prop.clean_name != propId:
@@ -505,12 +533,12 @@ class Resource(CorbaObject, PortSupplier, PropertySet):
             return None
     
     def start(self):
-        self.__log.debug("start()")
+        self.__log.trace("start()")
         if self.ref:
             self.ref.start()
             
     def stop(self):
-        self.__log.debug("stop()")
+        self.__log.trace("stop()")
         if self.ref:
             self.ref.stop()
 
@@ -521,12 +549,12 @@ class Resource(CorbaObject, PortSupplier, PropertySet):
             return None
             
     def initialize(self):
-        self.__log.debug("initialize()")
+        self.__log.trace("initialize()")
         if self.ref:
             self.ref.initialize()
             
     def getPort(self, name):
-        self.__log.debug("getPort('%s')", name)
+        self.__log.trace("getPort('%s')", name)
         if self.ref:
             return self.ref.getPort(name)
         else:
@@ -539,7 +567,7 @@ class Resource(CorbaObject, PortSupplier, PropertySet):
             return None
     
     def releaseObject(self):
-        self.__log.debug('releaseObject()')
+        self.__log.trace('releaseObject()')
         if self.ref:
             self.ref.releaseObject()
             # Reset component object reference
@@ -672,7 +700,7 @@ class AggregateDevice(object):
 
 
 class ComponentBase(object):
-    def __init__(self, spd, scd, prf, instanceName, refid, impl):
+    def __init__(self, spd, scd, prf, instanceName, refid, impl, pid=0, devs=[]):
         self._spd = spd
         self._scd = scd
         self._prf = prf
@@ -680,6 +708,9 @@ class ComponentBase(object):
         self._refid = refid
         self._impl = impl
         self._configureTable = {}
+        self._pid = pid
+        self._id = None
+        self._devs = devs
         #will return a list of all properties excluding for execparam props
         self._properties = self._getPropertySet(kinds=("configure","execparam","allocation","event","message"),
                                           modes=("readwrite","readonly","writeonly"),
@@ -688,13 +719,13 @@ class ComponentBase(object):
         #this combines the execparamprops with all the others to make a complete list
         self._combineAllProps()
     def __setattr__(self,name,value):
-        # If setting any class attribute except for _propertySet,
+        # If setting any class attribute except for _properties,
         # Then need to see if name matches any component properties
         # If so, then call configure on the component for the particular property and value
-        if name != "_propertySet":
+        if name != "_properties":
             try:
-                if hasattr(self,"_propertySet"):
-                    propSet = object.__getattribute__(self,"_propertySet")
+                if hasattr(self,"_properties"):
+                    propSet = object.__getattribute__(self,"_properties")
                     if propSet != None:
                         for prop in propSet:
                             if name == prop.clean_name:
@@ -708,11 +739,11 @@ class ComponentBase(object):
                                 self._configureSingleProp(name,value)
                                 break
             except AttributeError, e:
-                # This would be thrown if _propertySet attribute hasn't been set yet
-                # This will occur only with setting of class attibutes before _propertySet has been set
+                # This would be thrown if _propertyies attribute hasn't been set yet
+                # This will occur only with setting of class attibutes before _properties has been set
                 # This will not affect setting attributes based on component properties since this will
                 #   occur after all class attributes have been set
-                if str(e).find("_propertySet") != -1:
+                if str(e).find("_properties") != -1:
                     pass
                 else:
                     raise e
@@ -728,6 +759,10 @@ class ComponentBase(object):
                        if _DEBUG == True:
                            print 'Component:__getattribute__()', prop
                        return prop
+        if name == '_id':
+            if object.__getattribute__(self,"_id") == None:
+                ref = object.__getattribute__(self,"ref")
+                object.__setattr__(self,"_id",ref._get_identifier())
         return object.__getattribute__(self,name)
 
     def _combineAllProps(self):
@@ -997,8 +1032,7 @@ class ComponentBase(object):
             self._usesPortDict[name]["Port Name"] = str(name)
             self._usesPortDict[name]["Port Interface"] = str(port.get_repid())
 
-        self._propertySet = self._getPropertySet(action=('external','eq','ge','gt','le','lt','ne'))
-        for prop in self._propertySet:
+        for prop in self._properties:
             self._configureTable[prop.id] = prop
 
         if _DEBUG == True:

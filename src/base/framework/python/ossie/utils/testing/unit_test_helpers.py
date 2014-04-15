@@ -151,13 +151,15 @@ class ScaComponentTestCase(unittest.TestCase):
             pass
         self.comp_obj = None
             
-    def launch(self, execparams={}, ossiehome=None, configure={}, initialize=True):
+    def launch(self, filter="component", execparams={}, ossiehome=None, configure={}, initialize=True):
         """
         Launch the component. The component will be executed as a child process,
         then (optionally) initialized and configured.
 
         Arguments:
           execparams - Execparams to override on component execution.
+          filter     - Object type to be launched. Could be a component, device or service.
+                       Default is component
           ossiehome  - Base location of REDHAWK installation for finding IDL files.
                        Default location is determined from $OSSIEHOME environment
                        variable.
@@ -178,7 +180,7 @@ class ScaComponentTestCase(unittest.TestCase):
             # IDE unit test requires spd file path relative to sca file system
             componentName = str(self.spd.get_name())
             sca_file_system_spd_file = "components/" + componentName + "/" + self.spd_file[3:]
-            component = sb.launch(sca_file_system_spd_file, impl=self.impl, execparams=execparams,
+            component = sb.launch(sca_file_system_spd_file, filter, impl=self.impl, execparams=execparams,
                                   configure=configure, initialize=initialize)
         self.comp_obj = component.ref
         self.comp = component

@@ -71,7 +71,10 @@ int main(int argc, char* argv[])
     int debugLevel = 3;
 
     // If "--nopersist" is asserted, turn off persistent IORs.
-    bool enablePersistence = true;
+    bool enablePersistence = false;
+#if ENABLE_BDB_PERSISTENCE || ENABLE_GDBM_PERSISTENCE || ENABLE_SQLITE_PERSISTENCE
+    enablePersistence = true;
+#endif
 
     // If "--force-rebind" is asserted, this instance will replace any existing name binding
     // for the DomainManager.
@@ -101,7 +104,9 @@ int main(int argc, char* argv[])
         } else if (param == "PERSISTENCE") {
             string value = argv[ii];
             std::transform(value.begin(), value.begin(), value.end(), ::tolower);
+#if ENABLE_BDB_PERSISTENCE || ENABLE_GDBM_PERSISTENCE || ENABLE_SQLITE_PERSISTENCE
             enablePersistence = (value == "true");
+#endif
         } else if (param == "FORCE_REBIND") {
             string value = argv[ii];
             std::transform(value.begin(), value.begin(), value.end(), ::tolower);
@@ -111,7 +116,6 @@ int main(int argc, char* argv[])
             execparams[param] = argv[ii];
         }
     }
-
 
     if (dmdFile.empty() || domainName.empty()) {
         std::cerr << "ERROR: DMD_FILE and DOMAIN_NAME must be provided" << std::endl;

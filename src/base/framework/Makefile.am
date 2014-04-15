@@ -28,6 +28,7 @@ libossiecf_la_SOURCES = AggregateDevice_impl.cpp \
                         LifeCycle_impl.cpp \
                         Logging_impl.cpp \
                         Resource_impl.cpp \
+                        ThreadedComponent.cpp \
                         ExecutableDevice_impl.cpp \
                         LoadableDevice_impl.cpp \
                         TestableObject_impl.cpp \

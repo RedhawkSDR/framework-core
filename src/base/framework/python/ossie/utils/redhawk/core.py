@@ -51,7 +51,7 @@ from model import DomainObjectList
 # Limit exported symbols
 __all__ = ('App', 'Component', 'Device', 'DeviceManager', 'Domain',
            'getCFType', 'getCurrentDateTimeString', 'getDEBUG',
-           'getMemberType', 'setDEBUG')
+           'getMemberType', 'setDEBUG', 'setTrackApps', 'getTrackApps')
 
 _launchedApps = []
 
@@ -71,7 +71,10 @@ def getCurrentDateTimeString():
 
 def _cleanUpLaunchedApps():
     for app in _launchedApps[:]:
-        app.releaseObject()
+        try:
+            app.releaseObject()
+        except:
+            log.warn('Unable to release application object...continuing')
 
 _atexit.register(_cleanUpLaunchedApps)
 
@@ -113,7 +116,7 @@ class App(_CF__POA.Application, Resource):
         self._sad = sad
         self._externalProps = self._getExternalProperties()
         self.adhocConnections = []
-        self.connectioncount = 0
+        self._connectioncount = 0
         self.assemblyController = None
         self._acRef = None
 
@@ -140,6 +143,15 @@ class App(_CF__POA.Application, Resource):
         if self.ref:
             try:
                 retval = self.ref._get_name()
+            except:
+                pass
+        return retval
+    
+    def _get_registeredComponents(self):
+        retval = None
+        if self.ref:
+            try:
+                retval = self.ref._get_registeredComponents()
             except:
                 pass
         return retval
@@ -222,6 +234,8 @@ class App(_CF__POA.Application, Resource):
         if name == '_componentsUpdated' or self._componentsUpdated == False:
             return object.__setattr__(self, name, value)
         else:
+            if self._componentsUpdated == True and (name == '_connectioncount' or name == 'assemblyController' or name == '_portsUpdated'):
+                return object.__setattr__(self, name, value)
             # Check if current value to be set is an external prop
             if self._externalProps.has_key(name):
                 propId, compRefId = self._externalProps[name]
@@ -273,6 +287,8 @@ class App(_CF__POA.Application, Resource):
         except:
             impls = {}
 
+        componentPids = self.ref._get_componentProcessIds()
+        componentDevs = self.ref._get_componentDevices()
         for comp_entry in component_list:
             profile = comp_entry.softwareProfile
             compRef = comp_entry.componentObject
@@ -280,12 +296,23 @@ class App(_CF__POA.Application, Resource):
                 refid = compRef._get_identifier()
                 implId = impls.get(refid, None)
                 instanceName = '%s/%s' % (self.ns_name, refid.split(':')[0])
+                pid = 0
+                devs = []
+                for compPid in componentPids:
+                    if compPid.componentId == refid:
+                        pid = compPid.processId
+                        break
+                for compDev in componentDevs:
+                    if compDev.componentId == refid:
+                        devs.append(compDev.assignedDeviceId)
             except:
                 refid = None
                 implId = None
                 instanceName = None
+                pid = 0
+                devs = []
             spd, scd, prf = _readProfile(profile, self._domain.fileManager)
-            new_comp = Component(profile, spd, scd, prf, compRef, instanceName, refid, implId)
+            new_comp = Component(profile, spd, scd, prf, compRef, instanceName, refid, implId, pid, devs)
 
             self.comps.append(new_comp)
 
@@ -486,10 +513,26 @@ class App(_CF__POA.Application, Resource):
                 except:
                     continue
     
-    def connect(self, provides, usesName=None, providesName=None):
-        connectionId = 'adhoc_connection_%d' % (self.connectioncount+1)
-        PortSupplier.connect(self, provides, usesName, providesName, connectionId)
-        self.connectioncount += 1
+    def connect(self, provides, usesPortName=None, providesPortName=None, usesName=None, providesName=None):
+        """usesName and providesName are deprecated. Use usesPortName or providesPortName
+        """
+        uses_name = usesName
+        provides_name = providesName
+        if usesPortName != None:
+            uses_name = usesPortName
+        if providesPortName != None:
+            provides_name = providesPortName
+        if providesPortName != None and providesName != None:
+            log.warn('providesPortName and providesName provided; using only providesName')
+        if usesPortName != None and usesName != None:
+            log.warn('usesPortName and usesName provided; using only usesPortName')
+        connections = ConnectionManager.instance().getConnections()
+        while True:
+            connectionId = 'adhoc_connection_%d' % (self._connectioncount)
+            if not connectionId in connections:
+                break
+            self._connectioncount = self._connectioncount+1
+        PortSupplier.connect(self, provides, usesPortName=uses_name, providesPortName=provides_name, connectionId=connectionId)
     
     def __getitem__(self,i):
         """Return the component with the given index (obsolete)"""
@@ -854,6 +897,7 @@ class Domain(_CF__POA.DomainManager, object):
     def __init__(self, name="DomainName1", location=None):
         self.name = name
         self._sads = []
+        self._sadFullPath = []
         self.ref = None
         self.NodeAlive = True
         self._waveformsUpdated = False
@@ -1180,13 +1224,20 @@ class Domain(_CF__POA.DomainManager, object):
                     filesFound.append(starting_point+'/'+entry.name)
         return filesFound
     
+    def catalogSads(self):
+        self._updateListAvailableSads()
+        return self._sadFullPath
+
     def _updateListAvailableSads(self):
         """
             Update available waveforms list.
         """
         sadList = self._searchFilePattern('/waveforms', 'sad.xml')
         for entry in range(len(sadList)):
-            self._sads.append(sadList[entry].split('/')[-2])
+            sad_entry = sadList[entry].split('/')[-2]
+            if not (sad_entry in self._sads):
+                self._sads.append(sad_entry)
+                self._sadFullPath.append(sadList[entry])
     
     def terminate(self):
         # Kills waveforms (in reverse order since removeApplication() pops items from list) 
@@ -1253,14 +1304,14 @@ class Domain(_CF__POA.DomainManager, object):
         except:
             if uninstallAppWhenDone:
                 self.ref.uninstallApplication(_applicationFactories[app_factory_num]._get_identifier())
-            print "Unable to create application - make sure that all appropriate nodes are installed"
-            return
+            raise
         
         appId = app._get_identifier()
         # Add the app to the application list, or get the existing object if
         # the ODM event was processed first.
         waveform_entry = self.__applications.add(appId, app)
-        _launchedApps.append(waveform_entry)
+        if getTrackApps():
+            _launchedApps.append(waveform_entry)
         
         if uninstallAppWhenDone:
             self.ref.uninstallApplication(_applicationFactories[app_factory_num]._get_identifier())

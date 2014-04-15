@@ -21,8 +21,8 @@
 from ossie.utils.model import ComponentBase, Resource, PropertySet, PortSupplier
 
 class DomainComponent(ComponentBase):
-    def __init__(self, profile, spd, scd, prf, instanceName, refid, impl):
-        super(DomainComponent,self).__init__(spd, scd, prf, instanceName, refid, impl)
+    def __init__(self, profile, spd, scd, prf, instanceName, refid, impl, pid=0, devs=[]):
+        super(DomainComponent,self).__init__(spd, scd, prf, instanceName, refid, impl, pid, devs)
         self._profile = profile
         self.ports = []
 
@@ -46,7 +46,7 @@ class DomainComponent(ComponentBase):
             print className+" [" + str(self.name) + "]:"
         if showInterfaces == True:
             PortSupplier.api(self)
-        if showProperties == True and self._propertySet != None:
+        if showProperties == True and self._properties != None:
             PropertySet.api(self, externalPropInfo)
 
 
@@ -59,6 +59,6 @@ class Component(DomainComponent, Resource):
         Component.<property id> provides read/write access to component properties
     
     """
-    def __init__(self, profile, spd, scd, prf, objref, instanceName, refid, impl=None):
+    def __init__(self, profile, spd, scd, prf, objref, instanceName, refid, impl=None, pid=0, devs=[]):
         Resource.__init__(self, objref)
-        DomainComponent.__init__(self, profile, spd, scd, prf, instanceName, refid, impl)
+        DomainComponent.__init__(self, profile, spd, scd, prf, instanceName, refid, impl, pid, devs)

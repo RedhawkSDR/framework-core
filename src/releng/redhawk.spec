@@ -25,12 +25,9 @@ Prefix:         %{_ossiehome}
 Prefix:         %{_sdrroot}
 Prefix:         %{_sysconfdir}
 
-%define groupname redhawk
-%define username redhawk
-
 Name:           redhawk
 Version:        1.10.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        REDHAWK is a Software Defined Radio framework
 
 Group:          Applications/Engineering
@@ -55,7 +52,8 @@ Requires:       e2fsprogs
 Requires:       java >= 1.6
 Requires:       python
 Requires:       numpy
-Requires:       libomniorbpy
+Requires:       python-omniORB >= 3.0
+Requires:       binutils
 
 %if 0%{?rhel} >= 6 || 0%{?fedora} >= 12
 BuildRequires:  libuuid-devel
@@ -70,7 +68,7 @@ BuildRequires:  java-devel >= 1.6
 BuildRequires:  python-devel >= 2.4
 BuildRequires:  log4cxx-devel >= 0.10
 BuildRequires:  omniORB-devel >= 4.1.0
-BuildRequires:  libomniorbpy-devel >= 3.6
+BuildRequires:  omniORBpy-devel >= 3.0
 BuildRequires:  libomniEvents2-devel
 BuildRequires:  xsd >= 3.3.0
 
@@ -125,7 +123,7 @@ Requires:       log4cxx-devel >= 0.10
 
 # omniORB / omniORBpy
 Requires:       omniORB-devel >= 4.1.0
-Requires:       libomniorbpy-devel >= 3.6
+Requires:       omniORBpy-devel >= 3.0
 
 # Languages
 Requires:       gcc-c++
@@ -133,9 +131,8 @@ Requires:       python-devel >= 2.4
 Requires:       java-devel >= 1.6
 
 # qtbrowse
-%if 0%{?rhel} == 7
-%else
-Requires:       PyQt
+%if 0%{?rhel} >= 6 || 0%{?fedora} >= 8
+Requires:       PyQt4
 %endif
 
 %description devel
@@ -160,11 +157,11 @@ rm -rf --preserve-root $RPM_BUILD_ROOT
 # install ossie framework
 cd src
 make install DESTDIR=$RPM_BUILD_ROOT
-cp control/sdr/domain/DomainManager.dmd.xml $RPM_BUILD_ROOT%{_sdrroot}/dom/domain/
 
-%if 0%{?rhel} == 7
-rm $RPM_BUILD_ROOT%{_bindir}/qtbrowse
-rm -r $RPM_BUILD_ROOT%{_prefix}/lib/python/ossie/apps/qtbrowse
+%if 0%{?rhel} < 6 || 0%{?fedora} < 8
+  # qtbrowse not supported
+  rm $RPM_BUILD_ROOT%{_bindir}/qtbrowse
+  rm -r $RPM_BUILD_ROOT%{_prefix}/lib/python/ossie/apps/qtbrowse
 %endif
 
 
@@ -173,19 +170,19 @@ rm -rf --preserve-root $RPM_BUILD_ROOT
 
 
 %pre
-groupadd -r -f %{groupname}
-if id %{username} &> /dev/null; then
-  echo "%{username} user account exists and will not be added"
-else
+# -r is system account, -f is force (ignore already exists)
+groupadd -r -f redhawk
+if ! id redhawk &> /dev/null; then
+  # -M is don't create home dir, -r is system account, -s is shell
+  # -c is comment, -n is don't create group, -g is group name/id
   /usr/sbin/useradd -M -r -s /sbin/nologin \
-    -c "REDHAWK System Account" -n -g %{groupname} %{username} > /dev/null
+    -c "REDHAWK System Account" -n -g redhawk redhawk > /dev/null
 fi
 
 
 %files
 %defattr(-,root,root,-)
 %{_bindir}
-%exclude %{_bindir}/qtbrowse
 %exclude %{_bindir}/prf2py.py
 %exclude %{_bindir}/py2prf
 %dir %{_includedir}
@@ -198,7 +195,6 @@ fi
 %{_prefix}/lib/log4j-1.2.15.jar
 %{_prefix}/lib/ossie.jar
 %{_prefix}/lib/python
-%exclude %{_prefix}/lib/python/ossie/apps/qtbrowse
 %{_libdir}/libomnijni.so.*
 %{_libdir}/libossiecf.so.*
 %{_libdir}/libossiecfjni.so.*
@@ -211,31 +207,31 @@ fi
 %{_sysconfdir}/ld.so.conf.d/redhawk.conf
 
 %files sdrroot-dom-mgr
-%defattr(664,%{username},%{groupname})
-%attr(2775,%{username},%{groupname}) %dir %{_sdrroot}
-%attr(2775,%{username},%{groupname}) %dir %{_sdrroot}/dom
-%attr(2775,%{username},%{groupname}) %dir %{_sdrroot}/dom/components
-%attr(2775,%{username},%{groupname}) %dir %{_sdrroot}/dom/domain
-%attr(2775,%{username},%{groupname}) %dir %{_sdrroot}/dom/mgr
-%attr(775,%{username},%{groupname}) %{_sdrroot}/dom/mgr/DomainManager
+%defattr(664,redhawk,redhawk)
+%attr(2775,redhawk,redhawk) %dir %{_sdrroot}
+%attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dom
+%attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dom/components
+%attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dom/domain
+%attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dom/mgr
+%attr(775,redhawk,redhawk) %{_sdrroot}/dom/mgr/DomainManager
 %{_sdrroot}/dom/mgr/*.xml
-%attr(2775,%{username},%{groupname}) %dir %{_sdrroot}/dom/waveforms
+%attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dom/waveforms
 %attr(644,root,root) %{_sysconfdir}/profile.d/redhawk-sdrroot.csh
 %attr(644,root,root) %{_sysconfdir}/profile.d/redhawk-sdrroot.sh
 
 %files sdrroot-dom-profile
-%defattr(664,%{username},%{groupname})
+%defattr(664,redhawk,redhawk)
 %config %{_sdrroot}/dom/domain/DomainManager.dmd.xml
 %{_sdrroot}/dom/domain/DomainManager.dmd.xml.template
 
 %files sdrroot-dev-mgr
-%defattr(664,%{username},%{groupname})
-%attr(2775,%{username},%{groupname}) %dir %{_sdrroot}
-%attr(2775,%{username},%{groupname}) %dir %{_sdrroot}/dev
-%attr(2775,%{username},%{groupname}) %dir %{_sdrroot}/dev/devices
-%attr(2775,%{username},%{groupname}) %dir %{_sdrroot}/dev/mgr
-%attr(2775,%{username},%{groupname}) %dir %{_sdrroot}/dev/nodes
-%attr(775,%{username},%{groupname}) %{_sdrroot}/dev/mgr/DeviceManager
+%defattr(664,redhawk,redhawk)
+%attr(2775,redhawk,redhawk) %dir %{_sdrroot}
+%attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dev
+%attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dev/devices
+%attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dev/mgr
+%attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dev/nodes
+%attr(775,redhawk,redhawk) %{_sdrroot}/dev/mgr/DeviceManager
 %{_sdrroot}/dev/mgr/DeviceManager.*
 %attr(644,root,root) %{_sysconfdir}/profile.d/redhawk-sdrroot.csh
 %attr(644,root,root) %{_sysconfdir}/profile.d/redhawk-sdrroot.sh
@@ -257,11 +253,6 @@ fi
 %{_libdir}/libossieparser.so
 %{_libdir}/pkgconfig/ossie.pc
 %{_sysconfdir}/bash_completion.d/nodeBooter
-%if 0%{?rhel} == 7
-%else
-%{_bindir}/qtbrowse
-%{_prefix}/lib/python/ossie/apps/qtbrowse
-%endif
 
 
 %post
@@ -272,10 +263,13 @@ fi
 
 
 %changelog
-* Tue Mar 18 2014 - 1.9.1-1
+* Fri Apr 11 2014 - 1.10.0-5
 - Improve OS version detection for RHEL/CentOS/Fedora
 - Don't constrain boost to exact version
-- Exclude qtbrowse on el7
+- Exclude qtbrowse on el5, return it to base package
+- Clarify useradd/groupadd
+- Add missing package requirement
+- Switch to omniORBpy packaging that is compatible with Fedora
 
 * Thu Aug 15 2013 - 1.9.0-1
 - Re-work lots of dependencies

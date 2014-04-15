@@ -44,7 +44,7 @@ class ChannelListener(object):
         pass
 
     def connect(self, domain):
-        log.debug('Connecting %s', self.CHANNEL_NAME)
+        log.trace('Connecting %s', self.CHANNEL_NAME)
         # Generate a unique identifier for each event channel connection to prevent
         # collisions if multiple instances are running.
         self.__identifier = str(uuid4())
@@ -53,7 +53,7 @@ class ChannelListener(object):
         self.__domainManager.registerWithEventChannel(self.__consumer._this(), self.__identifier, self.CHANNEL_NAME)
 
     def disconnect(self):
-        log.debug('Disconnecting %s', self.CHANNEL_NAME)
+        log.trace('Disconnecting %s', self.CHANNEL_NAME)
         self.__domainManager.unregisterFromEventChannel(self.__identifier, self.CHANNEL_NAME)
 
 class ODMListener(ChannelListener):

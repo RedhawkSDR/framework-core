@@ -180,7 +180,12 @@ def attach(domain=None, location=None):
         to the Domain.
     """
     if domain == None:
-        return None
+        domains = scan(location)
+        if len(domains) == 1:
+            domain = domains[0]
+        else:
+            print "Multiple domains found: "+str(domains)+". Please specify one."
+            return None
     
     dom_entry = _core.Domain(name=domain, location=location)
     

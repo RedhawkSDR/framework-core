@@ -654,7 +654,6 @@ void StructProperty::override(const Property* otherProp) {
 void StructProperty::override(const ComponentProperty* newValue) {
     const StructPropertyRef* structRef = dynamic_cast<const StructPropertyRef*>(newValue);
     if (structRef) {
-        const std::map<std::string, std::string>& values = structRef->getValue();
         // TODO
     } else {
         LOG_WARN(StructProperty, "Ignoring override request");

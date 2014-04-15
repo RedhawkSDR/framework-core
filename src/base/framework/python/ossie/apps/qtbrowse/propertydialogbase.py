@@ -28,7 +28,7 @@
 # WARNING! All changes made in this file will be lost!
 
 
-from qt import *
+from PyQt4.QtGui import *
 
 
 class PropertyDialogBase(QDialog):

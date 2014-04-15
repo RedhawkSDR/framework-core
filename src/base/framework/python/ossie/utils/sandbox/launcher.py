@@ -219,7 +219,6 @@ class LocalLauncher(object):
         elif window_mode == 'direct':
             # Run the command directly in a window (typically, in the debugger).
             command, arguments = window.command(command, arguments)
-
         process = LocalProcess(command, arguments, environment, stdout)
 
         # Wait for the component to register with the virtual naming service or
@@ -334,12 +333,11 @@ class LocalLauncher(object):
             # Resolve nested dependencies.
             for dep in impl.dependency:
                 envvars.extend(self._resolveDependency(implementation, dep))
-
+      
             localfile = os.path.join(os.path.dirname(local_filename), dep_localfile)
             envvars.insert(0, self._getDependencyConfiguration(localfile))
             if not self._isSharedLibrary(localfile) and not self._isPythonLibrary(localfile) and not self._isJarfile(localfile):
                 envvars.insert(0, ('OCTAVE_PATH', localfile))
-
         return envvars
 
     def _getDependencyConfiguration(self, localfile):

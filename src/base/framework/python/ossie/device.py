@@ -42,6 +42,8 @@ import exceptions
 from Queue import Queue
 import time
 import traceback
+import zipfile
+
 
 if hasEvents:
     # Map CF.Device states to StandardEvent states for sending state change messages.
@@ -707,8 +709,7 @@ class LoadableDevice(Device):
 
         os.chdir(currentdir)
         # check to see if it's a java package
-        status, output = commands.getstatusoutput('file '+localFilePath)
-        if localFilePath[-4:] == '.jar' and 'Zip' in output:
+        if localFilePath[-4:] == '.jar' and zipfile.is_zipfile(localFilePath):
             currentdir=os.getcwd()
             subdirs = localFilePath.split('/')
             candidatePath = currentdir+'/'+localFilePath

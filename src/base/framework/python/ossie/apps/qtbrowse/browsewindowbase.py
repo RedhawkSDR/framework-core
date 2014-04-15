@@ -28,139 +28,384 @@
 # WARNING! All changes made in this file will be lost!
 
 
-from qt import *
+from PyQt4.QtGui import *
+from PyQt4.QtCore import *
+from ossie.utils import sb
+import copy
 
+class TreeWidget(QTreeWidget):
+    def __init__(self, parent=None):
+        QTreeWidget.__init__(self, parent)
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.contextMenuEvent)
+        self.appObject = None
+        self.callbackObject = None
+
+    def setCallbackObject(self, obj):
+        self.callbackObject = obj
+        self.appObject = obj.appsItem
+
+    def getPos(self, item, parent):
+        pos = None
+        if item is not None:
+            parent = item.parent()
+            while parent is not None:
+                parent.setExpanded(True)
+                parent = parent.parent()
+            itemrect = self.visualItemRect(item)
+            pos = self.mapToGlobal(itemrect.center())
+        return pos
+
+    def contextMenuEvent(self, event):
+        pos = None
+        selection = self.selectedItems()
+        if selection:
+            item = selection[0]
+        else:
+            item = self.currentItem()
+            if item is None:
+                item = self.invisibleRootItem().child(0)
+
+        if item.parent() != None and item.parent().text(0) == "Components":
+            appname = item.parent().parent().text(0)
+            compname = item.text(0)
+            foundApp = False
+            for app in self.callbackObject.apps:
+                if app['app_ref'].name == appname:
+                    appref = app['app_ref']
+                    appTrack = app
+                    foundApp = True
+                    break
+            if not foundApp:
+                self.callbackObject.log.warn("Unable to find application: "+appname)
+                return
+            foundComp = False
+            for comp in appref.comps:
+                if comp.name == compname:
+                    foundComp = True
+                    break
+            if not foundComp:
+                self.callbackObject.log.warn("Unable to find component ("+compname+") on application ("+appname+")")
+            pos = self.getPos(item, item.parent())
+            if pos is not None:
+                menu = QMenu(self)
+                startAction = menu.addAction('Start')
+                if comp._get_started():
+                    startAction.setEnabled(False)
+                stopAction = menu.addAction('Stop')
+                if not comp._get_started():
+                    stopAction.setEnabled(False)
+                foundBulkio = False
+                for port in comp.ports:
+                    if port._using != None:
+                        if port._using.nameSpace == 'BULKIO':
+                            foundBulkio = True
+                            break
+                if foundBulkio:
+                    plotAction = menu.addAction('Plot')
+                    soundAction = menu.addAction('Sound')
+                menu.popup(pos)
+                retval = menu.exec_()
+            if retval != None:
+                resp = retval.text()
+                if resp == 'Start':
+                    comp.start()
+                elif resp == 'Stop':
+                    comp.stop()
+                elif resp == 'Plot':
+                    plot=sb.LinePlot()
+                    plot.start()
+                    try:
+                        comp.connect(plot)
+                        appTrack['widgets'].append((comp, plot))
+                    except Exception, e:
+                        plot.close()
+                        if 'must specify providesPortName or usesPortName' in e.__str__():
+                            QMessageBox.critical(self, 'Connection failed.', 'Cannot find a matching port. Please select a specific port in the Component port list to plot', QMessageBox.Ok)
+                        else:
+                            QMessageBox.critical(self, 'Connection failed.', e.__str__(), QMessageBox.Ok)
+                elif resp == 'Sound':
+                    sound=sb.SoundSink()
+                    sound.start()
+                    try:
+                        comp.connect(sound)
+                        appTrack['widgets'].append((comp, sound))
+                    except Exception, e:
+                        sound.releaseObject()
+                        if 'must specify providesPortName or usesPortName' in e.__str__():
+                            QMessageBox.critical(self, 'Connection failed.', 'Cannot find a matching port. Please select a specific port in the Component port list to plot', QMessageBox.Ok)
+                        else:
+                            QMessageBox.critical(self, 'Connection failed.', e.__str__(), QMessageBox.Ok)
+        elif item.parent() == self.appObject:
+            appname = item.text(0)
+            appref = None
+            appTrack = None
+            foundApp = False
+            for app in self.callbackObject.apps:
+                if app['app_ref'].name == appname:
+                    appref = app['app_ref']
+                    appTrack = app
+                    foundApp = True
+                    break
+            if not foundApp:
+                self.callbackObject.log.warn("Unable to find application: "+appname)
+                return
+            pos = self.getPos(item, item.parent())
+            retval = None
+            if pos is not None:
+                menu = QMenu(self)
+                relAction = menu.addAction('Release')
+                startAction = menu.addAction('Start')
+                if appref._get_started():
+                    startAction.setEnabled(False)
+                stopAction = menu.addAction('Stop')
+                if not appref._get_started():
+                    stopAction.setEnabled(False)
+                foundBulkio = False
+                for port in appref.ports:
+                    if port._using != None:
+                        if port._using.nameSpace == 'BULKIO':
+                            foundBulkio = True
+                            break
+                if foundBulkio:
+                    plotAction = menu.addAction('Plot')
+                    soundAction = menu.addAction('Sound')
+                menu.popup(pos)
+                retval = menu.exec_()
+            if retval != None:
+                resp = retval.text()
+                if resp == 'Release':
+                    self.callbackObject.releaseApplication(appname)
+                elif resp == 'Start':
+                    appref.start()
+                elif resp == 'Stop':
+                    appref.stop()
+                elif resp == 'Plot':
+                    plot=sb.LinePlot()
+                    plot.start()
+                    try:
+                        appref.connect(plot)
+                        appTrack['widgets'].append((appref, plot))
+                    except Exception, e:
+                        plot.close()
+                        if 'must specify providesPortName or usesPortName' in e.__str__():
+                            QMessageBox.critical(self, 'Connection failed.', 'Cannot find a matching port. Please select a specific Port in the Application Port list to plot', QMessageBox.Ok)
+                        else:
+                            QMessageBox.critical(self, 'Connection failed.', e.__str__(), QMessageBox.Ok)
+                elif resp == 'Sound':
+                    sound=sb.SoundSink()
+                    sound.start()
+                    try:
+                        appref.connect(sound)
+                        appTrack['widgets'].append((appref, sound))
+                    except Exception, e:
+                        sound.releaseObject()
+                        if 'must specify providesPortName or usesPortName' in e.__str__():
+                            QMessageBox.critical(self, 'Connection failed.', 'Cannot find a matching port. Please select a specific port in the Component port list to plot', QMessageBox.Ok)
+                        else:
+                            QMessageBox.critical(self, 'Connection failed.', e.__str__(), QMessageBox.Ok)
+        elif item.parent() != None and item.parent().text(0) == "Ports" and item.parent().parent() != None and item.parent().parent().parent().text(0) == "Components":
+            compname = item.parent().parent().text(0)
+            appname = item.parent().parent().parent().parent().text(0)
+            portname = item.text(0)[:-7]
+            appref = None
+            appTrack = None
+            foundApp = False
+            for app in self.callbackObject.apps:
+                if app['app_ref'].name == appname:
+                    appref = app['app_ref']
+                    appTrack = app
+                    foundApp = True
+                    break
+            if not foundApp:
+                self.callbackObject.log.warn("Unable to find application: "+appname)
+                return
+            foundComp = False
+            for comp in appref.comps:
+                if comp.name == compname:
+                    foundComp = True
+                    break
+            if not foundComp:
+                self.callbackObject.log.warn("Unable to find component "+compname+" on application "+appname)
+                return
+            foundPort = False
+            for port in comp.ports:
+                if port._name == portname:
+                    foundPort = True
+                    break
+            if not foundPort:
+                self.callbackObject.log.warn("Unable to find port "+portname+" in component "+compname+" on application "+appname)
+                return
+            pos = self.getPos(item, item.parent())
+            retval = None
+            if pos is not None:
+                foundBulkio = False
+                if port._using != None:
+                    if port._using.nameSpace == 'BULKIO':
+                        foundBulkio = True
+                if foundBulkio:
+                    menu = QMenu(self)
+                    plotAction = menu.addAction('Plot')
+                    soundAction = menu.addAction('Sound')
+                    menu.popup(pos)
+                    retval = menu.exec_()
+            if retval != None:
+                resp = retval.text()
+                if resp == 'Plot':
+                    plot=sb.LinePlot()
+                    plot.start()
+                    try:
+                        if port._using != None:
+                            comp.connect(plot,usesPortName=str(portname))
+                        appTrack['widgets'].append((appref, plot))
+                    except Exception, e:
+                        plot.close()
+                        QMessageBox.critical(self, 'Connection failed.', e.__str__(), QMessageBox.Ok)
+                elif resp == 'Sound':
+                    sound=sb.SoundSink()
+                    sound.start()
+                    try:
+                        comp.connect(sound)
+                        appTrack['widgets'].append((comp, sound))
+                    except Exception, e:
+                        sound.releaseObject()
+                        if 'must specify providesPortName or usesPortName' in e.__str__():
+                            QMessageBox.critical(self, 'Connection failed.', 'Cannot find a matching port. Please select a specific port in the Component port list to plot', QMessageBox.Ok)
+                        else:
+                            QMessageBox.critical(self, 'Connection failed.', e.__str__(), QMessageBox.Ok)
+        elif item.parent() != None and item.parent().text(0) == "Ports" and item.parent().parent() != None and item.parent().parent().parent() == self.appObject:
+            appname = item.parent().parent().text(0)
+            portname = item.text(0)[:-7]
+            appref = None
+            appTrack = None
+            foundApp = False
+            for app in self.callbackObject.apps:
+                if app['app_ref'].name == appname:
+                    appref = app['app_ref']
+                    appTrack = app
+                    foundApp = True
+                    break
+            if not foundApp:
+                self.callbackObject.log.warn("Unable to find application: "+appname)
+                return
+            foundPort = False
+            for port in appref.ports:
+                if port._name == portname:
+                    foundPort = True
+                    break
+            if not foundPort:
+                self.callbackObject.log.warn("Unable to find port "+portname+" on application "+appname)
+                return
+            pos = self.getPos(item, item.parent())
+            retval = None
+            if pos is not None:
+                foundBulkio = False
+                if port._using != None:
+                    if port._using.nameSpace == 'BULKIO':
+                        foundBulkio = True
+                if foundBulkio:
+                    menu = QMenu(self)
+                    plotAction = menu.addAction('Plot')
+                    soundAction = menu.addAction('Sound')
+                    menu.popup(pos)
+                    retval = menu.exec_()
+            if retval != None:
+                resp = retval.text()
+                if resp == 'Plot':
+                    plot=sb.LinePlot()
+                    plot.start()
+                    try:
+                        if port._using != None:
+                            appref.connect(plot,usesPortName=str(portname))
+                        appTrack['widgets'].append((appref, plot))
+                    except Exception, e:
+                        plot.close()
+                        QMessageBox.critical(self, 'Connection failed.', e.__str__(), QMessageBox.Ok)
+                elif resp == 'Sound':
+                    sound=sb.SoundSink()
+                    sound.start()
+                    try:
+                        appref.connect(sound)
+                        appTrack['widgets'].append((appref, sound))
+                    except Exception, e:
+                        sound.releaseObject()
+                        if 'must specify providesPortName or usesPortName' in e.__str__():
+                            QMessageBox.critical(self, 'Connection failed.', 'Cannot find a matching port. Please select a specific port in the Component port list to plot', QMessageBox.Ok)
+                        else:
+                            QMessageBox.critical(self, 'Connection failed.', e.__str__(), QMessageBox.Ok)
+
+        elif item == self.appObject:
+            itemrect = self.visualItemRect(item)
+            pos = self.mapToGlobal(itemrect.center())
+            menu = QMenu(self)
+            menu.addAction('Create Application')
+            menu.addAction('Release All Applications')
+            menu.popup(pos)
+            retval = menu.exec_()
+            if retval != None:
+                resp = retval.text()
+                if resp == 'Create Application':
+                    self.callbackObject.createSelected()
+                elif resp == 'Release All Applications':
+                    applist = []
+                    for app in self.callbackObject.apps:
+                        applist.append(app['app_ref'].name)
+                    for appname in applist:
+                        self.callbackObject.addRequest(('releaseApplication(QString)',appname))
 
 class BrowseWindowBase(QMainWindow):
-    def __init__(self,parent = None,name = None,fl = 0):
-        QMainWindow.__init__(self,parent,name,fl)
+    def __init__(self,parent = None,name = None,fl = 0,domainName=None):
+        QMainWindow.__init__(self)
         self.statusBar()
 
-        if not name:
-            self.setName("BrowseWindowBase")
+        self.setCentralWidget(QWidget(self))
+        BrowseWindowBaseLayout = QVBoxLayout(self.centralWidget())
+        windowWidth = 720
+        windowHeight = 569
 
+        layout1 = QHBoxLayout(None)
 
-        self.setCentralWidget(QWidget(self,"qt_central_widget"))
-        BrowseWindowBaseLayout = QVBoxLayout(self.centralWidget(),11,6,"BrowseWindowBaseLayout")
-
-        layout1 = QHBoxLayout(None,0,6,"layout1")
-
-        self.textLabel1 = QLabel(self.centralWidget(),"textLabel1")
+        self.textLabel1 = QLabel("textLabel1", self.centralWidget())
         layout1.addWidget(self.textLabel1)
 
-        self.domainLabel = QLabel(self.centralWidget(),"domainLabel")
+        self.domainLabel = QLabel("domainLabel", self.centralWidget())
         layout1.addWidget(self.domainLabel)
         spacer1 = QSpacerItem(361,20,QSizePolicy.Expanding,QSizePolicy.Minimum)
         layout1.addItem(spacer1)
         BrowseWindowBaseLayout.addLayout(layout1)
 
-        self.objectListView = QListView(self.centralWidget(),"objectListView")
-        self.objectListView.addColumn(self.__tr("Object"))
-        self.objectListView.header().setClickEnabled(0,self.objectListView.header().count() - 1)
-        self.objectListView.addColumn(self.__tr("Description"))
-        self.objectListView.header().setClickEnabled(0,self.objectListView.header().count() - 1)
-        self.objectListView.setRootIsDecorated(1)
+        self.objectListView = TreeWidget(self.centralWidget())
+        self.objectListView.setColumnCount(2)
+        self.objectListView.setHeaderLabels(['item', 'value'])
+        self.objectListView.header().resizeSection(0, windowWidth/2-20)
         BrowseWindowBaseLayout.addWidget(self.objectListView)
 
-        layout12 = QGridLayout(None,1,1,0,6,"layout12")
-
-        self.installButton = QPushButton(self.centralWidget(),"installButton")
-
-        layout12.addWidget(self.installButton,0,1)
-
-        self.createButton = QPushButton(self.centralWidget(),"createButton")
-        self.createButton.setEnabled(0)
-
-        layout12.addWidget(self.createButton,0,3)
-
-        self.refreshButton = QPushButton(self.centralWidget(),"refreshButton")
-
+        layout12 = QGridLayout(None)
+        self.refreshButton = QPushButton(self.centralWidget())
         layout12.addWidget(self.refreshButton,0,0)
-
-        self.uninstallButton = QPushButton(self.centralWidget(),"uninstallButton")
-        self.uninstallButton.setEnabled(0)
-
-        layout12.addWidget(self.uninstallButton,0,2)
-
-        self.releaseButton = QPushButton(self.centralWidget(),"releaseButton")
-        self.releaseButton.setEnabled(0)
-
-        layout12.addWidget(self.releaseButton,0,4)
-
-        self.stopButton = QPushButton(self.centralWidget(),"stopButton")
-        self.stopButton.setEnabled(0)
-
-        layout12.addWidget(self.stopButton,0,6)
-
-        self.startButton = QPushButton(self.centralWidget(),"startButton")
-        self.startButton.setEnabled(0)
-
-        layout12.addWidget(self.startButton,0,5)
         BrowseWindowBaseLayout.addLayout(layout12)
 
+        self.languageChange(domainName)
 
-
-        self.languageChange()
-
-        self.resize(QSize(720,569).expandedTo(self.minimumSizeHint()))
-        self.clearWState(Qt.WState_Polished)
-
-        self.connect(self.createButton,SIGNAL("clicked()"),self.createSelected)
-        self.connect(self.installButton,SIGNAL("clicked()"),self.installApplication)
-        self.connect(self.objectListView,SIGNAL("selectionChanged(QListViewItem*)"),self.selectionChanged)
+        self.resize(QSize(windowWidth,windowHeight).expandedTo(self.minimumSizeHint()))
         self.connect(self.refreshButton,SIGNAL("clicked()"),self.refreshView)
-        self.connect(self.releaseButton,SIGNAL("clicked()"),self.releaseSelected)
-        self.connect(self.startButton,SIGNAL("clicked()"),self.startSelected)
-        self.connect(self.stopButton,SIGNAL("clicked()"),self.stopSelected)
-        self.connect(self.uninstallButton,SIGNAL("clicked()"),self.uninstallSelected)
         self.connect(self.objectListView,SIGNAL("itemRenamed(QListViewItem*,int)"),self.propertyChanged)
 
+    def closeEvent(self, event):
+        self.cleanupOnExit()
+        event.accept()
 
-    def languageChange(self):
-        self.setCaption(self.__tr("REDHAWK Domin Browser"))
+    def languageChange(self, domainName):
+        if domainName == None:
+            self.setWindowTitle(self.__tr("REDHAWK Domain Browser"))
+        else:
+            self.setWindowTitle(self.__tr("REDHAWK Domain Browser: "+domainName))
         self.textLabel1.setText(self.__tr("Domain:"))
-        self.domainLabel.setText(QString.null)
-        self.objectListView.header().setLabel(0,self.__tr("Object"))
-        self.objectListView.header().setLabel(1,self.__tr("Description"))
-        self.installButton.setText(self.__tr("&Install"))
-        self.installButton.setAccel(self.__tr("Alt+I"))
-        self.createButton.setText(self.__tr("&Create"))
-        self.createButton.setAccel(self.__tr("Alt+C"))
+        self.domainLabel.setText(QString())
         self.refreshButton.setText(self.__tr("&Refresh"))
-        self.refreshButton.setAccel(self.__tr("Alt+R"))
-        self.uninstallButton.setText(self.__tr("&Uninstall"))
-        self.uninstallButton.setAccel(self.__tr("Alt+U"))
-        self.releaseButton.setText(self.__tr("&Release"))
-        self.releaseButton.setAccel(self.__tr("Alt+R"))
-        self.stopButton.setText(self.__tr("S&top"))
-        self.stopButton.setAccel(self.__tr("Alt+T"))
-        self.startButton.setText(self.__tr("&Start"))
-        self.startButton.setAccel(self.__tr("Alt+S"))
-
 
     def refreshView(self):
         print "BrowseWindowBase.refreshView(): Not implemented yet"
-
-    def uninstallSelected(self):
-        print "BrowseWindowBase.uninstallSelected(): Not implemented yet"
-
-    def installApplication(self):
-        print "BrowseWindowBase.installApplication(): Not implemented yet"
-
-    def selectionChanged(self):
-        print "BrowseWindowBase.selectionChanged(): Not implemented yet"
-
-    def createSelected(self):
-        print "BrowseWindowBase.createSelected(): Not implemented yet"
-
-    def releaseSelected(self):
-        print "BrowseWindowBase.releaseSelected(): Not implemented yet"
-
-    def startSelected(self):
-        print "BrowseWindowBase.startSelected(): Not implemented yet"
-
-    def stopSelected(self):
-        print "BrowseWindowBase.stopSelected(): Not implemented yet"
 
     def propertyChanged(self):
         print "BrowseWindowBase.propertyChanged(): Not implemented yet"

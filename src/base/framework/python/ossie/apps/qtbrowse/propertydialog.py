@@ -22,7 +22,7 @@
 
 import sys
 import copy
-from qt import *
+from PyQt4.QtGui import *
 from propertydialogbase import PropertyDialogBase
 
 

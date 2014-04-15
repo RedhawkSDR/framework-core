@@ -20,6 +20,12 @@
 
 # vim: noet: softtabstop=0
 
+# Mimic automake silent rules
+OSSIE_V_pysetup = $(ossie__v_pysetup_$(V))
+ossie__v_pysetup_ = $(ossie__v_pysetup__$(AM_DEFAULT_VERBOSITY))
+ossie__v_pysetup_0 = --quiet
+ossie__v_pysetup__0 = $(ossie__v_pysetup_0)
+
 SUBDIRS = sdr/dev/devices/ExecutableDevice \
           sdr/dev/devices/BasicTestDevice_cpp/BasicTestDevice_cpp_impl1 \
           sdr/dev/devices/BasicDevWithExecParam_cpp/BasicDevWithExecParam_cpp_impl1 \
@@ -63,7 +69,7 @@ SUBDIRS += sdr/dev/devices/BasicTestDevice_java/java \
 endif
 
 all-local:
-	python setup.py build
+	python setup.py $(OSSIE_V_pysetup) build
 
 clean-local:
 	python setup.py clean

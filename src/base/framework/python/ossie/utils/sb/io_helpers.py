@@ -238,7 +238,7 @@ class MessageSource(helperBase, PortSupplier):
 
 class _DataPortBase(helperBase, PortSupplier):
 
-    def __init__(self, portNameAppendix = ""):
+    def __init__(self, portNameAppendix = "", formats=None):
         """
         Protected
 
@@ -270,64 +270,82 @@ class _DataPortBase(helperBase, PortSupplier):
         self.supportedPorts = {
              "char"      : {"bytesPerSample" : 1,
                             "pktSize"        : -1,
+                            "format"         : 'b',
                             "portType" : "_BULKIO__POA.dataChar",
                             "portDict" : {"Port Interface" : "IDL:BULKIO/dataChar:1.0",
                                           "Port Name"      : "char"}},
              "short"     : {"bytesPerSample" : 2,
                             "pktSize"        : -1,
+                            "format"         : 'h',
                             "portType" : "_BULKIO__POA.dataShort",
                             "portDict" : {"Port Interface" : "IDL:BULKIO/dataShort:1.0",
                                           "Port Name"      : "short"}},
              "long"      : {"bytesPerSample" : 4,
                             "pktSize"        : -1,
+                            "format"         : 'i',
                             "portType" : "_BULKIO__POA.dataLong",
                             "portDict" : {"Port Interface" : "IDL:BULKIO/dataLong:1.0",
                                           "Port Name"      : "long"}},
              "float"     : {"bytesPerSample" : 4,
                             "pktSize"        : -1,
+                            "format"         : 'f',
                             "portType" : "_BULKIO__POA.dataFloat" ,
                             "portDict" : {"Port Interface" : "IDL:BULKIO/dataFloat:1.0",
                                           "Port Name"      : "float"}},
              "ulong"     : {"bytesPerSample" : 4,
                             "pktSize"        : -1,
+                            "format"         : 'I',
                             "portType" : "_BULKIO__POA.dataUlong" ,
                             "portDict" : {"Port Interface" : "IDL:BULKIO/dataUlong:1.0",
-                                          "Port Name"      : "uLong"}},
+                                          "Port Name"      : "ulong"}},
              "double"    : {"bytesPerSample" : 8,
                             "pktSize"        : -1,
+                            "format"         : 'd',
                             "portType" : "_BULKIO__POA.dataDouble",
                             "portDict" : {"Port Interface" : "IDL:BULKIO/dataDouble:1.0",
                                           "Port Name"      : "double"}},
              "longlong"  : {"bytesPerSample" : 8,
                             "pktSize"        : -1,
+                            "format"         : 'q',
                             "portType" : "_BULKIO__POA.dataLongLong",
                             "portDict" : {"Port Interface" : "IDL:BULKIO/dataLongLong:1.0",
                                           "Port Name"      : "longlong"}},
              "octet"     : {"bytesPerSample" : 1,
                             "pktSize"        : -1,
+                            "format"         : 'B',
                             "portType" : "_BULKIO__POA.dataOctet",
                             "portDict" : {"Port Interface" : "IDL:BULKIO/dataOctet:1.0",
                                           "Port Name"      : "octet"}},
              "ulonglong" : {"bytesPerSample" : 8,
                             "pktSize"        : -1,
+                            "format"         : 'Q',
                             "portType" : "_BULKIO__POA.dataUlongLong",
                             "portDict" : {"Port Interface" : "IDL:BULKIO/dataUlongLong:1.0",
                                           "Port Name"      : "ulonglong"}},
              "ushort"    : {"bytesPerSample" : 2,
                             "pktSize"        : -1,
+                            "format"         : 'H',
                             "portType" : "_BULKIO__POA.dataUshort",
                             "portDict" : {"Port Interface" : "IDL:BULKIO/dataUshort:1.0",
                                           "Port Name"      : "ushort"}},
              "file"      : {"bytesPerSample" : 1,
                             "pktSize"        : -1,
+                            "format"         : 's',
                             "portType" : "_BULKIO__POA.dataFile",
                             "portDict" : {"Port Interface" : "IDL:BULKIO/dataFile:1.0",
                                           "Port Name"      : "file"}},
              "xml"       : {"bytesPerSample" : 1,
                             "pktSize"        : -1,
+                            "format"         : 's',
                             "portType" : "_BULKIO__POA.dataXML",
                             "portDict" : {"Port Interface" : "IDL:BULKIO/dataXML:1.0",
                                           "Port Name"      : "xml"}}}
+
+        # Allow subclasses to support only a subset of formats
+        if formats is not None:
+            for name in self.supportedPorts.keys():
+                if name not in formats:
+                    del self.supportedPorts[name]
 
     def _getMetaByPortName(self, key, portName):
         """
@@ -367,7 +385,7 @@ class _DataPortBase(helperBase, PortSupplier):
 
 class _SourceBase(_DataPortBase):
 
-    def __init__(self, bytesPerPush, dataFormat, data = None):
+    def __init__(self, bytesPerPush, dataFormat, data = None, formats=None):
         """
         Forward parameters to parent constructor.
 
@@ -378,7 +396,7 @@ class _SourceBase(_DataPortBase):
         Calls _buildAPI()
 
         """
-        _DataPortBase.__init__(self, portNameAppendix = "Out")
+        _DataPortBase.__init__(self, portNameAppendix = "Out", formats=formats)
 
         self.bytesPerPush = int(bytesPerPush)
 
@@ -464,14 +482,14 @@ class _SourceBase(_DataPortBase):
 
 class _SinkBase(_DataPortBase):
 
-    def __init__(self):
+    def __init__(self, formats=None):
         """
         Forward parameters to parent constructor.
 
         Calls _buildAPI()
 
         """
-        _DataPortBase.__init__(self, portNameAppendix = "In")
+        _DataPortBase.__init__(self, portNameAppendix = "In", formats=formats)
 
         # Amount of time the self._sink is given to write to the gotEOS flag
         self._sleepTime = 0.001
@@ -569,35 +587,6 @@ class FileSource(_SourceBase):
         self._byteswap    = False
         self._defaultDataFormat = '16t'
 
-        if 'c' in dataFormat:
-            self._complexData = True
-        if 'r' in dataFormat:
-            self._byteswap = True
-        if '8' in dataFormat:
-            if 'u' in dataFormat:
-                dataFormat = 'octet'
-            elif 't' in dataFormat:
-                dataFormat = 'char'
-        if '16' in dataFormat:
-            if 'u' in dataFormat:
-                dataFormat = 'ushort'
-            elif 't' in dataFormat:
-                dataFormat = 'short'
-        if '32' in dataFormat:
-            if 'u' in dataFormat:
-                dataFormat = 'ulong'
-            elif 't' in dataFormat:
-                dataFormat = 'long'
-            elif 'f' in dataFormat:
-                dataFormat = 'float'
-        if '64' in dataFormat:
-            if 'u' in dataFormat:
-                dataFormat = 'ulonglong'
-            elif 't' in dataFormat:
-                dataFormat = 'longlong'
-            elif 'f' in dataFormat:
-                dataFormat = 'double'
-
         if self._midasFile:
             hdr, data = _bluefile.read(self._filename, list)
             if hdr['format'].endswith('B'):
@@ -610,6 +599,43 @@ class FileSource(_SourceBase):
                 dataFormat = 'float'
             elif hdr['format'].endswith('D'):
                 dataFormat = 'double'
+            if hdr['data_rep']=='EEEI':
+                self._byteswap = False
+            else:
+                self._byteswap = True
+            if len(hdr['format']) > 0 and hdr['format'][0]=='C':
+                self._complexData = True
+            else:
+                self._complexData = False
+        else:
+            if 'c' in dataFormat:
+                self._complexData = True
+            if 'r' in dataFormat:
+                self._byteswap = True
+            if '8' in dataFormat:
+                if 'u' in dataFormat:
+                    dataFormat = 'octet'
+                elif 't' in dataFormat:
+                    dataFormat = 'char'
+            if '16' in dataFormat:
+                if 'u' in dataFormat:
+                    dataFormat = 'ushort'
+                elif 't' in dataFormat:
+                    dataFormat = 'short'
+            if '32' in dataFormat:
+                if 'u' in dataFormat:
+                    dataFormat = 'ulong'
+                elif 't' in dataFormat:
+                    dataFormat = 'long'
+                elif 'f' in dataFormat:
+                    dataFormat = 'float'
+            if '64' in dataFormat:
+                if 'u' in dataFormat:
+                    dataFormat = 'ulonglong'
+                elif 't' in dataFormat:
+                    dataFormat = 'longlong'
+                elif 'f' in dataFormat:
+                    dataFormat = 'double'
  
         _SourceBase.__init__(self, bytesPerPush = bytesPerPush, dataFormat = dataFormat) 
 
@@ -1207,72 +1233,15 @@ class _OutputBase(helperBase):
     def setup(self,portIOR, dataType=None, componentName=None, usesPortName=None):
         pass
 
-class probeBULKIO(_OutputBase):
+class probeBULKIO(_SinkBase):
     def __init__(self):
-
-        self._providesPortDict    = {}
-        self._providesPortDict[0] = {}
-        self._sinkPortObject      = None
-        self._sinkPortType        = None
-        self._sink                = None
-        self.ref                  = self
-        self.breakBlock           = False
-
-        self._buildAPI()
-
-    def _buildAPI(self):
-        self._providesPortDict[0] = {}
-        self._providesPortDict[0]["Port Interface"] = "IDL:BULKIO/dataChar:1.0"
-        self._providesPortDict[0]["Port Name"] = "charIn"
-        self._providesPortDict[1] = {}
-        self._providesPortDict[1]["Port Interface"] = "IDL:BULKIO/dataShort:1.0"
-        self._providesPortDict[1]["Port Name"] = "shortIn"
-        self._providesPortDict[2] = {}
-        self._providesPortDict[2]["Port Interface"] = "IDL:BULKIO/dataLong:1.0"
-        self._providesPortDict[2]["Port Name"] = "longIn"
-        self._providesPortDict[3] = {}
-        self._providesPortDict[3]["Port Interface"] = "IDL:BULKIO/dataFloat:1.0"
-        self._providesPortDict[3]["Port Name"] = "floatIn"
-        self._providesPortDict[4] = {}
-        self._providesPortDict[4]["Port Interface"] = "IDL:BULKIO/dataDouble:1.0"
-        self._providesPortDict[4]["Port Name"] = "doubleIn"
-        if _domainless._DEBUG == True:
-            print "probeBULKIO:_buildAPI()"
-            self.api()
-
-    def api(self):
-        print "Component probeBULKIO :"
-        # Determine the maximum length of port names for print formatting
-        maxNameLen = 0
-        for port in self._providesPortDict.values():
-            if len(port['Port Name']) > maxNameLen:
-                maxNameLen = len(port['Port Name'])
-        print "Provides (Input) Ports =============="
-        print "Port Name" + " "*(maxNameLen-len("Port Name")) + "\tPort Interface"
-        print "---------" + " "*(maxNameLen-len("---------")) + "\t--------------"
-        if len(self._providesPortDict) > 0:
-            for port in self._providesPortDict.values():
-                print str(port['Port Name']) + " "*(maxNameLen-len(str(port['Port Name']))) + "\t" + str(port['Port Interface'])
-        else:
-            print "None"
-        print "\n"
+        _SinkBase.__init__(self)
 
     def getPort(self, portName):
         if _domainless._DEBUG == True:
             print "probeBULKIO:getPort() portName " + str(portName) + "================================="
         try:
-            if portName == "charIn":
-                self._sinkPortType = "_BULKIO__POA.dataChar"
-            elif portName == "shortIn":
-                self._sinkPortType = "_BULKIO__POA.dataShort"
-            elif portName == "longIn":
-                self._sinkPortType = "_BULKIO__POA.dataLong"
-            elif portName == "floatIn":
-                self._sinkPortType = "_BULKIO__POA.dataFloat"
-            elif portName == "doubleIn":
-               self._sinkPortType = "_BULKIO__POA.dataDouble"
-            else:
-                return None
+            self._sinkPortType = self.getPortType(portName)
 
             # Set up output array sink
             self._sink = _bulkio_data_helpers.ProbeSink(eval(self._sinkPortType))
@@ -1286,25 +1255,6 @@ class probeBULKIO(_OutputBase):
         except Exception, e:
             log.error("probeBULKIO:getPort(): failed " + str(e))
         return None
-
-    def start(self):
-        self.breakBlock = False
-        if self._sink != None:
-            self._sink.start()
-
-    def stop(self):
-        self.breakBlock = True
-
-    def eos(self):
-        if self._sink == None:
-            return False
-        return self._sink.gotEOS
-
-    def sri(self):
-        if self._sink == None:
-            return None
-        else:
-            return self._sink.sri
 
     def receivedStreams(self):
         if self._sink == None:

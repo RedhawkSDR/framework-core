@@ -166,23 +166,9 @@ public:
     }
 
 protected:
-    typedef std::map<std::string, Port_Uses_base_impl *>       RH_UsesPortMap;
-    typedef std::map<std::string, Port_Provides_base_impl *>   RH_ProvidesPortMap;
-
-    RH_UsesPortMap  outPorts;
-    std::map<std::string, CF::Port_var> outPorts_var;
-    RH_ProvidesPortMap inPorts;
-    CORBA::Boolean _started;
+    bool _started;
     std::string _softwareProfile;
     
-    void registerInPort(Port_Provides_base_impl *port);
-    void registerOutPort(Port_Uses_base_impl *port, CF::Port_ptr ref);
-
-    void releaseInPorts();
-    void releaseOutPorts();
-    void deactivateOutPorts();
-    void deactivateInPorts();
-
     omni_mutex component_running_mutex;
     omni_condition component_running;
 

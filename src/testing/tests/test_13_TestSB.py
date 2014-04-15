@@ -133,7 +133,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertRaises(ValueError, sb.launch, "test_name")
 
         # Make sure only one instance name and refid can be used
-        comp = sb.launch(self.test_comp, "comp")
+        comp = sb.launch(self.test_comp, "component", "comp")
         comp.api()
         refid = comp._refid
         self.assertRaises(ValueError, sb.launch, self.test_comp, "comp")
