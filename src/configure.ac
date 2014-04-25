@@ -151,8 +151,11 @@ if test "x$enable_java" != "xno"; then
   # Ensure JAVA_HOME is set
   RH_JAVA_HOME
 
+  # Minimum Java version
+  java_source_version=1.6
+
   # Locate tools we need based on JAVA_HOME
-  RH_PROG_JAVAC([1.6])
+  RH_PROG_JAVAC([$java_source_version])
   RH_PROG_JAR
   RH_PROG_IDLJ
 
@@ -170,6 +173,9 @@ if test "x$enable_java" != "xno"; then
           "$HAVE_JNI_H" == "yes"; then
     HAVE_JAVASUPPORT="yes"
     AC_SUBST(javadir, '${prefix}/lib')
+
+    # Set the -source flag to the minimum Java version
+    AC_SUBST(AM_JAVACFLAGS, "-source $java_source_version")
   else
     AC_MSG_WARN([Java support was enabled, but Java requirements were not met])
   fi

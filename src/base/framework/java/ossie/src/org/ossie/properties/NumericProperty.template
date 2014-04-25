@@ -25,33 +25,33 @@
 
 package org.ossie.properties;
 
-public class ${name}Property extends NumericProperty<${box}> {
-    public ${name}Property(String id, String name, ${box} value, Mode mode,
+public class @name@Property extends NumericProperty<@box@> {
+    public @name@Property(String id, String name, @box@ value, Mode mode,
                            Action action, Kind[] kinds) {
-        super(id, name, "${scaname}", value, mode, action, kinds);
+        super(id, name, "@scaname@", value, mode, action, kinds);
     }
 
-    protected ${box} fromNumber(Number val) {
-        return val.${primitive}Value();
+    protected @box@ fromNumber(Number val) {
+        return val.@primitive@Value();
     }
 
-    protected void insert(org.omg.CORBA.Any any, ${box} value) {
-        any.insert_${scaname}(value);
+    protected void insert(org.omg.CORBA.Any any, @box@ value) {
+        any.insert_@scaname@(value);
     }
 
-    protected ${box} parseString(String str) {
-        return ${parse}(str);
+    protected @box@ parseString(String str) {
+        return @parse@(str);
     }
 
-    protected int compare(${box} lhs, ${box} rhs) {
-        return ${compare}(lhs, rhs);
+    protected int compare(@box@ lhs, @box@ rhs) {
+        return @compare@(lhs, rhs);
     }
 
-    protected ${box} subtract(${box} lhs, ${box} rhs) {
-        return (${primitive})((${primitive})lhs - (${primitive})rhs);
+    protected @box@ subtract(@box@ lhs, @box@ rhs) {
+        return (@primitive@)((@primitive@)lhs - (@primitive@)rhs);
     }
 
-    protected ${box} add(${box} lhs, ${box} rhs) {
-        return (${primitive})((${primitive})lhs + (${primitive})rhs);
+    protected @box@ add(@box@ lhs, @box@ rhs) {
+        return (@primitive@)((@primitive@)lhs + (@primitive@)rhs);
     }
 }

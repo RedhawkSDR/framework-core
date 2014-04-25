@@ -28,23 +28,23 @@ package org.ossie.properties;
 import java.util.List;
 
 import org.omg.CORBA.Any;
-import org.omg.CORBA.${name}SeqHelper;
+import org.omg.CORBA.@name@SeqHelper;
 
-public class ${name}SequenceProperty extends NumericSequenceProperty<${box}> {
-    public ${name}SequenceProperty(String id, String name, List<${box}> value, Mode mode,
+public class @name@SequenceProperty extends NumericSequenceProperty<@box@> {
+    public @name@SequenceProperty(String id, String name, List<@box@> value, Mode mode,
                                    Action action, Kind[] kinds) {
-        super(id, name, "${scaname}", value, mode, action, kinds);
+        super(id, name, "@scaname@", value, mode, action, kinds);
     }
 
-    public static List<${box}> asList(Number... array) {
-        return PrimitiveArrayUtils.convertTo${primitive}List(array);
+    public static List<@box@> asList(Number... array) {
+        return PrimitiveArrayUtils.convertTo@method@List(array);
     }
 
-    protected List<${box}> fromNumberArray(Number[] array) {
-        return PrimitiveArrayUtils.convertTo${primitive}List(array);
+    protected List<@box@> fromNumberArray(Number[] array) {
+        return PrimitiveArrayUtils.convertTo@method@List(array);
     }
 
-    protected void insert(Any any, List<${box}> value) {
-        ${name}SeqHelper.insert(any, PrimitiveArrayUtils.convertTo${primitive}Array(value));
+    protected void insert(Any any, List<@box@> value) {
+        @name@SeqHelper.insert(any, PrimitiveArrayUtils.convertTo@method@Array(value));
     }
 }

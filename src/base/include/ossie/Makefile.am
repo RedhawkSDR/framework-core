@@ -46,6 +46,5 @@ pkginclude_HEADERS = AggregateDevice_impl.h \
              exceptions.h
 
 nobase_pkginclude_HEADERS = internal/equals.h \
-	     logging/logdebug.h \
-	     logging/loghelpers.h \
-	     logging/StringInputStream.h
+	     logging/rh_logger.h \
+	     logging/loghelpers.h

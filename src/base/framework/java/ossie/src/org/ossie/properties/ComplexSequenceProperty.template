@@ -31,30 +31,30 @@ import java.util.Arrays;
 
 import org.omg.CORBA.Any;
 
-import CF.complex${name};
-import CF.complex${name}SeqHelper;
+import CF.complex@name@;
+import CF.complex@name@SeqHelper;
 
-public class Complex${name}SequenceProperty extends AbstractSequenceProperty<complex${name}> {
-    public Complex${name}SequenceProperty(String id, String name, List<complex${name}> value, Mode mode,
+public class Complex@name@SequenceProperty extends AbstractSequenceProperty<complex@name@> {
+    public Complex@name@SequenceProperty(String id, String name, List<complex@name@> value, Mode mode,
                                          Action action, Kind[] kinds) {
-        super(id, name, "${scaname}", value, mode, action, kinds);
+        super(id, name, "@scaname@", value, mode, action, kinds);
     }
 
-    public static List<complex${name}> asList(complex${name}... array) {
-        return new ArrayList<complex${name}>(Arrays.asList(array));
+    public static List<complex@name@> asList(complex@name@... array) {
+        return new ArrayList<complex@name@>(Arrays.asList(array));
     }
 
-    protected List<complex${name}> extract(Any any) {
-        complex${name}[] array = complex${name}SeqHelper.extract(any);
-        List<complex${name}> list = new ArrayList<complex${name}>(array.length);
-        for (complex${name} item : array) {
+    protected List<complex@name@> extract(Any any) {
+        complex@name@[] array = complex@name@SeqHelper.extract(any);
+        List<complex@name@> list = new ArrayList<complex@name@>(array.length);
+        for (complex@name@ item : array) {
             list.add(item);
         }
         return list;
     }
 
-    protected void insert(Any any, List<complex${name}> value) {
-        complex${name}[] array = value.toArray(new complex${name}[value.size()]);
-        complex${name}SeqHelper.insert(any, array);
+    protected void insert(Any any, List<complex@name@> value) {
+        complex@name@[] array = value.toArray(new complex@name@[value.size()]);
+        complex@name@SeqHelper.insert(any, array);
     }
 }

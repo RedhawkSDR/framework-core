@@ -45,6 +45,7 @@ libossiecf_la_SOURCES = AggregateDevice_impl.cpp \
                         type_traits.cpp \
                         AnyUtils.cpp \
                         logging/loghelpers.cpp \
+                        logging/rh_logger.cpp \
                         logging/StringInputStream.cpp \
                         EventChannelSupport.cpp
 

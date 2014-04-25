@@ -33,17 +33,52 @@ from PyQt4.QtCore import *
 from ossie.utils import sb
 import copy
 
+def createPlotMenu(parent):
+    plotMenu = parent.addMenu('Plot')
+    lineAction = plotMenu.addAction('Line')
+    lineAction = plotMenu.addAction('Line (PSD)')
+    lineAction = plotMenu.addAction('Raster')
+    lineAction = plotMenu.addAction('Raster (PSD)')
+
+def createBulkioMenu(parent):
+    createPlotMenu(parent)
+    soundAction = parent.addAction('Sound')
+
+def createPlot(resp):
+    if resp == 'Line':
+        return sb.LinePlot()
+    elif resp == 'Line (PSD)':
+        return sb.LinePSD()
+    elif resp == 'Raster':
+        return sb.RasterPlot()
+    elif resp == 'Raster (PSD)':
+        return sb.RasterPSD()
+
+def hasBulkio(ports):
+    for port in ports:
+        if port._using != None:
+            if port._using.nameSpace == 'BULKIO':
+                return True
+    return False
+
+def plotResponse(resp):
+    return resp == 'Line' or resp == 'Line (PSD)' or resp == 'Raster' or resp == 'Raster (PSD)'
+
 class TreeWidget(QTreeWidget):
     def __init__(self, parent=None):
         QTreeWidget.__init__(self, parent)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.contextMenuEvent)
         self.appObject = None
+        self.devMgrsObject = None
+        self.domMgrObject = None
         self.callbackObject = None
 
     def setCallbackObject(self, obj):
         self.callbackObject = obj
         self.appObject = obj.appsItem
+        self.devMgrsObject = obj.devMgrItem
+        self.domMgrObject = obj.domMgrItem
 
     def getPos(self, item, parent):
         pos = None
@@ -95,15 +130,8 @@ class TreeWidget(QTreeWidget):
                 stopAction = menu.addAction('Stop')
                 if not comp._get_started():
                     stopAction.setEnabled(False)
-                foundBulkio = False
-                for port in comp.ports:
-                    if port._using != None:
-                        if port._using.nameSpace == 'BULKIO':
-                            foundBulkio = True
-                            break
-                if foundBulkio:
-                    plotAction = menu.addAction('Plot')
-                    soundAction = menu.addAction('Sound')
+                if hasBulkio(comp.ports):
+                    createBulkioMenu(menu)
                 menu.popup(pos)
                 retval = menu.exec_()
             if retval != None:
@@ -112,8 +140,8 @@ class TreeWidget(QTreeWidget):
                     comp.start()
                 elif resp == 'Stop':
                     comp.stop()
-                elif resp == 'Plot':
-                    plot=sb.LinePlot()
+                elif plotResponse(resp):
+                    plot = createPlot(resp)
                     plot.start()
                     try:
                         comp.connect(plot)
@@ -161,27 +189,20 @@ class TreeWidget(QTreeWidget):
                 stopAction = menu.addAction('Stop')
                 if not appref._get_started():
                     stopAction.setEnabled(False)
-                foundBulkio = False
-                for port in appref.ports:
-                    if port._using != None:
-                        if port._using.nameSpace == 'BULKIO':
-                            foundBulkio = True
-                            break
-                if foundBulkio:
-                    plotAction = menu.addAction('Plot')
-                    soundAction = menu.addAction('Sound')
+                if hasBulkio(appref.ports):
+                    createBulkioMenu(menu)
                 menu.popup(pos)
                 retval = menu.exec_()
             if retval != None:
                 resp = retval.text()
                 if resp == 'Release':
-                    self.callbackObject.releaseApplication(appname)
+                    self.callbackObject.addRequest(('releaseApplication(QString)',appname))
                 elif resp == 'Start':
                     appref.start()
                 elif resp == 'Stop':
                     appref.stop()
-                elif resp == 'Plot':
-                    plot=sb.LinePlot()
+                elif plotResponse(resp):
+                    plot = createPlot(resp)
                     plot.start()
                     try:
                         appref.connect(plot)
@@ -239,20 +260,15 @@ class TreeWidget(QTreeWidget):
             pos = self.getPos(item, item.parent())
             retval = None
             if pos is not None:
-                foundBulkio = False
-                if port._using != None:
-                    if port._using.nameSpace == 'BULKIO':
-                        foundBulkio = True
-                if foundBulkio:
+                if port._using != None and port._using.nameSpace == 'BULKIO':
                     menu = QMenu(self)
-                    plotAction = menu.addAction('Plot')
-                    soundAction = menu.addAction('Sound')
+                    createBulkioMenu(menu)
                     menu.popup(pos)
                     retval = menu.exec_()
             if retval != None:
                 resp = retval.text()
-                if resp == 'Plot':
-                    plot=sb.LinePlot()
+                if plotResponse(resp):
+                    plot = createPlot(resp)
                     plot.start()
                     try:
                         if port._using != None:
@@ -299,20 +315,15 @@ class TreeWidget(QTreeWidget):
             pos = self.getPos(item, item.parent())
             retval = None
             if pos is not None:
-                foundBulkio = False
-                if port._using != None:
-                    if port._using.nameSpace == 'BULKIO':
-                        foundBulkio = True
-                if foundBulkio:
+                if port._using != None and port._using.nameSpace == 'BULKIO':
                     menu = QMenu(self)
-                    plotAction = menu.addAction('Plot')
-                    soundAction = menu.addAction('Sound')
+                    createBulkioMenu(menu)
                     menu.popup(pos)
                     retval = menu.exec_()
             if retval != None:
                 resp = retval.text()
-                if resp == 'Plot':
-                    plot=sb.LinePlot()
+                if plotResponse(resp):
+                    plot = createPlot(resp)
                     plot.start()
                     try:
                         if port._using != None:
@@ -352,6 +363,27 @@ class TreeWidget(QTreeWidget):
                         applist.append(app['app_ref'].name)
                     for appname in applist:
                         self.callbackObject.addRequest(('releaseApplication(QString)',appname))
+        elif item.parent() == self.devMgrsObject:
+            devMgrname = item.text(0)
+            foundDevMgr = False
+            for devMgr in self.callbackObject.devMgrs:
+                if devMgr['devMgr_ref'].name == devMgrname:
+                    dmref = devMgr['devMgr_ref']
+                    foundDevMgr = True
+                    break
+            if not foundDevMgr:
+                self.callbackObject.log.warn("Unable to find Device Manager: "+devMgrname)
+                return
+            itemrect = self.visualItemRect(item)
+            pos = self.mapToGlobal(itemrect.center())
+            menu = QMenu(self)
+            menu.addAction('Shutdown')
+            menu.popup(pos)
+            retval = menu.exec_()
+            if retval != None:
+                resp = retval.text()
+                if resp == 'Shutdown':
+                    self.callbackObject.addRequest(('shutdownDeviceManager(QString)',devMgrname))
 
 class BrowseWindowBase(QMainWindow):
     def __init__(self,parent = None,name = None,fl = 0,domainName=None):

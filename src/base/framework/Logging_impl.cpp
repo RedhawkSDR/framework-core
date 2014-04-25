@@ -18,7 +18,6 @@
  * along with this program.  If not, see http://www.gnu.org/licenses/.
  */
 #include <iostream>
-#include <log4cxx/level.h>
 #include "ossie/Logging_impl.h"
 #include "ossie/logging/loghelpers.h"
 #include "ossie/debug.h"
@@ -114,12 +113,12 @@ void Logging_impl::setLoggingContext( const std::string &logcfg_url, int logLeve
 
   if ( logLevel > -1  ) {
     STDOUT_DEBUG("Logging_impl setLoggingContext setLogLevel:" );
-    setLogLevel( "", ossie::logging::ConvertLogLevel(logLevel) );
+    setLogLevel( "", ossie::logging::ConvertDebugToCFLevel(logLevel) );
   }
   else {
-    LOGGER root = log4cxx::Logger::getRootLogger();
+    LOGGER root = rh_logger::Logger::getRootLogger();
     if ( root ) {
-      _logLevel = ossie::logging::ConvertLog4ToCFLevel( root->getLevel() );
+      _logLevel = ossie::logging::ConvertRHLevelToCFLevel( root->getLevel() );
     }
   }
 
@@ -159,13 +158,13 @@ void Logging_impl::saveLoggingContext( const std::string &logcfg_url, int logLev
   }
 
   if ( logLevel > -1  ) {
-    STDOUT_DEBUG( "Logging_impl setLoggingContext setLogLevel:" << logLevel );
-    _logLevel = ossie::logging::ConvertLogLevel(logLevel);
+    STDOUT_DEBUG( "Logging_impl setLoggingContext save _logLevel:" << logLevel );
+    _logLevel = ossie::logging::ConvertDebugToCFLevel(logLevel);
   }
   else {
-    LOGGER root = log4cxx::Logger::getRootLogger();
+    LOGGER root = rh_logger::Logger::getRootLogger();
     if ( root ) {
-      _logLevel = ossie::logging::ConvertLog4ToCFLevel( root->getLevel() );
+      _logLevel = ossie::logging::ConvertRHLevelToCFLevel( root->getLevel() );
     }
   }
 
@@ -174,17 +173,17 @@ void Logging_impl::saveLoggingContext( const std::string &logcfg_url, int logLev
 
 
 
-Logging_impl::LOGGER Logging_impl::getLogger () {
+LOGGER Logging_impl::getLogger () {
   return _logger;
 }
 
-Logging_impl::LOGGER Logging_impl::getLogger (const std::string &logger_name, bool assignToResource) {
+LOGGER Logging_impl::getLogger (const std::string &logger_name, bool assignToResource) {
   LOGGER retval;
   if ( logger_name == "" ) {
-    retval = log4cxx::Logger::getRootLogger();
+    retval = rh_logger::Logger::getRootLogger();
   }
   else {
-    retval=log4cxx::Logger::getLogger(logger_name);
+    retval= rh_logger::Logger::getLogger(logger_name);
   }
   
   if ( assignToResource ) {
@@ -230,12 +229,12 @@ void Logging_impl::setLogConfigURL( const char *in_url ) {
       setLogConfig( config_contents.c_str() );
     }
     else {
-      LOG4CXX_WARN(_logger, "URL contents could not be resolved, url: " << url );
+      RH_WARN(_logger, "URL contents could not be resolved, url: " << url );
     }
 
   }
   catch( std::exception &e ){
-      LOG4CXX_WARN(_logger, "Exception caught during logging configuration using URL, url: " << url );
+      RH_WARN(_logger, "Exception caught during logging configuration using URL, url: " << url );
   }
 
 }
@@ -267,7 +266,7 @@ void Logging_impl::log_level( const CF::LogLevel newLevel ) {
   }
   else {
     _logLevel = newLevel;
-    log4cxx::LevelPtr level = ossie::logging::ConvertToLog4Level( newLevel );
+    rh_logger::LevelPtr level = ossie::logging::ConvertCFLevelToRHLevel( newLevel );
     // apply new level to resource logger
     if ( _logger ) {
       _logger->setLevel( level );

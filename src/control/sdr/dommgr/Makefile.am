@@ -30,7 +30,8 @@ DomainManager_SOURCES = applicationSupport.cpp \
                         DomainManager_Channels.cpp \
                         DomainManager_impl.cpp \
                         main.cpp
-DomainManager_CXXFLAGS = -Wall -I../../include -I../../parser -I$(top_srcdir)/base/include -I$(top_srcdir)/base $(BOOST_CPPFLAGS) $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS)
+DomainManager_CPPFLAGS = -I../../include -I../../parser -I$(top_srcdir)/base/include -I$(top_srcdir)/base $(BOOST_CPPFLAGS) $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS)
+DomainManager_CXXFLAGS = -Wall
 DomainManager_LDADD = ../../framework/libossiedomain.la ../../parser/libossieparser.la $(top_builddir)/base/framework/libossiecf.la $(top_builddir)/base/framework/idl/libossieidl.la  $(BOOST_LDFLAGS) $(BOOST_FILESYSTEM_LIB) $(BOOST_SERIALIZATION_LIB)  $(BOOST_REGEX_LIB) $(BOOST_THREAD_LIB) $(BOOST_SYSTEM_LIB) $(OMNICOS_LIBS) $(OMNIORB_LIBS) $(LOG4CXX_LIBS) $(PERSISTENCE_LIBS)
 DomainManager_LDFLAGS = -static
 

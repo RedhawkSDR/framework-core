@@ -32,6 +32,7 @@
 #include "TestableObject_impl.h"
 #include "ossie/logging/loghelpers.h"
 #include "ossie/ossieSupport.h"
+#include "ossie/prop_helpers.h"
 
 class Resource_impl: public virtual POA_CF::Resource, public PropertySet_impl, public PortSupplier_impl, public LifeCycle_impl, public TestableObject_impl, public Logging_impl
 {

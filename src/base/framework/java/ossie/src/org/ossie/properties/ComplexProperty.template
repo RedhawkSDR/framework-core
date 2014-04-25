@@ -27,27 +27,27 @@ package org.ossie.properties;
 
 import org.omg.CORBA.Any;
 
-import CF.complex${name};
-import CF.complex${name}Helper;
+import CF.complex@name@;
+import CF.complex@name@Helper;
 
-public class Complex${name}Property extends AbstractSimpleProperty<complex${name}> {
-    public Complex${name}Property(String id, String name, complex${name} value, Mode mode, Action action, Kind[] kinds) {
-        super(id, name, "${scaname}", value, mode, action, kinds);
+public class Complex@name@Property extends AbstractSimpleProperty<complex@name@> {
+    public Complex@name@Property(String id, String name, complex@name@ value, Mode mode, Action action, Kind[] kinds) {
+        super(id, name, "@scaname@", value, mode, action, kinds);
     }
 
-    protected complex${name} extract(Any any) {
+    protected complex@name@ extract(Any any) {
         try {
-            return (complex${name})AnyUtils.convertAny(any);
+            return (complex@name@)AnyUtils.convertAny(any);
         } catch (ClassCastException ex) {
             throw new IllegalArgumentException("Incorrect any type recevied");
         }
     }
 
-    protected void insert(Any any, complex${name} value) {
-        complex${name}Helper.insert(any, value);
+    protected void insert(Any any, complex@name@ value) {
+        complex@name@Helper.insert(any, value);
     }
 
-    protected complex${name} parseString(String str) {
-        return ComplexUtils.parseComplex${name}(str);
+    protected complex@name@ parseString(String str) {
+        return ComplexUtils.parseComplex@name@(str);
     }
 }

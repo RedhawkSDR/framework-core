@@ -90,12 +90,18 @@ class ArraySource(object):
     def pushPacket(self, data, T, EOS, streamID):
         if self.refreshSRI:
             self.pushSRI(self.sri)
+        if EOS: # This deals with subsequent pushes with the same SRI
+            self.refreshSRI = True
 
         self.port_lock.acquire()
         try:
             try:
                 for connId, port in self.outPorts.items():
                     if port != None:
+                        interface = self.port_type._NP_RepositoryId
+                        if interface == 'IDL:BULKIO/dataChar:1.0' or interface == 'IDL:BULKIO/dataOctet:1.0':
+                            if len(data) == 0:
+                                data = ''
                         port.pushPacket(data, T, EOS, streamID)
             except Exception, e:
                 msg = "The call to pushPacket failed with %s " % e
@@ -722,6 +728,8 @@ class FileSource(object):
     def pushPacket(self, data, T, EOS, streamID):
         if self.refreshSRI:
             self.pushSRI(self.sri)
+        if EOS: # This deals with subsequent pushes with the same SRI
+            self.refreshSRI = True
 
         self.port_lock.acquire()
         try:

@@ -29,20 +29,32 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <boost/regex.hpp>
+#include <boost/make_shared.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/algorithm/string.hpp>
-#include <log4cxx/logmanager.h>
-#include <log4cxx/logger.h>
-#include <log4cxx/xml/domconfigurator.h>
-#include <log4cxx/propertyconfigurator.h>
-#include <log4cxx/helpers/bytearrayinputstream.h>
-#include <log4cxx/stream.h>
 #include <ossie/CorbaUtils.h>
 #include <ossie/ossieSupport.h>
 #include <ossie/debug.h>
 #include <ossie/logging/loghelpers.h>
-#include <ossie/logging/StringInputStream.h>
+
+#ifdef   HAVE_LOG4CXX
+#include <log4cxx/logger.h>
+#include <log4cxx/level.h>
+#include <log4cxx/logmanager.h>
+#include <log4cxx/consoleappender.h>
+#include <log4cxx/logstring.h>
+#include <log4cxx/patternlayout.h>
+#include <log4cxx/xml/domconfigurator.h>
+#include <log4cxx/propertyconfigurator.h>
+#include <log4cxx/helpers/bytearrayinputstream.h>
+#include <log4cxx/stream.h>
+#include <fstream>
+#include "StringInputStream.h"
+#else
+#include "rh_logger_cfg.h"                       // this class spoofs the log4cxx configuration calls, when log4cxx is disabled
+#endif
+
 
 namespace ossie {
 
@@ -101,6 +113,19 @@ namespace ossie {
     }
 
     void ResourceCtx::apply( MacroTable &tbl ) {
+      SetResourceInfo( tbl, *this );
+    }
+
+
+
+    DomainCtx::DomainCtx( const std::string &name,
+			  const std::string &id,
+			  const std::string &dpath ):
+      ResourceCtx(name, "DOMAIN_MANAGER_1", dpath)
+    {
+    }
+
+    void DomainCtx::apply( MacroTable &tbl ) {
       SetResourceInfo( tbl, *this );
     }
 
@@ -381,31 +406,43 @@ namespace ossie {
     }
 
 
-    int ConvertLog4ToCFLevel ( log4cxx::LevelPtr l4_level ) {
-      if (l4_level == log4cxx::Level::getOff() )   return CF::LogLevels::OFF;
-      if (l4_level == log4cxx::Level::getFatal() ) return CF::LogLevels::FATAL;
-      if (l4_level == log4cxx::Level::getError() ) return CF::LogLevels::ERROR;
-      if (l4_level == log4cxx::Level::getWarn() )  return CF::LogLevels::WARN;
-      if (l4_level == log4cxx::Level::getInfo() )  return CF::LogLevels::INFO;
-      if (l4_level == log4cxx::Level::getDebug() ) return CF::LogLevels::DEBUG;
-      if (l4_level == log4cxx::Level::getTrace() ) return CF::LogLevels::TRACE;
-      if (l4_level == log4cxx::Level::getAll() )   return CF::LogLevels::ALL;
+    int ConvertRHLevelToCFLevel ( rh_logger::LevelPtr l4_level ) {
+      if (l4_level == rh_logger::Level::getOff() )   return CF::LogLevels::OFF;
+      if (l4_level == rh_logger::Level::getFatal() ) return CF::LogLevels::FATAL;
+      if (l4_level == rh_logger::Level::getError() ) return CF::LogLevels::ERROR;
+      if (l4_level == rh_logger::Level::getWarn() )  return CF::LogLevels::WARN;
+      if (l4_level == rh_logger::Level::getInfo() )  return CF::LogLevels::INFO;
+      if (l4_level == rh_logger::Level::getDebug() ) return CF::LogLevels::DEBUG;
+      if (l4_level == rh_logger::Level::getTrace() ) return CF::LogLevels::TRACE;
+      if (l4_level == rh_logger::Level::getAll() )   return CF::LogLevels::ALL;
 	return CF::LogLevels::INFO;
     };
+
+
+    int ConvertRHLevelToDebug ( rh_logger::LevelPtr rh_level ) {
+      if (rh_level == rh_logger::Level::getFatal() ) return 0;
+      if (rh_level == rh_logger::Level::getError() ) return 1;
+      if (rh_level == rh_logger::Level::getWarn() )  return 2;
+      if (rh_level == rh_logger::Level::getInfo() )  return 3;
+      if (rh_level == rh_logger::Level::getDebug() ) return 4;
+      if (rh_level == rh_logger::Level::getTrace() ) return 5;
+      if (rh_level == rh_logger::Level::getAll() )   return 5;
+      return 3;
+    };
     
-    log4cxx::LevelPtr ConvertToLog4Level( int newlevel ) {
-      if ( newlevel == CF::LogLevels::OFF )   return log4cxx::Level::getOff();
-      if ( newlevel == CF::LogLevels::FATAL ) return log4cxx::Level::getFatal();
-      if ( newlevel == CF::LogLevels::ERROR ) return log4cxx::Level::getError();
-      if ( newlevel == CF::LogLevels::WARN )  return log4cxx::Level::getWarn();
-      if ( newlevel == CF::LogLevels::INFO )  return log4cxx::Level::getInfo();
-      if ( newlevel == CF::LogLevels::DEBUG ) return log4cxx::Level::getDebug();
-      if ( newlevel == CF::LogLevels::TRACE)  return log4cxx::Level::getTrace();
-      if ( newlevel ==  CF::LogLevels::ALL )  return log4cxx::Level::getAll();
-      return log4cxx::Level::getInfo();
+    rh_logger::LevelPtr ConvertCFLevelToRHLevel ( int newlevel ) {
+      if ( newlevel == CF::LogLevels::OFF )   return rh_logger::Level::getOff();
+      if ( newlevel == CF::LogLevels::FATAL ) return rh_logger::Level::getFatal();
+      if ( newlevel == CF::LogLevels::ERROR ) return rh_logger::Level::getError();
+      if ( newlevel == CF::LogLevels::WARN )  return rh_logger::Level::getWarn();
+      if ( newlevel == CF::LogLevels::INFO )  return rh_logger::Level::getInfo();
+      if ( newlevel == CF::LogLevels::DEBUG ) return rh_logger::Level::getDebug();
+      if ( newlevel == CF::LogLevels::TRACE)  return rh_logger::Level::getTrace();
+      if ( newlevel ==  CF::LogLevels::ALL )  return rh_logger::Level::getAll();
+      return rh_logger::Level::getInfo();
     }
 
-    CF::LogLevel  ConvertLogLevel( const int oldstyle_level ) {
+    CF::LogLevel  ConvertDebugToCFLevel ( const int oldstyle_level ) {
       if ( oldstyle_level == 0 ) return CF::LogLevels::FATAL;
       if ( oldstyle_level == 1 ) return CF::LogLevels::ERROR;
       if ( oldstyle_level == 2 ) return CF::LogLevels::WARN;
@@ -418,25 +455,45 @@ namespace ossie {
 
     void SetLevel( const std::string &logid, int debugLevel) {
       STDOUT_DEBUG( " Setting Logger:" << logid << " OLD STYLE Level:" << debugLevel );
-      SetLogLevel( logid, ConvertLogLevel(debugLevel));
+      SetLogLevel( logid, ConvertDebugToCFLevel(debugLevel));
       STDOUT_DEBUG( " Setting Logger: END " << logid << " OLD STYLE Level:" << debugLevel );
     }
 
 
+    void SetLogLevel( const std::string  &logid, const rh_logger::LevelPtr &newLevel ) {
+
+      STDOUT_DEBUG(" Setting Logger: START log:" << logid << " NEW Level:" << newLevel->toString() );
+      rh_logger::LoggerPtr logger;        
+      if ( logid == "" ) {
+        logger = rh_logger::Logger::getRootLogger();
+      }
+      else {
+        logger = rh_logger::Logger::getLogger( logid );
+      }
+      if ( logger ) {
+	STDOUT_DEBUG( " Setting Redhawk Logger Name/level <" << logid << ">  Level:" << newLevel->toString() );
+        logger->setLevel( newLevel );
+	STDOUT_DEBUG( " Get name/level <" << logger->getName() << ">/" << logger->getLevel()->toString() );
+      }   
+      STDOUT_DEBUG( " Setting Logger: END  log:" << logid << " NEW Level:" << newLevel->toString() );
+    }
+
     void SetLogLevel( const std::string  &logid, CF::LogLevel newLevel ) {
 
       STDOUT_DEBUG(" Setting Logger: START log:" << logid << " NEW Level:" << newLevel );
-      log4cxx::LoggerPtr logger;        
+      rh_logger::LoggerPtr logger;        
       if ( logid == "" ) {
-        logger = log4cxx::Logger::getRootLogger();
+        logger = rh_logger::Logger::getRootLogger();
       }
       else {
-        logger = log4cxx::Logger::getLogger( logid );
+        logger = rh_logger::Logger::getLogger( logid );
       }
       if ( logger ) {
-        log4cxx::LevelPtr level = ConvertToLog4Level( newLevel);
-	STDOUT_DEBUG( " Setting L4 LEVEL <" << logid << "> Level4:" << level->toString() );
+        rh_logger::LevelPtr level = ConvertCFLevelToRHLevel( newLevel);
+	STDOUT_DEBUG( " Setting Log4 Params id/level <" << logid << ">/" << newLevel << " log4 id/Level4:" << 
+		      logger->getName() << "/" << level->toString() );
         logger->setLevel( level );
+	STDOUT_DEBUG( " GET log4 name/level <" << logger->getName() << ">/" << logger->getLevel()->toString() );
       }   
       STDOUT_DEBUG( " Setting Logger: END  log:" << logid << " NEW Level:" << newLevel );
     }
@@ -608,8 +665,8 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
         fileContents = ossie::logging::GetDefaultConfig();
         STDOUT_DEBUG( "Setting Logging Configuration Properties with Default Configuration.: " << fileContents );
         log4cxx::helpers::Properties  props;
-        // need to allocate heap object...           log4cxx::helpers::Properties  props takes care of deleting the memory...
-        log4cxx::helpers::InputStreamPtr is = new log4cxx::helpers::StringInputStream( fileContents );
+        // need to allocate heap object...  log4cxx::helpers::Properties  props takes care of deleting the memory...
+        log4cxx::helpers::InputStreamPtr is( new log4cxx::helpers::StringInputStream( fileContents ) );
         props.load(is);
         log4cxx::PropertyConfigurator::configure(props);
     }
@@ -643,7 +700,8 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
 
 
     //
-    // 
+    // Current logging configuration method used by Redhawk Resources.  
+    //
     //
     void Configure(const std::string &logcfgUri, int logLevel, ossie::logging::ResourceCtxPtr ctx )  {
 
@@ -728,8 +786,8 @@ log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1
         else {
           STDOUT_DEBUG( "Setting Logging Configuration, Java Properties: " );
           log4cxx::helpers::Properties  props;
-          // need to allocate heap object...           log4cxx::helpers::Properties  props takes care of deleting the memory...
-          log4cxx::helpers::InputStreamPtr is = new log4cxx::helpers::StringInputStream( fileContents );
+          // need to allocate heap object...   log4cxx::helpers::Properties  props takes care of deleting the memory...
+          log4cxx::helpers::InputStreamPtr is( new log4cxx::helpers::StringInputStream( fileContents ) );
           props.load(is);
           STDOUT_DEBUG("Setting Logging Configuration,  Properties using StringStream: " );
           log4cxx::PropertyConfigurator::configure(props);

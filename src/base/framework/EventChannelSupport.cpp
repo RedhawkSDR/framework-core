@@ -34,7 +34,7 @@
 
 
 namespace ossie {
-void sendStateChangeEvent(log4cxx::LoggerPtr logger, const char* producerId, const char* sourceId,
+void sendStateChangeEvent( LOGGER logger, const char* producerId, const char* sourceId,
     StandardEvent::StateChangeCategoryType stateChangeCategory, 
     StandardEvent::StateChangeType stateChangeFrom, 
     StandardEvent::StateChangeType stateChangeTo,
@@ -52,12 +52,12 @@ void sendStateChangeEvent(log4cxx::LoggerPtr logger, const char* producerId, con
         try {
             _proxy_consumer->push(outboundMessage);
         } catch ( ... ) {
-            LOG4CXX_WARN(logger, "Unable to send the following StateChangeEvent (the event service might not be running):\n  producer id:"<<producerId<<" source id:"<<sourceId<<" state change category:"<<stateChangeCategory<<" state change from/to: "<<stateChangeFrom<<"/"<<stateChangeTo);
+            RH_WARN(logger, "Unable to send the following StateChangeEvent (the event service might not be running):\n  producer id:"<<producerId<<" source id:"<<sourceId<<" state change category:"<<stateChangeCategory<<" state change from/to: "<<stateChangeFrom<<"/"<<stateChangeTo);
         }
     }
 }
 
-void sendObjectAddedEvent(log4cxx::LoggerPtr logger, const char* producerId, const char* sourceId, const char* sourceName, 
+void sendObjectAddedEvent( LOGGER logger, const char* producerId, const char* sourceId, const char* sourceName, 
     CORBA::Object_ptr sourceIOR, StandardEvent::SourceCategoryType sourceCategory, 
     CosEventChannelAdmin::ProxyPushConsumer_ptr _proxy_consumer)
 {
@@ -73,12 +73,12 @@ void sendObjectAddedEvent(log4cxx::LoggerPtr logger, const char* producerId, con
         try {
             _proxy_consumer->push(outboundMessage);
         } catch ( ... ) {
-            LOG4CXX_WARN(logger, "Unable to send the following ObjectAddedEvent (the event service might not be running):\n  producer id:"<<producerId<<" source id:"<<sourceId<<" source name:"<<sourceName<<" source category: "<<sourceCategory);
+            RH_WARN(logger, "Unable to send the following ObjectAddedEvent (the event service might not be running):\n  producer id:"<<producerId<<" source id:"<<sourceId<<" source name:"<<sourceName<<" source category: "<<sourceCategory);
         }
     }
 }
 
-void sendObjectRemovedEvent(log4cxx::LoggerPtr logger, const char* producerId, const char* sourceId, const char* sourceName, 
+void sendObjectRemovedEvent( LOGGER logger, const char* producerId, const char* sourceId, const char* sourceName, 
     StandardEvent::SourceCategoryType sourceCategory, CosEventChannelAdmin::ProxyPushConsumer_ptr _proxy_consumer)
 {
     if (_proxy_consumer != CosEventChannelAdmin::ProxyPushConsumer::_nil()) {
@@ -92,7 +92,7 @@ void sendObjectRemovedEvent(log4cxx::LoggerPtr logger, const char* producerId, c
         try {
             _proxy_consumer->push(outboundMessage);
         } catch ( ... ) {
-            LOG4CXX_WARN(logger, "Unable to send the following ObjectRemovedEvent (the event service might not be running):\n  producer id:"<<producerId<<" source id:"<<sourceId<<" source name:"<<sourceName<<" source category: "<<sourceCategory);
+            RH_WARN(logger, "Unable to send the following ObjectRemovedEvent (the event service might not be running):\n  producer id:"<<producerId<<" source id:"<<sourceId<<" source name:"<<sourceName<<" source category: "<<sourceCategory);
         }
     }
 }
@@ -102,12 +102,12 @@ namespace event {
 
 CREATE_LOGGER(EventChannelSupport);
 
-#define LNTRACE( lname, expression ) LOG4CXX_TRACE( log4cxx::Logger::getLogger(lname), expression )
-#define LNDEBUG( lname, expression ) LOG4CXX_DEBUG( log4cxx::Logger::getLogger(lname), expression )
-#define LNINFO( lname, expression )  LOG4CXX_INFO( log4cxx::Logger::getLogger(lname), expression )
-#define LNWARN( lname, expression )  LOG4CXX_WARN( log4cxx::Logger::getLogger(lname), expression )
-#define LNERROR( lname, expression ) LOG4CXX_ERROR( log4cxx::Logger::getLogger(lname), expression )
-#define LNFATAL( lname, expression ) LOG4CXX_FATAL( log4cxx::Logger::getLogger(lname), expression )
+#define LNTRACE( lname, expression ) RH_TRACE( rh_logger::Logger::getLogger(lname), expression )
+#define LNDEBUG( lname, expression ) RH_DEBUG( rh_logger::Logger::getLogger(lname), expression )
+#define LNINFO( lname, expression )  RH_INFO( rh_logger::Logger::getLogger(lname), expression )
+#define LNWARN( lname, expression )  RH_WARN( rh_logger::Logger::getLogger(lname), expression )
+#define LNERROR( lname, expression ) RH_ERROR( rh_logger::Logger::getLogger(lname), expression )
+#define LNFATAL( lname, expression ) RH_FATAL( rh_logger::Logger::getLogger(lname), expression )
 
 CosLifeCycle::GenericFactory_ptr getEventChannelFactory ()
 {

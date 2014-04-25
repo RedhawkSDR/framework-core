@@ -52,6 +52,19 @@ def createDevice(profile, spd, scd, prf, deviceRef, instanceName, refid, impl=No
             cls = Device
     return cls(profile, spd, scd, prf, deviceRef, instanceName, refid, impl, idmListener)
 
+def createService(profile, spd, scd, prf, serviceRef, instanceName, refid, impl=None, execparams={}, debugger=None, window=None):
+    """
+    Factory method to create a new device instance of the most specific
+    type supported by that device, according to its supported interfaces.
+    """
+    interfaces = set(ifc.get_repid() for ifc in scd.get_componentfeatures().get_supportsinterface())
+    return Service(profile, spd, scd, prf, serviceRef, instanceName, refid, impl, execparams, debugger, window)
+
+class DomainService(DomainComponent):
+    def __init__(self, profile, spd, scd, prf, serviceRef, instanceName, refid, impl=None, execparams={}, debugger=None, window=None):
+        DomainComponent.__init__(self, profile, spd, scd, prf, instanceName, refid, impl)
+        self.ref = serviceRef
+
 class DomainDevice(DomainComponent):
     @notification
     def adminStateChanged(self, oldState, newState):
@@ -168,6 +181,11 @@ class DomainDevice(DomainComponent):
         super(DomainDevice,self).api()
         print
         model.Device.api(self)
+
+class Service(DomainService, model.Service):
+    def __init__(self, profile, spd, scd, prf, serviceRef, instanceName, refid, impl=None, execparams={}, debugger=None, window=None):
+        model.Service.__init__(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window)
+        DomainService.__init__(self, profile, spd, scd, prf, serviceRef, instanceName, refid, impl, execparams, debugger, window)
 
 class Device(DomainDevice, model.Device):
     def __init__(self, profile, spd, scd, prf, deviceRef, instanceName, refid, impl=None, idmListener=None):

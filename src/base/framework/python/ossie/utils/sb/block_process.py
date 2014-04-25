@@ -157,7 +157,7 @@ def matchPortFormat(dataFormat, portType):
                 return True
     return False
 
-def proc(comp,source,sink=None,sourceFmt=None,sinkFmt=None,sampleRate=1.0,execparams={},configure={},providesPortName=None,usesPortName=None,timeout=None):
+def proc(comp,source,sink=None,sourceFmt=None,sinkFmt=None,sampleRate=1.0,execparams={},configure={},providesPortName=None,usesPortName=None,timeout=None,objType="component"):
     '''
     This function launches a component, passes a file through the component, saves the result
     in another file, and then terminates the component. The output file format is determined
@@ -270,7 +270,7 @@ def proc(comp,source,sink=None,sourceFmt=None,sinkFmt=None,sampleRate=1.0,execpa
             
     if comp!=None:
         try:
-            _comp=_sandbox.launch(comp,instanceName, refid, impl, debugger, window, execparams, configure, initialize, timeout)
+            _comp=_sandbox.launch(comp,objType="component",instanceName=instanceName, refid=refid, impl=impl, debugger=debugger, window=window, execparams=execparams, configure=configure, initialize=initialize, timeout=timeout)
         except Exception, e:
             undo_all(undos)
             raise
@@ -305,7 +305,7 @@ def proc(comp,source,sink=None,sourceFmt=None,sinkFmt=None,sampleRate=1.0,execpa
             matchedOutput = False
             matchingInterface = interfaceFromFormat(sinkFmt)
             if usesPortName != None:
-                for port in _comp._ports:
+                for port in _comp.ports:
                     if port._direction != 'Uses':
                         continue
                     if port._name == usesPortName:
@@ -313,7 +313,7 @@ def proc(comp,source,sink=None,sourceFmt=None,sinkFmt=None,sampleRate=1.0,execpa
                         matchedOutput = matchPortFormat(sinkFmt, interface)
                         break
             else:
-                for port in _comp._ports:
+                for port in _comp.ports:
                     if port._direction != 'Uses':
                         continue
                     interface = 'IDL:'+port._using.nameSpace+'/'+port._using.name+':1.0'
@@ -326,7 +326,7 @@ def proc(comp,source,sink=None,sourceFmt=None,sinkFmt=None,sampleRate=1.0,execpa
     
         if outputDataConverter:
             try:
-                _dataConverter_out=_sandbox.launch('DataConverter', timeout)
+                _dataConverter_out=_sandbox.launch('DataConverter', timeout=timeout)
             except Exception, e:
                 undo_all(undos)
                 if type(e).__name__ == "ValueError" and \
@@ -374,7 +374,7 @@ def proc(comp,source,sink=None,sourceFmt=None,sinkFmt=None,sampleRate=1.0,execpa
         raise
     if inputDataConverter:
         try:
-            _dataConverter=_sandbox.launch('DataConverter', timeout)
+            _dataConverter=_sandbox.launch('DataConverter', timeout=timeout)
         except Exception, e:
             undo_all(undos)
             if type(e).__name__ == "ValueError" and \

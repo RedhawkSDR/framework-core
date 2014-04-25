@@ -27,7 +27,7 @@ Prefix:         %{_sysconfdir}
 
 Name:           redhawk
 Version:        1.10.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        REDHAWK is a Software Defined Radio framework
 
 Group:          Applications/Engineering
@@ -48,6 +48,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Requires:       util-linux-ng
 %else
 Requires:       e2fsprogs
+Requires:       python-elementtree
 %endif
 Requires:       java >= 1.6
 Requires:       python
@@ -61,6 +62,7 @@ BuildRequires:  boost-devel >= 1.41
 %else
 BuildRequires:  e2fsprogs-devel
 BuildRequires:  boost141-devel
+BuildRequires:  python-elementtree
 %endif
 BuildRequires:  autoconf automake libtool
 BuildRequires:  expat-devel

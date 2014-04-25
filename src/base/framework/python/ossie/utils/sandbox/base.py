@@ -59,8 +59,8 @@ class SdrRoot(object):
 
         return spd, scd, prf
 
-    def findProfile(self, descriptor, filter):
-        filterMatches = []
+    def findProfile(self, descriptor, objType=None):
+        objMatches = []
         if self._fileExists(descriptor):
             try:
                 spd = parsers.spd.parseString(self._readFile(descriptor))
@@ -68,23 +68,23 @@ class SdrRoot(object):
                 return self._sdrPath(descriptor)
             except:
                 pass
-        for profile in self.getProfiles(filter):
+        for profile in self.getProfiles(objType):
             try:
                 spd = parsers.spd.parseString(self._readFile(profile))
                 if spd.get_name() == descriptor:
                     log.trace("Softpkg name '%s' found in '%s'", descriptor, profile)
-                    filterMatches.append(profile)
+                    objMatches.append(profile)
             except:
                 log.warning('Could not parse %s', profile)
                 continue
-        if len(filterMatches) == 1:
-            return filterMatches[0]
-        elif len(filterMatches) > 1:
+        if len(objMatches) == 1:
+            return objMatches[0]
+        elif len(objMatches) > 1:
             print "There are multiple object types with the name '%s'" % descriptor
-            for type in filterMatches:
+            for type in objMatches:
                 print " ", type
             print 'Filter the object type as a "component", "device", or "service".'
-            print 'Try sb.launch("<descriptor>", filter="<objectType>")'
+            print 'Try sb.launch("<descriptor>", objType="<objectType>")'
             return None
         raise ValueError, "'%s' is not a valid softpkg name or SPD file" % descriptor
 
@@ -155,13 +155,13 @@ class Sandbox(object):
             # Bring down current component process and re-launch it.
             component.reset()
 
-    def launch(self, descriptor, filter, instanceName=None, refid=None, impl=None,
+    def launch(self, descriptor, instanceName=None, refid=None, impl=None,
                debugger=None, window=None, execparams={}, configure={},
-               initialize=True, timeout=None):
+               initialize=True, timeout=None, objType=None):
         sdrRoot = self.getSdrRoot()
         # Parse the component XML profile.
         
-        profile = sdrRoot.findProfile(descriptor, filter)
+        profile = sdrRoot.findProfile(descriptor, objType)
         if not profile:
             return None
         spd, scd, prf = sdrRoot.readProfile(profile)

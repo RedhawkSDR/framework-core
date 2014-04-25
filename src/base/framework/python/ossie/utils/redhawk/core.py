@@ -45,7 +45,7 @@ from ossie.utils.weakmethod import WeakBoundMethod
 
 from channels import IDMListener, ODMListener
 from component import Component
-from device import Device, createDevice
+from device import Device, createDevice, createService
 from model import DomainObjectList
 
 # Limit exported symbols
@@ -802,7 +802,23 @@ class DeviceManager(_CF__POA.DeviceManager, object):
         self.__devices.remove(event.sourceId)
 
     def __newService(self, service):
-        return service
+        try:
+            serviceRef = service.serviceObject
+            instanceName = service.serviceName
+            for placement in self._dcd.partitioning.componentplacement:
+                if instanceName == placement.componentinstantiation[0].usagename:
+                    spd_id = placement.componentfileref.get_refid()
+                    refid = placement.componentinstantiation[0].get_id()
+                    for componentfile in self._dcd.componentfiles.componentfile:
+                        if componentfile.get_id() == spd_id:
+                            profile = componentfile.localfile.name
+                            break
+                    break
+            implId = self.ref.getComponentImplementationId(refid)
+            spd, scd, prf = _readProfile(profile, self.fs)
+            return createService(profile, spd, scd, prf, serviceRef, instanceName, refid, implId, self.__idmListener)
+        except _CORBA.Exception:
+            log.warn('Ignoring inaccessible service')
 
     def __serviceAddedEvent(self, event):
         if not self.ref:

@@ -60,6 +60,7 @@ namespace fs = boost::filesystem;
 #include <ossie/prop_utils.h>
 #include <ossie/ossieSupport.h>
 #include <ossie/debug.h>
+#include <ossie/logging/loghelpers.h>
 
 using namespace std;
 
@@ -1087,7 +1088,7 @@ int main(int argc, char* argv[])
     // DomainManager or DeviceManager deal with any log4cxx configuration file.
     // In the case of daemon mode, this will protect us from the possibility of
     // creating the log file(s) as root.
-    LoggingConfigurator::configure(debugLevel);
+    ossie::logging::Configure(NULL, debugLevel);
 
     ///////////////////////////////////////////////////////////////////////////
     // NO LOG_ STATEMENTS ABOVE THIS POINT

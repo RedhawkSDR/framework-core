@@ -96,6 +96,7 @@ class BrowseWindow(BrowseWindowBase):
         self.verbose = verbose
         self.currentDomain = ""
         self.apps = []
+        self.devMgrs = []
         self.odmListener = None
         
         self.log = logging.getLogger(BrowseWindow.__name__)
@@ -119,6 +120,7 @@ class BrowseWindow(BrowseWindowBase):
         self.connect(self.worker, SIGNAL('clearappsItem()'), self.clearappsItem)
         self.connect(self.worker, SIGNAL('setWindowTitle(QString)'), self.setWindowTitle)
         self.connect(self.worker, SIGNAL('releaseApplication(QString)'), self.releaseApplication)
+        self.connect(self.worker, SIGNAL('shutdownDeviceManager(QString)'), self.shutdownDeviceManager)
         self.worker.start()
         self.updateDomain(domainName)
 
@@ -145,6 +147,8 @@ class BrowseWindow(BrowseWindowBase):
                     self.emit( SIGNAL('refreshApplications()'))
                 elif request[0] == 'releaseApplication(QString)':
                     self.emit( SIGNAL('releaseApplication(QString)'), request[1])
+                elif request[0] == 'shutdownDeviceManager(QString)':
+                    self.emit( SIGNAL('shutdownDeviceManager(QString)'), request[1])
                 elif request == 'refreshDeviceManagers':
                     self.emit( SIGNAL('refreshDeviceManagers()'))
                 elif request == 'parseDomainManager':
@@ -381,7 +385,17 @@ class BrowseWindow(BrowseWindowBase):
             for widget in app['widgets']:
                 self.removeWidget(widget)
             app['app_ref'].releaseObject()
-        self.refreshApplications()
+
+    def shutdownDeviceManager(self, devMgrname):
+        foundDevMgr = False
+        for devMgr in self.devMgrs:
+            if devMgr['devMgr_ref'].name == devMgrname:
+                foundDevMgr = True
+                break
+        if foundDevMgr:
+            for widget in devMgr['widgets']:
+                self.removeWidget(widget)
+            devMgr['devMgr_ref'].shutdown()
 
     def refreshApplications(self):
         self.clearappsItem()
@@ -442,6 +456,7 @@ class BrowseWindow(BrowseWindowBase):
 
     def parseAllDeviceManagers (self):
         # Build the list of Device Managers.
+        self.devMgrs = []
         for devMgr in self.domManager.devMgrs:
             self.parseDeviceManager(devMgr)
 
@@ -461,6 +476,10 @@ class BrowseWindow(BrowseWindowBase):
         propItem = self.addTreeWidgetItem(dmItem, 'Properties')
         deviceItem = self.addTreeWidgetItem(dmItem, 'Devices')
         serviceItem = self.addTreeWidgetItem(dmItem, 'Services')
+
+        self.devMgrs.append({'devMgr':dmItem})
+        self.devMgrs[-1]['devMgr_ref'] = devMgr
+        self.devMgrs[-1]['widgets'] = []
 
         # Read the DCD file to get the SPD file, which can then be used to get the properties.
         _xmlFile = devMgr.fs.open(profile, True)

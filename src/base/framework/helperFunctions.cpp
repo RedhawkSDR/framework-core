@@ -30,12 +30,6 @@ namespace fs = boost::filesystem;
 
 #include <ossie/CorbaUtils.h>
 #include <ossie/ossieSupport.h>
-#include <ossie/debug.h>
-#include <ossie/logging/loghelpers.h>
-#if HAVE_LOG4CXX
-#else
-unsigned int LoggingConfigurator::ossieDebugLevel = 0;
-#endif
 
 void ossie::createProfileFromFileName(std::string fileName, std::string& profile)
 {
@@ -89,10 +83,3 @@ std::string ossie::generateUUID()
     return std::string("DCE:") + strbuf;
 }
 
-// deprecate this method... moved to ossie:logging
-
-// deprecate this method... moved to ossie:logging
-void ossie::configureLogging(const char* logcfgUri, int defaultLevel)
-{
-  ossie::logging::Configure(logcfgUri, defaultLevel );
-}

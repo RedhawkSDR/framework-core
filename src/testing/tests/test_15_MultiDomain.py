@@ -61,7 +61,7 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
         self._domainManager_1.installApplication("/waveforms/CommandWrapperUsesDevice/CommandWrapper.sad.xml")
         appFact = self._domainManager_1._get_applicationFactories()[0]
         
-        #app = appFact.create(appFact._get_name(), [], []) # LOOK MA, NO DAS!
+        self.assertRaises(CF.ApplicationFactory.CreateApplicationError, appFact.create, appFact._get_name(), [], [])
 
         nb2, basicDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_uses/DeviceManager.dcd.xml", domainManager=self._domainManager_2, debug=self.debuglevel)
         self.assertNotEqual(basicDevNode1, None)

@@ -22,16 +22,14 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/ref.hpp>
-#include <log4cxx/logger.h>
 #include "ossie/CF/LogInterfaces.h"
+#include "ossie/logging/rh_logger.h"
 #include "ossie/logging/loghelpers.h"
 #include "ossie/EventChannelSupport.h"
 
 class Logging_impl: public virtual POA_CF::Logging
 {
  public:
-
-  typedef   log4cxx::LoggerPtr          LOGGER;
 
   Logging_impl ();
     

@@ -19,11 +19,11 @@
 #
 
 # NB: In order to create a large number of strongly-typed property classes that
-#     differ only in the numeric type, common templates and a small Python
-#     script are used to generate each instance. This allows us to make changes
-#     in a single location if the base classes change, and reduces the risk of
-#     a typo in a single class; however it somewhat complicates the build of
-#     the jarfile.
+#     differ only in the numeric type, common templates and type-specific sed
+#     scripts are used to generate each instance. This allows us to make
+#     changes in a single location if the base classes change, and reduces the
+#     risk of a typo in a single class; however it somewhat complicates the
+#     build of the jarfile.
 
 # Numeric property classes
 SIMPLE_PROPERTIES = src/org/ossie/properties/DoubleProperty.java \
@@ -36,8 +36,14 @@ SIMPLE_PROPERTIES = src/org/ossie/properties/DoubleProperty.java \
 		    src/org/ossie/properties/ULongProperty.java \
 		    src/org/ossie/properties/UShortProperty.java
 
-$(SIMPLE_PROPERTIES) : src/org/ossie/properties/NumericProperty.template
-	(cd src/org/ossie/properties && $(PYTHON) generate-props.py)
+src/org/ossie/properties/%Property.java : src/org/ossie/properties/NumericProperty.template sed/%.sed
+	$(AM_V_GEN)$(SED) -f sed/$*.sed $< > $@
+
+# Empty rules for simple boolean and char properties, which are not generated
+src/org/ossie/properties/BooleanProperty.java: ;
+src/org/ossie/properties/BooleanSequenceProperty.java : ;
+src/org/ossie/properties/CharProperty.java : ;
+src/org/ossie/properties/CharSequenceProperty.java: ;
 
 # Numeric sequence property classes
 SEQUENCE_PROPERTIES = src/org/ossie/properties/DoubleSequenceProperty.java \
@@ -50,8 +56,8 @@ SEQUENCE_PROPERTIES = src/org/ossie/properties/DoubleSequenceProperty.java \
 		      src/org/ossie/properties/ULongSequenceProperty.java \
 		      src/org/ossie/properties/UShortSequenceProperty.java
 
-$(SEQUENCE_PROPERTIES) : src/org/ossie/properties/NumericSequenceProperty.template
-	(cd src/org/ossie/properties && $(PYTHON) generate-props.py)
+src/org/ossie/properties/%SequenceProperty.java : src/org/ossie/properties/NumericSequenceProperty.template sed/%.sed
+	$(AM_V_GEN)$(SED) -f sed/$*.sed $< > $@
 
 # Complex simple property classes
 COMPLEX_PROPERTIES = src/org/ossie/properties/ComplexBooleanProperty.java \
@@ -66,8 +72,8 @@ COMPLEX_PROPERTIES = src/org/ossie/properties/ComplexBooleanProperty.java \
 		     src/org/ossie/properties/ComplexULongProperty.java \
 		     src/org/ossie/properties/ComplexUShortProperty.java
 
-$(COMPLEX_PROPERTIES) : src/org/ossie/properties/ComplexProperty.template
-	(cd src/org/ossie/properties && $(PYTHON) generate-props.py)
+src/org/ossie/properties/Complex%Property.java : src/org/ossie/properties/ComplexProperty.template sed/%.sed
+	$(AM_V_GEN)$(SED) -f sed/$*.sed $< > $@
 
 # Complex sequence property classes
 COMPLEX_SEQUENCES = src/org/ossie/properties/ComplexBooleanSequenceProperty.java \
@@ -82,8 +88,8 @@ COMPLEX_SEQUENCES = src/org/ossie/properties/ComplexBooleanSequenceProperty.java
 		    src/org/ossie/properties/ComplexULongSequenceProperty.java \
 		    src/org/ossie/properties/ComplexUShortSequenceProperty.java
 
-$(COMPLEX_SEQUENCES) : src/org/ossie/properties/ComplexSequenceProperty.template
-	(cd src/org/ossie/properties && $(PYTHON) generate-props.py)
+src/org/ossie/properties/Complex%SequenceProperty.java : src/org/ossie/properties/ComplexSequenceProperty.template sed/%.sed 
+	$(AM_V_GEN)$(SED) -f sed/$*.sed $< > $@
 
 # Regular source files
 OSSIE_SOURCE = src/org/ossie/component/AllocCapacity.java \
@@ -146,7 +152,7 @@ src/fileList.txt : $(OSSIE_SOURCE)
 
 # Additional Java compiler flags
 CLASSPATH = ../apache-commons-lang-2.4.jar:../CFInterfaces.jar:../log4j-1.2.15.jar
-JAVAFLAGS = -source 1.5 -g -Xlint:deprecation -Xlint:unchecked -cp $(CLASSPATH)
+JAVAFLAGS = $(AM_JAVACFLAGS) $(JAVACFLAGS) -g -Xlint:deprecation -Xlint:unchecked -cp $(CLASSPATH)
 
 ossie.jar : src/fileList.txt
 	$(AM_V_at)rm -rf bin

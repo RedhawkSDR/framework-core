@@ -32,6 +32,7 @@ import struct as _struct
 from ossie.utils import log4py as _log4py
 from ossie.utils import prop_helpers as _prop_helpers
 from ossie.utils import idllib
+from ossie.utils import uuid as _uuid
 from ossie import parsers as _parsers
 from ossie import properties as _properties
 from ossie.properties import getCFType 
@@ -73,7 +74,7 @@ def getTrackApps():
     return _trackLaunchedApps
 
 def _uuidgen():
-    return _commands.getoutput('uuidgen')
+    return str(_uuid.uuid4()) 
 
 class NoMatchingPorts(Exception):
     def __init__(self, *args):
@@ -469,7 +470,8 @@ class PropertySet(object):
 class Service(CorbaObject):
     def __init__(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window):
         CorbaObject.__init__(self, None)
-        
+
+        self._execParamPropertySet = []
         self._profile = profile
         self._refid = refid
         self._spd = spd

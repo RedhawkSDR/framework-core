@@ -55,21 +55,21 @@ class LocalSdrRoot(SdrRoot):
         return path.read()
 
 
-    def getProfiles(self, filter=None):
+    def getProfiles(self, objType=None):
         files = []
         searchPath = []
-        if filter == "component":
+        if objType == "component":
             searchPath.append(os.path.join(self.__sdrroot, 'dom', 'components'))
-        elif filter == "device":
+        elif objType == "device":
             searchPath.append(os.path.join(self.__sdrroot, 'dev', 'devices'))
-        elif filter == "service":
+        elif objType == "service":
             searchPath.append(os.path.join(self.__sdrroot, 'dev', 'services'))
-        elif filter == None:
+        elif objType == None:
             searchPath.append(os.path.join(self.__sdrroot, 'dom', 'components'))
             searchPath.append(os.path.join(self.__sdrroot, 'dev', 'devices'))
             searchPath.append(os.path.join(self.__sdrroot, 'dev', 'services'))
         else:
-            raise ValueError, "'%s' is not a valid filter" % filter
+            raise ValueError, "'%s' is not a valid object Type" % objType
         for path in searchPath:
             for root, dirs, fnames in os.walk(path):
                 for filename in fnmatch.filter(fnames, '*.spd.xml'):
@@ -79,7 +79,7 @@ class LocalSdrRoot(SdrRoot):
     def getLocation(self):
         return self.__sdrroot
 
-    def findProfile(self, descriptor, filter):
+    def findProfile(self, descriptor, objType=None):
         if not descriptor:
             raise RuntimeError, 'No component descriptor given'
         # Override base class behavior if descriptor points to a file regardless
@@ -91,7 +91,7 @@ class LocalSdrRoot(SdrRoot):
                 return os.path.abspath(descriptor)
             except:
                 pass
-        return super(LocalSdrRoot,self).findProfile(descriptor, filter)
+        return super(LocalSdrRoot,self).findProfile(descriptor, objType=objType)
 
 
 class LocalMixin(object):
@@ -277,17 +277,17 @@ class LocalSandbox(Sandbox):
         self.__services = []
         super(LocalSandbox,self).shutdown()
 
-    def catalog(self, searchPath=None, filter="component"):
+    def catalog(self, searchPath=None, objType="component"):
         files = {}
         if not searchPath:
-            if filter == "components":
+            if objType == "components":
                 searchPath = os.path.join(self.getSdrRoot().getLocation(), 'dom', 'components')
-            elif filter == "devices":
+            elif objType == "devices":
                 searchPath = os.path.join(self.getSdrRoot().getLocation(), 'dev', 'devices')
-            elif filter == "services":
+            elif objType == "services":
                 searchPath = os.path.join(self.getSdrRoot().getLocation(), 'dev', 'services')
             else:
-                raise ValueError, "'%s' is not a valid filter" % filter
+                raise ValueError, "'%s' is not a valid object type" % objType
         for root, dirs, fnames in os.walk(searchPath):
             for filename in fnmatch.filter(fnames, "*spd.xml"):
                 filename = os.path.join(root, filename)

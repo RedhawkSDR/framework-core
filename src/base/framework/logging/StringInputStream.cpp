@@ -1,3 +1,4 @@
+#ifdef  HAVE_LOG4CXX
 #include <string.h>
 #include <iostream>
 #include <algorithm>
@@ -6,7 +7,7 @@
 #include <log4cxx/helpers/exception.h>
 #include <log4cxx/helpers/bytebuffer.h>
 #include <log4cxx/helpers/loglog.h>
-#include <ossie/logging/StringInputStream.h>
+#include "StringInputStream.h"
 
 
 using namespace log4cxx;
@@ -100,3 +101,5 @@ int StringInputStream::read(ByteBuffer& dst) {
   return -1;
 
 }
+
+#endif

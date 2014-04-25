@@ -64,7 +64,7 @@ CLEANFILES = internal/dcd-pskel.h internal/dcd-pskel.cpp \
              internal/scd-pskel.h internal/scd-pskel.cpp \
              internal/spd-pskel.h internal/spd-pskel.cpp
 
-libossieparser_la_CXXFLAGS = -Wall $(STDINTF_CFLAGS) $(EXPAT_CFLAGS)
+libossieparser_la_CXXFLAGS = -Wall $(STDINTF_CFLAGS) $(EXPAT_CFLAGS) $(BOOST_CPPFLAGS) 
 libossieparser_la_LIBADD = $(STDINTF_LIBS) $(EXPAT_LIBS)
 libossieparser_la_LDFLAGS = -Wall $(EXPAT_LDFLAGS)
 

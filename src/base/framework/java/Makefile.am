@@ -93,7 +93,7 @@ META-INF/MANIFEST.MF: META-INF/MANIFEST.MF.in packageList.txt Makefile
 CFInterfaces.jar: fileList.txt META-INF/MANIFEST.MF
 	$(AM_V_at)rm -rf cf/bin
 	$(AM_V_at)mkdir -p cf/bin
-	$(JAVAC) -source 1.5 -g -cp apache-commons-lang-2.4.jar:$(omnijni_builddir)/src/java -d cf/bin @$<
+	$(JAVAC) $(AM_JAVACFLAGS) $(JAVAFLAGS) -g -cp apache-commons-lang-2.4.jar:$(omnijni_builddir)/src/java -d cf/bin @$<
 	$(JAR) cMf $@ META-INF/MANIFEST.MF -C cf/bin .
 	$(JAR) uf $@ -C cf/src .
 	$(JAR) uf $@ -C $(omnijni_builddir)/src/java omnijni

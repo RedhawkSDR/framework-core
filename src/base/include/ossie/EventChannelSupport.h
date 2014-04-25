@@ -30,34 +30,22 @@
 #include <COS/CosLifeCycle.hh>
 #include <ossie/CorbaUtils.h>
 #include <ossie/CF/StandardEvent.h>
-
-#ifndef HAVE_LOG4CXX
-
-class log4cxx
-{
-    public:
-        static std::string __logger;
-        typedef std::string LoggerPtr;
-};
-
-#define LOG4CXX_WARN(classname, expression) ;
-
-#endif
+#include <ossie/debug.h>
 
 namespace ossie 
 {
 
-  void sendStateChangeEvent(log4cxx::LoggerPtr logger, const char* producerId, const char* sourceId,
+  void sendStateChangeEvent( LOGGER logger, const char* producerId, const char* sourceId,
 			    StandardEvent::StateChangeCategoryType stateChangeCategory, 
 			    StandardEvent::StateChangeType stateChangeFrom, 
 			    StandardEvent::StateChangeType stateChangeTo,
 			    CosEventChannelAdmin::ProxyPushConsumer_ptr _proxy_consumer);
 
-  void sendObjectAddedEvent(log4cxx::LoggerPtr logger, const char* producerId, const char* sourceId, const char* sourceName, 
+  void sendObjectAddedEvent( LOGGER logger, const char* producerId, const char* sourceId, const char* sourceName, 
 			    CORBA::Object_ptr sourceIOR, StandardEvent::SourceCategoryType sourceCategory, 
 			    CosEventChannelAdmin::ProxyPushConsumer_ptr _proxy_consumer);
 
-  void sendObjectRemovedEvent(log4cxx::LoggerPtr logger, const char* producerId, const char* sourceId, const char* sourceName, 
+  void sendObjectRemovedEvent(LOGGER logger, const char* producerId, const char* sourceId, const char* sourceName, 
 			      StandardEvent::SourceCategoryType sourceCategory, CosEventChannelAdmin::ProxyPushConsumer_ptr _proxy_consumer);
 
   namespace event 
