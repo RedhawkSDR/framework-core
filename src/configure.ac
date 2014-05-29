@@ -22,7 +22,7 @@ dnl Update this version number immedately after a release
 AC_INIT([ossie],[1.10.1])
 #AM_INIT_AUTOMAKE(nostdinc)
 # allows filenames over 99 characters long during dist
-AM_INIT_AUTOMAKE([1.9 tar-pax])
+AM_INIT_AUTOMAKE([1.9 tar-pax subdir-objects])
 dnl Update these verion numbers immedately before a release
 dnl
 dnl The version number is in the format "current:revision:age"
