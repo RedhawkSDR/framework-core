@@ -47,14 +47,21 @@ public:
     // Stops thread and wait for termination
     bool release (unsigned long secs = 0, unsigned long usecs = 0);
 
+    void stop();
+
     // Changes the delay between calls to service function after a NOOP
     void updateDelay (float delay);
+
+    bool threadRunning();
 
 private:
     boost::thread* _thread;
     volatile bool _running;
     ThreadedComponent* _target;
     struct timespec _delay;
+
+public: 
+    boost::thread*& _mythread;
 };
 
 //

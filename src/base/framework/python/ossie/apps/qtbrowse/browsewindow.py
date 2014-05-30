@@ -37,9 +37,8 @@ from ossie.utils import redhawk,prop_helpers
 from properties import *
 from browsewindowbase import BrowseWindowBase
 import installdialog as installdialog
-import propertydialog as propertydialog
 from ossie.utils.redhawk.channels import IDMListener, ODMListener
-from ossie.utils.weakmethod import WeakBoundMethod
+from ossie.utils import weakobj
 import Queue
 
 def buildDevSeq(dasXML, fs):
@@ -121,6 +120,7 @@ class BrowseWindow(BrowseWindowBase):
         self.connect(self.worker, SIGNAL('setWindowTitle(QString)'), self.setWindowTitle)
         self.connect(self.worker, SIGNAL('releaseApplication(QString)'), self.releaseApplication)
         self.connect(self.worker, SIGNAL('shutdownDeviceManager(QString)'), self.shutdownDeviceManager)
+        self.connect(self.worker, SIGNAL('refreshProperty(QString,QString,QString)'), self.refreshProperty)
         self.worker.start()
         self.updateDomain(domainName)
 
@@ -167,6 +167,8 @@ class BrowseWindow(BrowseWindowBase):
                     self.emit( SIGNAL('clearappsItem()'))
                 elif request[0] == 'setWindowTitle':
                     self.emit( SIGNAL('setWindowTitle(QString)'), request[1] )
+                elif request[0] == 'refreshProperty':
+                    self.emit( SIGNAL('refreshProperty(QString,QString,QString)'), request[1], request[2], request[3] )
                 else:
                     print request,"...unrecognized"
             return
@@ -202,20 +204,23 @@ class BrowseWindow(BrowseWindowBase):
         for app in self.apps:
             for widget in app['widgets']:
                 self.removeWidget(widget)
+        for devMgr in self.devMgrs:
+            for widget in devMgr['widgets']:
+                self.removeWidget(widget)
 
     def connectToODMChannel(self):
         self.odmListener = ODMListener()
         self.odmListener.connect(self.domManager)
-        self.odmListener.deviceManagerAdded.addListener(WeakBoundMethod(self.devMgrODMEvent))
-        self.odmListener.deviceManagerRemoved.addListener(WeakBoundMethod(self.devMgrODMEvent))
-        self.odmListener.applicationAdded.addListener(WeakBoundMethod(self.applicationODMEvent))
-        self.odmListener.applicationRemoved.addListener(WeakBoundMethod(self.applicationODMEvent))
-        self.odmListener.applicationFactoryAdded.addListener(WeakBoundMethod(self.unusedODMEvent))
-        self.odmListener.applicationFactoryRemoved.addListener(WeakBoundMethod(self.unusedODMEvent))
-        self.odmListener.deviceAdded.addListener(WeakBoundMethod(self.devMgrODMEvent))
-        self.odmListener.deviceRemoved.addListener(WeakBoundMethod(self.devMgrODMEvent))
-        self.odmListener.serviceAdded.addListener(WeakBoundMethod(self.devMgrODMEvent))
-        self.odmListener.serviceRemoved.addListener(WeakBoundMethod(self.devMgrODMEvent))
+        self.odmListener.deviceManagerAdded.addListener(weakobj.boundmethod(self.devMgrODMEvent))
+        self.odmListener.deviceManagerRemoved.addListener(weakobj.boundmethod(self.devMgrODMEvent))
+        self.odmListener.applicationAdded.addListener(weakobj.boundmethod(self.applicationODMEvent))
+        self.odmListener.applicationRemoved.addListener(weakobj.boundmethod(self.applicationODMEvent))
+        self.odmListener.applicationFactoryAdded.addListener(weakobj.boundmethod(self.unusedODMEvent))
+        self.odmListener.applicationFactoryRemoved.addListener(weakobj.boundmethod(self.unusedODMEvent))
+        self.odmListener.deviceAdded.addListener(weakobj.boundmethod(self.devMgrODMEvent))
+        self.odmListener.deviceRemoved.addListener(weakobj.boundmethod(self.devMgrODMEvent))
+        self.odmListener.serviceAdded.addListener(weakobj.boundmethod(self.devMgrODMEvent))
+        self.odmListener.serviceRemoved.addListener(weakobj.boundmethod(self.devMgrODMEvent))
 
     def disconnectFromODMChannel(self):
         if self.odmListener != None:
@@ -312,11 +317,34 @@ class BrowseWindow(BrowseWindowBase):
 
 
     def createSelected (self):
-        appList = self.domManager.catalogSads()
+        try:
+            appList = self.domManager.catalogSads()
+        except:
+            try:
+                self.refreshView()
+                appList = self.domManager.catalogSads()
+            except:
+                QMessageBox.critical(self, 'Action failed', 'Unable to connect to the Domain.', QMessageBox.Ok)
+                return
 
         # Present the app list in alphabetical order.
         appList.sort()
         app = installdialog.getApplicationFile(appList, self)
+        if app == None:
+            return
+        try:
+            app_inst = self.domManager.createApplication(app)
+        except CF.ApplicationFactory.CreateApplicationError, e:
+            QMessageBox.critical(self, 'Creation of waveform failed.', e.msg, QMessageBox.Ok)
+            return
+        if app_inst == None:
+            QMessageBox.critical(self, 'Creation of waveform failed.', 'Unable to create Application instance for $SDRROOT'+app, QMessageBox.Ok)
+
+        self._requests.put('clearappsItem')
+        self._requests.put('parseApplications')
+
+    def newStructSelected (self):
+        app = structdialog.structInstance('hello', self)
         if app == None:
             return
         try:
@@ -401,6 +429,46 @@ class BrowseWindow(BrowseWindowBase):
         self.clearappsItem()
         self.parseApplications()
 
+    def refreshProperty(self, appname, compname, propname):
+        app = self.returnItem(self.appsItem, appname)
+        if app == None:
+            return
+        Components = self.returnItem(app, 'Components')
+        if Components == None:
+            return
+        comp = self.returnItem(Components, compname)
+        if comp == None:
+            return
+        Properties = self.returnItem(comp, 'Properties')
+        if Properties == None:
+            return
+        prop = self.returnItem(Properties, propname)
+        if prop == None:
+            return
+        propref = None
+        for app in self.apps:
+            if app['name'] == appname:
+                for comp in app['app_ref'].comps:
+                    if comp.name == compname:
+                        for propref in comp._properties:
+                            if propref.clean_name == propname:
+                                break
+        if propref == None:
+            return
+        prop.takeChildren()
+        self.buildProperty(prop, propref)
+
+    def returnItem(self, parent, tag):
+        n_children = parent.childCount()
+        n_child = 0
+        retobj = None
+        while n_child != n_children:
+            retobj = parent.child(n_child)
+            if retobj.text(0) == tag:
+                break
+            n_child += 1
+        return retobj
+
     def refreshDeviceManagers(self):
         self.cleardevMgrItem()
         self.parseAllDeviceManagers()
@@ -420,13 +488,14 @@ class BrowseWindow(BrowseWindowBase):
             appPortItem = self.addTreeWidgetItem(appItem, 'Ports')
             for port in app.ports:
                 if port._using == None:
-                    portItem = self.addTreeWidgetItem(appPortItem, port._name+' (prov)', port._interface.name)
+                    portItem = self.addTreeWidgetItem(appPortItem, port.name+' (prov)', port._interface.name)
                 else:
-                    portItem = self.addTreeWidgetItem(appPortItem, port._name+' (uses)', port._using.name)
+                    portItem = self.addTreeWidgetItem(appPortItem, port.name+' (uses)', port._using.name)
                 
 
             componentItem = self.addTreeWidgetItem(appItem, 'Components')
             self.apps[-1]['components']=[]
+            self.apps[-1]['name']=name
             self.apps[-1]['app_ref']=app
             self.apps[-1]['widgets']=[]
             for comp in app.comps:
@@ -437,9 +506,9 @@ class BrowseWindow(BrowseWindowBase):
                 portItems = self.addTreeWidgetItem(item, 'Ports')
                 for port in comp.ports:
                     if port._using == None:
-                        portItem = self.addTreeWidgetItem(portItems, port._name+' (prov)', port._interface.name)
+                        portItem = self.addTreeWidgetItem(portItems, port.name+' (prov)', port._interface.name)
                     else:
-                        portItem = self.addTreeWidgetItem(portItems, port._name+' (uses)', port._using.name)
+                        portItem = self.addTreeWidgetItem(portItems, port.name+' (uses)', port._using.name)
                 propItem = self.addTreeWidgetItem(item, 'Properties')
                 self.buildPropertiesListView(propItem, comp._properties)
                 devItem = self.addTreeWidgetItem(item, 'Deployed on Devices')
@@ -508,14 +577,20 @@ class BrowseWindow(BrowseWindowBase):
             label = device.name
             devItem = self.addTreeWidgetItem(deviceItem, label)
             sub = self.addTreeWidgetItem(devItem, 'Identifier', _id)
+            # Build a list of the device's properties in a sub-list
+            propItem = self.addTreeWidgetItem(devItem, 'Properties')
+            self.buildPropertiesListView(propItem, device._properties)
+            devPortItem = self.addTreeWidgetItem(devItem, 'Ports')
+            for port in device.ports:
+                if port._using == None:
+                    portItem = self.addTreeWidgetItem(devPortItem, port.name+' (prov)', port._interface.name)
+                else:
+                    portItem = self.addTreeWidgetItem(devPortItem, port.name+' (uses)', port._using.name)
             sub = self.addTreeWidgetItem(devItem, 'Admin State', str(device._get_adminState()))
             sub = self.addTreeWidgetItem(devItem, 'Operational State', str(device._get_operationalState()))
             sub = self.addTreeWidgetItem(devItem, 'Usage State', str(device._get_usageState()))
             sub = self.addTreeWidgetItem(devItem, 'Software Profile', device._profile)
 
-            # Build a list of the device's properties in a sub-list
-            propItem = self.addTreeWidgetItem(devItem, 'Properties')
-            self.buildPropertiesListView(propItem, device._properties)
 
     def parseDomainManager (self):
         identifier = self.addTreeWidgetItem(self.domMgrItem, 'Identifier:', self.domManager._get_identifier())
@@ -574,26 +649,30 @@ class BrowseWindow(BrowseWindowBase):
                     for field in structval:
                         QListViewItem(subitem, field['id'], str(field['value']))
 
-    def buildPropertiesListView (self, parent, properties):
+    def buildProperty(self, parent, prop):
+        if prop.__class__ == prop_helpers.simpleProperty or prop.__class__ == prop_helpers.sequenceProperty:
+            parent.setText(1, str(prop.queryValue()))
+        elif prop.__class__ == prop_helpers.structProperty:
+            for field in prop.members:
+                valueSubItem = self.addTreeWidgetItem(parent, field, str(prop.members[field].queryValue()))
+        elif prop.__class__ == prop_helpers.structSequenceProperty:
+            idx_count = 0
+            for entry in prop.queryValue():
+                valueSubItem = self.addTreeWidgetItem(parent, '['+str(idx_count)+']')
+                for field in entry:
+                    valueIdxItem = self.addTreeWidgetItem(valueSubItem, field, str(entry[field]))
+                idx_count = idx_count + 1
+
+    def buildPropertiesListView (self, parent, properties, parentProps=None):
         for prop in properties:
             id = prop.id
-            value = str(prop.queryValue())
             name = prop.clean_name
             if prop.__class__ == prop_helpers.simpleProperty or prop.__class__ == prop_helpers.sequenceProperty:
-                valueItem = self.addTreeWidgetItem(parent, name, str(value))
-                #if property['mode'] in ('readwrite', 'writeonly'):
-                #    valueItem.setRenameEnabled(1, True)
-            elif prop.__class__ == prop_helpers.structProperty:
                 valueItem = self.addTreeWidgetItem(parent, name)
-                for field in prop.members:
-                    valueSubItem = self.addTreeWidgetItem(valueItem, field, str(prop.members[field].queryValue()))
-            elif prop.__class__ == prop_helpers.structSequenceProperty:
+                valueItem.setFlags(Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled)
+            elif prop.__class__ == prop_helpers.structProperty or prop.__class__ == prop_helpers.structSequenceProperty:
                 valueItem = self.addTreeWidgetItem(parent, name)
-                idx_count = 0
-                for entry in prop.queryValue():
-                    valueSubItem = self.addTreeWidgetItem(valueItem, '['+str(idx_count)+']')
-                    for field in entry:
-                        valueIdxItem = self.addTreeWidgetItem(valueSubItem, field, str(entry[field]))
+            self.buildProperty(valueItem, prop)
 
     def debug (self, *args):
         if not self.verbose:

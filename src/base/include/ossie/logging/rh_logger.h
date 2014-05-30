@@ -44,6 +44,53 @@ namespace rh_logger {
   // return values from Logger class
   typedef boost::shared_ptr< Logger >  LoggerPtr;
 
+
+  /**
+   */
+  namespace spi
+  {
+      /**
+       * This class represents the location of a logging statement.
+       *
+       */
+      class LocationInfo
+      {
+      public:
+
+        static const char * const NA;
+        static const char * const NA_METHOD;
+
+        static const LocationInfo& getLocationUnavailable();
+
+
+        LocationInfo( const char * const fileName,
+                      const char * const functionName,
+                      int lineNumber);
+
+        LocationInfo();
+
+        LocationInfo( const LocationInfo & src );
+
+        LocationInfo & operator = ( const LocationInfo & src );
+
+        void clear();
+
+        const std::string getClassName() const;
+
+        const char * getFileName() const;
+
+        int getLineNumber() const;
+
+        const std::string getMethodName() const;
+
+        private:
+
+        int lineNumber;
+        const char * fileName;
+        const char * methodName;
+      };
+  };
+
   /**
    */
   class Appender {
@@ -223,7 +270,9 @@ namespace rh_logger {
       
     virtual const LevelPtr&  getEffectiveLevel() const;
 
-    virtual void handleLogEvent( const LevelPtr &lvl, const std::string &msg );
+    virtual void handleLogEvent( const LevelPtr &lvl, const std::string &msg ) =0;
+
+    virtual void handleLogEvent( const LevelPtr &lvl, const std::string &msg, const spi::LocationInfo &location )=0;
 
     virtual AppenderPtr getAppender( const std::string &name );
 
@@ -232,23 +281,23 @@ namespace rh_logger {
     //
     // return a copy of the current logging records
     // 
-    LogRecords getLogRecords();
+    virtual LogRecords getLogRecords();
 
     //
     //  append log event records to the history queue
     //
-    void appendLogRecord( const LogRecord &rec)  ;
-    void appendLogRecord( const LevelPtr &level, const std::string &msg)  ;
+    virtual void appendLogRecord( const LogRecord &rec);
+    virtual void appendLogRecord( const LevelPtr &level, const std::string &msg);
 
     //
     //  Set the logging event history limit
     //
-    void  setLogRecordLimit( size_t newSize );
+    virtual void  setLogRecordLimit( size_t newSize );
 
     //
     //  Get the logging event history limit
     //
-    size_t  getLogRecordLimit();
+    virtual size_t  getLogRecordLimit();
     
   protected:
 

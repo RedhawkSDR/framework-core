@@ -122,7 +122,7 @@ __all__ = ('show', 'loadSADFile', 'IDELocation', 'connectedIDE', 'getIDE_REF',
            'start', 'getSDRROOT', 'setSDRROOT', 'Component', 'generateSADXML',
            'getDEBUG', 'setDEBUG', 'getComponent', 'IDE_REF', 'setIDE_REF',
            'stop', 'catalog', 'redirectSTDOUT', 'orb', 'reset', 'launch', 'api',
-           'createEventChannel', 'getEventChannel')
+           'createEventChannel', 'getEventChannel', 'getService')
 
 # Set up logging
 log = logging.getLogger(__name__)
@@ -293,6 +293,13 @@ def show():
     for component in sandbox.getComponents():
         print component._instanceName, component
     print "\n"
+
+    print "Services Running:"
+    print "----------------"
+    for service in sandbox.getServices():
+        print service._instanceName, service
+    print "\n"
+
     print "Component Connections:"
     print "---------------------"
     for uses, provides in ConnectionManager.instance().getConnections().values():
@@ -317,6 +324,12 @@ def getComponent(name):
     Retrieve a pointer to a running component instance
     '''
     return _getSandbox().getComponent(name)
+
+def getService(name):
+    """
+    Retrieve a reference to a running service instance
+    """
+    return _getSandbox().getService(name)
 
 def generateSADXML(waveform_name):
     '''

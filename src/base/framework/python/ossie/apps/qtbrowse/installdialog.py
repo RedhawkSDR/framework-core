@@ -30,13 +30,10 @@ class InstallDialog(InstallDialogBase):
         InstallDialogBase.__init__(self,parent,name,modal,fl)
         for file in fileList:
             QListWidgetItem(file, self.appListBox)
-            #self.appListBox.insertItem(file)
-
 
     def selectedApp (self):
         tmp = self.appListBox.currentItem()
         return str(tmp.text())
-
 
 def getApplicationFile (appList, parent):
     d = InstallDialog(appList, parent)

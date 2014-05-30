@@ -19,6 +19,8 @@
 #
 
 import inspect
+import traceback
+import sys
 
 def _notification_signature(func):
     # To provide meaningful documentation of the signature of a
@@ -38,8 +40,20 @@ class notify_callback(object):
         self.nc_match = match
 
     def __call__(self, *args, **kwargs):
-        if self.nc_match and not self.nc_match(*args, **kwargs):
-            return None
+        if self.nc_match:
+            # Prevent malformed match functions from derailing the entire
+            # notification process
+            try:
+                match = self.nc_match(*args, **kwargs)
+            except:
+                print >>sys.stderr, 'Exception in match function for notification %s:' % (repr(self.nc_func),)
+                traceback.print_exception(*sys.exc_info())
+
+                # Treat an exception in the function as a negative response
+                match = False
+
+            if not match:
+                return None
         return self.nc_func(*args, **kwargs)
 
     def __eq__(self, other):
@@ -71,7 +85,17 @@ class notification_func(object):
         Call all listener callbacks. The wrapped function is not executed.
         """
         for listener in self.nm_listeners:
-            listener(*args, **kwargs)
+            # Ensure that all callbacks get called, and no exceptions escape to
+            # the caller.
+            try:
+                listener(*args, **kwargs)
+            except:
+                # If the target is a notify_callback--which should always be
+                # the case as long as the proper API is used--show the actual
+                # function
+                target = getattr(listener, 'nc_func', listener)
+                print >>sys.stderr, 'Exception in notification %s:' % (repr(target),)
+                traceback.print_exception(*sys.exc_info())
 
 class notification_method(notification_func):
     """
@@ -94,13 +118,14 @@ class bound_notification(object):
             setattr(self, attr, getattr(func, attr))
         self.im_self = obj
         self.im_class = owner
-        self.im_func = notification_method(func, self.listeners)
+        self.im_func = func
 
     def __call__(self, *args, **kwargs):
         """
         Executes the notification function and notifies any listeners.
         """
-        return self.im_func(self.im_self, *args, **kwargs)
+        func = notification_method(self.im_func, self.listeners)
+        return func(self.im_self, *args, **kwargs)
 
     def __getattr__(self, name):
         return getattr(self.im_func, name)

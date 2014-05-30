@@ -735,8 +735,7 @@ class POAHelper (HelperBase):
 
         # Create preamble and postamble, to be filled in per-argument
         pre = func.Code()
-        pre.append('JNIEnv* env__;')
-        pre.append('jvm_->AttachCurrentThread((void**)&env__, NULL);')
+        pre.append('JNIEnv* env__ = omnijni::attachThread(jvm_);')
         func.append()
         code = func.Code()
         func.append()

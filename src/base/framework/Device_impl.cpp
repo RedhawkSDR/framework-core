@@ -1013,3 +1013,192 @@ void Device_impl::connectSupplierToIncomingEventChannel(CosEventChannelAdmin::Ev
     }
 
 }
+
+void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa, int argc, char* argv[])
+{
+    char* devMgr_ior = 0;
+    char* id = 0;
+    char* label = 0;
+    char* profile = 0;
+    char* idm_channel_ior = 0;
+    char* composite_device = 0;
+    const char* logging_config_uri = 0;
+    int debug_level = -1; // use log level from configuration file 
+    std::string logcfg_uri("");
+    std::string dpath("");
+    bool skip_run = false;
+        
+    std::map<std::string, char*> execparams;
+                
+    for (int i = 0; i < argc; i++) {
+            
+        if (strcmp("DEVICE_MGR_IOR", argv[i]) == 0) {
+            devMgr_ior = argv[++i];
+        } else if (strcmp("PROFILE_NAME", argv[i]) == 0) {
+            profile = argv[++i];
+        } else if (strcmp("DEVICE_ID", argv[i]) == 0) {
+            id = argv[++i];
+        } else if (strcmp("DEVICE_LABEL", argv[i]) == 0) {
+            label = argv[++i];
+        } else if (strcmp("IDM_CHANNEL_IOR", argv[i]) == 0) {
+            idm_channel_ior = argv[++i];
+        } else if (strcmp("COMPOSITE_DEVICE_IOR", argv[i]) == 0) {
+            composite_device = argv[++i];
+        } else if (strcmp("LOGGING_CONFIG_URI", argv[i]) == 0) {
+            logging_config_uri = argv[++i];
+        } else if (strcmp("DEBUG_LEVEL", argv[i]) == 0) {
+            debug_level = atoi(argv[++i]);
+        } else if (strcmp("DOM_PATH", argv[i]) == 0) {
+            dpath = argv[++i];
+        } else if (strcmp("SKIP_RUN", argv[i]) == 0){
+            skip_run = true;
+        } else if (i > 0) {  // any other argument besides the first one is part of the execparams
+            std::string paramName = argv[i];
+            execparams[paramName] = argv[++i];
+        }
+    }
+                       
+
+    // The ORB must be initialized before configuring logging, which may use
+    // CORBA to get its configuration file. Devices do not need persistent IORs.
+    ossie::corba::CorbaInit(argc, argv);
+
+    // check if logging config URL was specified...
+    if ( logging_config_uri ) logcfg_uri=logging_config_uri;
+
+    // setup logging context for this resource
+    ossie::logging::ResourceCtxPtr ctx( new ossie::logging::DeviceCtx( label, id, dpath ) );
+
+    // configure logging
+    if (!skip_run){
+        // configure the logging library 
+        ossie::logging::Configure(logcfg_uri, debug_level, ctx);
+    }
+
+    if ((devMgr_ior == 0) || (id == 0) || (profile == 0) || (label == 0)) {
+        LOG_FATAL(Device_impl, "Per SCA specification SR:478, DEVICE_MGR_IOR, PROFILE_NAME, DEVICE_ID, and DEVICE_LABEL must be provided");
+        exit(-1);
+    }
+
+    LOG_DEBUG(Device_impl, "Identifier = " << id << "Label = " << label << " Profile = " << profile << " IOR = " << devMgr_ior);
+
+    // Associate SIGINT to signal_catcher interrupt handler
+    if( sigaction( SIGINT, &sa, NULL ) == -1 ) {
+        LOG_FATAL(Device_impl, "SIGINT association failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Associate SIGQUIT to signal_catcher interrupt handler
+    if( sigaction( SIGQUIT, &sa, NULL ) == -1 ) {
+        LOG_FATAL(Device_impl, "SIGQUIT association failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Associate SIGTERM to signal_catcher interrupt handler
+    if( sigaction( SIGTERM, &sa, NULL ) == -1 ) {
+        LOG_FATAL(Device_impl, "SIGTERM association failed");
+        exit(EXIT_FAILURE);
+    }
+
+    /** Ignore SIGInterrupt because when you CTRL-C the node
+        booter we don't want the device to die, and it's the shells responsibility
+        to send CTRL-C to all foreground processes (even children) */
+    signal(SIGINT, SIG_IGN);
+
+    Device_impl* device = ctor(devMgr_ior, id, label, profile, composite_device);
+        
+    if ( !skip_run ) {
+        // assign logging context to the resource..to support logging interface
+        device->saveLoggingContext( logcfg_uri, debug_level, ctx );
+    }
+
+    // setting all the execparams passed as argument, this method resides in the Resource_impl class
+    device->setExecparamProperties(execparams);
+
+    if (idm_channel_ior) {
+        try {
+            CORBA::Object_var IDM_channel_obj = ossie::corba::Orb()->string_to_object(idm_channel_ior);
+            if (CORBA::is_nil(IDM_channel_obj)) {
+                LOG_ERROR(Device_impl, "Invalid IDM channel IOR: " << idm_channel_ior);
+            } else {
+                CosEventChannelAdmin::EventChannel_var idm_channel = CosEventChannelAdmin::EventChannel::_narrow(IDM_channel_obj);
+                device->connectSupplierToIncomingEventChannel(idm_channel);
+            }
+        }
+        CATCH_LOG_WARN(Device_impl, "Unable to connect to IDM channel");
+    }
+    if (skip_run) {
+        return;
+    }    
+    device->run();
+    LOG_DEBUG(Device_impl, "Goodbye!");
+    device->_remove_ref();
+    ossie::corba::OrbShutdown(true);
+}
+
+std::string Device_impl::getLogConfig(const char* devmgr_ior, const char* log_config, std::string& devmgr_label)
+{
+    // connect to the device manager and copy the log config file to the local directory
+
+    std::string _local_logconfig_path;
+
+    // connect to device manager
+    CF::DeviceManager_ptr _devMgr_ptr = CF::DeviceManager::_nil();
+    CORBA::Object_var _devMgr_obj = ossie::corba::Orb()->string_to_object(devmgr_ior);
+    if (CORBA::is_nil(_devMgr_obj)) {
+        std::cout << "ERROR:Device_impl:getLogConfig - Invalid device manager IOR: " << devmgr_ior << std::endl;
+        return _local_logconfig_path;
+    }
+
+    _devMgr_ptr = CF::DeviceManager::_narrow(_devMgr_obj);
+    if (CORBA::is_nil(_devMgr_ptr)) {
+        std::cout << "ERROR:Device_impl:getLogConfig - Could not narrow device manager IOR: " << devmgr_ior << std::endl;
+        return _local_logconfig_path;
+    }
+
+    // store the dev manager's label
+    devmgr_label = _devMgr_ptr->label();
+
+    // copy the file to memory
+    CF::File_var logFile;
+    CF::OctetSequence_var logFileData;
+    try {
+        logFile = _devMgr_ptr->fileSys()->open(log_config, true);
+        unsigned int logFileSize = logFile->sizeOf();
+        logFile->read(logFileData, logFileSize);
+    } catch ( ... ) {
+        std::cout << "ERROR:Device_impl:getLogConfig - Could not copy file to local memory. File name: " << log_config << std::endl;
+        return _local_logconfig_path;
+    }
+
+    // get the log config file name from the path
+    std::string tmp_log_config = log_config;
+    std::string::size_type slash_loc = tmp_log_config.find_last_of("/");
+    if (slash_loc != std::string::npos) {
+        _local_logconfig_path = tmp_log_config.substr(slash_loc + 1);
+    }
+
+    // write the file to local directory
+    std::fstream _local_logconfig;
+    std::ios_base::openmode _local_logconfig_mode = std::ios::in | std::ios::out | std::ios::trunc;
+    try {
+        _local_logconfig.open(_local_logconfig_path.c_str(), _local_logconfig_mode);
+        if (!_local_logconfig.is_open()) {
+            std::cout << "ERROR:Device_impl:getLogConfig - Could not open log file on local system. File name: " << _local_logconfig_path << std::endl;
+            throw;
+        }
+
+        _local_logconfig.write((const char*)logFileData->get_buffer(), logFileData->length());
+        if (_local_logconfig.fail()) {
+            std::cout << "ERROR:Device_impl:getLogConfig - Could not write log file on local system. File name: " << _local_logconfig_path << std::endl;
+            throw;
+        }
+        _local_logconfig.close();
+    } catch ( ... ) {
+        std::cout << "ERROR:Device_impl:getLogConfig - Could not copy file to local system. File name: " << _local_logconfig_path << std::endl;
+        _local_logconfig_path.clear();  // so calling function knows not to use value
+        return _local_logconfig_path;
+    }
+
+    return _local_logconfig_path;
+}

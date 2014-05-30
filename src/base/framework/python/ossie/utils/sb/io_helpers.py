@@ -587,6 +587,41 @@ class FileSource(_SourceBase):
         self._byteswap    = False
         self._defaultDataFormat = '16t'
 
+        # the following data format code is messy because the arguments to the filesource can be either from the list
+        # of reserved type names ('short','char','octet','long','ulong','longlong','ulonglong','float','double')
+        # or from a combined string (<bits><type><complex?><reversed?>
+        # for the follow-on functionality expects a type declaration from the reserved type name list
+        # and flags to determine whether or not it's reversed or complex
+        
+        if dataFormat == None:
+            log.warn("dataFormat not provided for FileSource; defaulting to " + self._defaultDataFormat)
+            dataFormat = self._defaultDataFormat
+            if complexData:
+                dataFormat = dataFormat + 'c'
+
+        reserved_type_names = ['short','char','octet','long','ulong','longlong','ulonglong','float','double']
+        if dataFormat.lower() in reserved_type_names:
+            if dataFormat.lower() == 'short':
+                dataFormat = '16t'
+            elif dataFormat.lower() == 'char':
+                dataFormat = '8t'
+            elif dataFormat.lower() == 'octet':
+                dataFormat = '8u'
+            elif dataFormat.lower() == 'long':
+                dataFormat = '32t'
+            elif dataFormat.lower() == 'ulong':
+                dataFormat = '32u'
+            elif dataFormat.lower() == 'longlong':
+                dataFormat = '64t'
+            elif dataFormat.lower() == 'ulonglong':
+                dataFormat = '64u'
+            elif dataFormat.lower() == 'float':
+                dataFormat = '32f'
+            elif dataFormat.lower() == 'double':
+                dataFormat = '64f'
+            if complexData:
+                dataFormat = dataFormat + 'c'
+
         if self._midasFile:
             hdr, data = _bluefile.read(self._filename, list)
             if hdr['format'].endswith('B'):
@@ -638,10 +673,6 @@ class FileSource(_SourceBase):
                     dataFormat = 'double'
  
         _SourceBase.__init__(self, bytesPerPush = bytesPerPush, dataFormat = dataFormat) 
-
-        if dataFormat == None:
-            log.warn("dataFormat not provided for FileSource; defaulting to " + self._defaultDataFormat)
-            dataFormat = self._defaultDataFormat
         if self.supportedPorts.has_key(dataFormat):
             self._srcPortType = self.supportedPorts[dataFormat]["portType"]
         else:
@@ -856,18 +887,17 @@ class DataSource(_SourceBase):
              loop        = None):
 
         # Detect whether or not any of the data is of type complex
-        def isComplex(x) : return type(x) == type(complex())
-        _complexData = len(filter(isComplex, data))
+        _complexData = any(isinstance(x,complex) for x in data)
 
         # If complex values are present, interleave the data as scalar values
         # and set the complex flag
         if _complexData:
-            data = _bulkio_helpers.pythonComplexListToBulkioComplex(data)
-            complexData = _complexData
-            # the conversion function always returns floats, so we must
-            # typecast to ints for applicable types
             if self._dataFormat in ('octet', 'short', 'ushort', 'long', 'ulong', 'longlong', 'ulonglong'):
-                data = [int(iter) for iter in data]
+                itemType = int
+            else:
+                itemType = float
+            data = _bulkio_helpers.pythonComplexListToBulkioComplex(data, itemType)
+            complexData = True
 
         self._dataQueue.put((data,
                              EOS,

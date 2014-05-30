@@ -124,13 +124,11 @@ void PortSupplier_impl::registerOutPort(Port_Uses_base_impl *port, CF::Port_ptr 
 
 void PortSupplier_impl::releaseInPorts() {
     deactivateInPorts();
-    inPorts.clear();
-
-    // Remove the provides port servants from the main map to ensure that no
     // further attemps are made to access them
     for (RH_ProvidesPortMap::iterator port = inPorts.begin(); port != inPorts.end(); ++port) {
         _portServants.erase(port->first);
     }
+    inPorts.clear();
 }
 
 void PortSupplier_impl::releaseOutPorts() {

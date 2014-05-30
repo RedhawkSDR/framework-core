@@ -1,5 +1,5 @@
-#ifndef _DEBUG_H
-#define _DEBUG_H
+#ifndef _LL_DEBUG_H
+#define _LL_DEBUG_H
 
 //#define DEBUG_ON
 //#define STDOUT_ON
@@ -67,12 +67,12 @@ typedef void                    LOGGER;
 #define LWARN( exp )  
 #define LERROR( exp ) 
 #define LFATAL( exp ) 
-#define LNTRACE( exp ) 
-#define LNDEBUG( exp ) 
-#define LNINFO( exp )  
-#define LNWARN( exp )  
-#define LNERROR( exp ) 
-#define LNFATAL( exp ) 
+#define LNTRACE( lname, exp ) 
+#define LNDEBUG( lname, exp ) 
+#define LNINFO( lname, exp )  
+#define LNWARN( lname, exp )  
+#define LNERROR( lname, exp ) 
+#define LNFATAL( lname, exp ) 
 #define LOGGER_CFG( name )              
 #define LOGGER_END( name )              
 

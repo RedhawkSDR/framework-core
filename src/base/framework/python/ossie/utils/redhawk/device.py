@@ -23,7 +23,7 @@ import warnings
 from ossie.cf import CF
 from ossie.utils.notify import notification
 from ossie.utils import model
-from ossie.utils.weakmethod import WeakBoundMethod
+from ossie.utils import weakobj
 
 from component import DomainComponent
 from model import CorbaAttribute
@@ -51,19 +51,6 @@ def createDevice(profile, spd, scd, prf, deviceRef, instanceName, refid, impl=No
         else:
             cls = Device
     return cls(profile, spd, scd, prf, deviceRef, instanceName, refid, impl, idmListener)
-
-def createService(profile, spd, scd, prf, serviceRef, instanceName, refid, impl=None, execparams={}, debugger=None, window=None):
-    """
-    Factory method to create a new device instance of the most specific
-    type supported by that device, according to its supported interfaces.
-    """
-    interfaces = set(ifc.get_repid() for ifc in scd.get_componentfeatures().get_supportsinterface())
-    return Service(profile, spd, scd, prf, serviceRef, instanceName, refid, impl, execparams, debugger, window)
-
-class DomainService(DomainComponent):
-    def __init__(self, profile, spd, scd, prf, serviceRef, instanceName, refid, impl=None, execparams={}, debugger=None, window=None):
-        DomainComponent.__init__(self, profile, spd, scd, prf, instanceName, refid, impl)
-        self.ref = serviceRef
 
 class DomainDevice(DomainComponent):
     @notification
@@ -116,15 +103,15 @@ class DomainDevice(DomainComponent):
         # concrete subclass should inherit from Device or one of its subclasses.
         model.Device._buildAPI(self)
 
-        self.__adminState = CorbaAttribute(WeakBoundMethod(self._get_adminState),
-                                           WeakBoundMethod(self._set_adminState))
-        self.__adminState.changed.addListener(WeakBoundMethod(self.adminStateChanged))
+        self.__adminState = CorbaAttribute(weakobj.boundmethod(self._get_adminState),
+                                           weakobj.boundmethod(self._set_adminState))
+        self.__adminState.changed.addListener(weakobj.boundmethod(self.adminStateChanged))
 
-        self.__operationalState = CorbaAttribute(WeakBoundMethod(self._get_operationalState))
-        self.__operationalState.changed.addListener(WeakBoundMethod(self.operationalStateChanged))
+        self.__operationalState = CorbaAttribute(weakobj.boundmethod(self._get_operationalState))
+        self.__operationalState.changed.addListener(weakobj.boundmethod(self.operationalStateChanged))
 
-        self.__usageState = CorbaAttribute(WeakBoundMethod(self._get_usageState))
-        self.__usageState.changed.addListener(WeakBoundMethod(self.usageStateChanged))
+        self.__usageState = CorbaAttribute(weakobj.boundmethod(self._get_usageState))
+        self.__usageState.changed.addListener(weakobj.boundmethod(self.usageStateChanged))
 
         self.__idmListener = idmListener
 
@@ -136,9 +123,9 @@ class DomainDevice(DomainComponent):
             def matcher(deviceId, stateChangeFrom, stateChangeTo):
                 return deviceId == identifier
 
-            self.__idmListener.administrativeStateChanged.addListener(WeakBoundMethod(self.__adminStateChangeEvent), matcher)
-            self.__idmListener.operationalStateChanged.addListener(WeakBoundMethod(self.__operationalStateChangeEvent), matcher)
-            self.__idmListener.usageStateChanged.addListener(WeakBoundMethod(self.__usageStateChangeEvent), matcher)
+            weakobj.addListener(self.__idmListener.administrativeStateChanged, self.__adminStateChangeEvent, matcher)
+            weakobj.addListener(self.__idmListener.operationalStateChanged, self.__operationalStateChangeEvent, matcher)
+            weakobj.addListener(self.__idmListener.usageStateChanged, self.__usageStateChangeEvent, matcher)
 
     def updateReferences(self):
         warnings.warn('Device.updateReferences() is deprecated. Device references are handled automatically')
@@ -181,11 +168,6 @@ class DomainDevice(DomainComponent):
         super(DomainDevice,self).api()
         print
         model.Device.api(self)
-
-class Service(DomainService, model.Service):
-    def __init__(self, profile, spd, scd, prf, serviceRef, instanceName, refid, impl=None, execparams={}, debugger=None, window=None):
-        model.Service.__init__(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window)
-        DomainService.__init__(self, profile, spd, scd, prf, serviceRef, instanceName, refid, impl, execparams, debugger, window)
 
 class Device(DomainDevice, model.Device):
     def __init__(self, profile, spd, scd, prf, deviceRef, instanceName, refid, impl=None, idmListener=None):

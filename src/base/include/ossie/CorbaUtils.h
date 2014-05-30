@@ -91,7 +91,51 @@ namespace ossie {
 	// naming service actions
 	enum  NS_ACTION { NS_NOBIND=0, NS_BIND=1, NS_REBIND=2, NS_UNBIND=3 };
 
-        // Bind an object to a a name in the specified NamingContext.
+	//
+	// Create a naming context from the root directory
+	//
+	int  CreateNamingContext( const std::string &namingContext );
+	
+	//
+	// Create the naming context and all the members in its path
+	//
+	CosNaming::NamingContext_ptr CreateNamingContextPath(const std::string &namingContext);
+
+	//
+	// Return a naming context for a specified naming context path
+	//
+	CosNaming::NamingContext_ptr ResolveNamingContextPath( const std::string &namingContext );
+
+	//
+	// Delete a naming context
+	//
+	int  DeleteNamingContext( const std::string &namingContext );
+
+	//
+	// Delete a naming context path components
+	//
+	int  DeleteNamingContextPath( const std::string &namingContext );
+
+	//
+	// Unbind a name from the specified naming context object
+	//
+	int  Unbind( const std::string &name , CosNaming::NamingContext_ptr namingContext );
+
+	//
+	// Unbind a name from the stringified naming context paths
+	//
+	int  Unbind( const std::string &name, const std::string &namingContext="" );
+
+	//
+	// Bind to naming context    id = name, kind=""
+	//
+	int  Bind( const std::string &name,  CORBA::Object_ptr obj,  CosNaming::NamingContext_ptr namingContext  );
+
+	//
+	// Bind an object to a a name in the specified NamingContext.
+	//
+	int  Bind( const std::string &name,  CORBA::Object_ptr obj, const std::string &dir="", const bool create_nc=false );
+
         void bindObjectToContext (const CORBA::Object_ptr obj, const CosNaming::NamingContext_ptr context, const std::string& name);
 
         // Bind an object to a name in the root naming context.

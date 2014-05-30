@@ -27,7 +27,7 @@ Prefix:         %{_sysconfdir}
 
 Name:           redhawk
 Version:        1.10.0
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        REDHAWK is a Software Defined Radio framework
 
 Group:          Applications/Engineering
@@ -73,6 +73,11 @@ BuildRequires:  omniORB-devel >= 4.1.0
 BuildRequires:  omniORBpy-devel >= 3.0
 BuildRequires:  libomniEvents2-devel
 BuildRequires:  xsd >= 3.3.0
+
+# qtbrowse
+%if 0%{?rhel} >= 6 || 0%{?fedora} >= 8
+Requires:       PyQt4
+%endif
 
 %description
 REDHAWK is a Software Defined Radio framework.
@@ -132,11 +137,6 @@ Requires:       gcc-c++
 Requires:       python-devel >= 2.4
 Requires:       java-devel >= 1.6
 
-# qtbrowse
-%if 0%{?rhel} >= 6 || 0%{?fedora} >= 8
-Requires:       PyQt4
-%endif
-
 %description devel
 This package ensures that all requirements for REDHAWK development are installed. It also provides a useful development utilities.
 
@@ -160,7 +160,7 @@ rm -rf --preserve-root $RPM_BUILD_ROOT
 cd src
 make install DESTDIR=$RPM_BUILD_ROOT
 
-%if 0%{?rhel} < 6 || 0%{?fedora} < 8
+%if (0%{?rhel} && 0%{?rhel} < 6) || (0%{?fedora} && 0%{?fedora} < 8)
   # qtbrowse not supported
   rm $RPM_BUILD_ROOT%{_bindir}/qtbrowse
   rm -r $RPM_BUILD_ROOT%{_prefix}/lib/python/ossie/apps/qtbrowse
@@ -265,6 +265,9 @@ fi
 
 
 %changelog
+* Wed May 21 2014 - 1.10.0-7
+- Move a dependency that was on the wrong package
+
 * Fri Apr 11 2014 - 1.10.0-5
 - Improve OS version detection for RHEL/CentOS/Fedora
 - Don't constrain boost to exact version

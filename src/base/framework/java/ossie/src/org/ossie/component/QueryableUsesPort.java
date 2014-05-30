@@ -74,7 +74,7 @@ public abstract class QueryableUsesPort< E > extends QueryablePortPOA { // SUPPR
 
     }
 
-    public void disconnectPort(final String connectionId) throws CF.PortPackage.InvalidPort {
+    public void disconnectPort(final String connectionId) {
         // don't want to process while command information is coming in
         synchronized (this.updatingPortsLock) {
             this.outPorts.remove(connectionId);

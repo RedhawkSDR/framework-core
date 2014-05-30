@@ -29,4 +29,5 @@ subpkginclude_HEADERS = any.h \
 			orb.h \
 			sequence.h \
 			servant.h \
-			struct.h
+			struct.h \
+			threading.h

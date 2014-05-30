@@ -400,13 +400,17 @@ public abstract class Device extends Resource implements DeviceOperations {
         Thread shutdownWatcher = new Thread(new Runnable() {
             public void run() {
                 device_i.waitDisposed();
-                orb.shutdown(true);
+                shutdownORB(orb);
             }
         });
 
         shutdownWatcher.start();
 
         orb.run();
+
+        // Destroy the ORB, otherwise the JVM shutdown will take an unusually
+        // long time (~300ms).
+        orb.destroy();
 
         try {
             shutdownWatcher.join();
@@ -416,11 +420,6 @@ public abstract class Device extends Resource implements DeviceOperations {
 
         // Shut down native ORB, if it's running
         omnijni.ORB.shutdown();
-
-        // Explicitly call exit to ensure that process terminates. In some
-        // cases, especially if a CORBA request came in after ORB.shutdown(),
-        // the JVM may not exit on its own.
-        System.exit(0);
     }
 
 

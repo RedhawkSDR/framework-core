@@ -66,22 +66,13 @@
     }; \
     rh_logger::LoggerPtr classname::__logger(rh_logger::Logger::getLogger(#classname));
 
-
-#ifdef ENABLE_TRACE
-#define _RH_LOG( level, logger, msg)	\
-  if ( logger && logger->is##level##Enabled() ) {			\
-    std::ostringstream _msg;						\
-    _msg <<  msg << " [" << __FILE__ << ":" << __LINE__ << "]";		\
-    logger->handleLogEvent( rh_logger::Level::get##level(), _msg.str() ); \
-  }
-#else
 #define _RH_LOG( level, logger, msg)	\
   if ( logger && logger->is##level##Enabled() ) {			\
     std::ostringstream _msg;						\
     _msg <<  msg;				          		\
-    logger->handleLogEvent( rh_logger::Level::get##level(), _msg.str() ); \
+    logger->handleLogEvent( rh_logger::Level::get##level(), _msg.str(), rh_logger::spi::LocationInfo(__FILE__,__PRETTY_FUNCTION__,__LINE__) ); \
   }
-#endif
+
 
 #define LOG_TRACE(classname, expression)  _RH_LOG( Trace,  classname::__logger, expression)
 #define LOG_DEBUG(classname, expression)  _RH_LOG( Debug,  classname::__logger, expression)
@@ -96,6 +87,7 @@
 #define RH_WARN( logger, expression )   _RH_LOG( Warn,   logger, expression)
 #define RH_ERROR( logger, expression )  _RH_LOG( Error,  logger, expression)
 #define RH_FATAL( logger, expression )  _RH_LOG( Fatal,  logger, expression)
+
 
 #ifdef HAVE_LOG4CXX
 #if  defined(LOG4CXX_TRACE) || defined(LOG4CXX_DEBUG)  || defined(LOG4CXX_INFO)  || defined(LOG4CXX_WARN)  || defined(LOG4CXX_ERROR)  || defined(LOG4CXX_FATAL) 
@@ -207,12 +199,5 @@
  */
 #define DEBUG(level, classname, expression) LOG_DEBUG(classname, expression)
 
-
-
-#ifdef LOCAL_DEBUG_ON
-#define STDOUT_DEBUG(x)    std::cout << x << std::endl
-#else
-#define STDOUT_DEBUG(x)    
-#endif
 
 #endif

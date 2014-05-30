@@ -47,6 +47,7 @@ libossiecf_la_SOURCES = AggregateDevice_impl.cpp \
                         logging/loghelpers.cpp \
                         logging/rh_logger.cpp \
                         logging/StringInputStream.cpp \
+                        logging/RH_LogEventAppender.cpp \
                         EventChannelSupport.cpp
 
 libossiecf_la_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(OMNICOS_CFLAGS) $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS)

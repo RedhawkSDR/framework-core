@@ -63,28 +63,21 @@ def bulkioComplexToPythonComplexList(bulkioList):
     # somewhat difficult to read; therefore; it necessitates some
     # explaintation.
     #
-    # Example input bulkioList = [1,2,3,4,5,6]
-    #
-    # bulkioList[0::2] = [1,3,5]
-    # bulkioList[1::2] = [2,4,6]
-    #
-    # zip(bulkioList[0::2], bulkioList[1::2]) = [(1,2), (3,4), (5,6)]
-    #
-    # list comprehension therefore computes:
-    #   result = []
-    #   for x in [(1,2), (3,4), (5,6)]:
-    #       real = x[0]
-    #       imag = x[1]
-    #       result.append(complex(real, imag))
+    # The generator _group() chunks the input list into a series of 2-item
+    # lists using indexing; each 2-item list is then unpacked into a real
+    # and imaginary value, then used to create a complex value.
     if (len(bulkioList)%2):
         raise BadParamException('BulkIO complex data list must have an even number of entries.')
-    return [complex(x[0], x[1]) for x in zip(bulkioList[0::2],
-                                             bulkioList[1::2])]
+    def _group(data):
+        for ii in xrange(0, len(data), 2):
+            yield data[ii:ii+2]
+    return [complex(real,imag) for real,imag in _group(bulkioList)]
 
-def pythonComplexListToBulkioComplex(pythonComplexListInput):
-    '''
+def pythonComplexListToBulkioComplex(pythonComplexListInput, itemType=float):
+    """
     Convert a list of Python complex data to a BulkIO list of complex
-    data.  For example, the Python list:
+    data, with the real and imaginary components interleaved.  For example,
+    the Python list:
 
         [(1+2j), (3+4j), (5+6j)]
 
@@ -101,64 +94,25 @@ def pythonComplexListToBulkioComplex(pythonComplexListInput):
 
         [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
 
-    Note that the resultant list items are always floats since the real and
-    imag members of a Python complex are always returned as floats.  To convert
-    to another format, "int" for example, using a list comprehension is
-    recommended:
+    By default, the real and imag members of a Python complex value are of
+    type float; however, another type object (e.g., 'int') can be given with
+    the 'itemType' argument to convert the output items:
 
-        floatList = pythonComplexListToBulkioComplex(complexList)
-        intList   = [int(iter) for iter in floatList]
+        pythonComplexListToBulkioComplex([(1+2j),(3+4j)], int)
 
-    '''
+    returns:
 
-    # define helper function
-    def mergeComplexIntoList(listBase, complexVal):
-        '''
-        Take some list, listBase, and extend it by the real an imaginary
-        components of complexVal.
-
-        For example:
-
-            mergeComplexIntoList([1,2], (3+4j))
-
-        will return [1,2,3,4]
-
-        '''
-
-        # define helper function
-        def complexToList(val):
-            '''
-            For a given complex input, (R+Ij), return [R,I].
-
-            For example:
-
-                complexToList((3+4j))
-
-            will return [3,4]
-
-            '''
-
-            return [val.real, val.imag]
-
-
-        listBase.extend(complexToList(complexVal))
-        return listBase
-
-    # The mergeComplexIntoList expects the first argument to be a list.  We
-    # must therefore force the first argument of pythonComplexListInput to
-    # be a list.
-    pythonComplexListInput.insert(0,[])
-
-    # Continually apply mergeComplexIntoList on pythonComplexListInput
-    # until the result is a list of real numbers.
-    #
-    # For example, [[], (1+2j), (3+4j), (5+6j)] will convert via:
-    #
-    #       [], (1+2j), (3+4j), (5+6j)
-    #       [1, 2], (3+4j), (5+6j)
-    #       [1, 2, 3, 4], (5+6j)
-    #       [1, 2, 3, 4, 5, 6]
-    return reduce(mergeComplexIntoList, pythonComplexListInput)
+        [1, 2, 3, 4]
+    """
+    def _collapse(values):
+        for val in values:
+            yield val.real
+            yield val.imag
+    gen = (x for x in _collapse(pythonComplexListInput))
+    if itemType == float:
+        return list(gen)
+    else:
+        return [itemType(x) for x in gen]
 
 def createCPUTimestamp():
     """

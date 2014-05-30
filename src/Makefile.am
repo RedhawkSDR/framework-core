@@ -36,6 +36,10 @@ endif
 
 SUBDIRS = acinclude etc $(OMNIJNI) base control xml idl testing
 
+# Install makefile fragments
+amdir = $(datadir)/aminclude/redhawk
+am_DATA = aminclude/jarfile.am aminclude/idlj.am
+
 pkgconfigdir = $(libdir)/pkgconfig
 dist_pkgconfig_DATA = ossie.pc
 

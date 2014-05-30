@@ -27,7 +27,6 @@ import java.util.Hashtable;
 import java.util.Arrays;
 import java.util.Collection;
 
-import org.ossie.events.Consumer_i;
 import org.ossie.component.*;
 import org.ossie.properties.StructDef;
 
@@ -41,6 +40,7 @@ public class MessageSupplierPort extends UsesPort<EventChannelOperations> implem
                 final EventChannelOperations port = narrow(connection);
                 final SupplierAdminOperations supplier_admin = port.for_suppliers();
                 final ProxyPushConsumerOperations proxy_consumer = supplier_admin.obtain_push_consumer();
+                proxy_consumer.connect_push_supplier(null);
                 this.outConnections_channel.put(connectionId, proxy_consumer);
                 this.active = true;
             }
@@ -48,6 +48,18 @@ public class MessageSupplierPort extends UsesPort<EventChannelOperations> implem
             t.printStackTrace();
         }
 
+    }
+
+    public void disconnectPort(final String connectionId)
+    {
+        synchronized (this.updatingPortsLock) {
+            final ProxyPushConsumerOperations proxy_consumer = this.outConnections_channel.get(connectionId);
+            if (proxy_consumer != null) {
+                proxy_consumer.disconnect_push_consumer();
+                this.outConnections_channel.remove(connectionId);
+                this.active = !this.outConnections_channel.isEmpty();
+            }
+        }
     }
     
     public MessageSupplierPort(String portName) 

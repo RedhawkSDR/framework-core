@@ -29,10 +29,10 @@ COSPREFIX = org.omg
 IDLJNIFLAGS = $(COSPKGS:%=-Wbpkgprefix=%:$(COSPREFIX))
 
 jni_CosEvent%.cpp jni_CosEvent%.h : $(OMNICOS_IDLDIR)/CosEvent%.idl
-	$(AM_V_GEN)$(OMNIJNI_IDLJNI) -Wbincprefix=COS -Wbincext=.hh $(IDLJNIFLAGS) -I$(OMNICOS_IDLDIR) $<
+	$(AM_V_GEN)$(IDLJNICXX) -Wbincprefix=COS -Wbincext=.hh $(IDLJNIFLAGS) -I$(OMNICOS_IDLDIR) $<
 
 jni_CosNam%.cpp jni_CosNam%.h : $(OMNICOS_IDLDIR)/CosNam%.idl
-	$(AM_V_GEN)$(OMNIJNI_IDLJNI) -Wbstandalone $(IDLJNIFLAGS) -I$(OMNICOS_IDLDIR) $<
+	$(AM_V_GEN)$(IDLJNICXX) -Wbstandalone $(IDLJNIFLAGS) -I$(OMNICOS_IDLDIR) $<
 
 jni_CosEventChannelAdmin.o : jni_CosEventComm.h
 

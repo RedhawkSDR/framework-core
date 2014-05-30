@@ -24,7 +24,7 @@ from ossie.cf import StandardEvent, CF
 from ossie import events
 from ossie.utils.uuid import uuid4
 from ossie.utils.notify import notification
-from ossie.utils.weakmethod import WeakBoundMethod
+from ossie.utils import weakobj
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class ChannelListener(object):
         # Generate a unique identifier for each event channel connection to prevent
         # collisions if multiple instances are running.
         self.__identifier = str(uuid4())
-        self.__consumer = events.GenericEventConsumer(WeakBoundMethod(self.push), keep_structs=True)
+        self.__consumer = events.GenericEventConsumer(weakobj.boundmethod(self.push), keep_structs=True)
         self.__domainManager = domain
         self.__domainManager.registerWithEventChannel(self.__consumer._this(), self.__identifier, self.CHANNEL_NAME)
 

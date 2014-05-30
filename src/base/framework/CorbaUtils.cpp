@@ -333,5 +333,397 @@ void setObjectCommFailureRetries (CORBA::Object_ptr obj, int numRetries)
     omniORB::installCommFailureExceptionHandler(obj, reinterpret_cast<void*>(numRetries), handleCommFailure);
 }
 
+#define LNTRACE( lname, expression ) RH_TRACE( rh_logger::Logger::getLogger(lname), expression )
+#define LNDEBUG( lname, expression ) RH_DEBUG( rh_logger::Logger::getLogger(lname), expression )
+#define LNINFO( lname, expression )  RH_INFO( rh_logger::Logger::getLogger(lname), expression )
+#define LNWARN( lname, expression )  RH_WARN( rh_logger::Logger::getLogger(lname), expression )
+#define LNERROR( lname, expression ) RH_ERROR( rh_logger::Logger::getLogger(lname), expression )
+#define LNFATAL( lname, expression ) RH_FATAL( rh_logger::Logger::getLogger(lname), expression )
+
+   struct OrbContext;
+   typedef OrbContext*  OrbPtr;
+ 
+    //
+    // Orb
+    //
+    // Context for access to ORB and common CORBA services
+    //
+    struct OrbContext {
+
+      // orb instantiation
+      CORBA::ORB_ptr                          orb;
+
+      // root POA for to handle object requests
+      PortableServer::POA_ptr                 rootPOA;
+
+      // handle to naming service
+      CosNaming::NamingContext_ptr            namingService;
+
+      // handle to naming service
+      CosNaming::NamingContextExt_ptr         namingServiceCtx;
+
+      virtual ~OrbContext() {};
+
+      OrbContext() {
+	orb = ossie::corba::Orb();
+	rootPOA = ossie::corba::RootPOA();
+	namingService = ossie::corba::InitialNamingContext();
+	namingServiceCtx = CosNaming::NamingContextExt::_nil();
+	try {
+	  CORBA::Object_ptr obj;
+	  obj=orb->resolve_initial_references("NameService");
+	  namingServiceCtx = CosNaming::NamingContextExt::_narrow(obj);
+	}
+	catch(...){
+	};
+      };
+
+    };
+
+
+  //
+  // Create a naming context from root directory
+  //
+  int  CreateNamingContext(const std::string &namingContext ) {
+    int retval=1;
+    CosNaming::NamingContext_ptr ctx  = CreateNamingContextPath(namingContext );
+    if(!CORBA::is_nil(ctx)) retval=0;
+    return retval;
+  }
+
+
+  CosNaming::NamingContext_ptr CreateNamingContextPath(const std::string &namingContext) {
+
+    LNDEBUG( "CreateNamingContextPath", " NamingContext: " << namingContext );
+    OrbContext _orb;
+    OrbPtr     orb = &_orb;
+    CosNaming::Name  cname = str2name(namingContext.c_str());      
+    CosNaming::NamingContext_ptr ctx  = CosNaming::NamingContext::_nil();
+    CosNaming::NamingContext_ptr naming_ctx  = orb->namingService;
+
+    if(!CORBA::is_nil(orb->namingService) ) {
+      
+      try {
+	CosNaming::Name n;
+	n.length(1);
+
+	// Drill down through contexts.
+	for(CORBA::ULong i=0; i<(cname.length()); ++i)       {
+	  n[0]=cname[i];
+	  try  {
+	    naming_ctx=naming_ctx->bind_new_context(n);
+	  }
+	  catch(CosNaming::NamingContext::AlreadyBound&) {
+	    CORBA::Object_var obj2 =naming_ctx->resolve(n);
+	    naming_ctx=CosNaming::NamingContext::_narrow(obj2);
+	  }
+	  // One of the context names is already bound to an object. Bail out!
+	  if(CORBA::is_nil(naming_ctx))
+	    return ctx;
+	}
+	
+	ctx = naming_ctx;
+      } catch( const CORBA::Exception& ex) {
+	LNERROR( "CreateNamingContextPath", " CORBA " << ex._name() << " exception during, bind context:" << namingContext );
+      }
+    }
+    return ctx;
+  }
+
+
+
+  CosNaming::NamingContext_ptr ResolveNamingContextPath( const std::string &namingContext ) {
+
+    LNDEBUG( "ResolveNamingContextPath", " NamingContext: " << namingContext );
+    OrbContext _orb;
+    OrbPtr     orb = &_orb;
+    CosNaming::Name  cname = str2name(namingContext.c_str());      
+    CosNaming::NamingContext_ptr ctx  = CosNaming::NamingContext::_nil();
+    CosNaming::NamingContext_ptr naming_ctx  = orb->namingService;
+
+    if(!CORBA::is_nil(orb->namingService) ) {
+      
+      try {
+	CosNaming::Name n;
+	n.length(1);
+
+	// Drill down through contexts.
+	for(CORBA::ULong i=0; i<(cname.length()); ++i)       {
+	  n[0]=cname[i];
+	  try  {
+	    naming_ctx->bind_context(n, naming_ctx );
+	  }
+	  catch(CosNaming::NamingContext::AlreadyBound&) {
+	    CORBA::Object_var obj2 =naming_ctx->resolve(n);
+	    naming_ctx=CosNaming::NamingContext::_narrow(obj2);
+	  }
+
+	  // One of the context names is already bound to an object. Bail out!
+	  if(CORBA::is_nil(naming_ctx))
+	    return ctx;
+	}
+	
+	ctx = naming_ctx;
+      } catch( const CORBA::Exception& ex) {
+	LNERROR( "ResolveNamingContextPath", " CORBA " << ex._name() << " exception during, bind context:" << namingContext );
+      }
+    }
+    return ctx;
+  }
+
+
+
+  //
+  // Create a naming context from root directory
+  //
+  int  DeleteNamingContext( const std::string &namingContext )  {
+    LNDEBUG( "DeleteNamingContext", " NamingContext: " << namingContext );
+    OrbContext _orb;
+    OrbPtr     orb = &_orb;
+    int retval=1;
+    CosNaming::Name  cname = str2name(namingContext.c_str());      
+    if(!CORBA::is_nil(orb->namingService) ) {
+      try {
+
+	CORBA::Object_var obj = orb->namingService->resolve(cname);
+        CosNaming::NamingContext_var context
+          = CosNaming::NamingContext::_narrow(obj);
+
+        if (CORBA::is_nil(context))  return 1;
+
+        context->destroy();
+
+        orb->namingService->unbind(cname);
+
+	retval = 0;
+      } catch(CosNaming::NamingContext::NotFound& ex) {
+	LNWARN( "DeleteNamingContext", " Not Found :" << namingContext );
+      } catch(CosNaming::NamingContext::CannotProceed & ex) {
+	LNWARN( "DeleteNamingContext", " CannotProceed :" << namingContext );
+      } catch(CosNaming::NamingContext::InvalidName & ex) {
+	LNWARN( "DeleteNamingContext", " InvalidName :" << namingContext );
+      } catch( const CORBA::Exception& ex) {
+	LNERROR( "DeleteNamingContext", " CORBA " << ex._name() << " exception during, bind context:" << namingContext );
+      }
+     }
+    return retval;
+  }
+
+
+
+  int  DeleteNamingContextPath( const std::string &namingContext )  {
+
+    LNDEBUG( "DeleteNamingContextPath", " NamingContext: " << namingContext );
+    OrbContext _orb;
+    OrbPtr     orb = &_orb;
+    int retval=0;
+    CosNaming::Name  cname = str2name(namingContext.c_str());      
+    std::vector<  std::pair< CosNaming::NamingContext_ptr, CosNaming::Name >  > nc_list;
+    CosNaming::NamingContext_ptr naming_ctx  = orb->namingService;
+    if(!CORBA::is_nil(orb->namingService) ) {
+
+      try {
+	CosNaming::Name n;
+	n.length(1);
+
+	// Drill down through contexts.
+	for(CORBA::ULong i=0; i<(cname.length()); ++i)       {
+	  n[0]=cname[i];
+	  try  {
+	    naming_ctx->bind_context(n, naming_ctx );
+	  }
+	  catch(CosNaming::NamingContext::AlreadyBound&) {
+	    CORBA::Object_var obj2 =naming_ctx->resolve(n);
+	    naming_ctx=CosNaming::NamingContext::_narrow(obj2);
+	  }
+
+	  // One of the context names is already bound to an object. Bail out!
+	  if(CORBA::is_nil(naming_ctx))
+	    return -1;
+
+	  CosNaming::Name tname;
+	  tname.length(i+1);
+	  for(CORBA::ULong a=0; a<i+1; ++a) tname[a] = cname[a];
+	  
+	  nc_list.push_back( std::pair< CosNaming::NamingContext_ptr, CosNaming::Name >( naming_ctx, tname ) );
+	}
+	std::vector< std::pair< CosNaming::NamingContext_ptr, CosNaming::Name > >::reverse_iterator r=nc_list.rbegin();
+	for ( ; r != nc_list.rend(); ++r ) {
+	  try {
+	    r->first->destroy();
+	    orb->namingService->unbind( r->second );
+	  } catch(CosNaming::NamingContext::NotFound& ex) {
+	    LNWARN( "DeleteNamingContextPath", " Not Found :" << namingContext );
+	    retval=1;
+	    break;
+	  } catch(CosNaming::NamingContext::CannotProceed & ex) {
+	    LNWARN( "DeleteNamingContextPath", " CannotProceed :" << namingContext );
+	    retval=1;
+	    break;
+	  } catch(CosNaming::NamingContext::InvalidName & ex) {
+	    LNWARN( "DeleteNamingContextPath", " InvalidName :" << namingContext );
+	    retval=1;
+	    break;
+	  } catch( const CORBA::Exception& ex) {
+	    LNERROR( "DeleteNamingContextPath", " CORBA " << ex._name() << " exception during, bind context:" << namingContext );
+	    retval=1;
+	    break;
+	  }
+	}
+      } catch( const CORBA::Exception& ex) {
+	LNERROR( "DeleteNamingContextPath", " CORBA " << ex._name() << " exception during, bind context:" << namingContext );
+      }
+    }
+    return retval;
+  };
+
+  //
+  // Unbind from a namingcontext
+  //
+  int  Unbind( const std::string &name , CosNaming::NamingContext_ptr namingContext ) {
+
+    LNDEBUG( "Unbind", " Name: " << name );
+    int retval=1;
+    try {
+      if(!CORBA::is_nil(namingContext) ) {
+	CosNaming::Name  cname = str2name(name.c_str());
+	namingContext->unbind(cname);
+	retval=0;
+      }
+    } 
+    catch(CosNaming::NamingContext::NotFound &ex) {
+      LNWARN( "Unbind", " NameContext : Name NotFound ");
+      retval=0;
+    }
+    catch(CosNaming::NamingContext::CannotProceed &ex) {
+      LNERROR( "Unbind", " NameContext : CannotProceed ");
+    }
+    catch(CosNaming::NamingContext::InvalidName &ex) {
+      LNERROR( "Unbind", " NameContext : InvalidName ");
+    }
+    catch (const CORBA::Exception& ex) {
+      LNERROR( "Unbind", " CORBA " << ex._name() << " exception during unbind operation, name:" << name );
+    }
+
+    return retval;
+
+  }
+
+
+
+  //
+  // Unbind object from naming service
+  //
+  int  Unbind( const std::string &name , const std::string &namingContext ) {
+
+    LNDEBUG( "Unbind", " NamingContext: <" << namingContext << "> Name:" << name );
+    OrbContext _orb;
+    OrbPtr     orb = &_orb;
+    int retval=1;
+    CosNaming::Name  cname = str2name(namingContext.c_str());      
+    CosNaming::NamingContext_var ctx  = CosNaming::NamingContext::_nil();
+    if(!CORBA::is_nil(orb->namingService) ) {
+      try {
+	if ( namingContext == "" ) {
+	  LNDEBUG( "Unbind", " Use Root NamingContext ");
+	  ctx = orb->namingService;
+	}
+	else {
+	  LNDEBUG( "Bind", " LOOK UP NamingContext: " << namingContext  );
+	  orb->namingService->bind_context( cname, ctx );
+	}
+	LNDEBUG( "Unbind", " DIR: <" << namingContext << "> Name:" << name );
+	return Unbind( name, ctx );
+      } catch(CosNaming::NamingContext::AlreadyBound& ex) {
+	LNDEBUG( "Unbind", " Already Bound NamingContext : " << namingContext  );
+	CORBA::Object_var tmp = orb->namingService->resolve(cname);
+	ctx = CosNaming::NamingContext::_narrow(tmp);
+	LNDEBUG( "Unbind", " DIR: <" << namingContext << "> Name:" << name );
+	return Unbind( name, ctx );
+      } catch( const CORBA::Exception& ex) {
+	LNERROR( "Unbind", " CORBA " << ex._name() << " exception during, bind context:" << namingContext );
+      }
+
+    }
+    return retval;
+  };
+
+
+  //
+  // Bind to naming context    id = name, kind=""
+  //
+  int  Bind(const std::string &name,  CORBA::Object_ptr obj,  CosNaming::NamingContext_ptr namingContext  ) {
+
+    LNDEBUG( "Bind", " created event channel " << name );
+    int retval=1;
+    try {
+      if(!CORBA::is_nil(namingContext) ) {
+	CosNaming::Name  cname = str2name(name.c_str());
+	try{
+	  LNDEBUG( "Bind", "Attempt to Bind, Name:" << name  );
+	  namingContext->bind(cname, obj);
+	  LNDEBUG( "Bind", "SUCCESS, for Name:" << name  );
+	  retval=0;
+	} catch(CosNaming::NamingContext::AlreadyBound& ex) {
+	  LNDEBUG( "Bind", "Already Bound, Name:" << name  );
+	  namingContext->rebind(cname, obj);
+	  retval=0;
+	}
+      }
+    } catch (const CORBA::Exception& ex) {
+      LNERROR( "Bind", " CORBA " << ex._name() << " exception during bind operation, name:" << name );
+    }
+
+    return retval;
+  };
+
+
+  //
+  // Bind to naming context    id = name, kind=""
+  //
+  int  Bind( const std::string &name,  CORBA::Object_ptr obj, const std::string &namingContext, bool create_nc ) {
+
+    LNDEBUG( "Bind", " NamingContext: " << namingContext << " Name:" << name );
+    OrbContext _orb;
+    OrbPtr     orb = &_orb;
+    int retval=1;
+    CosNaming::Name  cname = str2name(namingContext.c_str());      
+    CosNaming::NamingContext_ptr ctx  = CosNaming::NamingContext::_nil();
+    if(!CORBA::is_nil(orb->namingService) ) {
+      try {
+	if ( namingContext == "" ) {
+	  LNDEBUG( "Bind", " Use Root NamingContext ");
+	  ctx = orb->namingService;
+	}
+	else {
+	  if ( create_nc ) {
+	    LNDEBUG( "Bind", " Create NamingContext Path" << namingContext  );
+	    ctx = CreateNamingContextPath( namingContext);
+	  }
+	  else {
+	    LNDEBUG( "Bind", " LOOK UP NamingContext " << namingContext  );
+	    orb->namingService->bind( cname, ctx );
+	  }
+	}
+
+      } catch(CosNaming::NamingContext::AlreadyBound& ex) {
+	LNDEBUG( "Bind", " Already Bound NamingContext : " << namingContext  );
+	CORBA::Object_var tmp = orb->namingService->resolve(cname);
+	ctx = CosNaming::NamingContext::_narrow(tmp);
+
+      } catch( const CORBA::Exception& ex) {
+	LNERROR( "Bind", " CORBA " << ex._name() << " exception during, bind context:" << namingContext );
+      }
+
+      if ( !CORBA::is_nil(ctx) ) {
+	LNDEBUG( "Bind", " DIR:" << namingContext << " Name:" << name );
+	return Bind( name, obj, ctx );
+      }
+    }
+    return retval;
+  };
+
+
+
 }; // namespace corba
 }; // namespace ossie

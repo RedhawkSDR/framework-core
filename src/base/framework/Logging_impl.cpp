@@ -22,6 +22,13 @@
 #include "ossie/logging/loghelpers.h"
 #include "ossie/debug.h"
 
+#ifdef LOCAL_DEBUG_ON
+#define STDOUT_DEBUG(x)    std::cout << x << std::endl
+#else
+#define STDOUT_DEBUG(x)    
+#endif
+
+
 struct null_deleter
 {
   void operator()(void const *) const

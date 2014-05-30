@@ -19,16 +19,16 @@
     // naming service actions
     enum  NS_ACTION { NS_NOBIND=0, NS_BIND=1, NS_REBIND=2, NS_UNBIND=3 };
 
-    struct Orb;
+    struct OrbContext;
 
-    typedef boost::shared_ptr< Orb >                OrbPtr;
+    typedef boost::shared_ptr< OrbContext >                OrbPtr;
 
     //
-    // Orb
+    // OrbContext
     //
     // Context for access to ORB and common CORBA services
     //
-    struct Orb {
+    struct OrbContext {
 
       // orb instantiation
       CORBA::ORB_var                          orb;
@@ -45,7 +45,7 @@
       // handle to naming service
       CosNaming::NamingContextExt_var         namingServiceCtx;
 
-      virtual ~Orb() {};
+      virtual ~OrbContext() {};
 
       //
       // establish singleton context for ORB ( rootPOA, root NamingService, root activator )
@@ -60,7 +60,7 @@
 
     private:
 
-      Orb() {};
+      OrbContext() {};
 
       static OrbPtr   _singleton;
 
@@ -89,9 +89,12 @@
 
 
     int  CreateNamingContext( OrbPtr orb, const std::string &name );
+    CosNaming::NamingContext_ptr CreateNamingContextPath( OrbPtr orb, const std::string &nc );
+    CosNaming::NamingContext_ptr ResolveNamingContextPath( OrbPtr orb, const std::string &nc );
     int  DeleteNamingContext( OrbPtr orb, const std::string &name );
+    int  DeleteNamingContextPath( OrbPtr orb, const std::string &name );
     int  Bind( const std::string &name, CORBA::Object_ptr obj, CosNaming::NamingContext_ptr namingContext  );
-    int  Bind( OrbPtr orb, const std::string &name,  CORBA::Object_ptr obj, const std::string &dir="" );
+    int  Bind( OrbPtr orb, const std::string &name,  CORBA::Object_ptr obj, const std::string &dir="", const bool create_nc=false );
 
     int  Unbind( const std::string &name, CosNaming::NamingContext_ptr namingContext );
     int  Unbind( OrbPtr orb, const std::string &name, const std::string &namingContext="" );
@@ -111,13 +114,22 @@
     //
     // GetEventChannel
     //
-    // Get an EventChannel with in the provide ORB context, allow for creation if one does not exist
+    // Lookup an EventChannel using resolve references routines, (resolve, corbaname, corbaloc)
+    // if not found and create == true
+    //    create EventChannel in omniEvents, there is no binding to the name service
     //
     CosEventChannelAdmin::EventChannel_ptr GetEventChannel ( corba::OrbPtr &     orb, 
 							     const std::string&  name, 
 							     const bool          create=false,
 							     const std::string   &host="localhost" );
 
+    //
+    // GetEventChannel
+    //
+    // Lookup an EventChannel using the omniNames service
+    // if not found and create == true
+    //    create EventChannel in omniEvents, bind the event channel to nc_name/name
+    //
     CosEventChannelAdmin::EventChannel_ptr GetEventChannel ( corba::OrbPtr &     orb, 
 							     const std::string&  name, 
 							     const std::string& ns_context, 
@@ -129,7 +141,7 @@
     // Create an EventChannel within the current ORB context, once created bind to the same name....
     //
     CosEventChannelAdmin::EventChannel_ptr CreateEventChannel( corba::OrbPtr &    orb, 
-							       const std::string& name, 
+							       const std::string& name,
 							       NS_ACTION action=corba::NS_BIND );
 
     CosEventChannelAdmin::EventChannel_ptr CreateEventChannel( corba::OrbPtr &    orb, 
@@ -227,22 +239,57 @@
     //
     template< typename T > 
       int     push( T &msg ) {
-      CORBA::Any data;
-      data <<= msg;
-      proxy_for_consumer->push(data);
-      return 0;
+      int retval=0;
+      try {
+	CORBA::Any data;
+	data <<= msg;
+	if (!CORBA::is_nil(proxy_for_consumer)) {
+	  proxy_for_consumer->push(data);
+	}
+	else{
+	  retval=-1;
+	}
+      }
+      catch( CORBA::Exception& ex) {
+	retval=-1;
+      }
+      return retval;
     }
 
     template< typename T > 
       int     push( T *msg ) {
-      CORBA::Any data;
-      data <<= msg;
-      proxy_for_consumer->push(data);
-      return 0;
+      int retval=0;
+      try {
+	CORBA::Any data;
+	data <<= msg;
+	if (!CORBA::is_nil(proxy_for_consumer)) {
+	  proxy_for_consumer->push(data);
+	}
+	else{
+	  retval=-1;
+	}
+      }
+      catch( CORBA::Exception& ex) {
+	retval=-1;
+      }
+      return retval;
     }
 
     int     push( CORBA::Any &data ) {
-      proxy_for_consumer->push(data);
+      int retval=0;
+      try {
+	if (!CORBA::is_nil(proxy_for_consumer)) {
+	  proxy_for_consumer->push(data);
+	}
+	else{
+	  retval=-1;
+	}
+      }
+      catch( CORBA::Exception& ex) {
+	retval=-1;
+      }
+      return retval;
+
       return 0;
     }
 

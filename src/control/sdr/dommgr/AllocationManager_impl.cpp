@@ -297,7 +297,9 @@ void AllocationManager_impl::partitionProperties(const CF::Properties& propertie
     }
 
     // Copy remaining partition
-    outProps.push_back(ossie::corba::slice(properties, start));
+    if (start < properties.length()) {
+        outProps.push_back(ossie::corba::slice(properties, start));
+    }
 }
 
 bool AllocationManager_impl::completeAllocations(CF::Device_ptr device, const std::vector<CF::Properties>& allocations)

@@ -25,11 +25,11 @@ _nodeBooter_absfile_with_root()
     return 0
   fi
 
-  dirs=$(compgen -A directory -P / -S / "$cur_relative")
+  dirs=$(compgen -A directory -P / -S / -- "$cur_relative")
   if [ $? = 0 ]; then
     compopt -o nospace
   fi
-  files=$(compgen -A file -P / -X "!${pattern}" "$cur_relative")
+  files=$(compgen -A file -P / -X "!${pattern}" -- "$cur_relative")
   COMPREPLY=( ${dirs[@]} ${files[@]} )
 
   cd - > /dev/null

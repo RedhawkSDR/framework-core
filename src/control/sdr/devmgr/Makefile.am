@@ -19,7 +19,7 @@
 #
 
 devmgrdir = $(SDR_ROOT)/dev/mgr
-dist_devmgr_DATA = DeviceManager.spd.xml DeviceManager.scd.xml DeviceManager.prf.xml DeviceManager.Linux.x86.prf.xml DeviceManager.Linux.x86_64.prf.xml
+dist_devmgr_DATA = DeviceManager.spd.xml DeviceManager.scd.xml DeviceManager.prf.xml DeviceManager.Linux.x86.prf.xml DeviceManager.Linux.x86_64.prf.xml DeviceManager.Linux.armv7l.prf.xml
 devmgr_PROGRAMS = DeviceManager
 
 DeviceManager_SOURCES = main.cpp DeviceManager_impl.cpp

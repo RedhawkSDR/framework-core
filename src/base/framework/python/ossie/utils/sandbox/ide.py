@@ -109,7 +109,7 @@ class IDESandbox(Sandbox):
     def getSdrRoot(self):
         return IDESdrRoot(self.__ide)
 
-    def _createInstanceName(self, softpkgName):
+    def _createInstanceName(self, softpkgName, componentType='resource'):
         # Use one-up counter to make component instance name unique.
         counter = len(self.__launchedComps) + 1
         while True:
@@ -118,7 +118,7 @@ class IDESandbox(Sandbox):
                 return name
             counter += 1
 
-    def _checkInstanceId(self, refid):
+    def _checkInstanceId(self, refid, componentType='resource'):
         # Ensure refid is unique.
         for component in self.__launchedComps.values():
             if refid == component._refid:
@@ -155,3 +155,6 @@ class IDESandbox(Sandbox):
 
     def getComponents(self):
         return self.__launchedComps.values()
+
+    def getServices(self):
+        return []

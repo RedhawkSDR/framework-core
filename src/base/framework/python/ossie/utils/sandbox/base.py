@@ -21,11 +21,12 @@
 import os
 import logging
 import copy
-import weakref
 import warnings as _warnings
+
 from ossie import parsers
 from ossie.cf import CF
 from ossie.utils import log4py
+from ossie.utils import weakobj
 from ossie.utils.model import PortSupplier, PropertySet, ComponentBase, CorbaObject
 from ossie.utils.model.connect import ConnectionManager
 from ossie.utils.uuid import uuid4
@@ -123,10 +124,10 @@ class Sandbox(object):
         else:
             # Return a weak proxy so that destroy() can fully delete the
             # object in normal usage and ensure that it stays destroyed.
-            return weakref.proxy(self._eventChannels[name])
+            return weakobj.objectref(self._eventChannels[name])
 
     def getEventChannels(self):
-        return self._eventChannels.values()
+        return [weakobj.objectref(c) for c in self._eventChannels.itervalues()]
     
     def _removeEventChannel(self, name):
         del self._eventChannels[name]
@@ -169,20 +170,22 @@ class Sandbox(object):
         if not scd:
             raise RuntimeError, 'Cannot launch softpkg with no SCD'
 
+        # Check that we can launch the component.
+        comptype = scd.get_componenttype()
+        if comptype not in self.__comptypes__:
+            raise NotImplementedError, "No support for component type '%s'" % comptype
+
         if not instanceName:
-            instanceName = self._createInstanceName(name)
-        elif not self._checkInstanceName(instanceName):
+            instanceName = self._createInstanceName(name, comptype)
+        elif not self._checkInstanceName(instanceName, comptype):
             raise ValueError, "User-specified instance name '%s' already in use" % (instanceName,)
 
         if not refid:
             refid = str(uuid4())
-        elif not self._checkInstanceId(refid):
+        elif not self._checkInstanceId(refid, comptype):
             raise ValueError, "User-specified identifier '%s' already in use" % (refid,)
 
         # Determine the class for the component type and create a new instance.
-        comptype = scd.get_componenttype()
-        if comptype not in self.__comptypes__:
-            raise NotImplementedError, "No support for component type '%s'" % comptype
         clazz = self.__comptypes__[comptype]
         comp = clazz(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window, timeout)
         # Services don't get initialized or configured
@@ -221,7 +224,7 @@ class SandboxComponent(ComponentBase):
         self._profile = profile
         self._componentName = spd.get_name()
         self._configRef = {}
-        for prop in self._getPropertySet(modes=('readwrite', 'writeonly'), includeNil=False):
+        for prop in self._getPropertySet(kinds=('configure',), modes=('readwrite', 'writeonly'), includeNil=False):
             if prop.defValue is None:
                 continue
             self._configRef[str(prop.id)] = prop.defValue
@@ -260,7 +263,6 @@ class SandboxComponent(ComponentBase):
 
     def releaseObject(self):
         # Break any connections involving this component.
-        self.__ports = self._populatePorts()
         manager = ConnectionManager.instance()
         for identifier, (uses, provides) in manager.getConnections().items():
             if uses.hasComponent(self) or provides.hasComponent(self):

@@ -23,7 +23,8 @@
 ProcessThread::ProcessThread(ThreadedComponent *target, float delay) :
     _thread(0),
     _running(false),
-    _target(target)
+    _target(target),
+    _mythread(_thread)
 {
     updateDelay(delay);
 }
@@ -44,6 +45,9 @@ void ProcessThread::run()
             return;
         } else if (state == NOOP) {
             nanosleep(&_delay, NULL);
+        }
+        else {
+            boost::this_thread::yield();
         }
     }
 }
@@ -67,6 +71,11 @@ bool ProcessThread::release(unsigned long secs, unsigned long usecs)
     return true;
 }
 
+void ProcessThread::stop() {
+    _running = false;
+    if ( _thread ) _thread->interrupt();
+}
+
 ProcessThread::~ProcessThread()
 {
     if (_thread) {
@@ -81,6 +90,10 @@ void ProcessThread::updateDelay(float delay)
     _delay.tv_nsec = (delay-_delay.tv_sec)*1e9;
 }
 
+bool ProcessThread::threadRunning()
+{
+    return _running;
+}
 ThreadedComponent::ThreadedComponent() :
     serviceThread(0),
     serviceThreadLock(),

@@ -914,6 +914,91 @@ class SBTestTest(scatest.CorbaTestCase):
         prop = getattr(comp, name)
         return CF.DataType(prop.id, prop.toAny(value))
 
+    def test_Services(self):
+        """
+        Tests for the ability to launch and interact with services from the
+        sandbox.
+        """
+        # Launch first instance by path to SPD
+        spd = os.path.join(sb.getSDRROOT(), 'dev/services/BasicService/BasicService.spd.xml')
+        service1 = sb.launch(spd)
+        service1_name = service1._instanceName
+        service1_id = service1._refid
+
+        # Launch second instance by ID (added in 1.10)
+        service2 = sb.launch('BasicService', execparams={'PARAM4':True,'PARAM5':'Message'})
+        service2_name = service2._instanceName
+        service2_id = service2._refid
+
+        # Check that the generated service names and IDs are unique
+        self.assertNotEqual(service1_name, service2_name)
+        self.assertNotEqual(service1_id, service2_id)
+
+        # Try the CORBA API (BasicService is a property set)
+        props = service1.query([])
+
+        # Check that the execparams actually got overridden
+        props = dict((str(prop.id), prop.value._v) for prop in service2.query([]))
+        self.assertEqual(props['PARAM4'], True)
+        self.assertEqual(props['PARAM5'], 'Message')
+
+        # Make sure you can retrieve them by name
+        serviceA = sb.getService(service1_name)
+        serviceB = sb.getService(service2_name)
+
+        # Make sure we got the same ones back
+        self.assertEqual(service1, serviceA)
+        self.assertEqual(service2, serviceB)
+
+    def test_ComplexListConversions(self):
+        # Test interleaved-to-complex
+        inData = range(4)
+        outData = _bulkio_helpers.bulkioComplexToPythonComplexList(inData)
+        self.assertEqual(outData,[complex(0,1),complex(2,3)])
+
+        # Test complex-to-interleaved
+        cxData = [complex(x+0.5,0) for x in xrange(4)]
+        outData = _bulkio_helpers.pythonComplexListToBulkioComplex(cxData)
+        self.assertEqual(outData, [0.5,0.0,1.5,0.0,2.5,0.0,3.5,0.0])
+
+        # Ensure that conversion does not modify the original list
+        self.assertTrue(isinstance(cxData[0],complex))
+
+        # Test inline type conversion (should truncate)
+        outDataInt = _bulkio_helpers.pythonComplexListToBulkioComplex(cxData, int)
+        self.assertEqual(outDataInt[0], 0)
+        self.assertEqual(outDataInt, [int(x) for x in outData])
+
+
+class BulkioTest(unittest.TestCase):
+    XMLDATA = """<body>
+  <element tag=value/>
+</body>"""
+
+    TEMPFILE = 'testout.xml'
+
+    def setUp(self):
+        try:
+            import bulkio
+        except ImportError:
+            raise ImportError('BULKIO is required for this test')
+
+    def tearDown(self):
+        try:
+            os.unlink(self.TEMPFILE)
+        except:
+            pass
+
+    def readFile(self, filename, strip=False):
+        infile = open(filename, 'r')
+        try:
+            data = infile.read()
+            if strip:
+                data = data.strip()
+            return data
+        finally:
+            infile.close()
+
     def _pushSRIThroughSourceAndSink(
         self,
         EOS          = True,
@@ -989,11 +1074,6 @@ class SBTestTest(scatest.CorbaTestCase):
             self.fail('Automatic connect failed for source that had dataFormat passed in')
       
     def test_DataSourceAndSink(self):
-        try:
-            import bulkio
-        except ImportError:
-            self.fail("BULKIO not installed and is needed for this test")
-
         dummySource = sb.DataSource()
         supportedPorts = dummySource.supportedPorts
 
@@ -1033,8 +1113,65 @@ class SBTestTest(scatest.CorbaTestCase):
                     data         = dataCopy,
                     dataFormat   = format)
 
+    def test_XMLDataSource(self):
+        source = sb.DataSource(dataFormat='xml')
+        datasink = sb.DataSink()
+        source.connect(datasink)
+        sb.start()
 
+        source.push(self.XMLDATA, EOS=True)
 
+        # Retrieve the data
+        data = datasink.getData(eos_block=True)
+        self.assertEqual(len(data), 1)
+        data = data[0]
+        self.assertEqual(self.XMLDATA, data)
+
+    def test_XMLDataSink(self):
+        """
+        Test DataSink with XML data.
+        """
+        sink = sb.DataSink()
+        sb.start()
+
+        # Push directly into the port to test without a source
+        port = sink.getPort('xmlIn')
+        port.pushPacket(self.XMLDATA, True, 'xml')
+
+        # Retrieve the data
+        data = sink.getData(eos_block=True)
+        self.assertEqual(len(data), 1)
+        data = data[0]
+        self.assertEqual(self.XMLDATA, data)
+
+    def test_XMLFileSink(self):
+        sink = sb.FileSink(self.TEMPFILE)
+        sb.start()
+
+        # Push directly into the port to test without a source
+        port = sink.getPort('xmlIn')
+        port.pushPacket(self.XMLDATA, True, 'xml')
+
+        sink.waitForEOS()
+
+        # Compare the output against the original data
+        data = self.readFile(self.TEMPFILE, strip=True)
+        self.assertEqual(self.XMLDATA, data)
+
+    def test_XMLFileSource(self):
+        infile = os.path.join(sb.getSDRROOT(), 'dom/mgr/DomainManager.spd.xml')
+
+        source = sb.FileSource(infile, dataFormat='xml')
+        sink = sb.FileSink(self.TEMPFILE)
+        source.connect(sink)
+        sb.start()
+
+        sink.waitForEOS()
+        
+        # Check that the input and output files match
+        xmldata = self.readFile(infile)
+        data = self.readFile(self.TEMPFILE)
+        self.assertEqual(xmldata, data)
 
 
         #TODO if BULKIO ever gets folded into core framework these tests can be used

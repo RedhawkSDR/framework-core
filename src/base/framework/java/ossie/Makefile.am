@@ -18,6 +18,8 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
+include $(top_srcdir)/aminclude/jarfile.am
+
 # NB: In order to create a large number of strongly-typed property classes that
 #     differ only in the numeric type, common templates and type-specific sed
 #     scripts are used to generate each instance. This allows us to make
@@ -92,82 +94,89 @@ src/org/ossie/properties/Complex%SequenceProperty.java : src/org/ossie/propertie
 	$(AM_V_GEN)$(SED) -f sed/$*.sed $< > $@
 
 # Regular source files
-OSSIE_SOURCE = src/org/ossie/component/AllocCapacity.java \
-	       src/org/ossie/component/Device.java \
-	       src/org/ossie/component/ProvidesPort.java \
-	       src/org/ossie/component/ProcessThread.java \
-	       src/org/ossie/component/QueryableUsesPort.java \
-	       src/org/ossie/component/Resource.java \
-	       src/org/ossie/component/ThreadedComponent.java \
-	       src/org/ossie/component/ThreadedDevice.java \
-	       src/org/ossie/component/ThreadedResource.java \
-	       src/org/ossie/component/Service.java \
-	       src/org/ossie/component/UsesPort.java \
-	       src/org/ossie/logging/logging.java \
-	       src/org/ossie/events/Consumer_i.java \
-	       src/org/ossie/events/EventCallback.java \
-	       src/org/ossie/events/MessageConsumerPort.java \
-	       src/org/ossie/events/MessageSupplierPort.java \
-	       src/org/ossie/events/PropertyEventSupplier.java \
-	       src/org/ossie/events/SupplierAdmin_i.java \
-	       src/org/ossie/properties/AbstractSequenceProperty.java \
-	       src/org/ossie/properties/AbstractSimpleProperty.java \
-	       src/org/ossie/properties/Action.java \
-	       src/org/ossie/properties/Allocator.java \
-	       src/org/ossie/properties/AnyUtils.java \
-	       src/org/ossie/properties/BooleanProperty.java \
-	       src/org/ossie/properties/BooleanSequenceProperty.java \
-	       src/org/ossie/properties/CharProperty.java \
-	       src/org/ossie/properties/CharSequenceProperty.java \
-	       src/org/ossie/properties/ComplexArrayUtils.java \
-	       src/org/ossie/properties/ComplexUtils.java \
-	       src/org/ossie/properties/IProperty.java \
-	       src/org/ossie/properties/Kind.java \
-	       src/org/ossie/properties/LegacyProperty.java \
-	       src/org/ossie/properties/Mode.java \
-	       src/org/ossie/properties/NumericProperty.java \
-	       src/org/ossie/properties/NumericSequenceProperty.java \
-	       src/org/ossie/properties/PrimitiveArrayUtils.java \
-	       src/org/ossie/properties/Property.java \
-	       src/org/ossie/properties/PropertyListener.java \
-	       src/org/ossie/properties/StringProperty.java \
-	       src/org/ossie/properties/StringSequenceProperty.java \
-	       src/org/ossie/properties/StructDef.java \
-	       src/org/ossie/properties/StructProperty.java \
-	       src/org/ossie/properties/StructSequenceProperty.java \
-	       src/org/ossie/properties/UnsignedUtils.java
+ossie_jar_SOURCE = src/org/ossie/component/AllocCapacity.java \
+		   src/org/ossie/component/Device.java \
+		   src/org/ossie/component/ProvidesPort.java \
+		   src/org/ossie/component/ProcessThread.java \
+		   src/org/ossie/component/QueryableUsesPort.java \
+		   src/org/ossie/component/Resource.java \
+		   src/org/ossie/component/ThreadedComponent.java \
+		   src/org/ossie/component/ThreadedDevice.java \
+		   src/org/ossie/component/ThreadedResource.java \
+		   src/org/ossie/component/Service.java \
+		   src/org/ossie/component/UsesPort.java \
+		   src/org/ossie/logging/logging.java \
+		   src/org/ossie/events/Consumer_i.java \
+		   src/org/ossie/events/EventCallback.java \
+		   src/org/ossie/events/MessageConsumerPort.java \
+		   src/org/ossie/events/MessageSupplierPort.java \
+		   src/org/ossie/events/PropertyEventSupplier.java \
+		   src/org/ossie/events/SupplierAdmin_i.java \
+		   src/org/ossie/properties/AbstractSequenceProperty.java \
+		   src/org/ossie/properties/AbstractSimpleProperty.java \
+		   src/org/ossie/properties/Action.java \
+		   src/org/ossie/properties/Allocator.java \
+		   src/org/ossie/properties/AnyUtils.java \
+		   src/org/ossie/properties/BooleanProperty.java \
+		   src/org/ossie/properties/BooleanSequenceProperty.java \
+		   src/org/ossie/properties/CharProperty.java \
+		   src/org/ossie/properties/CharSequenceProperty.java \
+		   src/org/ossie/properties/ComplexArrayUtils.java \
+		   src/org/ossie/properties/ComplexUtils.java \
+		   src/org/ossie/properties/IProperty.java \
+		   src/org/ossie/properties/Kind.java \
+		   src/org/ossie/properties/LegacyProperty.java \
+		   src/org/ossie/properties/Mode.java \
+		   src/org/ossie/properties/NumericProperty.java \
+		   src/org/ossie/properties/NumericSequenceProperty.java \
+		   src/org/ossie/properties/PrimitiveArrayUtils.java \
+		   src/org/ossie/properties/Property.java \
+		   src/org/ossie/properties/PropertyListener.java \
+		   src/org/ossie/properties/StringProperty.java \
+		   src/org/ossie/properties/StringSequenceProperty.java \
+		   src/org/ossie/properties/StructDef.java \
+		   src/org/ossie/properties/StructProperty.java \
+		   src/org/ossie/properties/StructSequenceProperty.java \
+		   src/org/ossie/properties/UnsignedUtils.java
 
 # Deprecated generic property classes, replaced by strongly-typed classes but
 # maintained for source compatibility.
-OSSIE_SOURCE += src/org/ossie/properties/SimpleProperty.java \
+ossie_jar_SOURCE += src/org/ossie/properties/SimpleProperty.java \
 		src/org/ossie/properties/SimpleSequenceProperty.java
 
-OSSIE_SOURCE += $(SIMPLE_PROPERTIES)
-OSSIE_SOURCE += $(SEQUENCE_PROPERTIES)
-OSSIE_SOURCE += $(COMPLEX_PROPERTIES)
-OSSIE_SOURCE += $(COMPLEX_SEQUENCES)
+ossie_jar_SOURCE += $(SIMPLE_PROPERTIES)
+ossie_jar_SOURCE += $(SEQUENCE_PROPERTIES)
+ossie_jar_SOURCE += $(COMPLEX_PROPERTIES)
+ossie_jar_SOURCE += $(COMPLEX_SEQUENCES)
 
-src/fileList.txt : $(OSSIE_SOURCE)
-	$(AM_V_at)echo $^ > src/fileList.txt
+# Build older, deprecated property interfaces in a separate convenience (not
+# installed) jar so that we can suppress the warnings due to deprecating an
+# entire class hierarchy--at least some versions of javac issue a deprecation
+# warning even if the class extending a deprecated class is itself deprecated.
+noinst_java_JARFILES = ossie-legacy.jar
+
+ossie_legacy_jar_SOURCE = src/org/ossie/BooleanSimplePropertyContainer.java \
+		src/org/ossie/CharSimplePropertyContainer.java \
+		src/org/ossie/DoubleSimplePropertyContainer.java \
+		src/org/ossie/FloatSimplePropertyContainer.java \
+		src/org/ossie/IntegerSimplePropertyContainer.java \
+		src/org/ossie/LongSimplePropertyContainer.java \
+		src/org/ossie/OctetSimplePropertyContainer.java \
+		src/org/ossie/PropertyContainer.java \
+		src/org/ossie/ShortSimplePropertyContainer.java \
+		src/org/ossie/SimplePropertyContainer.java \
+		src/org/ossie/StringSimplePropertyContainer.java
+
+ossie_legacy_jar_CLASSPATH = ../CFInterfaces.jar
+ossie_legacy_jar_JAVACFLAGS = -g -Xlint:-deprecation
 
 # Additional Java compiler flags
-CLASSPATH = ../apache-commons-lang-2.4.jar:../CFInterfaces.jar:../log4j-1.2.15.jar
-JAVAFLAGS = $(AM_JAVACFLAGS) $(JAVACFLAGS) -g -Xlint:deprecation -Xlint:unchecked -cp $(CLASSPATH)
+ossie_jar_CLASSPATH = ../apache-commons-lang-2.4.jar:../CFInterfaces.jar:../log4j-1.2.15.jar
+ossie_jar_JAVACFLAGS = -g -Xlint:deprecation -Xlint:unchecked
+ossie_jar_JARADD = -C src . ossie-legacy.jar
 
-ossie.jar : src/fileList.txt
-	$(AM_V_at)rm -rf bin
-	$(AM_V_at)mkdir -p bin
-	$(JAVAC) $(JAVAFLAGS) -d bin @src/fileList.txt
-	$(JAR) cf ossie.jar -C bin  .
-	$(JAR) uf ossie.jar -C src  .
+java_JARFILES = ossie.jar
 
-java_DATA = ossie.jar
+ossie.jar : ../CFInterfaces.jar ossie-legacy.jar
 
-CLEANFILES = ossie.jar src/fileList.txt
-CLEANFILES += $(SIMPLE_PROPERTIES)
-CLEANFILES += $(SEQUENCE_PROPERTIES)
-CLEANFILES += $(COMPLEX_PROPERTIES)
-CLEANFILES += $(COMPLEX_SEQUENCES)
-
-clean-local:
-	rm -rf bin
+CLEANFILES = $(SIMPLE_PROPERTIES) $(SEQUENCE_PROPERTIES) $(COMPLEX_PROPERTIES) $(COMPLEX_SEQUENCES)

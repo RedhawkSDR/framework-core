@@ -1154,16 +1154,20 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 
         // Create a thread that watches for the resource to be deactivated
         Thread shutdownWatcher = new Thread(new Runnable() {
-		public void run() {
-		    resource_i.waitDisposed();
-		    logger.trace("Shutting down orb");
-		    orb.shutdown(true);
-		}
-	    });
+                public void run() {
+                    resource_i.waitDisposed();
+                    shutdownORB(orb);
+                }
+            });
 
         shutdownWatcher.start();
 
         orb.run();
+
+        // Destroy the ORB, otherwise the JVM shutdown will take an unusually
+        // long time (~300ms).
+        orb.destroy();
+
         logger.trace("Waiting for shutdown watcher to join");
         try {
             shutdownWatcher.join(1000);
@@ -1174,11 +1178,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         // Shut down native ORB, if it's running
         omnijni.ORB.shutdown();
 
-        // Explicitly call exit to ensure that process terminates. In some
-        // cases, especially if a CORBA request came in after ORB.shutdown(),
-        // the JVM may not exit on its own.
         logger.debug("Goodbye!");
-        System.exit(0);
     }
 
     protected void waitDisposed() {
@@ -1292,6 +1292,18 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 	return Resource.getLogConfig(uri, this.orb);
     }
 
+    protected static void shutdownORB(final org.omg.CORBA.ORB orb)
+    {
+        // Disable the default ORB logger to avoid dumping warnings
+        // on shutdown that are unavoidable and otherwise harmless
+        disableCORBALogging();
 
-       
+        logger.trace("Shutting down orb");
+        orb.shutdown(true);
+    }
+
+    private static void disableCORBALogging()
+    {
+        java.util.logging.Logger.getLogger("javax.enterprise.resource.corba").setLevel(java.util.logging.Level.OFF);
+    }
 }

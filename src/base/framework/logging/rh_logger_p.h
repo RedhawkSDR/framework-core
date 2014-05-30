@@ -27,6 +27,8 @@ namespace rh_logger {
 
     void handleLogEvent( const LevelPtr &lvl, const std::string &msg ) ;
 
+    void handleLogEvent( const LevelPtr &lvl, const std::string &msg, const spi::LocationInfo &location ) ;
+
     const LevelPtr&  getEffectiveLevel() const;
 
   protected:
@@ -74,6 +76,8 @@ namespace rh_logger {
     LevelPtr getLevel () const;
 
     void handleLogEvent( const LevelPtr &lvl, const std::string &msg ) ;
+
+    void handleLogEvent( const LevelPtr &lvl, const std::string &msg, const spi::LocationInfo &location ) ;
 
     const LevelPtr&  getEffectiveLevel() const;
 

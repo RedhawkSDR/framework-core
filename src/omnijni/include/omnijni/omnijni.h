@@ -32,5 +32,6 @@
 #include "struct.h"
 #include "loader.h"
 #include "holders.h"
+#include "threading.h"
 
 #endif // __OMNIJNI_H__

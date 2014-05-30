@@ -174,6 +174,9 @@ class CorbaObject(object):
     def _matchInterface(self, repid):
         return self.ref._is_a(repid)
 
+    def _getInterface(self):
+        return self.ref._NP_RepositoryId
+
 class PortSupplier(object):
     log = log.getChild('PortSupplier')
 
@@ -214,7 +217,20 @@ class PortSupplier(object):
             raise RuntimeError, "Component '%s' has more than one port, connection is ambiguous" % self._instanceName
 
     def _matchUsesPort(self, usesPort, connectionId):
-        return self._matchPort(usesPort['Port Interface'], self._providesPortDict, connectionId)
+        interface = usesPort['Port Interface']
+
+        # First, look for exact matches.
+        matches = self._matchExact(interface, self._providesPortDict.values())
+
+        # Only if no exact matches are found, try to check the CORBA interfaces
+        # for compatibility.
+        if not matches:
+            for providesPort in self._providesPortDict.values():
+                if self._canConnect(interface, providesPort['Port Interface']):
+                    matches.append(providesPort)
+
+        # Convert the matched ports to endpoints.
+        return [self._getEndpoint(providesPort, connectionId) for providesPort in matches]
 
     def _getProvidesPort(self, name):
         if not name in self._providesPortDict:
@@ -224,15 +240,38 @@ class PortSupplier(object):
     def _getEndpoint(self, port, connectionId):
         return PortEndpoint(self, port)
 
-    def _matchProvidesPort(self, providesPort, connectionId):
-        return self._matchPort(providesPort['Port Interface'], self._usesPortDict, connectionId)
+    def _canConnect(self, usesInterface, providesInterface):
+        if usesInterface == providesInterface:
+            return True
+        elif usesInterface == 'IDL:ExtendedEvent/MessageEvent:1.0':
+            # Special case: a MessageEvent uses port actually narrows the
+            # provides port to an EventChannel.
+            return self._canConnect('IDL:omg.org/CosEventChannelAdmin/EventChannel:1.0', providesInterface)
+        else:
+            try:
+                idl_interface = _idllib.getInterface(providesInterface)
+            except idllib.IDLError:
+                return False
+            return usesInterface in idl_interface.inherits
 
-    def _matchPort(self, interface, portDict, connectionId):
-        matches = []
-        for port in portDict.values():
-            if port['Port Interface'] == interface:
-                matches.append(self._getEndpoint(port, connectionId))
-        return matches
+    def _matchExact(self, interface, ports):
+        return [p for p in ports if p['Port Interface'] == interface]
+
+    def _matchProvidesPort(self, providesPort, connectionId):
+        interface = providesPort['Port Interface']
+
+        # First, look for exact matches.
+        matches = self._matchExact(interface, self._usesPortDict.values())
+
+        # Only if no exact matches are found, try to check the CORBA interfaces
+        # for compatibility.
+        if not matches:
+            for usesPort in self._usesPortDict.values():
+                if self._canConnect(usesPort['Port Interface'], interface):
+                    matches.append(usesPort)
+
+        # Convert the matched ports to endpoints.
+        return [self._getEndpoint(usesPort, connectionId) for usesPort in matches]
 
     def connect(self, providesComponent, providesPortName=None, usesPortName=None, connectionId=None):
         """
@@ -310,14 +349,15 @@ class PortSupplier(object):
             else:
                 usesPorts = self._usesPortDict.values()
             # Try to find a uses interface to connect to the object
+            providesInterface = providesComponent._getInterface()
             usesEndpoint = None
-            for usesPort in self._usesPortDict.values():
-                if providesComponent._matchInterface(usesPort['Port Interface']):
+            for usesPort in usesPorts:
+                if self._canConnect(usesPort['Port Interface'], providesInterface):
                     usesEndpoint = PortEndpoint(self, usesPort)
-                    providesEndpoint = ObjectEndpoint(providesComponent, usesPort['Port Interface'])
+                    providesEndpoint = ObjectEndpoint(providesComponent, providesInterface)
                     break
             if not usesEndpoint:
-                raise RuntimeError, 'No port matches provides object'
+                raise NoMatchingPorts("No port matches provides object interface '"+providesInterface+"'")
         else:
             # No support for provides side, throw an exception so the user knows
             # that the connection failed.
@@ -352,8 +392,6 @@ class PropertySet(object):
     __log = log.getChild('PropertySet')
 
     def __init__(self):
-        self._setProperties = []
-        self._execParamPropertySet = []
         self._properties = []
       
     @property
@@ -361,11 +399,7 @@ class PropertySet(object):
         #DEPRICATED: replaced with _properties, _propertySet did not contain all kinds and actions
         _warnings.warn("'_propertySet' is deprecated", DeprecationWarning)
         try:
-            for prop in self._properties:
-                if "execparam" in prop.kinds or "configure" in prop.kinds:
-                    if prop not in self._setProperties:
-                        self._setProperties.append(prop)
-            return self._setProperties
+            return [p for p in self._properties if 'execparam' in p.kinds or 'configure' in p.kinds]
         except:
             return None
     
@@ -400,12 +434,10 @@ class PropertySet(object):
                 return None
    
     def api(self, externalPropInfo=None):
-        if not self._properties:
+        properties = [p for p in self._properties if 'configure' in p.kinds or 'execparam' in p.kinds]
+        if not properties:
             return
-        for p in self._execParamPropertySet:        
-            self._properties.append(p)
 
-        self._execParamPropertySet = []
         table = TablePrinter('Property Name', '(Data Type)', '[Default Value]', 'Current Value')
 
         # Limit the amount of space between columns of data for display
@@ -418,7 +450,7 @@ class PropertySet(object):
             table.enable_header(False)
         else:
             print "Properties =============="
-        for prop in self._properties:
+        for prop in properties:
             if externalPropInfo:
                 # Searching for a particular external property
                 if prop.clean_name != propId:
@@ -468,14 +500,14 @@ class PropertySet(object):
 
 
 class Service(CorbaObject):
-    def __init__(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window):
-        CorbaObject.__init__(self, None)
+    def __init__(self, ref, profile, spd, scd, prf, instanceName, refid, impl):
+        CorbaObject.__init__(self, ref)
 
-        self._execParamPropertySet = []
         self._profile = profile
         self._refid = refid
         self._spd = spd
         self._scd = scd
+        self._prf = prf
         self._impl = impl
         self._instanceName = instanceName
         
@@ -496,7 +528,10 @@ class Service(CorbaObject):
     
     def _matchInterface(self, repid):
         return repid == self._repid
-            
+
+    def _getInterface(self):
+        return self._repid
+
     def populateMemberFunctions(self):
         objMembers = inspect.getmembers(self.ref)
         # Add member function mapping for each service operation 
@@ -713,13 +748,11 @@ class ComponentBase(object):
         self._pid = pid
         self._id = None
         self._devs = devs
-        #will return a list of all properties excluding for execparam props
         self._properties = self._getPropertySet(kinds=("configure","execparam","allocation","event","message"),
                                           modes=("readwrite","readonly","writeonly"),
                                           action=("external","eq","ge","gt","le","lt","ne"),
                                           includeNil=True)
-        #this combines the execparamprops with all the others to make a complete list
-        self._combineAllProps()
+
     def __setattr__(self,name,value):
         # If setting any class attribute except for _properties,
         # Then need to see if name matches any component properties
@@ -766,10 +799,6 @@ class ComponentBase(object):
                 ref = object.__getattribute__(self,"ref")
                 object.__setattr__(self,"_id",ref._get_identifier())
         return object.__getattribute__(self,name)
-
-    def _combineAllProps(self):
-        for i in self._execParamPropertySet:
-            self._properties.append(i)
 
     def _getPropType(self, prop):
         '''
@@ -832,26 +861,7 @@ class ComponentBase(object):
                 p = _prop_helpers.simpleProperty(id=prop.get_id(), valueType=propType, enum=enum, compRef=weakref.proxy(self), kinds=kindList,defValue=defValue, mode=prop.get_mode(), action=act)
                 id_clean = _prop_helpers._cleanId(prop)
                 p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
-
-                alreadyExists = False
-                addProp = True
-                if ("execparam" in kindList) and ("configure" not in kindList) and prop.get_mode() != "writeonly":
-                    for i in self._execParamPropertySet:
-                        if p.clean_name == i.clean_name:
-                            alreadyExists = True
-                    #adds all execParam properties that are not configure into a seperate list
-                    if not alreadyExists:
-                        self._execParamPropertySet.append(p)
-                        addProp = False
-                    #adds properties that are allocation and not configure
-                    if ("allocation" in kindList ):
-                        for i in propertySet:
-                            if p.clean_name == i.clean_name:
-                                add = False
-                        if addProp:
-                            propertySet.append(p)
-                else:
-                    propertySet.append(p)
+                propertySet.append(p)
         # Simple Sequences
         for prop in self._prf.get_simplesequence():
             if _prop_helpers.isMatch(prop, modes, kinds, action):
@@ -868,7 +878,7 @@ class ComponentBase(object):
                 p = _prop_helpers.sequenceProperty(id        = prop.get_id(), 
                                                    valueType = propType, 
                                                    kinds     = kindList,
-                                                   compRef   = self, 
+                                                   compRef   = weakref.proxy(self),
                                                    defValue  = defValue, 
                                                    mode      = prop.get_mode())
                 id_clean = _prop_helpers._cleanId(prop)
@@ -968,8 +978,6 @@ class ComponentBase(object):
                 print "Component: _getPropertySet() propertySet " + str(propertySet)
             except:
                 pass
-        #for i in self._execParamPropertySet:
-            #propertySet.append(i)
         return propertySet
 
     def _parseComponentXMLFiles(self):
@@ -1035,7 +1043,8 @@ class ComponentBase(object):
             self._usesPortDict[name]["Port Interface"] = str(port.get_repid())
 
         for prop in self._properties:
-            self._configureTable[prop.id] = prop
+            if 'configure' in prop.kinds:
+                self._configureTable[prop.id] = prop
 
         if _DEBUG == True:
             try:
@@ -1076,8 +1085,7 @@ class ComponentBase(object):
 
                 ports.append(new_port)
             except:
-                if _DEBUG == True:
-                    print "getPort failed for port name: ", str(new_port._name)
+                log.error("getPort failed for port name '%s'", new_port._name)
         for provides in scdPorts.provides:
             idl_repid = str(provides.repid)
             try:
@@ -1130,8 +1138,7 @@ class ComponentBase(object):
                 except:
                     continue
             except:
-                if _DEBUG == True:
-                    print "getPort failed for port name: ", str(new_port._name)
+                log.error("getPort failed for port name '%s'", new_port._name)
 
         return ports
 
@@ -1178,6 +1185,10 @@ class _Port(object):
                 return object.__getattribute__(self,name)
         except AttributeError:
             raise
+    
+    @property
+    def name(self):
+        return self._name
     
     def extendPort(self):
         if self.ref == None:

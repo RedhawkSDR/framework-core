@@ -382,6 +382,21 @@ void createHelper::_cleanupResourceInitializeFailed()
     TRACE_ENTER(ApplicationFactory_impl);
 
     _alreadyCleaned = true;
+
+    // Try to call releaseObject() on any components that were successfully 
+    // launched and registered before terminating the processes
+    for (size_t ii = 0; ii < _requiredComponents.size(); ++ii) {
+        CF::Resource_var resource = _requiredComponents[ii]->getResourcePtr();
+        if (!CORBA::is_nil(resource)) {
+            try {
+                unsigned long timeout = 3; // seconds
+                omniORB::setClientCallTimeout(resource, timeout * 1000);
+                resource->releaseObject();
+            } catch (...) {
+            }
+        }
+    }
+
     _cleanupAssemblyControllerConfigureFailed();
 }
 
@@ -904,10 +919,10 @@ void createHelper::_placeHostCollocation(const SoftwareAssembly::HostCollocation
             const std::string& deviceId = node->identifier;
 
             PlacementList::iterator comp = placingComponents.begin();
-            ossie::ImplementationInfo::List::iterator impl = res_vec[index].begin();
+            ossie::ImplementationInfo::List::iterator impl = res_vec[index].end()-1;
             DeviceAssignmentList      collocAssignedDevs;
             collocAssignedDevs.resize(placingComponents.size());
-            for (unsigned int i=0; i<collocAssignedDevs.size(); i++,comp++,impl++) {
+            for (unsigned int i=0; i<collocAssignedDevs.size(); i++,comp++,impl--) {
                 collocAssignedDevs[i].device = CF::Device::_duplicate(node->device);
                 collocAssignedDevs[i].deviceAssignment.assignedDeviceId = CORBA::string_dup(deviceId.c_str());
                 (*comp)->setSelectedImplementation(*impl);

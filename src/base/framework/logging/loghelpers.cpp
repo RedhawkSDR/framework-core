@@ -56,6 +56,12 @@
 #endif
 
 
+#ifdef LOCAL_DEBUG_ON
+#define STDOUT_DEBUG(x)    std::cout << x << std::endl
+#else
+#define STDOUT_DEBUG(x)    
+#endif
+
 namespace ossie {
 
   namespace logging {

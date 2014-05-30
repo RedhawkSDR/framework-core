@@ -61,8 +61,11 @@ class InstallDialogBase(QDialog):
 
         self.connect(self.cancelButton,SIGNAL("clicked()"),self.reject)
         self.connect(self.installButton,SIGNAL("clicked()"),self.accept)
+        self.appListBox.itemDoubleClicked.connect(self.onItemDoubleClicked)
 
-
+    def onItemDoubleClicked(self, item):
+        self.accept()
+        
     def languageChange(self):
         self.setWindowTitle(self.__tr("Install Application"))
         self.cancelButton.setText(self.__tr("&Cancel"))

@@ -46,7 +46,8 @@ class IDLLibrary(object):
         # Track parsed files to avoid repeatedly parsing the same files
         self._parsed = set()
 
-        self.addIncludePath(_getIDLDir('omniORB4', 'omniORB'))
+        self._omniPath = _getIDLDir('omniORB4', 'omniORB')
+        self.addIncludePath(self._omniPath)
         self._cosPath = _getIDLDir('omniCOS4', 'omniORB/COS')
         self.addIncludePath(self._cosPath)
 
@@ -99,6 +100,10 @@ class IDLLibrary(object):
 
     def _importBulkioModule(self, name):
         bulkio_path = self._findPath('ossie/BULKIO')
+        if not bulkio_path:
+            # BULKIO is not installed
+            return
+
         if name.startswith('data'):
             filename = os.path.join(bulkio_path, 'bio_'+name+'.idl')
             if os.path.exists(filename):
@@ -145,6 +150,15 @@ class IDLLibrary(object):
             if repoid in self._interfaces:
                 self.__log.trace("Found '%s' in search path '%s'", repoid, path)
                 return
+
+        # Import the omniORB IDL path non-recursively, as COS is typically
+        # installed as a subdirectory, and many of its modules dump errors to
+        # the console.
+        self.__log.trace("Importing all from '%s'", self._omniPath)
+        self._importAllFromPath(self._omniPath)
+        if repoid in self._interfaces:
+            self.__log.trace("Found '%s' in search path '%s'", repoid, self._omniPath)
+            return
 
         self.__log.trace("No definition found for '%s'", repoid)
 

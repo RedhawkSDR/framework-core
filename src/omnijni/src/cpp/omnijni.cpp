@@ -21,6 +21,7 @@
 #include <jni.h>
 
 #include <omnijni/orb.h>
+#include <omnijni/threading.h>
 
 namespace {
     // Internal pointer to shared mutex; using a pointer gives predictable
@@ -38,6 +39,9 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad (JavaVM* jvm, void* reserved)
 
     // Must initialize the CORBA ORB before anything else happens.
     omnijni::ORB::Init(env);
+
+    // Initialize the omniORB/JVM thread interface code.
+    omnijni::threading::Init(env);
 
     // Create the shared mutex at JNI initialization time (rather than whenever
     // static initializers are called)

@@ -22,9 +22,10 @@
 # provide any functionality. May be removed entirely prior to 1.9 release.
 CFDIR=$(top_srcdir)/base
 lib_LTLIBRARIES = libredhawk_log4_appender.la
-libredhawk_log4_appender_la_SOURCES = corba.cc \
-				RH_LogEventAppender.cc 
+libredhawk_log4_appender_la_SOURCES = corba.cpp \
+				RH_LogEventAppender.cpp
 
-libredhawk_log4_appender_la_CXXFLAGS = -Wall -I. -I$(CFDIR)/include $(BOOST_CPPFLAGS)  $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS) -DDEBUG_ON
+#libredhawk_log4_appender_la_CXXFLAGS = -Wall -I. -I$(CFDIR)/include $(BOOST_CPPFLAGS)  $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS) -DDEBUG_ON
+libredhawk_log4_appender_la_CXXFLAGS = -Wall -I. -I$(CFDIR)/include $(BOOST_CPPFLAGS)  $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS) 
 libredhawk_log4_appender_la_LIBADD = $(BOOST_LDFLAGS) $(BOOST_FILESYSTEM_LIB) $(BOOST_REGEX_LIB) $(BOOST_THREAD_LIB) $(BOOST_SYSTEM_LIB) $(OMNIORB_LIBS) $(LOG4CXX_LIBS)
 libredhawk_log4_appender_la_LDFLAGS = -Wall -version-info $(LIBREDHAWK_LOGGING_VERSION_INFO)

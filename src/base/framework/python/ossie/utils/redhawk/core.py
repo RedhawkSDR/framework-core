@@ -41,11 +41,12 @@ from ossie.utils.model import _readProfile
 from ossie.utils.model import _idllib
 from ossie.utils.model import *
 from ossie.utils.notify import notification
-from ossie.utils.weakmethod import WeakBoundMethod
+from ossie.utils import weakobj
 
 from channels import IDMListener, ODMListener
 from component import Component
-from device import Device, createDevice, createService
+from device import Device, createDevice
+from service import Service
 from model import DomainObjectList
 
 # Limit exported symbols
@@ -584,18 +585,18 @@ class DeviceManager(_CF__POA.DeviceManager, object):
         self.__odmListener = odmListener
         self.__idmListener = idmListener
 
-        self.__devices = DomainObjectList(WeakBoundMethod(self._get_registeredDevices),
-                                          WeakBoundMethod(self.__newDevice),
+        self.__devices = DomainObjectList(weakobj.boundmethod(self._get_registeredDevices),
+                                          weakobj.boundmethod(self.__newDevice),
                                           lambda x: x._get_identifier())
-        self.__services = DomainObjectList(WeakBoundMethod(self._get_registeredServices),
-                                           WeakBoundMethod(self.__newService),
+        self.__services = DomainObjectList(weakobj.boundmethod(self._get_registeredServices),
+                                           weakobj.boundmethod(self.__newService),
                                            lambda x: x.serviceName)
 
         # Connect notification points to device lists.
-        self.__devices.itemAdded.addListener(WeakBoundMethod(self.deviceRegistered))
-        self.__devices.itemRemoved.addListener(WeakBoundMethod(self.deviceUnregistered))
-        self.__services.itemAdded.addListener(WeakBoundMethod(self.serviceRegistered))
-        self.__services.itemRemoved.addListener(WeakBoundMethod(self.serviceUnregistered))
+        self.__devices.itemAdded.addListener(weakobj.boundmethod(self.deviceRegistered))
+        self.__devices.itemRemoved.addListener(weakobj.boundmethod(self.deviceUnregistered))
+        self.__services.itemAdded.addListener(weakobj.boundmethod(self.serviceRegistered))
+        self.__services.itemRemoved.addListener(weakobj.boundmethod(self.serviceUnregistered))
 
         if self._domain == None:
             orb = _CORBA.ORB_init(_sys.argv, _CORBA.ORB_ID)
@@ -609,10 +610,10 @@ class DeviceManager(_CF__POA.DeviceManager, object):
         # that a new device will register after startup, but we handle it anyway.
         # Unregistration, on the other hand, may happen at any time.
         if self.__odmListener:
-            self.__odmListener.deviceAdded.addListener(WeakBoundMethod(self.__deviceAddedEvent))
-            self.__odmListener.deviceRemoved.addListener(WeakBoundMethod(self.__deviceRemovedEvent))
-            self.__odmListener.serviceAdded.addListener(WeakBoundMethod(self.__serviceAddedEvent))
-            self.__odmListener.serviceRemoved.addListener(WeakBoundMethod(self.__serviceRemovedEvent))
+            weakobj.addListener(self.__odmListener.deviceAdded, self.__deviceAddedEvent)
+            weakobj.addListener(self.__odmListener.deviceRemoved, self.__deviceRemovedEvent)
+            weakobj.addListener(self.__odmListener.serviceAdded, self.__serviceAddedEvent)
+            weakobj.addListener(self.__odmListener.serviceRemoved, self.__serviceRemovedEvent)
 
     ########################################
     # Begin external Device Manager API
@@ -797,9 +798,14 @@ class DeviceManager(_CF__POA.DeviceManager, object):
                 break
 
     def __deviceRemovedEvent(self, event):
-        # If the device is not registered with this particular device manager,
-        # remove will have no effect.
-        self.__devices.remove(event.sourceId)
+        # If the complete device set is not cached, there is no way of checking
+        # whether the device was registered with this particular device manager
+        # (it wouldn't be in the 'registeredDevices' attribute anymore), so try
+        # to remove the device and ignore the error.
+        try:
+            self.__devices.remove(event.sourceId)
+        except KeyError:
+            pass
 
     def __newService(self, service):
         try:
@@ -816,7 +822,7 @@ class DeviceManager(_CF__POA.DeviceManager, object):
                     break
             implId = self.ref.getComponentImplementationId(refid)
             spd, scd, prf = _readProfile(profile, self.fs)
-            return createService(profile, spd, scd, prf, serviceRef, instanceName, refid, implId, self.__idmListener)
+            return Service(profile, spd, scd, prf, serviceRef, instanceName, refid, implId)
         except _CORBA.Exception:
             log.warn('Ignoring inaccessible service')
 
@@ -835,13 +841,20 @@ class DeviceManager(_CF__POA.DeviceManager, object):
             return
         for service in services:
             if service.serviceName == event.sourceName:
-                self.__services.add(event.sourceName, event.sourceIOR)
+                # Pass the CF.DeviceManager.ServiceType object, not the service
+                # reference. The DomainObjectList expects the argument to an
+                # individual add to be the same as the type of one item in the
+                # CORBA list, which in this case is ServiceType.
+                self.__services.add(event.sourceName, service)
                 break
 
     def __serviceRemovedEvent(self, event):
-        # If the service is not registered with this particular device manager,
-        # remove will have no effect.
-        self.__services.remove(event.sourceName)
+        # Remove the service from the list, ignoring the error raised if it
+        # doesn't belong to this DeviceManager (see also __deviceRemovedEvent).
+        try:
+            self.__services.remove(event.sourceName)
+        except KeyError:
+            pass
 
 
 class Domain(_CF__POA.DomainManager, object):
@@ -957,18 +970,18 @@ class Domain(_CF__POA.DomainManager, object):
         self.ref = obj._narrow(_CF.DomainManager)
         self.fileManager = self.ref._get_fileMgr()
 
-        self.__deviceManagers = DomainObjectList(WeakBoundMethod(self._get_deviceManagers),
-                                                 WeakBoundMethod(self.__newDeviceManager),
+        self.__deviceManagers = DomainObjectList(weakobj.boundmethod(self._get_deviceManagers),
+                                                 weakobj.boundmethod(self.__newDeviceManager),
                                                  lambda x: x._get_identifier())
-        self.__applications = DomainObjectList(WeakBoundMethod(self._get_applications),
-                                               WeakBoundMethod(self.__newApplication),
+        self.__applications = DomainObjectList(weakobj.boundmethod(self._get_applications),
+                                               weakobj.boundmethod(self.__newApplication),
                                                lambda x: x._get_identifier())
 
         # Connect notification points to domain object lists.
-        self.__deviceManagers.itemAdded.addListener(WeakBoundMethod(self.deviceManagerAdded))
-        self.__deviceManagers.itemRemoved.addListener(WeakBoundMethod(self.deviceManagerRemoved))
-        self.__applications.itemAdded.addListener(WeakBoundMethod(self.applicationAdded))
-        self.__applications.itemRemoved.addListener(WeakBoundMethod(self.applicationRemoved))
+        self.__deviceManagers.itemAdded.addListener(weakobj.boundmethod(self.deviceManagerAdded))
+        self.__deviceManagers.itemRemoved.addListener(weakobj.boundmethod(self.deviceManagerRemoved))
+        self.__applications.itemAdded.addListener(weakobj.boundmethod(self.applicationAdded))
+        self.__applications.itemRemoved.addListener(weakobj.boundmethod(self.applicationRemoved))
 
         # Connect the the IDM channel for updates to device states.
         try:
@@ -986,18 +999,22 @@ class Domain(_CF__POA.DomainManager, object):
             odmListener.connect(self.ref)
             
             # Object lists directly managed by DomainManager
-            odmListener.deviceManagerAdded.addListener(WeakBoundMethod(self.__deviceManagerAddedEvent))
-            odmListener.deviceManagerRemoved.addListener(WeakBoundMethod(self.__deviceManagerRemovedEvent))
-            odmListener.applicationAdded.addListener(WeakBoundMethod(self.__applicationAddedEvent))
-            odmListener.applicationRemoved.addListener(WeakBoundMethod(self.__applicationRemovedEvent))
-            odmListener.applicationFactoryAdded.addListener(WeakBoundMethod(self.__appFactoryAddedEvent))
-            odmListener.applicationFactoryRemoved.addListener(WeakBoundMethod(self.__appFactoryRemovedEvent))
+            # NB: In contrast to other languages, this object is deleted before
+            #     the objects it references, so use weak listeners to prevent
+            #     race conditions that lead to annoying error messages.
+            weakobj.addListener(odmListener.deviceManagerAdded, self.__deviceManagerAddedEvent)
+            weakobj.addListener(odmListener.deviceManagerRemoved, self.__deviceManagerRemovedEvent)
+            weakobj.addListener(odmListener.applicationAdded, self.__applicationAddedEvent)
+            weakobj.addListener(odmListener.applicationRemoved, self.__applicationRemovedEvent)
+            weakobj.addListener(odmListener.applicationFactoryAdded, self.__appFactoryAddedEvent)
+            weakobj.addListener(odmListener.applicationFactoryRemoved, self.__appFactoryRemovedEvent)
 
             # Object lists managed by DeviceManagers
-            odmListener.deviceAdded.addListener(WeakBoundMethod(self.__deviceAddedEvent))
-            odmListener.deviceRemoved.addListener(WeakBoundMethod(self.__deviceRemovedEvent))
-            odmListener.serviceAdded.addListener(WeakBoundMethod(self.__serviceAddedEvent))
-            odmListener.serviceRemoved.addListener(WeakBoundMethod(self.__serviceRemovedEvent))
+            # NB: See above.
+            weakobj.addListener(odmListener.deviceAdded, self.__deviceAddedEvent)
+            weakobj.addListener(odmListener.deviceRemoved, self.__deviceRemovedEvent)
+            weakobj.addListener(odmListener.serviceAdded, self.__serviceAddedEvent)
+            weakobj.addListener(odmListener.serviceRemoved, self.__serviceRemovedEvent)
         except Exception, e:
             # No domain object events will be received
             log.warning('Unable to connect to ODM channel: %s', e)
@@ -1078,7 +1095,19 @@ class Domain(_CF__POA.DomainManager, object):
         """
             Destructor
         """
-        pass
+        # Explicitly disconnect ODM listener to avoid warnings on shutdown
+        if self.__odmListener:
+            try:
+                self.__odmListener.disconnect()
+            except:
+                pass
+
+        # Explictly disconnect IDM Listener to avoid warnings on shutdown
+        if self.__idmListener:
+            try:
+                self.__idmListener.disconnect()
+            except:
+                pass
 
     ########################################
     # External Domain Manager API
@@ -1371,7 +1400,11 @@ class Domain(_CF__POA.DomainManager, object):
             pass
 
     def __applicationRemovedEvent(self, event):
-        self.__applications.remove(event.sourceId)
+        try:
+            self.__applications.remove(event.sourceId)
+        except KeyError:
+            # Ignore applications already removed via App.releaseObject
+            pass
 
     def __serviceAddedEvent(self, event):
         # TODO: Decide how to create service object

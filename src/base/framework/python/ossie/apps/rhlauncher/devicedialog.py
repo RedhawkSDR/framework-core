@@ -15,6 +15,7 @@ class DeviceDialog(QtGui.QDialog):
         self._nodes = {}
         for domain in redhawk.scan():
             self.domainNameEdit.addItem(domain)
+        self.nodeListWidget.itemDoubleClicked.connect(self.onTreeWidgetItemDoubleClicked)
 
     def setSdrRoot(self, sdrroot):
         self.nodeListWidget.clear()
@@ -30,6 +31,9 @@ class DeviceDialog(QtGui.QDialog):
                 pass
         for name in self._nodes.keys():
             QtGui.QListWidgetItem(name, self.nodeListWidget)
+
+    def onTreeWidgetItemDoubleClicked(self, item):
+        self.accept()
 
     def selectionChanged(self, index):
         name = str(self.nodeListWidget.item(index).text())

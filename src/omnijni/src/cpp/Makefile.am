@@ -30,5 +30,6 @@ libomnijni_la_SOURCES = any.cpp \
 			omnijni.cpp \
 			orb.cpp \
 			sequence.cpp \
+			threading.cpp \
 			utilities.cpp
 libomnijni_la_LIBADD = $(OMNIORB_LIBS) CORBA/libcorbajni.la

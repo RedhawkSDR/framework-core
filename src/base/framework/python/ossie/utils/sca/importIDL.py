@@ -134,6 +134,7 @@ class Interface:
         self.fullpath = fullpath
         self.inherited_names = []
         self.inherited = []
+        self.inherits = set()
         self.repoId = repoId
 
     def __eq__(self,other):
@@ -212,6 +213,13 @@ class Param:
         return retstr
 
 class InterfaceVisitor(idlvisitor.AstVisitor):
+    def _getInheritedRepoIDs(self, node):
+        ifset = set()
+        for parent in node.inherits():
+            ifset.update(self._getInheritedRepoIDs(parent))
+            ifset.add(parent.repoId())
+        return ifset
+
     def visitInterface(self, node):
         self.interface = Interface(node.identifier(),node.scopedName()[0],repoId=node.fullDecl().repoId())
         self.interface.fullpath = node.file()
@@ -220,6 +228,7 @@ class InterfaceVisitor(idlvisitor.AstVisitor):
 
         # find and store any inheritances
         self.interface.inherited_names = [(i.scopedName()[0],i.identifier()) for i in node.inherits()]
+        self.interface.inherits = self._getInheritedRepoIDs(node)
 
     def visitAttribute(self, node):
         # create the Attribute object

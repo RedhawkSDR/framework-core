@@ -1,4 +1,3 @@
-Manifest-Version: 1.0
 @EXPORT_LIST@
 Bundle-Name: Core Framework IDL
 Bundle-Vendor: REDHAWK

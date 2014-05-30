@@ -159,6 +159,12 @@ if test "x$enable_java" != "xno"; then
   RH_PROG_JAR
   RH_PROG_IDLJ
 
+  # Enable Java Automake-like build rules
+  RH_JARFILE_RULES
+
+  # Enable IDL-to-Java build rules
+  RH_IDLJ_RULES
+
   # Check vendor
   RH_JAVA_VENDOR
 
@@ -244,8 +250,16 @@ if test "$HAVE_JAVASUPPORT" = yes; then
   AC_SUBST(OMNIJNI_CPPFLAGS, '$(JNI_CPPFLAGS) -I$(omnijni_srcdir)/include -I$(omnijni_builddir)/src/cpp/CORBA')
   AC_SUBST(OMNIJNI_LIBS, '$(omnijni_builddir)/src/cpp/libomnijni.la')
   AC_SUBST(OMNIJNI_PYTHONDIR, '$(omnijni_srcdir)/src/python')
-  AC_SUBST(OMNIJNI_IDLJNI, '$(IDL) -p $(OMNIJNI_PYTHONDIR) -b omnijni.idljni')
-  AC_SUBST(OMNIJNI_IDLJAVA, '$(IDL) -p $(OMNIJNI_PYTHONDIR) -b omnijni.idljava')
+
+  # Point IDLJNI to the source tree location, so the same makefile fragments
+  # can support installed and internal builds.
+  _RH_PROG_IDLJNI
+  IDLJNI='$(IDL) -p $(OMNIJNI_PYTHONDIR) -b omnijni.idljava'
+
+  # Likewise, point IDLJNICXX to the source tree location, though it is not
+  # referenced outside of the JNI Makefile.am files
+  _RH_PROG_IDLJNICXX
+  IDLJNICXX='$(IDL) -p $(OMNIJNI_PYTHONDIR) -b omnijni.idljni'
 fi
 
 # Undefine the PACKAGE_ variables to avoid warnings when omniORB is installed outside of

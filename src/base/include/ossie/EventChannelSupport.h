@@ -55,33 +55,40 @@ namespace ossie
     CosLifeCycle::GenericFactory_ptr getEventChannelFactory ();
 
 
+
     //
     // GetEventChannel
     //
-    // Will first lookup an event channel given the value of the name parameter... it will try to resolve the
-    // name using different event channel resolution methods:
-    // 1) resolve using naming services's resolve_str method
-    // 2) resolve if channel defined with InitRef method and resolve_initial_reference method
-    // 3) resolve as corbaname   corbaname::#channelname
-    // 4) resolve with  corbaloc
+    // Lookup an EventChannel using resolve references routines, (resolve, corbaname, corbaloc)
+    // if not found and create == true
+    //    create EventChannel in omniEvents, there is no binding to the name service
     //
-    // If channel was not found and create==true then create the channel from the EventChannelFactory
-    //
-    CosEventChannelAdmin::EventChannel_ptr GetEventChannel ( const std::string& name, 
-							     const bool create=false,
-							     const std::string &host="localhost" );
-
-
+    // @param name    name of event channel to use for look up methods
+    // @param create  create event channel if one does not exist
+    // @param host    host name to use for resolving object
     CosEventChannelAdmin::EventChannel_ptr GetEventChannel ( const std::string&  name, 
-							     const std::string&  ns_context, 
 							     const bool          create=false,
 							     const std::string   &host="localhost" );
 
-
+    //
+    // GetEventChannel
+    //
+    // Lookup an EventChannel using the omniNames service
+    // if not found and create == true
+    //    create EventChannel in omniEvents, bind the event channel to nc_name/name
+    //
+    // @param name    name of event channel to use for look up methods
+    // @param ns_context naming context to look up event under,
+    // @param create  create event channel if one does not exist, bind event to the naming context
+    // @param host    host name to use for resolving object
+    CosEventChannelAdmin::EventChannel_ptr GetEventChannel ( const std::string&  name, 
+							     const std::string& ns_context, 
+							     const bool          create=false,
+							     const std::string   &host="localhost" );
     //
     // CreateEventChannel
     //
-    // Create an EventChannel within the current ORB context, once created bind to the same name....
+    // Create an EventChannel within the current ORB context, once created, bind to the same name....
     //
     CosEventChannelAdmin::EventChannel_ptr CreateEventChannel( const std::string& name, 
 							       ossie::corba::NS_ACTION action=ossie::corba::NS_BIND );
@@ -89,6 +96,197 @@ namespace ossie
     CosEventChannelAdmin::EventChannel_ptr CreateEventChannel( const std::string& name, 
 							       const std::string& ns_context,
 							       ossie::corba::NS_ACTION action=ossie::corba::NS_BIND );
+
+    //
+    // Delete Event Channel
+    //
+    int DeleteEventChannel( const std::string&   name, 
+			    ossie::corba::NS_ACTION            action=ossie::corba::NS_UNBIND);
+
+    int DeleteEventChannel( const std::string&   name, 
+			    const std::string&   nc_name, 
+			    ossie::corba::NS_ACTION            action=ossie::corba::NS_UNBIND);
+
+
+    //
+    // PushEventSupplier
+    //
+    // This class will perform the publication portion of the a publisher/subscriber pattern 
+    // over a CORBA EventChannel.  If the Channel does not exist it will try to create
+    // and register the channel in the NamingService
+    //
+    //
+    class  PushEventSupplier {
+
+    public:    
+
+      //
+      //
+      //
+      class Supplier : virtual public POA_CosEventComm::PushSupplier {
+    public:
+      Supplier () {} ;
+      virtual ~Supplier() {};
+      virtual void disconnect_push_supplier () {} ;
+    };
+
+
+    //
+    // Create the context for a PushEvent Supplier for a CORBA EventService
+    //
+    // @param orb reference to corba context and major services
+    // @param channelName  event channel name to subscribe to or create
+    // @param supplier actual supplier object that pushes information to event channel
+    // @param retries number of retries to perform when trying to establish  publisher interface
+    // @param retry_wait number of millisecs to wait between retries
+    PushEventSupplier( const std::string &channelName,
+		       Supplier          *supplier,
+		       const int         retries=10, 
+		       const int         retry_wait=10 );
+
+
+
+    PushEventSupplier( const std::string &channelName,
+		       const std::string &ncName,
+		       Supplier          *supplier,
+		       const int         retries=10, 
+		       const int         retry_wait=10 );
+
+
+    //
+    // Create the context for a PushEvent Supplier for a CORBA EventService, uses internal Supplier object
+    // to perform push event operation
+    //
+    // @param orb reference to corba context and major services
+    // @param channelName  event channel name to subscribe to or create
+    // @param retries number of retries to perform when trying to establish  publisher interface
+    // @param retry_wait number of millisecs to wait between retries
+    PushEventSupplier( const std::string &channelName,
+		       const int         retries=10, 
+		       const int         retry_wait=10 );
+
+
+    PushEventSupplier( const std::string &channelName,
+		       const std::string &ncName,
+		       const int         retries=10, 
+		       const int         retry_wait=10 );
+    
+    //
+    //
+    //
+    virtual ~PushEventSupplier();
+
+    //
+    // Publish a CORBA Any object or a specific object subscribers.... 
+    //
+    template< typename T > 
+      int     push( T &msg ) {
+      int retval=0;
+      try {
+	CORBA::Any data;
+	data <<= msg;
+	if (!CORBA::is_nil(proxy_for_consumer)) {
+	  proxy_for_consumer->push(data);
+	}
+	else{
+	  retval=-1;
+	}
+      }
+      catch( CORBA::Exception& ex) {
+	retval=-1;
+      }
+      return retval;
+    }
+
+    template< typename T > 
+      int     push( T *msg ) {
+      int retval=0;
+      try {
+	CORBA::Any data;
+	data <<= msg;
+	if (!CORBA::is_nil(proxy_for_consumer)) {
+	  proxy_for_consumer->push(data);
+	}
+	else{
+	  retval=-1;
+	}
+      }
+      catch( CORBA::Exception& ex) {
+	retval=-1;
+      }
+      return retval;
+    }
+
+    int     push( CORBA::Any &data ) {
+      int retval=0;
+      try {
+	if (!CORBA::is_nil(proxy_for_consumer)) {
+	  proxy_for_consumer->push(data);
+	}
+	else{
+	  retval=-1;
+	}
+      }
+      catch( CORBA::Exception& ex) {
+	retval=-1;
+      }
+      return retval;
+
+      return 0;
+    }
+
+
+    const Supplier *getSupplier() { return supplier; };
+
+    protected:
+
+    //
+    // Channel name
+    //
+    std::string                                 name;
+
+    //
+    // Context where name is located
+    //
+    std::string                                 nc_name;
+
+    //
+    // handle to the EventChannel
+    //
+    CosEventChannelAdmin::EventChannel_var      channel;
+
+    //
+    // Get Supplier Admin interface 
+    //
+    CosEventChannelAdmin::SupplierAdmin_var     supplier_admin;
+
+    //
+    // Get proxy consumer 
+    //
+    CosEventChannelAdmin::ProxyPushConsumer_var proxy_for_consumer;
+
+    //
+    // Push Supplier...
+    //
+    Supplier                                      *supplier;
+
+    //
+    // number of retries to perform (-1 == try forever)
+    //
+    int retries;
+
+    //
+    // number of milliseconds to wait between retry operations
+    //
+    int retry_wait;
+
+
+    private:
+       void _init();
+
+    };
+
+
     //
     // PushEventConsumer
     //

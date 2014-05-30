@@ -331,6 +331,9 @@ class Resource(object):
 
     def setLogListenerCallback(self, loglistenerCB ):
         self.logListenerCallback=logListenerCB
+        
+    def addPropertyChangeListener(self, id, callback):
+        self._props.addChangeListener(callback, id)
 
     #########################################
     # CF::LogConfiguration
@@ -748,6 +751,12 @@ def start_component(componentclass, interactive_callback=None, thread_policy=Non
                 else:
                     print orb.object_to_string(component_Obj._this())
                     orb.run()
+
+            try:
+               orb.shutdown(true)
+            except:
+                pass
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
         except SystemExit:
             pass
         except KeyboardInterrupt:

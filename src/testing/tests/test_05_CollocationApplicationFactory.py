@@ -111,6 +111,34 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
 
         self._domMgr.uninstallApplication(appFact._get_identifier())
 
+    def test_collocationMixed(self):
+        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        self.assertNotEqual(domMgr, None)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_collocation_nodes_1dev4cap/DeviceManager.dcd.xml", debug=self.debuglevel)
+
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication("/waveforms/test_collocation_mixed/test_collocation_mixed.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+
+        appFact = domMgr._get_applicationFactories()[0]
+
+        app = None
+        try:
+          app = appFact.create(appFact._get_name(), [], [])
+        except:
+          pass
+
+        ## need to check that all the comopnents were allocated to devices from test_collocation_node1_2dev2cap
+
+        self.assertNotEqual(app, None )
+
+        if ( app ) :
+          app.stop()
+          app.releaseObject()
+
+        self._domMgr.uninstallApplication(appFact._get_identifier())
+
     def test_collocationWithComponentImplementationRollover(self):
         nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
         self.assertNotEqual(domMgr, None)

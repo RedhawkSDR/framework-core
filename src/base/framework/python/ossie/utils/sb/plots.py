@@ -21,6 +21,7 @@
 import logging
 import threading
 import time
+import struct
 
 def _deferred_imports():
     # Importing PyQt4 and matplotlib may take a long time--more than a second
@@ -50,7 +51,7 @@ def _deferred_imports():
         else:
             raise RuntimeError("Missing required package for sandbox plots: '%s'" % e)
 
-from ossie.utils.bulkio import bulkio_data_helpers
+from ossie.utils.bulkio import bulkio_data_helpers, bulkio_helpers
 from ossie.utils.model import PortSupplier
 from ossie.utils.model.connect import PortEndpoint
 
@@ -64,10 +65,14 @@ class PlotSink(bulkio_data_helpers.ArraySink):
     """
     Helper sink subclass that discards data when it is not started, so that
     plots do not increase memory use unbounded if they are not running.
+
+    Supports automatic conversion of complex data, and allows the user to
+    force complex behavior regardless of SRI mode.
     """
     def __init__(self, porttype):
         super(PlotSink,self).__init__(porttype)
         self._started = False
+        self._forceComplex = False
 
     def start(self):
         self._started = True
@@ -82,6 +87,31 @@ class PlotSink(bulkio_data_helpers.ArraySink):
         if not self._started:
             return
         super(PlotSink,self).pushPacket(data, ts, EOS, stream_id)
+
+    def retrieveData(self, length):
+        data, times = super(PlotSink,self).retrieveData(length)
+        if self.sri.mode or self._forceComplex:
+            data2, times2 = super(PlotSink,self).retrieveData(length)
+            data = bulkio_helpers.bulkioComplexToPythonComplexList(data + data2)
+            times.extend(times2)
+        return data, times
+
+class CharSink(PlotSink):
+    def __init__(self):
+        super(CharSink,self).__init__(BULKIO__POA.dataChar)
+
+    def pushPacket(self, data, ts, EOS, stream_id):
+        data = struct.unpack('%db' % len(data), data)
+        super(CharSink,self).pushPacket(data, ts, EOS, stream_id)
+
+
+class OctetSink(PlotSink):
+    def __init__(self):
+        super(OctetSink,self).__init__(BULKIO__POA.dataOctet)
+
+    def pushPacket(self, data, ts, EOS, stream_id):
+        data = struct.unpack('%dB' % len(data), data)
+        super(OctetSink,self).pushPacket(data, ts, EOS, stream_id)
 
 
 class PlotBase(helperBase, PortSupplier):
@@ -163,8 +193,13 @@ class PlotBase(helperBase, PortSupplier):
         # Create the type-specific sink servant.
         interface = interface.split(':')[1]
         namespace, interface = interface.split('/')
-        skeleton = getattr(BULKIO__POA, interface)
-        sink = PlotSink(skeleton)
+        if interface == 'dataChar':
+            sink = CharSink()
+        elif interface == 'dataOctet':
+            sink = OctetSink()
+        else:
+            skeleton = getattr(BULKIO__POA, interface)
+            sink = PlotSink(skeleton)
         if self._thread:
             # Plot is started; start sink.
             sink.start()
@@ -226,7 +261,19 @@ class PlotBase(helperBase, PortSupplier):
         """
         Close the plot.
         """
-        pylab.close(self._figure)
+        if self._figure:
+            pylab.close(self._figure)
+            self._figure = None
+            self._plot = None
+            self._canvas = None
+
+    def releaseObject(self):
+        """
+        Releases the plot and cleans up resources.
+        """
+        self.stop()
+        super(PlotBase,self).releaseObject()
+        self.close()
 
 
 class PlotEndpoint(PortEndpoint):
@@ -313,13 +360,15 @@ class LineBase(PlotBase):
 
         # Read next frame.
         data, timestamps = sink.retrieveData(length=self._frameSize)
+        if not data:
+            return
         x_data, y_data = self._formatData(data, sink.sri)
         line.set_data(x_data, y_data)
 
         # Check for new xdelta and update canvas if necessary.
         if sink.sri.xdelta != trace['xdelta']:
             trace['xdelta'] = sink.sri.xdelta
-            xmin, xmax = self._getXRange(sink.sri.xdelta)
+            xmin, xmax = self._getXRange(sink.sri)
             self._plot.set_xlim(xmin, xmax)
 
     def _update(self):
@@ -374,6 +423,14 @@ class LineBase(PlotBase):
     stop.__doc__ = PlotBase.stop.__doc__
 
     # Plot settings
+    def _setYView(self, ymin, ymax):
+        self._plot.set_ylim(ymin, ymax)
+        self._redraw()
+
+    def _setXView(self, xmin, xmax):
+        self._plot.set_xlim(xmin, xmax)
+        self._redraw()
+
     def get_ymin(self):
         """
         The lower bound of the Y-axis. If set to None, the lower bound will be
@@ -384,7 +441,7 @@ class LineBase(PlotBase):
     def set_ymin(self, ymin):
         self._check_yrange(ymin, self._ymax)
         self._ymin = ymin
-        self._plot.set_ylim(self._ymin, self._ymax)
+        self._setYView(self._ymin, self._ymax)
 
     ymin = property(get_ymin, set_ymin)
     del get_ymin, set_ymin
@@ -405,7 +462,7 @@ class LineBase(PlotBase):
     def set_ymax(self, ymax):
         self._check_yrange(self._ymin, ymax)
         self._ymax = ymax
-        self._plot.set_ylim(self._ymin, self._ymax)
+        self._setYView(self._ymin, self._ymax)
 
     ymax = property(get_ymax, set_ymax)
     del get_ymax, set_ymax
@@ -436,8 +493,8 @@ class LinePlot(LineBase):
         times = numpy.arange(len(data)) * xdelta
         return times, data
 
-    def _getXRange(self, xdelta):
-        return 0.0, (self._frameSize-1)*xdelta
+    def _getXRange(self, sri):
+        return 0.0, (self._frameSize-1)*sri.xdelta
 
 
 class PSDBase(object):
@@ -448,9 +505,27 @@ class PSDBase(object):
     def __init__(self, nfft):
         self._nfft = nfft
 
-    def _psd(self, data):
-        return mlab.psd(data, NFFT=self._nfft)
+    def _psd(self, data, sri):
+        return mlab.psd(data, NFFT=self._nfft, Fs=self._getSampleRate(sri))
 
+    def _getSampleRate(self, sri):
+        if sri.xdelta > 0.0:
+            # Round sample rate to an integral value to account for the fact
+            # that there is typically some rounding error in the xdelta value.
+            return round(1.0 / sri.xdelta)
+        else:
+            # Bad SRI xdelta, use normalized value.
+            return 1.0
+
+    def _getFreqRange(self, sri):
+        nyquist = 0.5 * self._getSampleRate(sri)
+        if sri.mode:
+            # Negative and positive frequencies.
+            return -nyquist, nyquist
+        else:
+            # Non-negative frequencies only.       
+            return 0, nyquist
+        
 
 class LinePSD(LineBase, PSDBase):
     """
@@ -484,20 +559,13 @@ class LinePSD(LineBase, PSDBase):
 
     def _formatData(self, data, sri):
         # Calculate PSD of input data.
-        data, freqs = self._psd(data)
-
-        # Convert frequencies from [0.0, 1.0] interval to Hz.
-        nyquist = 0.5/sri.xdelta
-        freqs = freqs * nyquist
+        data, freqs = self._psd(data, sri)
 
         # Return x data (frequencies) and y data (magnitudes)
         return freqs, data.reshape(len(data))
 
-    def _getXRange(self, xdelta):
-        # Round Nyquist frequency to an integral value to account for the fact
-        # that there is typically some rounding error in the xdelta value.
-        nyquist = round(0.5/xdelta)
-        return 0.0, nyquist
+    def _getXRange(self, sri):
+        return self._getFreqRange(sri)
 
 
 class RasterBase(PlotBase):
@@ -529,7 +597,7 @@ class RasterBase(PlotBase):
         # Add a colorbar
         self._colorbar = self._figure.colorbar(self._image)
 
-    def _formatData(self, data):
+    def _formatData(self, data, sri):
         return data
 
     def getPort(self, name):
@@ -548,14 +616,22 @@ class RasterBase(PlotBase):
 
         # Read and format data.
         data, timestamps = self._sink.retrieveData(length=self._frameSize)
-        data = self._formatData(data)
+        if not data:
+            return
+        sri = self._sink.sri
+        data = self._formatData(data, sri)
 
         # If xdelta changes, update the X and Y ranges.
-        sri = self._sink.sri
         if sri.xdelta != self._xdelta:
-            x_range, y_range = self._sriChanged(sri)
-            self._image.set_extent((0, y_range, x_range, 0))
-            self._plot.set_aspect(y_range/x_range*self._aspect)
+            # Update the X and Y ranges
+            x_min, x_max = self._getXRange(sri)
+            y_min, y_max = self._getYRange(sri)
+            self._image.set_extent((x_min, x_max, y_max, y_min))
+
+            # Preserve the aspect ratio based on the image size.
+            x_range = x_max - x_min
+            y_range = y_max - y_min
+            self._plot.set_aspect(x_range/y_range*self._aspect)
             self._xdelta = sri.xdelta
 
         # Resample data from frame size to image size.
@@ -653,15 +729,25 @@ class RasterPlot(RasterBase):
         self._plot.xaxis.set_label_text('Time offset (s)')
         self._plot.yaxis.set_label_text('Time (s)')
 
-    def _sriChanged(self, sri):
-        # Y range is time per line.
-        y_range = sri.xdelta * self._frameSize
+    def _getXRange(self, sri):
+        # X range is time per line.
+        return 0, sri.xdelta * self._frameSize
 
-        # X range is the total time across all lines.
+    def _getYRange(self, sri):
+        # First, get the X range.
+        x_min, x_max = self._getXRange(sri)
+        x_range = x_max - x_min
+
+        # Y range is the total time across all lines.
         height, width = self._imageData.shape
-        x_range = height*y_range
+        return 0, height*x_range
 
-        return x_range, y_range
+    def _formatData(self, data, sri):
+        # Image data cannot be complex; just use the real component.
+        if sri.mode:
+            return [x.real for x in data]
+        else:
+            return data
 
 
 class RasterPSD(RasterBase, PSDBase):
@@ -706,24 +792,18 @@ class RasterPSD(RasterBase, PSDBase):
         self._plot.xaxis.set_label_text('Frequency (Hz)')
         self._plot.yaxis.set_label_text('Time (s)')
 
-    def _sriChanged(self, sri):
-        # X range is the total time across all lines.
+    def _getXRange(self, sri):
+        return self._getFreqRange(sri)
+
+    def _getYRange(self, sri):
+        # Y range is the total time across all lines.
         dtime = sri.xdelta * self._nfft
         height, width = self._imageData.shape
-        x_range = height*dtime
+        return 0, height*dtime
 
-        # Y range is [0, nyquist).
-        if sri.xdelta > 0.0:
-            y_range = round(0.5 / sri.xdelta)
-        else:
-            # Bad SRI xdelta, use [0, 1]
-            y_range = 1.0
-        
-        return x_range, y_range
-
-    def _formatData(self, data):
+    def _formatData(self, data, sri):
         # Calculate PSD of input data.
-        data, freqs = self._psd(data)
+        data, freqs = self._psd(data, sri)
         return data.reshape(len(data))
 
 
@@ -743,7 +823,7 @@ class XYPlot(LineBase):
           xmin, xmax - X-axis constraints.
           ymin, ymax - Y-axis constraints.
         """
-        LineBase.__init__(self, frameSize*2, ymin, ymax)
+        LineBase.__init__(self, frameSize, ymin, ymax)
         self._xmin = xmin
         self._xmax = xmax
         self._plot.set_xlim(self._xmin, self._xmax)
@@ -758,9 +838,10 @@ class XYPlot(LineBase):
         self._plot.yaxis.set_label_text('Imaginary')
 
     def _formatData(self, data, sri):
-        return data[::2], data[1::2]
+        # Split real and imaginary components into X and Y coodinates.
+        return [x.real for x in data], [y.imag for y in data]
 
-    def _getXRange(self, xdelta):
+    def _getXRange(self, sri):
         return self._xmin, self._xmax
 
     def _lineOptions(self):
@@ -772,6 +853,11 @@ class XYPlot(LineBase):
         if xmax < xmin:
             raise ValueError, 'X-axis bounds cannot overlap (%f > %f)' % (xmin, xmax)
 
+    def _createSink(self, *args, **kwargs):
+        sink = super(XYPlot, self)._createSink(*args, **kwargs)
+        sink._forceComplex = True
+        return sink
+
     # Plot properties
     def get_xmin(self):
         """
@@ -782,7 +868,7 @@ class XYPlot(LineBase):
     def set_xmin(self, xmin):
         self._check_yrange(xmin, self._xmax)
         self._xmin = xmin
-        self._plot.set_xlim(self._xmin, self._xmax)
+        self._setXView(self._xmin, self._xmax)
 
     xmin = property(get_xmin, set_xmin)
     del get_xmin, set_xmin
@@ -796,7 +882,7 @@ class XYPlot(LineBase):
     def set_xmax(self, xmax):
         self._check_xrange(self._xmin, xmax)
         self._xmax = xmax
-        self._plot.set_xlim(self._xmin, self._xmax)
+        self._setXView(self._xmin, self._xmax)
 
     xmax = property(get_xmax, set_xmax)
     del get_xmax, set_xmax

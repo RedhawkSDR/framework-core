@@ -608,6 +608,16 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
     // search thru all waveform components
     // unload and deallocate capacity
 
+    for (CORBA::ULong ii = 0; ii < _registeredComponents.length(); ++ii) {
+        LOG_DEBUG(Application_impl, "Releasing component '" << _registeredComponents[ii].identifier << "'");
+        try {
+            CF::Resource_var resource = CF::Resource::_narrow(_registeredComponents[ii].componentObject);
+            unsigned long timeout = 3; // seconds
+            omniORB::setClientCallTimeout(resource, timeout * 1000);
+            resource->releaseObject();
+        } CATCH_LOG_WARN(Application_impl, "releaseObject failed for component '" << _registeredComponents[ii].identifier << "'");
+    }
+
     // Search thru all waveform components
     //  - unbind from NS
     //  - release each component
@@ -616,23 +626,8 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
 
         std::string id(appComponentImplementations[i].componentId);
 
-        LOG_DEBUG(Application_impl, "Releasing component " << id)
-
         if (_componentNames.find(id) != _componentNames.end()) {
             std::string componentName = _componentNames[id];
-            CORBA::Object_var _rscObj = CORBA::Object::_nil ();
-
-            while (CORBA::is_nil (_rscObj)) {
-                try {
-                    _rscObj = ossie::corba::objectFromName(componentName);
-                } catch( CORBA::SystemException& se ) {
-                    LOG_INFO(Application_impl, "[Application::releaseObject] \"orb->get_object_from_name\" failed with find the component in the naming service with name " << componentName << ". Continuing the App release")
-                    break;
-                } catch( ... ) {
-                    LOG_INFO(Application_impl, "[Application::releaseObject] \"orb->get_object_from_name\" failed with Unknown Exception for " << componentName << ". Continuing the App release")
-                    break;
-                }
-            }
 
             // Unbind the component from the naming context. This assumes that the component is
             // bound into the waveform context, and its name inside of the context follows the
@@ -643,31 +638,6 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
             try {
                 _WaveformContext->unbind(componentBindingName);
             } CATCH_LOG_ERROR(Application_impl, "Unable to unbind component")
-            
-            // call releaseObject on the component
-            CF::ResourceFactory_var _rscFac = 0;
-            try {
-                _rscFac = CF::ResourceFactory::_narrow (_rscObj);
-            } CATCH_LOG_DEBUG(Application_impl, "narrow on resource object failed. Continuing the App release") 
-
-            if (!CORBA::is_nil(_rscFac)) {
-                LOG_DEBUG(Application_impl, "about to release resource factory object")
-                try {
-                    // TODO determine what is correct here , since localFileName doesn't seem right
-                    //_rscFac->releaseResource (localFileName.c_str());
-                } CATCH_LOG_WARN(Application_impl, "releaseResource failed for " << componentName << ". Continuing the App release")
-            } else if (!CORBA::is_nil(_rscObj)) {
-                LOG_DEBUG(Application_impl, "about to release Object")
-                try {
-                    CF::Resource_var _rsc = CF::Resource::_narrow (_rscObj);
-                    unsigned long timeout = 3; // seconds
-                    omniORB::setClientCallTimeout(_rsc, timeout * 1000);
-                    _rsc->releaseObject ();
-                    LOG_DEBUG(Application_impl, "returned from releaseObject")
-                } CATCH_LOG_WARN(Application_impl, "releaseObject failed for: " << componentName << ". Continuing the App release")
-            }
-            
-            LOG_DEBUG(Application_impl, "app->releaseObject finished releasing this component")
         }
         
 

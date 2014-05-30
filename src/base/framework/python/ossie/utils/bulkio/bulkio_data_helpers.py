@@ -740,14 +740,16 @@ class FileSource(object):
                             new_data = range(len(data))
                             for idx in range(len(data)):
                                 new_data[idx] = float(data[idx]) * self.connectionNormalization[connId]
-                            port.pushPacket(new_data, T, EOS, streamID)
+                            data = new_data
                         elif self.connectionTranslation.has_key(connId):
                             new_data_str = ''
                             for idx in range(len(data)):
                                 new_data_str = new_data_str + data[idx] + self.connectionTranslation[connId][0]
                             fmt = str(len(data))+self.connectionTranslation[connId][1]
-                            new_data = struct.unpack(fmt,new_data_str)
-                            port.pushPacket(new_data, T, EOS, streamID)
+                            data = struct.unpack(fmt,new_data_str)
+
+                        if self.port_type == BULKIO__POA.dataXML:
+                            port.pushPacket(data, EOS, streamID)
                         else:
                             port.pushPacket(data, T, EOS, streamID)
             except Exception, e:
@@ -824,7 +826,7 @@ class FileSource(object):
             if (len(byteData) < pktsize * self.byte_per_sample):
                 self.EOS = True
             signalData = byteData
-            if self.structFormat != "b" and self.structFormat != "B":
+            if self.structFormat not in ('b', 'B', 'c'):
                 dataSize = len(byteData)/self.byte_per_sample
                 fmt = self._byteswap + str(dataSize) + self.structFormat
                 signalData = struct.unpack(fmt, byteData)
@@ -842,7 +844,7 @@ class FileSource(object):
         if self.EOS:
             # Send EOS flag = true
             T = BULKIO.PrecisionUTCTime(BULKIO.TCM_CPU, BULKIO.TCS_VALID, 0.0, int(currentSampleTime), currentSampleTime - int(currentSampleTime))
-            if self.structFormat != "b" and self.structFormat != "B":
+            if self.structFormat not in ('b', 'B', 'c'):
                 self.pushPacket([], T, True, self.sri.streamID)
             else:
                 self.pushPacket('', T, True, self.sri.streamID)
@@ -1051,9 +1053,13 @@ class FileSink(object):
         #    bases:       A tuple containing all the base classes to use
         #    dct:         A dictionary containing all the attributes such as
         #                 functions, and class variables
+        if self.port_type == BULKIO__POA.dataXML:
+            pushPacket = self.pushPacketXML
+        else:
+            pushPacket = self.pushPacket
         PortClass = classobj('PortClass',
                              (self.port_type,),
-                             {'pushPacket':self.pushPacket,
+                             {'pushPacket':pushPacket,
                               'pushSRI':self.pushSRI})
 
         # Create a port using the generate Metaclass and return an instance

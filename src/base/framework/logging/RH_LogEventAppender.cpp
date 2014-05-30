@@ -1,11 +1,13 @@
+#ifdef   HAVE_LOG4CXX
 #include <iostream>
-#include <log4cxx/helpers/loglog.h>
-#include <log4cxx/helpers/stringhelper.h>
-#include <log4cxx/helpers/transcoder.h>
-#include <log4cxx/helpers/synchronized.h>
-#include <log4cxx/helpers/optionconverter.h>
 #include <ossie/CF/LogInterfaces.h>
 #include "RH_LogEventAppender.h"
+#include <ossie/CorbaUtils.h>
+#include <log4cxx/helpers/loglog.h>
+#include <log4cxx/helpers/optionconverter.h>
+#include <log4cxx/helpers/synchronized.h>
+#include <log4cxx/helpers/transcoder.h>
+#include <log4cxx/helpers/stringhelper.h>
 
 using namespace log4cxx;
 using namespace log4cxx::helpers;
@@ -16,8 +18,55 @@ using namespace log4cxx::helpers;
 #define _LLS_DEBUG( os, msg ) \
   os << msg; LogLog::debug(os.str()); os.str("");
 
+
+struct OrbContext;
+typedef OrbContext*  OrbPtr;
+ 
+//
+// Orb
+//
+// Context for access to ORB and common CORBA services
+//
+struct OrbContext {
+
+  // orb instantiation
+  CORBA::ORB_ptr                          orb;
+
+  // root POA for to handle object requests
+  PortableServer::POA_ptr                 rootPOA;
+
+  // handle to naming service
+  CosNaming::NamingContext_ptr            namingService;
+
+  // handle to naming service
+  CosNaming::NamingContextExt_ptr         namingServiceCtx;
+
+  virtual ~OrbContext() {};
+
+  OrbContext() {
+    orb = ossie::corba::Orb();
+    rootPOA = ossie::corba::RootPOA();
+    namingService = ossie::corba::InitialNamingContext();
+    namingServiceCtx = CosNaming::NamingContextExt::_nil();
+    try {
+      CORBA::Object_ptr obj;
+      obj=orb->resolve_initial_references("NameService");
+      namingServiceCtx = CosNaming::NamingContextExt::_narrow(obj);
+    }
+    catch(...){
+    };
+  };
+
+};
+
+
+
 // Register this class with log4cxx
 IMPLEMENT_LOG4CXX_OBJECT(RH_LogEventAppender)
+
+
+
+
 
 RH_LogEventAppender::RH_LogEventAppender():
 channelName("LOG_CHANNEL"),
@@ -151,7 +200,11 @@ void RH_LogEventAppender::append(const spi::LoggingEventPtr& event, Pool& p){
   rh_event.msg = CORBA::string_dup(fMsg.c_str());
   
   // push log message to the event channel
-  if ( _event_channel ) _event_channel->push(rh_event);
+  if ( _event_channel ) {
+    if ( _event_channel->push(rh_event) != 0 ) {
+      _LL_DEBUG( "RH_LogEventAppender::append EVENT CHANNEL, PUSH OPERATION FAILED.");
+    }
+ }
   
 }
 	 
@@ -168,9 +221,9 @@ void RH_LogEventAppender::close()
 int RH_LogEventAppender::connect_() {
 
   int retval = 0;
+  /** Need to resolve using ossie corba methods to pass in command line args
   if ( _orb == NULL ) {
     // RESOLVE need to parse args to list of strings..
-    /**
     LOG4CXX_ENCODE_CHAR(t,_args);
     int largc=args.size();
 
@@ -182,23 +235,22 @@ int RH_LogEventAppender::connect_() {
     for( pp=largv,  ii=args.begin(); ii != args.end();  ii++, pp++ ) {
       *pp = &((*ii)[0]);
     }
-    **/
     int largc=0;
     char **largv=NULL;
     try {
-      _orb = corba::Orb::Init(largc, largv );
+      _orb = corba::OrbContext::Init(largc, largv );
     }
     catch(...) {
       retval=1;
     }
 
   }
+**/
 
   _event_channel.reset();
   std::ostringstream os;
   _LLS_DEBUG( os, "RH_LogEventAppender::connect Create PushEventSupplier" << _channelName );
-  corba::PushEventSupplier *pes=new corba::PushEventSupplier( _orb, 
-							      _channelName, 
+  ossie::event::PushEventSupplier *pes=new ossie::event::PushEventSupplier( _channelName, 
 							      _nameContext, 
 							      _reconnect_retries, 
 							      _reconnect_delay );
@@ -209,3 +261,5 @@ int RH_LogEventAppender::connect_() {
 
   return retval;
 }
+
+#endif   ///   HAVE_LOG4CXX

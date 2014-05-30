@@ -33,6 +33,13 @@ unsigned int LoggingConfigurator::ossieDebugLevel = 0;
 #endif
 
 
+#ifdef LOCAL_DEBUG_ON
+#define STDOUT_DEBUG(x)    std::cout << x << std::endl
+#else
+#define STDOUT_DEBUG(x)    
+#endif
+
+
 bool caseInsCompare ( const char a, const char b ) {
   return toupper(a) == toupper(b);
 }
@@ -53,11 +60,110 @@ namespace rh_logger {
     }
   };
 
+
+  /**
+   */
+  namespace spi
+  {
+
+    const char* const LocationInfo::NA = "?";
+    const char* const LocationInfo::NA_METHOD = "?::?";
+
+    /**
+     *   When location information is not available the constant
+     * <code>NA</code> is returned. Current value of this string constant is <b>?</b>.
+     */
+
+    const LocationInfo& LocationInfo::getLocationUnavailable() {
+      static const LocationInfo unavailable;
+      return unavailable;
+    }
+
+    LocationInfo::LocationInfo( const char * const fileName1,
+				const char * const methodName1,
+				int lineNumber1 )
+      :  lineNumber( lineNumber1 ),
+	 fileName( fileName1 ),
+	 methodName( methodName1 ) {
+    }
+
+    LocationInfo::LocationInfo()
+      : lineNumber( -1 ),
+	fileName(LocationInfo::NA),
+	methodName(LocationInfo::NA_METHOD) {
+    }
+
+    LocationInfo::LocationInfo( const LocationInfo & src )
+      :  lineNumber( src.lineNumber ),
+	 fileName( src.fileName ),
+	 methodName( src.methodName ) {
+    }
+
+    LocationInfo & LocationInfo::operator = ( const LocationInfo & src )
+    {
+      fileName = src.fileName;
+      methodName = src.methodName;
+      lineNumber = src.lineNumber;
+      return * this;
+    }
+
+    void LocationInfo::clear() {
+      fileName = NA;
+      methodName = NA_METHOD;
+      lineNumber = -1;
+    }
+
+    const char * LocationInfo::getFileName() const
+    {
+      return fileName;
+    }
+
+    int LocationInfo::getLineNumber() const
+    {
+      return lineNumber;
+    }
+
+    const std::string LocationInfo::getMethodName() const
+    {
+      std::string tmp(methodName);
+      size_t colonPos = tmp.find("::");
+      if (colonPos != std::string::npos) {
+	tmp.erase(0, colonPos + 2);
+      } else {
+	size_t spacePos = tmp.find(' ');
+	if (spacePos != std::string::npos) {
+	  tmp.erase(0, spacePos + 1);
+	}
+      }
+      size_t parenPos = tmp.find('(');
+      if (parenPos != std::string::npos) {
+	tmp.erase(parenPos);
+      }
+      return tmp;
+    }
+
+
+    const std::string LocationInfo::getClassName() const {
+      std::string tmp(methodName);
+      size_t colonPos = tmp.find("::");
+      if (colonPos != std::string::npos) {
+	tmp.erase(colonPos);
+	size_t spacePos = tmp.find_last_of(' ');
+	if (spacePos != std::string::npos) {
+	  tmp.erase(0, spacePos + 1);
+	}
+	return tmp;
+      }
+      tmp.erase(0, tmp.length() );
+      return tmp;
+    }
+  }
+
+
+
   Appender::Appender( const std::string &inname ):
     name(inname)
   {}
-
-
 
   // used by getEffectiveLevel calls so we have an object to return...
   static LevelPtr  _localRet;
@@ -351,6 +457,7 @@ namespace rh_logger {
     return level;
   }
 
+  /**
   void Logger::handleLogEvent( const LevelPtr &level, const std::string &msg )  {
     STDOUT_DEBUG( " RH LOGGER  handleLogEvent " << msg );
     if ( getLevel() ) {
@@ -361,7 +468,7 @@ namespace rh_logger {
     }
     appendLogRecord( level, msg );
   }
-
+  **/
 
 
   AppenderPtr Logger::getAppender( const std::string &name ) {
@@ -485,6 +592,18 @@ namespace rh_logger {
     STDOUT_DEBUG( "--->> StdOutLogger::handleLogEvent  name/level:" <<  name << "/" << level->getName() << " msg:" << msg );
     std::ostringstream _msg;						\
     _msg << level->getName() << ":" << getName() << " - " << msg << std::endl; \
+    _os << _msg.str();
+    appendLogRecord( level, msg );
+  }
+
+  void StdOutLogger::handleLogEvent( const LevelPtr &level, const std::string &msg, const spi::LocationInfo &loc )  {
+    STDOUT_DEBUG( "--->> StdOutLogger::handleLogEvent  name/level:" <<  name << "/" << level->getName() << " msg:" << msg );
+    std::ostringstream _msg;					       
+#if ENABLE_TRACE    
+    _msg << level->getName() << ":" << getName() << " - " << msg << " [" << loc.getFileName() << ":" << loc.getLineNumber() << "]" << std::endl;     _msg << level->getName() << ":" << getName() << " - " << msg << " [" << loc.getFileName() << ":" << loc.getLineNumber() << "]" << std::endl; 
+#else
+    _msg << level->getName() << ":" << getName() << " - " << msg << std::endl; 
+#endif
     _os << _msg.str();
     appendLogRecord( level, msg );
   }
@@ -654,6 +773,21 @@ namespace rh_logger {
     // since the underlying 
     ::log4cxx::helpers::MessageBuffer oss_;
     l4logger->forcedLog( ConvertRHLevelToLog4(level), oss_.str(oss_ << msg) );
+  }
+
+  void L4Logger::handleLogEvent( const LevelPtr &level, const std::string &msg, const spi::LocationInfo &loc )  {
+    STDOUT_DEBUG( "--->> L4Logger::handleLogEvent  name/level:" <<  name << "/" << level->getName() << " msg:" << msg );
+    //
+    // translate rh level to log4level.... 
+    //   
+    appendLogRecord( level, msg );
+
+    log4cxx::spi::LocationInfo l4loc( loc.getFileName(), loc.getMethodName().c_str(), loc.getLineNumber() );
+    //
+    // push log message to log4cxx logger...need to call basic log methods (info, debug, etc)
+    // since the underlying 
+    ::log4cxx::helpers::MessageBuffer oss_;
+    l4logger->forcedLog( ConvertRHLevelToLog4(level), oss_.str(oss_ << msg), l4loc );
   }
 
   const LevelPtr& L4Logger::getEffectiveLevel() const
