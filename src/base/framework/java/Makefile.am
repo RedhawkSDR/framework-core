@@ -41,25 +41,25 @@ cf/src:
 
 # Generate Java classes 
 %.idlj : $(CF_IDLDIR)/ossie/CF/%.idl | cf/src
-	$(IDLJ) -fall -td cf/src $(IDLJFLAGS) -i $(CF_IDLDIR) $<
-	$(IDLJ) -fallTie -td cf/src $(IDLJFLAGS) -i $(CF_IDLDIR) $<
-	touch $@
+	$(AM_V_GEN)$(IDLJ) -fall -td cf/src $(IDLJFLAGS) -i $(CF_IDLDIR) $<
+	$(AM_V_GEN)$(IDLJ) -fallTie -td cf/src $(IDLJFLAGS) -i $(CF_IDLDIR) $<
+	$(AM_V_at)touch $@
 
 # Generate Java JNI classes
 %.omnijni : $(CF_IDLDIR)/ossie/CF/%.idl | cf/src
-	$(OMNIJNI_IDLJAVA) -C cf/src $(IDLJNIFLAGS) -I $(CF_IDLDIR) -I $(IDLDIR) -I $(OMNICOS_IDLDIR) $<
-	touch $@
+	$(AM_V_GEN)$(OMNIJNI_IDLJAVA) -C cf/src $(IDLJNIFLAGS) -I $(CF_IDLDIR) -I $(IDLDIR) -I $(OMNICOS_IDLDIR) $<
+	$(AM_V_at)touch $@
 
 # The ExtendedEvent IDL depends on COS packages that are not provided in the
 # default JRE CORBA implementation, so they must be compiled into our jar.
 Cos%.idlj : $(OMNICOS_IDLDIR)/Cos%.idl | cf/src
-	$(IDLJ) -fall -td cf/src $(IDLJFLAGS) $<
-	$(IDLJ) -fallTIE -td cf/src $(IDLJFLAGS) $<
-	touch $@
+	$(AM_V_GEN)$(IDLJ) -fall -td cf/src $(IDLJFLAGS) $<
+	$(AM_V_GEN)$(IDLJ) -fallTIE -td cf/src $(IDLJFLAGS) $<
+	$(AM_V_at)touch $@
 
 Cos%.omnijni: $(OMNICOS_IDLDIR)/Cos%.idl | cf/src
-	$(OMNIJNI_IDLJAVA) -C cf/src $(IDLJNIFLAGS) -I$(OMNICOS_IDLDIR) $<
-	touch $@
+	$(AM_V_GEN)$(OMNIJNI_IDLJAVA) -C cf/src $(IDLJNIFLAGS) -I$(OMNICOS_IDLDIR) $<
+	$(AM_V_at)touch $@
 
 IDLSRC = CosEventComm.idl CosEventChannelAdmin.idl \
 	 cf.idl PortTypes.idl StandardEvent.idl AggregateDevices.idl \
@@ -71,19 +71,34 @@ JNISRC = CosNaming.idl $(IDLSRC)
 IDLJFILES = $(IDLSRC:.idl=.idlj)
 JNIFILES = $(JNISRC:.idl=.omnijni)
 
-cf/src/fileList.txt : $(JNIFILES) $(IDLJFILES)
-	find cf/src -name "*.java" > $@
+.INTERMEDIATE: META-INF/MANIFEST.MF fileList.txt packageList.txt
 
-CFInterfaces.jar: cf/src/fileList.txt
-	rm -rf cf/bin
-	mkdir -p cf/bin
+fileList.txt : $(JNIFILES) $(IDLJFILES)
+	$(AM_V_at)find cf/src -name "*.java" > $@
+
+packageList.txt: $(JNIFILES) $(IDLJFILES)
+	$(AM_V_at)echo -n "Export-Package:" > $@
+	$(AM_V_at)find cf/src -mindepth 1 -type d | $(SED) -e 's/^cf\/src\// /' -e 's/\//\./g' -e '$$ ! s/$$/,/' >> $@
+
+META-INF/MANIFEST.MF: META-INF/MANIFEST.MF.in packageList.txt Makefile
+	$(AM_V_GEN)stamp=`date +%Y%m%d%H%M`; \
+	$(SED) \
+	  -e '/@EXPORT_LIST[@]/r packageList.txt' \
+	  -e '/@EXPORT_LIST[@]/d' \
+	  -e 's|@PACKAGE_VERSION[@]|$(PACKAGE_VERSION)|' \
+	  -e "s|@DATE_TIME_STAMP[@]|$$stamp|" \
+	  $@.in > $@
+
+CFInterfaces.jar: fileList.txt META-INF/MANIFEST.MF
+	$(AM_V_at)rm -rf cf/bin
+	$(AM_V_at)mkdir -p cf/bin
 	$(JAVAC) -source 1.5 -g -cp apache-commons-lang-2.4.jar:$(omnijni_builddir)/src/java -d cf/bin @$<
-	$(JAR) cf $@ -C cf/bin .
+	$(JAR) cMf $@ META-INF/MANIFEST.MF -C cf/bin .
 	$(JAR) uf $@ -C cf/src .
 	$(JAR) uf $@ -C $(omnijni_builddir)/src/java omnijni
 
 java_DATA = CFInterfaces.jar log4j-1.2.15.jar apache-commons-lang-2.4.jar
-CLEANFILES = $(IDLJFILES) $(JNIFILES) CFInterfaces.jar cf/src/fileList.txt
+CLEANFILES = $(IDLJFILES) $(JNIFILES) CFInterfaces.jar
 
 clean-local:
 	rm -rf cf

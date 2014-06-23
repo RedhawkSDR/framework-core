@@ -2839,7 +2839,7 @@ void createHelper::loadAndExecuteComponents(
             // Naming Context IOR, Name Binding, and component identifier
             CF::DataType ncior;
             ncior.id = "NAMING_CONTEXT_IOR";
-            ncior.value <<= (CORBA::String_var)ossie::corba::Orb()->object_to_string(WaveformContext);
+            ncior.value <<= ossie::corba::objectToString(WaveformContext);
             component->addExecParameter(ncior);
 
             CF::DataType ci;

@@ -21,6 +21,7 @@
 import logging
 import threading
 import time
+import struct
 
 def _deferred_imports():
     # Importing PyQt4 and matplotlib may take a long time--more than a second
@@ -94,6 +95,24 @@ class PlotSink(bulkio_data_helpers.ArraySink):
             data = bulkio_helpers.bulkioComplexToPythonComplexList(data + data2)
             times.extend(times2)
         return data, times
+
+class CharSink(PlotSink):
+    def __init__(self):
+        super(CharSink,self).__init__(BULKIO__POA.dataChar)
+
+    def pushPacket(self, data, ts, EOS, stream_id):
+        data = struct.unpack('%db' % len(data), data)
+        super(CharSink,self).pushPacket(data, ts, EOS, stream_id)
+
+
+class OctetSink(PlotSink):
+    def __init__(self):
+        super(OctetSink,self).__init__(BULKIO__POA.dataOctet)
+
+    def pushPacket(self, data, ts, EOS, stream_id):
+        data = struct.unpack('%dB' % len(data), data)
+        super(OctetSink,self).pushPacket(data, ts, EOS, stream_id)
+
 
 class PlotBase(helperBase, PortSupplier):
     """
@@ -174,8 +193,13 @@ class PlotBase(helperBase, PortSupplier):
         # Create the type-specific sink servant.
         interface = interface.split(':')[1]
         namespace, interface = interface.split('/')
-        skeleton = getattr(BULKIO__POA, interface)
-        sink = PlotSink(skeleton)
+        if interface == 'dataChar':
+            sink = CharSink()
+        elif interface == 'dataOctet':
+            sink = OctetSink()
+        else:
+            skeleton = getattr(BULKIO__POA, interface)
+            sink = PlotSink(skeleton)
         if self._thread:
             # Plot is started; start sink.
             sink.start()

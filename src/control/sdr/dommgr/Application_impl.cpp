@@ -127,7 +127,11 @@ void Application_impl::populateApplication(CF::Resource_ptr _controller,
 Application_impl::~Application_impl ()
 {
     TRACE_ENTER(Application_impl)
-
+    appComponentDevices.release();
+    appComponentImplementations.release();
+    appComponentNamingContexts.release();
+    appComponentProcessIds.release();
+    _registeredComponents.release();
     TRACE_EXIT(Application_impl)
 };
 

@@ -20,13 +20,13 @@
 
 # vim: noet: softtabstop=0
 %SK.cpp %.h %DynSK.cpp : $(top_srcdir)/idl/ossie/CF/%.idl
-	$(IDL) -I $(IDLDIR) -I $(IDLDIR)/COS -I $(top_srcdir)/idl -bcxx -Wba -Wbd=DynSK.cpp -Wbh=.h -Wbs=SK.cpp -Wbkeep_inc_path $<
+	$(AM_V_GEN)$(IDL) -I $(IDLDIR) -I $(IDLDIR)/COS -I $(top_srcdir)/idl -bcxx -Wba -Wbd=DynSK.cpp -Wbh=.h -Wbs=SK.cpp -Wbkeep_inc_path $<
 # omniORB uses the a ".hh" suffix for its COS header files, but omniidl doesn't
 # know the difference, so we must modify generated headers to account for that.
-	$(SED) 's|<COS/\(.*\)\.h>|<COS/\1.hh>|' $*.h > $*.h.tmp
-	mv $*.h.tmp $*.h
-	mkdir -p ../../include/ossie/CF
-	cp $*.h ../../include/ossie/CF
+	$(AM_V_at)$(SED) 's|<COS/\(.*\)\.h>|<COS/\1.hh>|' $*.h > $*.h.tmp
+	$(AM_V_at)mv $*.h.tmp $*.h
+	$(AM_V_at)mkdir -p ../../include/ossie/CF
+	$(AM_V_at)cp $*.h ../../include/ossie/CF
 
 clean-local:
 	rm -f ../../include/ossie/CF/*.h

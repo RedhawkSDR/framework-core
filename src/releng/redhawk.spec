@@ -56,6 +56,7 @@ Requires:       java >= 1.6
 Requires:       python
 Requires:       numpy
 Requires:       libomniorbpy
+Requires:       binutils
 
 %if 0%{?rhel} >= 6 || 0%{?fedora} >= 12
 BuildRequires:  libuuid-devel
@@ -160,7 +161,6 @@ rm -rf --preserve-root $RPM_BUILD_ROOT
 # install ossie framework
 cd src
 make install DESTDIR=$RPM_BUILD_ROOT
-cp control/sdr/domain/DomainManager.dmd.xml $RPM_BUILD_ROOT%{_sdrroot}/dom/domain/
 
 %if 0%{?rhel} == 7
 rm $RPM_BUILD_ROOT%{_bindir}/qtbrowse
@@ -173,10 +173,11 @@ rm -rf --preserve-root $RPM_BUILD_ROOT
 
 
 %pre
+# -r is system account, -f is force (ignore already exists)
 groupadd -r -f %{groupname}
-if id %{username} &> /dev/null; then
-  echo "%{username} user account exists and will not be added"
-else
+if ! id %{username} &> /dev/null; then
+  # -M is don't create home dir, -r is system account, -s is shell
+  # -c is comment, -n is don't create group, -g is group name/id
   /usr/sbin/useradd -M -r -s /sbin/nologin \
     -c "REDHAWK System Account" -n -g %{groupname} %{username} > /dev/null
 fi
@@ -276,10 +277,12 @@ fi
 
 
 %changelog
-* Tue Mar 18 2014 - 1.9.1-1
+* Mon Mar 31 2014 - 1.9.1-1
 - Improve OS version detection for RHEL/CentOS/Fedora
 - Don't constrain boost to exact version
 - Exclude qtbrowse on el7
+- Clarify useradd/groupadd
+- Add missing package requirement
 
 * Thu Aug 15 2013 - 1.9.0-1
 - Re-work lots of dependencies

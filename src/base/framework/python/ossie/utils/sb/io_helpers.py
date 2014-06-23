@@ -960,10 +960,13 @@ class DataSource(_SourceBase):
         # If necessary, break data into chunks of pktSize for each pushPacket
         if str(type(data)) == "<type 'list'>":
             while len(data) > 0:
+                _EOS = EOS
+                if len(data) >= pktSize and EOS == True:
+                    _EOS = False
                 self._pushPacket(arraySrcInst,
                                  data[:pktSize],
                                  currentSampleTime,
-                                 EOS,
+                                 _EOS,
                                  streamID,
                                  srcPortType)
                 dataSize = len(data[:pktSize])

@@ -129,6 +129,17 @@ OSSIE_SOURCE = src/org/ossie/component/AllocCapacity.java \
 # Deprecated generic property classes, replaced by strongly-typed classes but
 # maintained for source compatibility.
 OSSIE_SOURCE += src/org/ossie/properties/SimpleProperty.java \
+		src/org/ossie/BooleanSimplePropertyContainer.java \
+		src/org/ossie/CharSimplePropertyContainer.java \
+		src/org/ossie/DoubleSimplePropertyContainer.java \
+		src/org/ossie/FloatSimplePropertyContainer.java \
+		src/org/ossie/IntegerSimplePropertyContainer.java \
+		src/org/ossie/LongSimplePropertyContainer.java \
+		src/org/ossie/OctetSimplePropertyContainer.java \
+		src/org/ossie/PropertyContainer.java \
+		src/org/ossie/ShortSimplePropertyContainer.java \
+		src/org/ossie/SimplePropertyContainer.java \
+		src/org/ossie/StringSimplePropertyContainer.java \
 		src/org/ossie/properties/SimpleSequenceProperty.java
 
 OSSIE_SOURCE += $(SIMPLE_PROPERTIES)
@@ -137,15 +148,15 @@ OSSIE_SOURCE += $(COMPLEX_PROPERTIES)
 OSSIE_SOURCE += $(COMPLEX_SEQUENCES)
 
 src/fileList.txt : $(OSSIE_SOURCE)
-	echo $^ > src/fileList.txt
+	$(AM_V_at)echo $^ > src/fileList.txt
 
 # Additional Java compiler flags
 CLASSPATH = ../apache-commons-lang-2.4.jar:../CFInterfaces.jar:../log4j-1.2.15.jar
 JAVAFLAGS = -source 1.5 -g -Xlint:deprecation -Xlint:unchecked -cp $(CLASSPATH)
 
 ossie.jar : src/fileList.txt
-	rm -rf bin
-	mkdir -p bin
+	$(AM_V_at)rm -rf bin
+	$(AM_V_at)mkdir -p bin
 	$(JAVAC) $(JAVAFLAGS) -d bin @src/fileList.txt
 	$(JAR) cf ossie.jar -C bin  .
 	$(JAR) uf ossie.jar -C src  .

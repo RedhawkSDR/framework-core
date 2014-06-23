@@ -804,6 +804,36 @@ class SBTestTest(scatest.CorbaTestCase):
             prop = getattr(comp, name)
         return CF.DataType(prop.id, prop.toAny(value))
 
+
+class BulkioTest(unittest.TestCase):
+    XMLDATA = """<body>
+  <element tag=value/>
+</body>"""
+
+    TEMPFILE = 'testout.xml'
+
+    def setUp(self):
+        try:
+            import bulkio
+        except ImportError:
+            raise ImportError('BULKIO is required for this test')
+
+    def tearDown(self):
+        try:
+            os.unlink(self.TEMPFILE)
+        except:
+            pass
+
+    def readFile(self, filename, strip=False):
+        infile = open(filename, 'r')
+        try:
+            data = infile.read()
+            if strip:
+                data = data.strip()
+            return data
+        finally:
+            infile.close()
+
     def _pushSRIThroughSourceAndSink(
         self,
         EOS          = True,
@@ -911,7 +941,65 @@ class SBTestTest(scatest.CorbaTestCase):
                     data         = dataCopy,
                     dataFormat   = format)
 
+    def test_XMLDataSource(self):
+        source = sb.DataSource(dataFormat='xml')
+        datasink = sb.DataSink()
+        source.connect(datasink)
+        sb.start()
 
+        source.push(self.XMLDATA, EOS=True)
+
+        # Retrieve the data
+        data = datasink.getData(eos_block=True)
+        self.assertEqual(len(data), 1)
+        data = data[0]
+        self.assertEqual(self.XMLDATA, data)
+
+    def test_XMLDataSink(self):
+        """
+        Test DataSink with XML data.
+        """
+        sink = sb.DataSink()
+        sb.start()
+
+        # Push directly into the port to test without a source
+        port = sink.getPort('xmlIn')
+        port.pushPacket(self.XMLDATA, True, 'xml')
+
+        # Retrieve the data
+        data = sink.getData(eos_block=True)
+        self.assertEqual(len(data), 1)
+        data = data[0]
+        self.assertEqual(self.XMLDATA, data)
+
+    def test_XMLFileSink(self):
+        sink = sb.FileSink(self.TEMPFILE)
+        sb.start()
+
+        # Push directly into the port to test without a source
+        port = sink.getPort('xmlIn')
+        port.pushPacket(self.XMLDATA, True, 'xml')
+
+        sink.waitForEOS()
+
+        # Compare the output against the original data
+        data = self.readFile(self.TEMPFILE, strip=True)
+        self.assertEqual(self.XMLDATA, data)
+
+    def test_XMLFileSource(self):
+        infile = os.path.join(sb.getSDRROOT(), 'dom/mgr/DomainManager.spd.xml')
+
+        source = sb.FileSource(infile, dataFormat='xml')
+        sink = sb.FileSink(self.TEMPFILE)
+        source.connect(sink)
+        sb.start()
+
+        sink.waitForEOS()
+        
+        # Check that the input and output files match
+        xmldata = self.readFile(infile)
+        data = self.readFile(self.TEMPFILE)
+        self.assertEqual(xmldata, data)
 
 
 

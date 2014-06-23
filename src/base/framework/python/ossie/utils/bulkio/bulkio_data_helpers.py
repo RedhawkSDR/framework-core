@@ -88,12 +88,18 @@ class ArraySource(object):
     def pushPacket(self, data, T, EOS, streamID):
         if self.refreshSRI:
             self.pushSRI(self.sri)
+        if EOS: # This deals with subsequent pushes with the same SRI
+            self.refreshSRI = True
 
         self.port_lock.acquire()
         try:
             try:
                 for connId, port in self.outPorts.items():
                     if port != None:
+                        interface = self.port_type._NP_RepositoryId
+                        if interface == 'IDL:BULKIO/dataChar:1.0' or interface == 'IDL:BULKIO/dataOctet:1.0':
+                            if len(data) == 0:
+                                data = ''
                         port.pushPacket(data, T, EOS, streamID)
             except Exception, e:
                 msg = "The call to pushPacket failed with %s " % e
@@ -666,12 +672,18 @@ class FileSource(object):
     def pushPacket(self, data, T, EOS, streamID):
         if self.refreshSRI:
             self.pushSRI(self.sri)
+        if EOS: # This deals with subsequent pushes with the same SRI
+            self.refreshSRI = True
 
         self.port_lock.acquire()
         try:
             try:
                 for connId, port in self.outPorts.items():
-                    if port != None: port.pushPacket(data, T, EOS, streamID)
+                    if port != None:
+                        if self.port_type == BULKIO__POA.dataXML:
+                            port.pushPacket(data, EOS, streamID)
+                        else:
+                            port.pushPacket(data, T, EOS, streamID)
             except Exception, e:
                 msg = "The call to pushPacket failed with %s " % e
                 msg += "connection %s instance %s" % (connId, port)
@@ -746,7 +758,7 @@ class FileSource(object):
             if (len(byteData) < pktsize * self.byte_per_sample):
                 self.EOS = True
             signalData = byteData
-            if self.structFormat != "b" and self.structFormat != "B":
+            if self.structFormat not in ('b', 'B', 'c'):
                 dataSize = len(byteData)/self.byte_per_sample
                 fmt = '<' + str(dataSize) + self.structFormat
                 signalData = struct.unpack(fmt, byteData)
@@ -764,7 +776,7 @@ class FileSource(object):
         if self.EOS:
             # Send EOS flag = true
             T = BULKIO.PrecisionUTCTime(BULKIO.TCM_CPU, BULKIO.TCS_VALID, 0.0, int(currentSampleTime), currentSampleTime - int(currentSampleTime))
-            if self.structFormat != "b" and self.structFormat != "B":
+            if self.structFormat not in ('b', 'B', 'c'):
                 self.pushPacket([], T, True, self.sri.streamID)
             else:
                 self.pushPacket('', T, True, self.sri.streamID)
@@ -951,9 +963,13 @@ class FileSink(object):
         #    bases:       A tuple containing all the base classes to use
         #    dct:         A dictionary containing all the attributes such as
         #                 functions, and class variables
+        if self.port_type == BULKIO__POA.dataXML:
+            pushPacket = self.pushPacketXML
+        else:
+            pushPacket = self.pushPacket
         PortClass = classobj('PortClass',
                              (self.port_type,),
-                             {'pushPacket':self.pushPacket,
+                             {'pushPacket':pushPacket,
                               'pushSRI':self.pushSRI})
 
         # Create a port using the generate Metaclass and return an instance

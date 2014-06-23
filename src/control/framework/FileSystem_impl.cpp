@@ -337,9 +337,9 @@ CF::FileSystem::FileInformationSequence* FileSystem_impl::list (const char* patt
     const fs::directory_iterator end_itr; // an end iterator (by boost definition)
     for (fs::directory_iterator itr = fsops.begin(dirPath); itr != end_itr; fsops.increment(itr)) {
 #if BOOST_FILESYSTEM_VERSION < 3    
-        const std::string& filename = itr->filename();
+        const std::string filename = itr->filename();
 #else
-        const std::string& filename = itr->path().filename().string();
+        const std::string filename = itr->path().filename().string();
 #endif     
 	 if (fnmatch(searchPattern.c_str(), filename.c_str(), 0) == 0) {
             if ((filename.length() > 0) && (filename[0] == '.') && (filename != searchPattern)) {

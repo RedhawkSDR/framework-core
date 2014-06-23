@@ -32,6 +32,9 @@ AC_DEFUN([AC_HEADER_M_FUNCTION],
     M_FUNCTION_INTERPRETER_INCLUDE="-I"`find /usr -regextype posix-extended -regex ".*include\/octave\-[[0-9]]+\.[[0-9]]+\.[[0-9]]+$" -print -quit 2>/dev/null`
     ]
   )
+  if test $M_FUNCTION_INTERPRETER_INCLUDE = "-I"; then
+      AC_MSG_ERROR(Could not find Octave installation.)
+  fi
 AC_SUBST(M_FUNCTION_INTERPRETER_INCLUDE)
 ])
 
@@ -49,5 +52,8 @@ AC_DEFUN([AC_LIB_M_FUNCTION],
     dnl "2>/dev/null" gets rid of permission denied warnings
     M_FUNCTION_INTERPRETER_LOAD="-Wl,-rpath="`find /usr -regextype posix-extended -regex ".*lib[[6]]?[[4]]?\/octave\/[[0-9]]+\.[[0-9]]+\.[[0-9]]+$" -print -quit 2>/dev/null`" -L"`find /usr -regextype posix-extended -regex ".*lib[[6]]?[[4]]?\/octave\/[[0-9]]+\.[[0-9]]+\.[[0-9]]+$" -print -quit 2>/dev/null`" -loctave -loctinterp"]
   )
+  if test $M_FUNCTION_INTERPRETER_LOAD = "-I"; then
+      AC_MSG_ERROR(Could not find Octave installation.)
+  fi
 AC_SUBST(M_FUNCTION_INTERPRETER_LOAD)
 ])
