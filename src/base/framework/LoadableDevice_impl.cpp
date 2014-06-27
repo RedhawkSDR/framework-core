@@ -181,12 +181,12 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
 
     if (fileInfo->kind != CF::FileSystem::DIRECTORY) {
         // The target file is a file
-        LOG_DEBUG(LoadableDevice_impl, "Loading the file " << fileName)
+      LOG_DEBUG(LoadableDevice_impl, "Loading the file " << fileName);
 
         // Create a local directory to copy the file to
         fs::path parentDir = fs::path(workingFileName).parent_path().relative_path();
         try {
-            if (fs::create_directories(parentDir)) {
+          if ( !parentDir.string().empty() && fs::create_directories(parentDir)) {
                 LOG_DEBUG(LoadableDevice_impl, "Created parent directory " << parentDir.string());
             }
         } catch (const fs::filesystem_error& ex) {
@@ -260,7 +260,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
         bool CLibrary = false;
         bool PythonPackage = false;
         // Check to see if it's a C library
-        std::string command = "nm ";
+        std::string command = "readelf -h ";
         command += relativeFileName;
         command += std::string(" 2>&1"); // redirect stdout to /dev/null
         FILE *fileCheck = popen(command.c_str(), "r");
@@ -365,32 +365,29 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                 chdir(currentPath.c_str());
             }
         }
+
         // Check to see if it's a Java package
         if (!CLibrary and !PythonPackage) {
-            std::string command = "file ";
-            command += relativeFileName;
-            FILE *fileCheck = popen(command.c_str(), "r");
-            char retval1[1024], retval2[1024];
-            fscanf(fileCheck, "%s %s", &(retval1[0]), &(retval2[0]));
-            std::string fileType = retval2;
-            pclose(fileCheck);
-            unsigned int fileNameSize = relativeFileName.size();
-            unsigned int fileTypeSize = fileType.size();
-            if ((fileNameSize>=4)and(fileTypeSize>=3)) {
-                if (!relativeFileName.compare(fileNameSize-4, 4, ".jar") and !fileType.compare(0, 3, "Zip")) {
-                    currentPath = get_current_dir_name();
-                    std::string classpath = "";
-                    if (getenv("CLASSPATH")) {
-                        classpath = getenv("CLASSPATH");
-                    }
-                    std::string additionalPath = currentPath+std::string("/")+relativeFileName;
-                    std::string::size_type pathLocation = classpath.find(additionalPath);
-                    if (pathLocation == std::string::npos) {
-                        classpath = additionalPath + std::string(":") + classpath;
-                        setenv("CLASSPATH", classpath.c_str(), 1);
-                    }
-                }
+          int retval = ossie::helpers::is_jarfile( relativeFileName );
+          if ( retval == 0 ) {
+            currentPath = get_current_dir_name();
+            std::string classpath = "";
+            if (getenv("CLASSPATH")) {
+              classpath = getenv("CLASSPATH");
+              LOG_DEBUG(LoadableDevice_impl, "_loadTree setting JAVA CURRENT CLASSPATH" << classpath );
+              
             }
+            std::string additionalPath = currentPath+std::string("/")+relativeFileName;
+            std::string::size_type pathLocation = classpath.find(additionalPath);
+            if (pathLocation == std::string::npos) {
+              classpath = additionalPath + std::string(":") + classpath;
+              LOG_DEBUG(LoadableDevice_impl, "_loadTree setting NEW JAVA CLASSPATH" << classpath );
+              setenv("CLASSPATH", classpath.c_str(), 1);
+            }
+          }
+          else {
+            LOG_DEBUG(LoadableDevice_impl, "_loadTree invalid JAVA JAR:" << relativeFileName );
+          }
         }
     }
 

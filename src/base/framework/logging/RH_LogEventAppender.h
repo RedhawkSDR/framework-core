@@ -105,6 +105,9 @@ class RH_LogEventAppender : public AppenderSkeleton
   // number of milliseconds to delay before retrying to connect to CORBA resoure
   int                                       _reconnect_delay;
 
+  // clean up event channel when appender is removed
+  int                                       _cleanup_event_channel;
+
   //  prevent copy and assignment statements
   RH_LogEventAppender(const RH_LogEventAppender&);
   RH_LogEventAppender& operator=(const RH_LogEventAppender&);

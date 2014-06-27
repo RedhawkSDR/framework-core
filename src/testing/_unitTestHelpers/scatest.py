@@ -51,9 +51,9 @@ def uuidgen():
 
 def getSdrPath():
     try:
-        return os.environ['SDRROOT']
+        return os.path.abspath(os.environ['SDRROOT'])
     except KeyError:
-        return os.path.join(os.getcwd())
+        return os.path.abspath(os.path.join(os.path.dirname(__file__), "../sdr"))
 
 def getSdrCache():
     try:
@@ -149,7 +149,15 @@ def createTestDomain():
 
 DEBUG_NODEBOOTER=False
 GDB_CMD_FILE=None
-def spawnNodeBooter(dmdFile=None, dcdFile=None, debug=0, domainname=None, loggingURI=None, endpoint=None, dbURI=None, execparams=""):
+def spawnNodeBooter(dmdFile=None, 
+                    dcdFile=None, 
+                    debug=0, 
+                    domainname=None, 
+                    loggingURI=None, 
+                    endpoint=None, 
+                    dbURI=None, 
+                    execparams="", 
+                    nodeBooterPath="../../control/framework/nodeBooter"):
     args = []
     if dmdFile != None:
         args.extend(["-D", dmdFile])
@@ -182,7 +190,7 @@ def spawnNodeBooter(dmdFile=None, dcdFile=None, debug=0, domainname=None, loggin
             print "Could not find Log Conf file <" + logconfig + '>'
             print "Not using a log configuration file"
     args.extend(execparams.split(" "))
-    args.insert(0, "../../control/framework/nodeBooter")
+    args.insert(0, nodeBooterPath)
 
     print '\n-------------------------------------------------------------------'
     print 'Launching nodeBooter', " ".join(args)

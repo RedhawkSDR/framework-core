@@ -260,11 +260,11 @@ def SetLogLevel( logid, newLevel ):
 
 
 def GetDefaultConfig():
-    cfg = "log4j.rootLogger=INFO,STDOUT \n" + \
-           "# Direct log messages to STDOUT \n" + \
+    cfg = "log4j.rootLogger=INFO,STDOUT\n" + \
+           "# Direct log messages to STDOUT\n" + \
            "log4j.appender.STDOUT=org.apache.log4j.ConsoleAppender\n" +  \
-           "log4j.appender.STDOUT.layout=org.apache.log4j.PatternLayout\n  " +  \
-           "log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n \n"
+           "log4j.appender.STDOUT.layout=org.apache.log4j.PatternLayout\n" +  \
+           "log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n\n"
     return cfg
 
 
@@ -303,8 +303,8 @@ def GetConfigFileContents( url ):
             fc=""
             for line in f:
                 fc += line
-        finally:
             f.close()
+        except:
             fc=None
     elif scheme == "sca":
         fc=GetSCAFileContents(url)

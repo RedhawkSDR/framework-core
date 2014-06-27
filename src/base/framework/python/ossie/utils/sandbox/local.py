@@ -324,7 +324,7 @@ class LocalSandbox(Sandbox):
         self.__services = {}
         super(LocalSandbox,self).shutdown()
 
-    def catalog(self, searchPath=None, objType="component"):
+    def catalog(self, searchPath=None, objType="components"):
         files = {}
         if not searchPath:
             if objType == "components":

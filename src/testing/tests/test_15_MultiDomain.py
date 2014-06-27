@@ -72,7 +72,9 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
         props=[CF.DataType(id='DCE:8cad8ca5-c155-4d1d-ae40-e194aa1d855f',value=any.to_any(None))]
         value_2 = any.from_any(self._domainManager_2._get_deviceManagers()[0]._get_registeredDevices()[0].query(props)[0].value)
         
+        self.assertEqual(len(self._domainManager_1._get_remoteDomainManagers()), 0)
         self._domainManager_1.registerRemoteDomainManager(self._domainManager_2)
+        self.assertEqual(len(self._domainManager_1._get_remoteDomainManagers()), 1)
 
         app = appFact.create(appFact._get_name(), [], []) # LOOK MA, NO DAS!
         self.assertEqual(len(self._domainManager_1._get_applications()), 1)

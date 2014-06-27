@@ -968,6 +968,14 @@ class SBTestTest(scatest.CorbaTestCase):
         outDataInt = _bulkio_helpers.pythonComplexListToBulkioComplex(cxData, int)
         self.assertEqual(outDataInt[0], 0)
         self.assertEqual(outDataInt, [int(x) for x in outData])
+    
+    def test_apiBeforeLaunch(self):
+        try:
+            sb.api("TestCppProps")
+            sb.api("SimpleDevice")
+            sb.api("BasicService_java")
+        except:
+            self.fail("sb.api(<objectName>) failure")
 
 
 class BulkioTest(unittest.TestCase):

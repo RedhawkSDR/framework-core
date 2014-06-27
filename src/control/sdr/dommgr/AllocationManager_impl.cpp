@@ -93,7 +93,8 @@ CF::AllocationManager::AllocationResponseSequence* AllocationManager_impl::alloc
 
         while ((remoteDomains_itr != remoteDomains.end()) and (result->length() != requests.length())) {
             unfilledRequests(remaining_requests, result);
-            CF::AllocationManager::AllocationResponseSequence_var new_result = (*remoteDomains_itr).domainManager->allocationMgr()->allocate(remaining_requests);
+            CORBA::String_var domain_name = this->_domainManager->name();
+            CF::AllocationManager::AllocationResponseSequence_var new_result = (*remoteDomains_itr).domainManager->allocationMgr()->allocateLocal(remaining_requests, domain_name);
             if (new_result->length() != 0) {
                 for (unsigned int idx=0; idx<new_result->length(); idx++) {
                     ossie::corba::push_back((CF::AllocationManager::AllocationResponseSequence&)result, new_result[idx]);

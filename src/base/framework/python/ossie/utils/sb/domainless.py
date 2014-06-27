@@ -877,25 +877,26 @@ def api(descriptor, objType=None):
 
     print '\nProperties ======================\n'
     table = TablePrinter('id', 'type')
-    for simple in prf.simple:
-        table.append(simple.get_id(),simple.get_type())
-    for simpleseq in prf.simplesequence:
-        table.append(simpleseq.get_id(),simpleseq.get_type())
-    for struct in prf.struct:
-        _id = struct.get_id()
-        kinds = []
-        mode = struct.get_mode()
-        table.append(_id, 'struct')
-        for simple in struct.get_simple():
-            table.append('  '+simple.get_id(),simple.get_type())
-    for struct in prf.structsequence:
-        _id = struct.get_id()
-        kinds = []
-        mode = struct.get_mode()
-        table.append(_id, 'struct sequence')
-        for simple in struct.get_struct().get_simple():
-            table.append('  '+simple.get_id(),simple.get_type())
-    table.write()
+    if prf != None:
+        for simple in prf.simple:
+            table.append(simple.get_id(),simple.get_type())
+        for simpleseq in prf.simplesequence:
+            table.append(simpleseq.get_id(),simpleseq.get_type())
+        for struct in prf.struct:
+            _id = struct.get_id()
+            kinds = []
+            mode = struct.get_mode()
+            table.append(_id, 'struct')
+            for simple in struct.get_simple():
+                table.append('  '+simple.get_id(),simple.get_type())
+        for struct in prf.structsequence:
+            _id = struct.get_id()
+            kinds = []
+            mode = struct.get_mode()
+            table.append(_id, 'struct sequence')
+            for simple in struct.get_struct().get_simple():
+                table.append('  '+simple.get_id(),simple.get_type())
+        table.write()
 
 
 

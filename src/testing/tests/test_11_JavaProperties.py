@@ -85,6 +85,15 @@ class JavaPropertiesTest(scatest.CorbaTestCase):
         self.comp.struct_prop = newvalue
         self.assertEqual(self.comp.struct_prop, newvalue)
 
+        # Working directly with the CORBA values, add an invalid field to the
+        # current value and check that it does not throw an exception.
+        anyval = self.comp.query([CF.DataType('struct_prop', any.to_any(None))])[0]
+        anyval.value._v.append(CF.DataType('invalid_field', any.to_any(None)))
+        try:
+            self.comp.configure([anyval])
+        except CF.PropertySet.InvalidConfiuration:
+            self.fail('Extra struct fields were not silently ignored')
+
     def test_StructSequenceProps(self):
         # Check that the struct sequence matches the expected value from the PRF.
         self.assertEqual(self.comp.structseq_prop, [{'item_string':'default', 'item_long':0}, {'item_string':'default', 'item_long':0}])

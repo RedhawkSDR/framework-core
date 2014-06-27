@@ -50,8 +50,8 @@ class NodeBooterTest(scatest.CorbaTestCase):
             self.assertEqual(domMgr, None)
         except CosNaming.NamingContext.NotFound:
             pass # This exception is expected
-
-        nb = Popen("../../control/framework/nodeBooter -D --domainname %s -debug 9 --nopersist" % (domainName), cwd=scatest.getSdrPath(), shell=True)
+        args = ["../../control/framework/nodeBooter","-D", "--domainname", domainName, "-debug", "9","--nopersist" ]
+        nb = Popen(args, cwd=scatest.getSdrPath() )
         domMgr = self.waitDomainManager(domainMgrURI)
         self.assertNotEqual(domMgr, None)
 
@@ -78,7 +78,8 @@ class NodeBooterTest(scatest.CorbaTestCase):
         except CosNaming.NamingContext.NotFound:
             pass # This exception is expected
 
-        nb = Popen("../../control/framework/nodeBooter -D -debug 9 --nopersist", cwd=scatest.getSdrPath(), shell=True)
+        args = ["../../control/framework/nodeBooter","-D","-debug", "9","--nopersist" ]
+        nb = Popen( args, cwd=scatest.getSdrPath())
         domMgr = self.waitDomainManager(scatest.getDomainMgrURI())
         self.assertNotEqual(domMgr, None)
 
@@ -100,15 +101,17 @@ class NodeBooterTest(scatest.CorbaTestCase):
         a device manager would prevent you from restarting the devicemanager without
         first restarting the domainmanager.  Test that this condition is fixed"""
         #  It is important that these core pieces somewhat work for all the other tests to succeed
-        nb1= Popen("../../control/framework/nodeBooter -D --nopersist", cwd=scatest.getSdrPath(), shell=True)
+        args = ["../../control/framework/nodeBooter","-D","-debug", "9","--nopersist" ]
+        nb1= Popen( args, cwd=scatest.getSdrPath())
         domainName = scatest.getTestDomainName()
 
         domMgr = self.waitDomainManager(scatest.getDomainMgrURI())
         self.assertNotEqual(domMgr, None)
         self.assertEqual(len(domMgr._get_deviceManagers()), 0)
 
-        nb2 = Popen("../../control/framework/nodeBooter -d /nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml --domainname %s" % domainName,
-            cwd=scatest.getSdrPath(), shell=True)
+        args = ["../../control/framework/nodeBooter","-d","/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml",
+                "--domainname", domainName ]
+        nb2 = Popen( args, cwd=scatest.getSdrPath())
         self.assertPredicateWithWait(lambda: len(domMgr._get_deviceManagers()) == 1)
 
         # Wait until the DeviceManager has finished launching its devices
@@ -121,8 +124,9 @@ class NodeBooterTest(scatest.CorbaTestCase):
 
         # Restart the device manager to prove that the shutdown was graceful.
         # In OSSIE 0.7.4 this would fail.
-        nb3 = Popen("../../control/framework/nodeBooter -d /nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml --domainname %s" % domainName,
-            cwd=scatest.getSdrPath(), shell=True)
+        args = ["../../control/framework/nodeBooter","-d","/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml",
+                "--domainname", domainName ]
+        nb3 = Popen(args,  cwd=scatest.getSdrPath())
         self.assertPredicateWithWait(lambda: len(domMgr._get_deviceManagers()) == 1)
 
         # Wait until the DeviceManager has finished launching its devices
@@ -150,14 +154,16 @@ class NodeBooterTest(scatest.CorbaTestCase):
         a device manager would prevent you from restarting the devicemanager without
         first restarting the domainmanager.  Test that this condition is fixed"""
         #  It is important that these core pieces somewhat work for all the other tests to succeed
-        nb1= Popen("../../control/framework/nodeBooter -D --nopersist", cwd=scatest.getSdrPath(), shell=True)
+        args = ["../../control/framework/nodeBooter","-D","--nopersist" ]
+        nb1= Popen( args, cwd=scatest.getSdrPath())
         domainName = scatest.getTestDomainName()
         domMgr = self.waitDomainManager(scatest.getDomainMgrURI())
         self.assertNotEqual(domMgr, None)
         self.assertEqual(len(domMgr._get_deviceManagers()), 0)
 
-        nb2 = Popen("../../control/framework/nodeBooter -d /nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml --domainname %s" % domainName,
-            cwd=scatest.getSdrPath(), shell=True)
+        args = ["../../control/framework/nodeBooter","-d","/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml",
+                "--domainname", domainName ]
+        nb2 = Popen(args,  cwd=scatest.getSdrPath() )
         self.assertPredicateWithWait(lambda: len(domMgr._get_deviceManagers()) == 1)
 
         # Wait until the DeviceManager has finished launching its devices
@@ -170,8 +176,9 @@ class NodeBooterTest(scatest.CorbaTestCase):
 
         # Restart the device manager to prove that the shutdown was graceful.
         # In OSSIE 0.7.4 this would fail.
-        nb3 = Popen("../../control/framework/nodeBooter -d /nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml --domainname %s" % domainName,
-            cwd=scatest.getSdrPath(), shell=True)
+        args = ["../../control/framework/nodeBooter","-d","/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml",
+                "--domainname", domainName ]
+        nb3 = Popen( args,  cwd=scatest.getSdrPath() )
         self.assertPredicateWithWait(lambda: len(domMgr._get_deviceManagers()) == 1)
 
         # Wait until the DeviceManager has finished launching its devices

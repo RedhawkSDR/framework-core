@@ -122,7 +122,11 @@ public abstract class StructDef {
             throw new IllegalArgumentException("Invalid Any type for struct");
         }
         for (final DataType prop : PropertiesHelper.extract(any)) {
-            this.getElement(prop.id).fromAny(prop.value);
+            IProperty field = this.getElement(prop.id);
+            // Ignore unknown fields
+            if (field != null) {
+                field.fromAny(prop.value);
+            }
         }
     }
 

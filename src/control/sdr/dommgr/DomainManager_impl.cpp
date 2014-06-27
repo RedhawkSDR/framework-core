@@ -822,7 +822,11 @@ DomainManager_impl::remoteDomainManagers (void) throw (CORBA::SystemException)
     boost::recursive_mutex::scoped_lock lock(stateAccess);
 
     CF::DomainManager::DomainManagerSequence_var result = new CF::DomainManager::DomainManagerSequence();
-    result->length(0);
+    result->length(this->_registeredDomainManagers.size());
+    DomainManagerList::iterator dmnMgr = this->_registeredDomainManagers.begin();
+    for (CORBA::ULong ii = 0; ii < result->length(); ++ii, ++dmnMgr) {
+        result[ii] = CF::DomainManager::_duplicate(dmnMgr->domainManager);
+    }
 
     TRACE_EXIT(DomainManager_impl)
     return result._retn();

@@ -39,7 +39,6 @@ def _deferred_imports():
     except ImportError, e:
         raise RuntimeError("Missing required package for sandbox audio: '%s'" % e)
 
-from ossie.utils.bulkio import bulkio_data_helpers
 from ossie.utils.log4py import logging
 
 from io_helpers import _SinkBase
@@ -60,16 +59,12 @@ class SoundSink(_SinkBase):
     # it will be swapped to '4321'.
     ENDIANNESS = struct.pack('@i', struct.unpack('<i', '1234')[0])
 
-    def __init__(self, blocksize=4096):
+    def __init__(self):
         """
         Create a new audio sink.
-
-        Arguments:
-          blocksize - Number of samples to read per audio frame
         """
         _deferred_imports()
         _SinkBase.__init__(self, formats=('float', 'double', 'char', 'octet', 'short', 'ushort', 'long', 'ulong'))
-        self.blocksize = blocksize
         self.sample_rate = None
         self.datatype = None
 
@@ -104,18 +99,32 @@ class SoundSink(_SinkBase):
             # assumed, so split off the class name)
             poa_class = getattr(BULKIO__POA, port['portType'].split('.')[-1])
 
-            # Create the correctly-typed array sink
-            self._sink = bulkio_data_helpers.ArraySink(poa_class)
+            # Create a correctly-typed POA adapter to forward CORBA calls to
+            # this object
+            self._sink = poa_class()
+            self._sink.pushPacket = self._pushPacket
+            self._sink.pushSRI = self._pushSRI
 
             self.datatype = port['format']
             self._sinkName = name
 
-        return self._sink.getPort()
+        return self._sink._this()
+
+    def releaseObject(self):
+        super(SoundSink,self).releaseObject()
+        poa = self._sink._default_POA()
+        objid = poa.servant_to_id(self._sink)
+        poa.deactivate_object(objid)
+        self._sink = None
 
     def start(self):
-        self._runThread = threading.Thread(target=self.run)
-        self._runThread.setDaemon(True)
-        self._runThread.start()
+        super(SoundSink,self).start()
+        self.breakBlock = False
+        self.pipeline.set_state(gst.STATE_PLAYING)
+
+    def stop(self):
+        super(SoundSink,self).stop()
+        self.pipeline.set_state(gst.STATE_PAUSED)
 
     def _getCaps(self):
         bits = struct.calcsize(self.datatype) * 8
@@ -129,37 +138,22 @@ class SoundSink(_SinkBase):
                 signed = 'true'
             return gst.Caps('audio/x-raw-int,endianness=%s,signed=%s,width=%d,depth=%d,rate=%d,channels=1' % (self.ENDIANNESS, signed, bits, bits, self.sample_rate))
 
-    def run(self):
-        # Wait for a sink to be created
-        while not self._sink and not self.breakBlock:
-            time.sleep(0.1)
+    def _pushSRI(self, sri):
+        sample_rate = int(1/sri.xdelta)
+        if sample_rate != self.sample_rate:
+            # Sample rate changed, pause playback and update caps
+            self.sample_rate = sample_rate
+            self.pipeline.set_state(gst.STATE_PAUSED)
+            self.source.set_property('caps', self._getCaps())
+            self.pipeline.set_state(gst.STATE_PLAYING)
 
-        while not self.breakBlock and not self._sink.eos():
-            (data, timestamps) = self._sink.retrieveData(length=self.blocksize)
+    def _pushPacket(self, data, timestamp, EOS, streamId):
+        if self.breakBlock:
+            return
 
-            sample_rate = int(1/self._sink.sri.xdelta)
-            if sample_rate != self.sample_rate:
-                # Sample rate changed, pause playback and update caps
-                self.sample_rate = sample_rate
-                self.pipeline.set_state(gst.STATE_PAUSED)
-                self.source.set_property('caps', self._getCaps())
-                self.pipeline.set_state(gst.STATE_PLAYING)
-
-            if self.datatype in ('b', 'B'):
-                # dataChar and dataOctet sinks actually return lists of chars,
-                # but the formats are listed using the signed/unsigned byte
-                # format characters; this makes the test for whether the type
-                # is signed easier, as the format carries both size and sign
-                # information
-                format = 'c'
-            else:
-                format = self.datatype
+        if self.datatype not in ('b', 'B'):
+            # dataChar and dataOctet already provide data as string; all
+            # other formats require packing
+            format = self.datatype
             data = struct.pack('%d%s' % (len(data), format), *data)
-            self.source.emit('push_buffer', gst.Buffer(data))
-
-    def stop(self):
-        super(DataSink,self).stop()
-        if self._sink:
-            self._sink.stop()
-        self._runThread.stop()
-        self.pipeline.set_state(gst.STATE_PAUSED)
+        self.source.emit('push_buffer', gst.Buffer(data))

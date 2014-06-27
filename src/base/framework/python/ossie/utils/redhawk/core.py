@@ -1279,7 +1279,8 @@ class Domain(_CF__POA.DomainManager, object):
         """
         sadList = self._searchFilePattern('/waveforms', 'sad.xml')
         for entry in range(len(sadList)):
-            sad_entry = sadList[entry].split('/')[-2]
+            sad_filename = sadList[entry].split('/')[-1]
+            sad_entry = sad_filename.split('.')[-3]
             if not (sad_entry in self._sads):
                 self._sads.append(sad_entry)
                 self._sadFullPath.append(sadList[entry])

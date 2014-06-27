@@ -1025,7 +1025,9 @@ void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa,
     const char* logging_config_uri = 0;
     int debug_level = -1; // use log level from configuration file 
     std::string logcfg_uri("");
-    std::string dpath("");
+    std::string log_dpath("");
+    std::string log_id("");
+    std::string log_label("");
     bool skip_run = false;
         
     std::map<std::string, char*> execparams;
@@ -1038,8 +1040,10 @@ void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa,
             profile = argv[++i];
         } else if (strcmp("DEVICE_ID", argv[i]) == 0) {
             id = argv[++i];
+            log_id = id;
         } else if (strcmp("DEVICE_LABEL", argv[i]) == 0) {
             label = argv[++i];
+            log_label = label;
         } else if (strcmp("IDM_CHANNEL_IOR", argv[i]) == 0) {
             idm_channel_ior = argv[++i];
         } else if (strcmp("COMPOSITE_DEVICE_IOR", argv[i]) == 0) {
@@ -1049,7 +1053,7 @@ void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa,
         } else if (strcmp("DEBUG_LEVEL", argv[i]) == 0) {
             debug_level = atoi(argv[++i]);
         } else if (strcmp("DOM_PATH", argv[i]) == 0) {
-            dpath = argv[++i];
+            log_dpath = argv[++i];
         } else if (strcmp("SKIP_RUN", argv[i]) == 0){
             skip_run = true;
         } else if (i > 0) {  // any other argument besides the first one is part of the execparams
@@ -1067,7 +1071,7 @@ void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa,
     if ( logging_config_uri ) logcfg_uri=logging_config_uri;
 
     // setup logging context for this resource
-    ossie::logging::ResourceCtxPtr ctx( new ossie::logging::DeviceCtx( label, id, dpath ) );
+    ossie::logging::ResourceCtxPtr ctx( new ossie::logging::DeviceCtx( log_label, log_id, log_dpath ) );
 
     // configure logging
     if (!skip_run){

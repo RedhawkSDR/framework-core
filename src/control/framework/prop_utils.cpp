@@ -362,15 +362,6 @@ bool ossie::checkProcessor(const std::vector<std::string>& processorDeps, const 
         bool matchProcessor = true;
 
         std::string processor = processorDeps[j];
-        bool has_processor = false;
-        // make sure that a processor property exists
-        for (unsigned int i = 0; i < props.size(); i++) {
-        	std::string prop_id(props[i]->getID());
-        	if (prop_id == "DCE:fefb9c66-d14a-438d-ad59-2cfd1adb272b") {
-        		has_processor = true;
-        	}
-        }
-        //if ((processor != "") and (has_processor)) {
         if (processor != "") {
             matchProcessor = false;
             LOG_TRACE(prop_utils, "Attempting to match processor " << processor << " against " << props.size() << " properties")

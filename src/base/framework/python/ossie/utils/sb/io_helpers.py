@@ -93,6 +93,12 @@ def compareSRI(a, b):
             return False
     return True
 
+def _checkComplex(data):
+    for item in data:
+        if isinstance(item, complex):
+            return True
+    return False
+
 class helperBase(object):
     def __init__(self):
         # Create a unique instance identifier.
@@ -887,7 +893,7 @@ class DataSource(_SourceBase):
              loop        = None):
 
         # Detect whether or not any of the data is of type complex
-        _complexData = any(isinstance(x,complex) for x in data)
+        _complexData = _checkComplex(data)
 
         # If complex values are present, interleave the data as scalar values
         # and set the complex flag

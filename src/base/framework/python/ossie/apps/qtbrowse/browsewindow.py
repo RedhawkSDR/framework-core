@@ -60,6 +60,14 @@ def clearChildren (item):
     while item.childCount() > 0:
         item.removeChild(item.child(0))
 
+def setEditable(item, editable):
+    flags = item.flags()
+    if editable:
+        flags = flags | Qt.ItemIsEditable
+    else:
+        flags = flags & ~Qt.ItemIsEditable
+    item.setFlags(flags)
+
 
 TYPE_MAP = { "boolean"  : CORBA.TC_boolean,
              "char"     : CORBA.TC_char,
@@ -650,17 +658,26 @@ class BrowseWindow(BrowseWindowBase):
                         QListViewItem(subitem, field['id'], str(field['value']))
 
     def buildProperty(self, parent, prop):
+        editable = prop.mode != 'readonly'
         if prop.__class__ == prop_helpers.simpleProperty or prop.__class__ == prop_helpers.sequenceProperty:
+            setEditable(parent, editable)
             parent.setText(1, str(prop.queryValue()))
         elif prop.__class__ == prop_helpers.structProperty:
-            for field in prop.members:
-                valueSubItem = self.addTreeWidgetItem(parent, field, str(prop.members[field].queryValue()))
+            for member in prop.members.itervalues():
+                valueSubItem = self.addTreeWidgetItem(parent, member.clean_name, str(member.queryValue()))
+                setEditable(valueSubItem, editable)
         elif prop.__class__ == prop_helpers.structSequenceProperty:
             idx_count = 0
+            # Create a lookup table of friendly property names
+            names = dict((k, v.clean_name) for k, v in prop.structDef.members.iteritems())
             for entry in prop.queryValue():
                 valueSubItem = self.addTreeWidgetItem(parent, '['+str(idx_count)+']')
                 for field in entry:
-                    valueIdxItem = self.addTreeWidgetItem(valueSubItem, field, str(entry[field]))
+                    # Try to map to the clean name, but fall back to the ID
+                    # (in case there's an undocumented value)
+                    name = names.get(field, field)
+                    valueIdxItem = self.addTreeWidgetItem(valueSubItem, name, str(entry[field]))
+                    setEditable(valueIdxItem, editable)
                 idx_count = idx_count + 1
 
     def buildPropertiesListView (self, parent, properties, parentProps=None):
@@ -672,7 +689,10 @@ class BrowseWindow(BrowseWindowBase):
                 valueItem.setFlags(Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled)
             elif prop.__class__ == prop_helpers.structProperty or prop.__class__ == prop_helpers.structSequenceProperty:
                 valueItem = self.addTreeWidgetItem(parent, name)
-            self.buildProperty(valueItem, prop)
+            try:
+                self.buildProperty(valueItem, prop)
+            except:
+                pass
 
     def debug (self, *args):
         if not self.verbose:

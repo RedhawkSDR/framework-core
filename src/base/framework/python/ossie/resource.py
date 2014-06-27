@@ -337,15 +337,21 @@ class Resource(object):
 
     #########################################
     # CF::LogConfiguration
-    def log_level(self):
+    def _get_log_level(self):
         return self.logLevel
 
-    def log_level(self, newLogLevel ):
+    def _set_log_level(self, newLogLevel ):
+        self.log_level( newLogLevel )
+
+    def log_level(self, newLogLevel=None ):
+        if newLogLevel == None:
+            return self.logLevel
         if self.logListenerCallback and callable(self.logListenerCallback.logLevelChanged):
             self.logLevel = newLogLevel;
             self.logListenerCallback.logLevelChanged(self._logid, newLogLevel)
         else:
             ossie.logger.SetLogLevel( self._logid, newLogLevel )
+            self.logLevel = newLogLevel
 
     def setLogLevel(self, logid, newLogLevel ):
         if self.logListenerCallback and callable(self.logListenerCallback.logLevelChanged):
@@ -362,7 +368,9 @@ class Resource(object):
             self.logConfig = new_log_config;
             self.logListenerCallback.logConfigChanged(new_log_config)
         elif new_log_config:
-            self.logConfig = ossie.logger.ConfigureWithContext( new_log_config, self.loggingMacros  )
+            tcfg= ossie.logger.ConfigureWithContext( new_log_config, self.loggingMacros  )
+            if tcfg:
+                self.logConfig = tcfg
         else:
             pass
 
@@ -706,6 +714,8 @@ def start_component(componentclass, interactive_callback=None, thread_policy=Non
             debug_level = execparams.get("DEBUG_LEVEL", None)
             if debug_level != None: debug_level = int(debug_level)
             dpath=execparams.get("DOM_PATH", "")
+            component_identifier=execparams.get("COMPONENT_IDENTIFIER", "")
+            name_binding=execparams.get("NAME_BINDING", "")
 
             ## sets up logging during component startup
             ctx = ossie.logger.ComponentCtx(

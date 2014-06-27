@@ -24,6 +24,7 @@ sdr/dom/components/TestComplexProps/cpp/TestComplexProps
 sdr/dom/components/TestCppProps/TestCppProps
 sdr/dom/components/TestCppPropsRange/cpp/TestCppPropsRange
 sdr/dom/components/TestCppsoftpkgDeps/TestCppsoftpkgDeps
+sdr/dom/components/TestLoggingAPI/cpp/TestLoggingAPI
 sdr/dom/components/ticket2093/cpp/ticket2093
 sdr/dom/domain/
 sdr/dom/mgr/DomainManager*

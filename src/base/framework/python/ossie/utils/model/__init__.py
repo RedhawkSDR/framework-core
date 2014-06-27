@@ -547,6 +547,26 @@ class Service(CorbaObject):
                 if name[5:] == attr.name:
                     self.__setattr__(name, func)
 
+
+    def log_level(self, newLogLevel=None ):
+        if newLogLevel == None:
+            return self.ref._get_log_level( newLogLevel )
+        else:
+            self.ref._set_log_level( newLogLevel )
+
+    def setLogLevel(self, logid, newLogLevel ):
+        self.ref.setLogLevel( logid, newLogLevel )
+
+    def getLogConfig(self):
+        return self.ref.getLogConfig()
+
+    def setLogConfig(self, new_log_config):
+        self.ref.setLogConfig( new_log_config )
+
+    def setLogConfigURL(self, log_config_url):
+        self.ref.setLogConfigURL( log_config_url )
+
+
 class Resource(CorbaObject, PortSupplier, PropertySet):
     __log = log.getChild('Resource')
 
@@ -609,7 +629,24 @@ class Resource(CorbaObject, PortSupplier, PropertySet):
             self.ref.releaseObject()
             # Reset component object reference
             self.ref = None
-       
+
+    def log_level(self, newLogLevel=None ):
+        if newLogLevel == None:
+            return self.ref._get_log_level()
+        else:
+            self.ref._set_log_level( newLogLevel )
+
+    def setLogLevel(self, logid, newLogLevel ):
+        self.ref.setLogLevel( logid, newLogLevel )
+
+    def getLogConfig(self):
+        return self.ref.getLogConfig()
+
+    def setLogConfig(self, new_log_config):
+        self.ref.setLogConfig( new_log_config )
+
+    def setLogConfigURL(self, log_config_url):
+        self.ref.setLogConfigURL( log_config_url )
     
 
 class Device(Resource):

@@ -337,7 +337,9 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dom/components/TestComplexProps/java/Makefile \
                 testing/sdr/dom/components/TestCppPropsRange/cpp/Makefile \
                 testing/sdr/dom/components/TestAllPropTypes/cpp/Makefile \
-                testing/sdr/dom/components/TestAllPropTypes/java/Makefile) 
+                testing/sdr/dom/components/TestAllPropTypes/java/Makefile \
+                testing/sdr/dom/components/TestLoggingAPI/cpp/Makefile \
+                testing/sdr/dom/components/TestLoggingAPI/java/Makefile )
 
 AC_OUTPUT
 

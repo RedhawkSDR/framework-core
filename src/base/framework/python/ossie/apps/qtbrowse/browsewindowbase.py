@@ -152,14 +152,14 @@ class TreeWidget(QTreeWidget):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.contextMenuEvent)
         self.itemDoubleClicked.connect(self.onTreeWidgetItemDoubleClicked)
-        self.currentItemChanged.connect(self.onTreeWidgetCurrentItemChanged)
         self.itemChanged.connect(self.onTreeWidgetItemChanged)
         self.appObject = None
         self.devMgrsObject = None
         self.domMgrObject = None
         self.callbackObject = None
-        self.non_edit_flags = Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled
-        self.edit_flags = Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled|Qt.ItemIsEditable
+
+        # Disable edit triggers so we can control what fields are editable
+        self.setEditTriggers(QTreeView.NoEditTriggers)
 
     def setCallbackObject(self, obj):
         self.callbackObject = obj
@@ -178,25 +178,26 @@ class TreeWidget(QTreeWidget):
             pos = self.mapToGlobal(itemrect.center())
         return pos
 
-    def onTreeWidgetCurrentItemChanged(self, old, new):
-        if old==new:
-            if new.parent() != None and new.parent().text(0) == "Properties":
-                new.setFlags(self.non_edit_flags)
-            if new.parent() != None and new.parent().parent() != None and new.parent().parent().text(0) == "Properties":
-                new.setFlags(self.non_edit_flags)
-            if new.parent() != None and new.parent().parent() != None and new.parent().parent().parent() != None and new.parent().parent().parent().text(0) == "Properties":
-                new.setFlags(self.non_edit_flags)
+    def _isProperty(self, item):
+        if item.parent() is None:
+            return False
+        elif item.parent().text(0) == 'Properties':
+            return True
+        else:
+            return self._isProperty(item.parent())
+
+    def _isEditable(self, item, column):
+        if not item.flags() & Qt.ItemIsEditable:
+            return False
+        elif self._isProperty(item):
+            # Only allow editing of value
+            return column == 1
+        else:
+            return False
 
     def onTreeWidgetItemDoubleClicked(self, item, column):
-        if item.parent() != None and item.parent().text(0) == "Properties":
-            if column == 1:
-                item.setFlags(self.edit_flags)
-        if item.parent() != None and item.parent().parent() != None and item.parent().parent().text(0) == "Properties":
-            if column == 1:
-                item.setFlags(self.edit_flags)
-        if item.parent() != None and item.parent().parent() != None and item.parent().parent().parent() != None and item.parent().parent().parent().text(0) == "Properties":
-            if column == 1:
-                item.setFlags(self.edit_flags)
+        if self._isEditable(item, column):
+            self.editItem(item, column)
 
     def findPropUnderApp(self, propitem): # propitem is the item level where the property id is the text content of column 0
         contname = propitem.parent().parent().parent().parent().text(0)
@@ -271,13 +272,15 @@ class TreeWidget(QTreeWidget):
                     else:
                         itemtext = [y.strip() for y in str(item.text(1))[1:-1].split(',')]
                     if value != itemtext:
-                        setPropSeqValue(prop, str(item.text(1)))
+                        if prop.mode != 'readonly':
+                            setPropSeqValue(prop, str(item.text(1)))
                     item.setText(1,str(prop.queryValue()))
                 else:
                     value = str(prop.queryValue()).lower()
                     itemtext = str(item.text(1)).lower()
                     if value != itemtext:
-                        setPropValue(prop, str(item.text(1)))
+                        if prop.mode != 'readonly':
+                            setPropValue(prop, str(item.text(1)))
                         item.setText(1,str(prop.queryValue()))
         # struct
         if self.checkPropertiesComponents(item.parent()):
@@ -288,7 +291,8 @@ class TreeWidget(QTreeWidget):
                         value = str(prop.members[member].queryValue()).lower()
                         itemtext = str(item.text(1)).lower()
                         if value != item.text(1):
-                            setPropValue(prop.members[member], str(item.text(1)))
+                            if prop.mode != 'readonly':
+                                setPropValue(prop.members[member], str(item.text(1)))
                             item.setText(1,str(prop.members[member].queryValue()))
         # struct sequence
         if item.parent() != None and self.checkPropertiesComponents(item.parent().parent()):
@@ -300,7 +304,8 @@ class TreeWidget(QTreeWidget):
                         value = str(prop[idx].members[member].queryValue()).lower()
                         itemtext = str(item.text(1)).lower()
                         if value != item.text(1):
-                            setPropValue(prop[idx].members[member], str(item.text(1)))
+                            if prop.mode != 'readonly':
+                                setPropValue(prop[idx].members[member], str(item.text(1)))
                             item.setText(1,str(prop[idx].members[member].queryValue()))
 
     def getRefs(self, containers, container_name, compname=None):

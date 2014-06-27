@@ -435,7 +435,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
                 }
                 logger.trace("Configured property: " + prop);
             } catch (Throwable t) {
-                t.printStackTrace();
+                logger.error("Unable to configure property " + dt.id + ": " + t.getMessage());
                 invalidProperties.add(dt);
             }
         }
@@ -921,8 +921,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 	else {
 	    try {
 		String newcfg="";
-		logging.Configure( config_contents, loggingMacros, newcfg );
-
+		newcfg = logging.Configure( config_contents, loggingMacros );
 		this.logConfig = newcfg;
 	    }
 	    catch( Exception e ) {
@@ -1164,16 +1163,16 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 
         orb.run();
 
-        // Destroy the ORB, otherwise the JVM shutdown will take an unusually
-        // long time (~300ms).
-        orb.destroy();
-
         logger.trace("Waiting for shutdown watcher to join");
         try {
-            shutdownWatcher.join(1000);
+            shutdownWatcher.join();
         } catch (InterruptedException e) {
             // PASS
         }
+
+        // Destroy the ORB, otherwise the JVM shutdown will take an unusually
+        // long time (~300ms).
+        orb.destroy();
 
         // Shut down native ORB, if it's running
         omnijni.ORB.shutdown();

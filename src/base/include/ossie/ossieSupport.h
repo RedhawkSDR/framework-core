@@ -145,6 +145,25 @@ namespace ossie
         CF::Properties CLArgs;
     };
 
+    
+    namespace helpers {
+
+      /**
+         is_jarfile 
+     
+         Helper method to test if a file is valid jar file in lue of "file" command
+         due to results differences from various OS distros
+
+         @return 0   contents of jarPath is a valid jar format
+         @return 1   contents of file does not match magic number format
+         @return -1  file acces/open error
+
+      */
+
+      int is_jarfile( const std::string &jarPath );
+
+    };
+
 
 }  // Close ossieSupport Namespace
 #endif

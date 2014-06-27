@@ -74,8 +74,8 @@ public class logging {
 			     String id,
 			     String dpath ) {
 
-	    if ( name != null ) name=name;
-	    if ( id != null ) instance_id=id;
+	    if ( name != null ) this.name=name;
+	    if ( id != null ) this.instance_id=id;
 	    if ( dpath != null ) {
 		dom_path=dpath;
 		String [] seg=_split_path(dpath);
@@ -251,7 +251,7 @@ public class logging {
         String text;
         text = src;
         for( Map.Entry< String, String > entry: ctx.entrySet() ){
-            text.replaceAll( entry.getKey(), entry.getValue() );
+            text = text.replaceAll( entry.getKey(), entry.getValue() );
         };
         return text;
     };
@@ -296,7 +296,7 @@ public class logging {
         tbl.put("@@@DOMAIN.NAME@@@", ctx.domain_name.replaceAll(":", "-" ) );
         tbl.put("@@@NAME@@@",  ctx.name.replaceAll(":", "-" ));
         tbl.put("@@@INSTANCE@@@", ctx.instance_id.replaceAll( ":", "-" ) );
-	tbl.put("@@@PID@@@", GetPid() );
+	      tbl.put("@@@PID@@@", GetPid() );
     };
 
     //
@@ -323,7 +323,7 @@ public class logging {
 	tbl.put("@@@DEVICE_MANAGER.NAME@@@", ctx.device_mgr.replaceAll(":", "-" ) );
 	tbl.put("@@@DEVICE_MANAGER.INSTANCE@@@", ctx.device_mgr_id.replaceAll(":", "-" ) );
 	tbl.put("@@@SERVICE.NAME@@@", ctx.name.replaceAll(":", "-" ) );
-	tbl.put("@@@SERVICE.NAME@@@", ctx.instance_id.replaceAll(":", "-" ) );
+	tbl.put("@@@SERVICE.INSTANCE@@@", ctx.instance_id.replaceAll(":", "-" ) );
 	tbl.put("@@@SERVICE.PID@@@", GetPid() );
 
     };
@@ -414,11 +414,11 @@ public class logging {
     // return default logging configuration information
     //
     public static String  GetDefaultConfig() {
-	String cfg = "log4j.rootLogger=INFO,STDOUT \n " +
-	    "# Direct log messages to STDOUT\n" +
+        String cfg = "log4j.rootLogger=INFO,STDOUT\n " + 
+	    "# Direct log messages to STDOUT\n" + 
 	    "log4j.appender.STDOUT=org.apache.log4j.ConsoleAppender\n" + 
 	    "log4j.appender.STDOUT.layout=org.apache.log4j.PatternLayout\n" +
-	    "log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n \n";
+	    "log4j.appender.STDOUT.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n\n";
 	return cfg;
     };
 
@@ -671,7 +671,7 @@ public class logging {
             if ( fileContents.length() != 0 ) {
                 try {
                     String cfg="";
-                    Configure( fileContents, tbl, cfg );
+                    cfg = Configure( fileContents, tbl );
                 }
                 catch(Exception e  ){
                 }
@@ -695,9 +695,9 @@ public class logging {
     // @param MacroTable set of tokens to match and substitution values
     // @param cfgContents  returns converted form of configure_data if macro definitions were applied
     //
-    public static  void Configure(  String  cfg_data,  MacroTable tbl, String cfgContents ) {
+    public static  String Configure(  String  cfg_data,  MacroTable tbl ) {
 	String fc_raw= cfg_data;
-	String fileContents;
+	String fileContents="";
 	String fname;
 	boolean saveTemp=false;
 	try{
@@ -734,11 +734,11 @@ public class logging {
 		PropertyConfigurator.configure(props);
 	    }
 
-	    cfgContents = fileContents;
 	}
 	catch(Exception e){
 	    // RESOLVE
 	}
+        return fileContents;
     };   
 
 

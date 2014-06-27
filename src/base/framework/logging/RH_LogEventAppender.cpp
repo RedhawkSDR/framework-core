@@ -77,13 +77,21 @@ channelName("LOG_CHANNEL"),
 	_channelName(""),
 	_nameContext(""),
 	_reconnect_retries(10),
-	_reconnect_delay(10)
+	_reconnect_delay(10),
+	_cleanup_event_channel(0)
 {
 
 }
 
 
-RH_LogEventAppender::~RH_LogEventAppender() {}
+RH_LogEventAppender::~RH_LogEventAppender() {
+
+  if ( _event_channel &&  _cleanup_event_channel ) {
+      _event_channel.reset();
+      ossie::event::DeleteEventChannel( _channelName, _nameContext );
+  }
+
+}
 
 
 void RH_LogEventAppender::setOption(const LogString& option, const LogString& value) {
@@ -111,6 +119,13 @@ void RH_LogEventAppender::setOption(const LogString& option, const LogString& va
     else if(StringHelper::equalsIgnoreCase(option, LOG4CXX_STR("ARGV"), LOG4CXX_STR("argv"))) {
       synchronized sync(mutex);
       _args = value;
+    }
+    else if(StringHelper::equalsIgnoreCase(option, LOG4CXX_STR("REMOVE_ON_DESTROY"), LOG4CXX_STR("remove_on_destroy"))) {
+      synchronized sync(mutex);
+      int nds = StringHelper::toInt(value);
+      if ( nds == 0 || nds == 1 ) {
+	_cleanup_event_channel = nds;
+      }
     }
     else if(StringHelper::equalsIgnoreCase(option, LOG4CXX_STR("RETRIES"), LOG4CXX_STR("retries"))) {
       synchronized sync(mutex);

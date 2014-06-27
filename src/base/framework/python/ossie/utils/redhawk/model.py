@@ -184,9 +184,12 @@ class DomainObjectList(object):
             validIdentifiers = set()
 
             for item in items:
-                identifier = self.__identifier(item)
-                validIdentifiers.add(identifier)
-                self.__add(identifier, item, self.__cached)
+                try:
+                    identifier = self.__identifier(item)
+                    validIdentifiers.add(identifier)
+                    self.__add(identifier, item, self.__cached)
+                except:
+                    pass
 
             # Remove stale items.
             for identifier in self.__data.keys():
