@@ -681,6 +681,7 @@ def parseCommandLineArgs(componentclass):
 def start_component(componentclass, interactive_callback=None, thread_policy=None, loggerName=None):   
     execparams, interactive = parseCommandLineArgs(componentclass)
     setupSignalHandlers()
+    orb = None
 
     try:
         try:

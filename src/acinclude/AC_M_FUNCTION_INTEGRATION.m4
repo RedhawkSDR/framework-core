@@ -29,10 +29,11 @@ AC_DEFUN([AC_HEADER_M_FUNCTION],
     dnl look for "include/octave" followed by a "x.y.z" version number.
     dnl "-print -quit" grabs the first result
     dnl "2>/dev/null" gets rid of permission denied warnings
-    M_FUNCTION_INTERPRETER_INCLUDE="-I"`find /usr -regextype posix-extended -regex ".*include\/octave\-[[3-9]]+\.[[4-9]]+\.[[0-9]]+$" -print -quit 2>/dev/null`
+    m_base_include_path=`find /usr -regextype posix-extended -regex ".*include\/octave\-[[3-9]]+\.[[4-9]]+\.[[0-9]]+$" -print -quit 2>/dev/null`
+    M_FUNCTION_INTERPRETER_INCLUDE="-I$m_base_include_path -I${m_base_include_path}/octave"
     ]
   )
-  if test $M_FUNCTION_INTERPRETER_INCLUDE = "-I"; then
+  if test X$m_base_include_path = X; then
       AC_MSG_ERROR(Could not find suitable Octave installation.  Octave-devel v3.4 or greater is required.)
   fi
 AC_SUBST(M_FUNCTION_INTERPRETER_INCLUDE)

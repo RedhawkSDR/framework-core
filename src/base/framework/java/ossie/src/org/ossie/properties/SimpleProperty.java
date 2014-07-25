@@ -78,52 +78,56 @@ public class SimpleProperty<T extends Object> extends LegacyProperty<T> {
         Any deviceCapacity = this.toAny();
         TypeCode tc1 = deviceCapacity.type();
 
-        switch (tc1.kind().value()){
-        case TCKind._tk_ulong: {
-            Number devCapac, rscReq;    
-            devCapac = (Number) AnyUtils.convertAny(deviceCapacity);
-            rscReq = (Number) AnyUtils.convertAny(resourceRequest);
+        try {
+            switch (tc1.kind().value()){
+            case TCKind._tk_ulong: {
+                Number devCapac, rscReq;    
+                devCapac = (Number) AnyUtils.convertAny(deviceCapacity);
+                rscReq = (Number) AnyUtils.convertAny(resourceRequest);
 
-            if (rscReq.intValue() <= devCapac.intValue()){
-                AnyUtils.insertInto(deviceCapacity, devCapac.intValue() - rscReq.intValue(), tc1.kind());
-                this.configure(deviceCapacity);
-                return true;
-            } else {
-                return false;
-            }
-        }
-
-        case TCKind._tk_long: {
-            Number devCapac, rscReq;
-            devCapac = (Number) AnyUtils.convertAny(deviceCapacity);
-            rscReq = (Number) AnyUtils.convertAny(resourceRequest);
-
-            if (rscReq.intValue() <= devCapac.intValue()){
-                AnyUtils.insertInto(deviceCapacity, devCapac.intValue() - rscReq.intValue(), tc1.kind());
-                this.configure(deviceCapacity);
-                return true;
-            } else {
-                return false;
+                if (rscReq.intValue() <= devCapac.intValue()){
+                    AnyUtils.insertInto(deviceCapacity, devCapac.intValue() - rscReq.intValue(), tc1.kind());
+                    this.configure(deviceCapacity);
+                    return true;
+                } else {
+                    return false;
+                }
             }
 
-        }
+            case TCKind._tk_long: {
+                Number devCapac, rscReq;
+                devCapac = (Number) AnyUtils.convertAny(deviceCapacity);
+                rscReq = (Number) AnyUtils.convertAny(resourceRequest);
 
-        case TCKind._tk_short: {
-            Number devCapac, rscReq;
-            devCapac = (Number) AnyUtils.convertAny(deviceCapacity);
-            rscReq = (Number) AnyUtils.convertAny(resourceRequest);
+                if (rscReq.intValue() <= devCapac.intValue()){
+                    AnyUtils.insertInto(deviceCapacity, devCapac.intValue() - rscReq.intValue(), tc1.kind());
+                    this.configure(deviceCapacity);
+                    return true;
+                } else {
+                    return false;
+                }
 
-            if (rscReq.shortValue() <= devCapac.shortValue()){
-                AnyUtils.insertInto(deviceCapacity, devCapac.shortValue() - rscReq.shortValue(), tc1.kind());
-                this.configure(deviceCapacity);
-                return true;
-            } else {
+            }
+
+            case TCKind._tk_short: {
+                Number devCapac, rscReq;
+                devCapac = (Number) AnyUtils.convertAny(deviceCapacity);
+                rscReq = (Number) AnyUtils.convertAny(resourceRequest);
+
+                if (rscReq.shortValue() <= devCapac.shortValue()){
+                    AnyUtils.insertInto(deviceCapacity, devCapac.shortValue() - rscReq.shortValue(), tc1.kind());
+                    this.configure(deviceCapacity);
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            default:
                 return false;
             }
-        }
-
-        default:
-            return false;
+        } catch (final ClassCastException ex) {
+            throw new IllegalArgumentException("Non-numeric value type");
         }
     }
 
@@ -134,34 +138,38 @@ public class SimpleProperty<T extends Object> extends LegacyProperty<T> {
         final Any deviceCapacity = this.toAny();
         TypeCode tc1 = deviceCapacity.type();
 
-        switch(tc1.kind().value()){
-        case TCKind._tk_ulong: {
-            Number devCapac, rscReq;
-            devCapac = (Number) AnyUtils.convertAny(deviceCapacity);
-            rscReq = (Number) AnyUtils.convertAny(resourceRequest);
-            int newCap = devCapac.intValue() + rscReq.intValue();
-            AnyUtils.insertInto(deviceCapacity, devCapac.intValue() + rscReq.intValue(), tc1.kind());
-            break;
-        }
+        try {
+            switch(tc1.kind().value()){
+            case TCKind._tk_ulong: {
+                Number devCapac, rscReq;
+                devCapac = (Number) AnyUtils.convertAny(deviceCapacity);
+                rscReq = (Number) AnyUtils.convertAny(resourceRequest);
+                int newCap = devCapac.intValue() + rscReq.intValue();
+                AnyUtils.insertInto(deviceCapacity, devCapac.intValue() + rscReq.intValue(), tc1.kind());
+                break;
+            }
 
-        case TCKind._tk_long: {
-            Number devCapac, rscReq;
-            devCapac = (Number) AnyUtils.convertAny(deviceCapacity);
-            rscReq = (Number) AnyUtils.convertAny(resourceRequest);
-            AnyUtils.insertInto(deviceCapacity, devCapac.intValue() + rscReq.intValue(), tc1.kind());
-            break;
-        }
+            case TCKind._tk_long: {
+                Number devCapac, rscReq;
+                devCapac = (Number) AnyUtils.convertAny(deviceCapacity);
+                rscReq = (Number) AnyUtils.convertAny(resourceRequest);
+                AnyUtils.insertInto(deviceCapacity, devCapac.intValue() + rscReq.intValue(), tc1.kind());
+                break;
+            }
 
-        case TCKind._tk_short: {
-            Number devCapac, rscReq;
-            devCapac = (Number) AnyUtils.convertAny(deviceCapacity);
-            rscReq = (Number) AnyUtils.convertAny(resourceRequest);
-            AnyUtils.insertInto(deviceCapacity, devCapac.shortValue() + rscReq.shortValue(), tc1.kind());
-            break;
-        }
+            case TCKind._tk_short: {
+                Number devCapac, rscReq;
+                devCapac = (Number) AnyUtils.convertAny(deviceCapacity);
+                rscReq = (Number) AnyUtils.convertAny(resourceRequest);
+                AnyUtils.insertInto(deviceCapacity, devCapac.shortValue() + rscReq.shortValue(), tc1.kind());
+                break;
+            }
 
-        default:
-            break;
+            default:
+                break;
+            }
+        } catch (final ClassCastException ex) {
+            throw new IllegalArgumentException("Non-numeric value type");
         }
         
         if (AnyUtils.compareAnys(deviceCapacity, this.getOrigCap(), "gt")) {

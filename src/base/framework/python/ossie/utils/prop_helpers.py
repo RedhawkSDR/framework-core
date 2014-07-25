@@ -36,7 +36,7 @@ import struct as _struct
 import string as _string
 import operator as _operator
 import warnings as _warnings
-from ossie.utils.type_helpers import OutOfRangeException
+from ossie.utils.type_helpers import OutOfRangeException, EnumValueError
 from ossie.utils.formatting import TablePrinter
 from ossie.parsers.prf import configurationKind as _configurationKind
 SCA_TYPES = globals()['_SCA_TYPES']
@@ -333,7 +333,11 @@ class Property(object):
         self.action = action
         self._parent = parent
         self.defValue = defValue
-        self.kinds = kinds
+        if kinds:
+            self.kinds = kinds
+        else:
+            # Default to "configure" if no kinds given
+            self.kinds = ('configure',)
 
     def _getStructsSimpleProps(self,simple,prop):
         kinds = []
@@ -498,15 +502,12 @@ class Property(object):
 
         try:
             value = self.toAny(value)
-        except ValueError:
+        except EnumValueError, ex:
             # If enumeration value is invalid, list available enumerations.
-            # NB: Should create specific error type for this condition.
-            if not self._enums:
-                raise
-            print 'Could not perform configure on ' + str(self.id) + ', invalid enumeration provided'
+            print 'Could not perform configure on ' + str(ex.id) + ', invalid enumeration provided'
             print "Valid enumerations: "
-            for en in self._enums:
-                print "\t%s=%s" % (en,self._enums[en])
+            for name, value in ex.enums.iteritems():
+                print "\t%s=%s" % (name, value)
             return
         self._configureValue(value)
 
@@ -718,7 +719,7 @@ class simpleProperty(Property):
              return value
          elif value in self._enums.keys():
              return self._enums.get(value)
-         raise ValueError, "Invalid enumeration value '%s'" % (value,)
+         raise EnumValueError(self.id, value, self._enums)
 
     @property
     def structRef(self):
@@ -987,6 +988,7 @@ class structProperty(Property):
 
         # Since members is used for attribute lookup, initialize it first
         self.members = {}
+        self._memberNames = {}
         
         #initialize the parent
         Property.__init__(self, id, type='struct', kinds=kinds, compRef=compRef, mode=mode, action='external', parent=parent,
@@ -1007,6 +1009,12 @@ class structProperty(Property):
             simpleProp = simpleProperty(_id, _type, enum, compRef=compRef, kinds=kinds, defValue=_defValue, parent=self)
             simpleProp.clean_name = _clean_name
             self.members[_id] = simpleProp
+            # Map the clean name back to the ID, and if it was a duplicate
+            # (and thus had a count appended), map the non-unique name as well
+            self._memberNames[_clean_name] = _id
+            baseName = _cleanId(props[simplePropIndex])
+            if baseName != _clean_name:
+                self._memberNames[baseName] = _id
             simplePropIndex += 1
 
     def _getItemKey(self):
@@ -1031,18 +1039,30 @@ class structProperty(Property):
         self._configureValue(structValue)
 
     def _checkValue(self, value):
-        for memberId in value:
-            if memberId not in self.members:
-                raise TypeError, "'%s' is not a member of '%s'" % (memberId, self.id)
+        for memberId in value.iterkeys():
+            self._getMemberId(memberId)
+
+    def _getMemberId(self, name):
+        if name in self.members:
+            return name
+        memberId = self._memberNames.get(name, None)
+        if memberId:
+            return memberId
+        raise TypeError, "'%s' is not a member of '%s'" % (name, self.id)
+
+    def _remapValue(self, value):
+        valout = {}
+        for memberId, memberVal in value.iteritems():
+            memberId = self._getMemberId(memberId)
+            valout[memberId] = memberVal
+        return valout
 
     def _getMember(self, name):
-        for member in self.members.itervalues():
-            if name == member.clean_name:
-                return member
-        for member in self.members.itervalues():
-            if name in member.clean_name and _duplicateNames[self.compRef._refid].has_key(name):
-                return member              
-        return None
+        memberId = self._memberNames.get(name, None)
+        if memberId:
+            return self.members[memberId]
+        else:
+            return None
 
     @property
     def structSeqRef(self):
@@ -1077,8 +1097,9 @@ class structProperty(Property):
         if not isinstance(value, dict):
             raise TypeError, 'configureValue() must be called with dict instance as second argument (got ' + str(type(value))[7:-2] + ' instance instead)'
 
-        # Check that the value passed in matches the struct definition
-        self._checkValue(value)
+        # Remap the value keys, which may be names, to IDs; this also checks
+        # that the value passed in matches the struct definition
+        value = self._remapValue(value)
 
         # Convert struct items into CF::Properties.
         props = []
@@ -1094,11 +1115,19 @@ class structProperty(Property):
         dictionary as the passed in value
         '''
         if value is not None:
-            # Fill in any missing member values from the current value.
-            self._checkValue(value)
-            for propId, propVal in self.queryValue().items():
-                if propId not in value:
-                    value[propId] = propVal
+            # Remap the keys in the dictionary to ensure that they are all
+            # valid member IDs, throwing an exception if there are any unknown
+            # IDs; this will also make a copy, so that any updates do not
+            # affect the passed-in value
+            value = self._remapValue(value)
+            
+            # We now know that all the keys in the dictionary are also in the
+            # members dictionary, so if the sizes are not equal, there are
+            # values missing; query the current value for those
+            if len(value) != len(self.members):
+                current = self.queryValue()
+                current.update(value)
+                value = current
         super(structProperty,self).configureValue(value)
     
     def __str__(self):
@@ -1132,14 +1161,29 @@ class structProperty(Property):
         then try to configure the simple property.  This will result in a
         configure of the entire struct in the simpleProperty class
         '''
-        if name != 'members':
+        if name not in ('members', '_memberNames'):
             member = self._getMember(name)
             if member is not None:
                 member.configureValue(value)
                 return
         super(structProperty, self).__setattr__(name, value)
-            
-        
+
+    # Container methods
+    # __getitem__ and __contains__ are implemented in Property
+    __setitem__ = Property.proxy_modifier_function(_operator.setitem)
+    __iter__ = Property.proxy_operator(iter)
+
+    # Dict methods
+    has_key = Property.proxy_operator(dict.has_key)
+    items = Property.proxy_operator(dict.items)
+    iteritems = Property.proxy_operator(dict.iteritems)
+    iterkeys = Property.proxy_operator(dict.iterkeys)
+    itervalues = Property.proxy_operator(dict.itervalues)
+    keys = Property.proxy_operator(dict.keys)
+    update = Property.proxy_modifier_function(dict.update)
+    values = Property.proxy_operator(dict.values)
+
+
 class structSequenceProperty(sequenceProperty):
     # All struct sequences have the same CORBA typecode.
     typecode = _CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0")
@@ -1163,7 +1207,6 @@ class structSequenceProperty(sequenceProperty):
         #initialize the parent
         sequenceProperty.__init__(self, id, valueType='structSeq', kinds=kinds, compRef=compRef, defValue=defValue, mode=mode)
         self.valueType = valueType
-        self._structseqkinds = kinds
         self.props = props
         # Create a property for the struct definition.
         self.structDef = structProperty(id=structID, valueType=self.valueType, kinds=kinds,props=props, compRef=self.compRef, mode=self.mode)
@@ -1183,7 +1226,7 @@ class structSequenceProperty(sequenceProperty):
 
     def __getitem__(self, index):
         # The actual struct property doesn't exist, so create and return it
-        return structProperty(id=self.structDef.id, valueType=self.valueType, kinds=self._structseqkinds, props=self.props, compRef=self.compRef,
+        return structProperty(id=self.structDef.id, valueType=self.valueType, kinds=self.kinds, props=self.props, compRef=self.compRef,
                               parent=self, structSeqIdx=index, mode=self.mode)
     
     def __setitem__(self, index, value):

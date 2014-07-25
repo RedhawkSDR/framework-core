@@ -1,3 +1,22 @@
+/*
+ * This file is protected by Copyright. Please refer to the COPYRIGHT file
+ * distributed with this source distribution.
+ *
+ * This file is part of REDHAWK core.
+ *
+ * REDHAWK core is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see http://www.gnu.org/licenses/.
+ */
 /**************************************************************************
 
     This is the component code. This file contains the child class where
@@ -159,7 +178,12 @@ TestLoggingAPI_i::~TestLoggingAPI_i()
 ************************************************************************************************/
 int TestLoggingAPI_i::serviceFunction()
 {
-    LOG_DEBUG(TestLoggingAPI_i, "serviceFunction() example log message");
+    LOG_FATAL(TestLoggingAPI_i, "serviceFunction() msg: FATAL");
+    LOG_ERROR(TestLoggingAPI_i, "serviceFunction() msg: ERROR");
+    LOG_WARN(TestLoggingAPI_i, "serviceFunction() msg: WARN");
+    LOG_INFO(TestLoggingAPI_i, "serviceFunction() msg: INFO");
+    LOG_DEBUG(TestLoggingAPI_i, "serviceFunction() msg: DEBUG");
+    LOG_TRACE(TestLoggingAPI_i, "serviceFunction() msg: TRACE");
     
     return NOOP;
 }

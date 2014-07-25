@@ -746,6 +746,64 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.readonly_structseq[0].readonly_s, 'read only')
         self.assertEquals(comp.readonly_structseq[1].readonly_s, 'struct seq property')
 
+    def test_DuplicateNames(self):
+        """
+        Tests that duplicate property names that belong to different scopes
+        (e.g., fields in different structs) can be accessed by the base name,
+        rather than the "uniquified" version.
+        """
+        comp = sb.launch('struct_fields')
+
+        comp.first.first = -1
+        comp.first.second = 'TEST'
+        comp.second.first = 1e6
+        comp.second.second = True
+
+        for prop in comp.query([]):
+            if prop.id == 'first':
+                value = comp.first.fromAny(prop.value)
+                self.assertEqual(value['first::first'], -1)
+                self.assertEqual(value['first::second'], 'TEST')
+            elif prop.id == 'second':
+                value = comp.second.fromAny(prop.value)
+                self.assertEqual(value['second::first'], 1e6)
+                self.assertEqual(value['second::second'], True)
+
+    def test_StructSetFromDict(self):
+        """
+        Tests that setting struct properties from dictionaries supports both
+        names and IDs for the keys.
+        """
+        comp = sb.launch('struct_fields')
+
+        # The first property gets names, the second gets IDs
+        props = {'first':{'first':-1, 'second':'TEST'},
+                 'second':{'second::first':1e6, 'second::second':True}}
+        comp.configure(props)
+
+        for prop in comp.query([]):
+            if prop.id == 'first':
+                value = comp.first.fromAny(prop.value)
+                self.assertEqual(value['first::first'], props['first']['first'])
+                self.assertEqual(value['first::second'], props['first']['second'])
+            elif prop.id == 'second':
+                value = comp.second.fromAny(prop.value)
+                first = 'second::first'
+                self.assertEqual(value[first], props['second'][first])
+                second = 'second::second'
+                self.assertEqual(value[second], props['second'][second])
+
+    def test_DefaultPropertyKinds(self):
+        """
+        Try to set a property of each type (simple, struct, etc.) to ensure
+        that if the PRF does not specify a kind, it defaults to configure.
+        """
+        comp = sb.launch('default_kinds')
+
+        comp.long_prop = 1
+        comp.floatseq_prop = [1,2,3]
+        comp.struct_prop.string_field = 'TEST'
+        comp.endpoints = [{}]
 
     def test_Services(self):
         service = sb.launch(sb.getSDRROOT() + '/dev/services/BasicService_java/BasicService_java.spd.xml')

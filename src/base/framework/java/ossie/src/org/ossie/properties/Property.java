@@ -29,6 +29,9 @@ import org.omg.CORBA.Any;
 import org.omg.CORBA.ORB;
 import org.omg.CORBA.TCKind;
 
+import CF.DevicePackage.InvalidCapacity;
+import CF.DevicePackage.InvalidState;
+
 /**
  * Internal class
  *
@@ -118,7 +121,7 @@ abstract class Property<T extends Object> implements IProperty {
      * Attempts to allocate capacity from this property. If an allocator is
      * set, the operation is delgated to the allocator.
      */
-    public boolean allocate(Any any) {
+    public boolean allocate(Any any) throws InvalidCapacity, InvalidState {
         if (!isAllocatable()) {
             throw new UnsupportedOperationException("Property " + this.id + " is not allocatable");
         }
@@ -143,7 +146,7 @@ abstract class Property<T extends Object> implements IProperty {
      * Attempts to deallocate capacity from this property. If an allocator is
      * set, the operation is delgated to the allocator.
      */
-    public void deallocate(Any any) {
+    public void deallocate(Any any) throws InvalidCapacity, InvalidState {
         if (!isAllocatable()) {
             throw new UnsupportedOperationException("Property " + this.id + " is not allocatable");
         }

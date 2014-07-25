@@ -98,7 +98,11 @@ def typeStructDict(structDef, structDict):
             if _type == 'string' or _type == 'char':
                 retval[member] = structDict[member]
             elif _type == 'boolean':
-                bval = structDict[member].lower()
+                bval = structDict[member]
+                try:
+                    bval = bval.lower()
+                except:
+                    pass
                 if bval == 'false':
                     retval[member] = False
                 elif bval == 'true':
@@ -276,8 +280,14 @@ class TreeWidget(QTreeWidget):
                             setPropSeqValue(prop, str(item.text(1)))
                     item.setText(1,str(prop.queryValue()))
                 else:
-                    value = str(prop.queryValue()).lower()
-                    itemtext = str(item.text(1)).lower()
+                    value = str(prop.queryValue())
+                    itemtext = str(item.text(1))
+                    if prop.type == 'boolean':
+                        try:
+                            value = value.lower()
+                            itemtext = itemtext.lower()
+                        except:
+                            pass
                     if value != itemtext:
                         if prop.mode != 'readonly':
                             setPropValue(prop, str(item.text(1)))
@@ -288,8 +298,14 @@ class TreeWidget(QTreeWidget):
                 appname, compname, propname, prop = self.findPropUnderApp(item.parent())
                 for member in prop.members:
                     if item.text(0) == member:
-                        value = str(prop.members[member].queryValue()).lower()
-                        itemtext = str(item.text(1)).lower()
+                        value = str(prop.members[member].queryValue())
+                        itemtext = str(item.text(1))
+                        if prop.members[member].type == 'boolean':
+                            try:
+                                value = value.lower()
+                                itemtext = itemtext.lower()
+                            except:
+                                pass
                         if value != item.text(1):
                             if prop.mode != 'readonly':
                                 setPropValue(prop.members[member], str(item.text(1)))
@@ -301,8 +317,14 @@ class TreeWidget(QTreeWidget):
                 idx = int(item.parent().text(0)[1:-1])
                 for member in prop.structDef.members:
                     if item.text(0) == member:
-                        value = str(prop[idx].members[member].queryValue()).lower()
-                        itemtext = str(item.text(1)).lower()
+                        value = str(prop[idx].members[member].queryValue())
+                        itemtext = str(item.text(1))
+                        if prop[idx].members[member].type == 'boolean':
+                            try:
+                                value = value.lower()
+                                itemtext = itemtext.lower()
+                            except:
+                                pass
                         if value != item.text(1):
                             if prop.mode != 'readonly':
                                 setPropValue(prop[idx].members[member], str(item.text(1)))

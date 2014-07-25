@@ -148,8 +148,13 @@ def typeString(t):
         return '::'.join(t.scopedName())
 
 def returnType(t):
-    if isSequence(t) or isStruct(t):
+    if isSequence(t):
         return typeString(t) + '*'
+    if isStruct(t):    
+        if structAllPrimatives(t) :
+            return typeString(t)
+        else:
+            return typeString(t) + '*'
     elif isInterface(t):
         return typeString(t) + '_ptr'
     elif isAny(t):

@@ -20,7 +20,7 @@
 
 import unittest, os
 from _unitTestHelpers import scatest
-from omniORB import URI, any
+from omniORB import CORBA, URI, any
 from ossie.cf import CF
 
 class LoadableDeviceTest(scatest.CorbaTestCase):
@@ -535,3 +535,18 @@ class LoadableDeviceTest(scatest.CorbaTestCase):
     def test_py_FileChanged(self):
         self._test_FileChanged("BasicTestDevice_node", "BasicTestDevice1")
 
+    def test_cpp_SharedLibraryLoad(self):
+        # Ensure the expected device is available
+        devBooter, devMgr = self.launchDeviceManager(dcdFile="/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(devMgr, None)
+        self.assertEqual(len(devMgr._get_registeredDevices()), 1)
+        device = devMgr._get_registeredDevices()[0]
+
+        # Load a "shared library" with a very short basename to check that the
+        # C++ LoadableDevice base class does not regress; previously, it tried
+        # some string operations that assumed the filename was at least 4
+        # characters long.
+        try:
+            device.load(self._domMgr._get_fileMgr(), "/mgr", CF.LoadableDevice.SHARED_LIBRARY)
+        except CORBA.COMM_FAILURE:
+            self.fail('Device died loading shared library with short path')

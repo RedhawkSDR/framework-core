@@ -20,6 +20,12 @@
 
 class OutOfRangeException(Exception): pass
 
+class EnumValueError(ValueError):
+    def __init__(self, identifier, value, enums):
+        ValueError.__init__(self, "Invalid enumeration value '%s'" % (value,))
+        self.id = identifier
+        self.enums = enums
+
 __INT_RANGE = {
     'octet':     (0, 255),
     'short':     (-2**15, 2**15-1),

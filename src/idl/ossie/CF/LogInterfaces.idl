@@ -1,3 +1,22 @@
+/*
+ * This file is protected by Copyright. Please refer to the COPYRIGHT file
+ * distributed with this source distribution.
+ *
+ * This file is part of REDHAWK core.
+ *
+ * REDHAWK core is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see http://www.gnu.org/licenses/.
+ */
 #ifndef MODULE_CF_LOGGING_INF_IDL
 #define MODULE_CF_LOGGING_INF_IDL
 
@@ -6,6 +25,7 @@
 //  Common Namespace for RedHawk Logging interface...in lue of CosLwLog
 //
 //
+
 module CF {
 
   
@@ -13,10 +33,26 @@ module CF {
   };
 
 
-  interface  LogLevels {
-    //
-    // log4cxx levels
-    //
+  //
+  // CosLwLog Levels 
+  //
+  interface SysLogLevels {
+    const long SECURITY_ALARM = 1;
+    const long FAILURE_ALARM = 2;
+    const long DEGRADED_ALARM =3;
+    const long EXCEPTION_ERROR =4;
+    const long FLOW_CONTROL_ERROR =5;
+    const long RANGE_ERROR =6;
+    const long USAGE_ERROR = 7;
+    const long ADMINISTRATIVE_EVENT = 8;
+    const long STATISTIC_REPORT = 9;
+  };
+
+
+  //
+  // log4cxx levels
+  //
+  interface  LogLevels : SysLogLevels {
     const long   OFF =  60000 ;
     const long   FATAL = 50000;
     const long   ERROR = 40000;
@@ -25,17 +61,32 @@ module CF {
     const long   DEBUG = 10000;
     const long   TRACE = 5000;
     const long   ALL = 0;
-
   };
 
   //
   // RH Logging event level types
   //
-  typedef long         LogLevel;
+  typedef long               LogLevel;
+
+  //
+  // record id used to report records from a logging service
+  //
+  typedef unsigned long long RecordId;
+
+  enum LogOperationalState {  LOG_DISABLED, LOG_ENABLED};
+  enum LogAdministrativeState { LOG_LOCKED, LOG_UNLOCKED };
+  enum LogFullAction {WRAP, HALT};
+
+  struct LogTime {
+    long seconds;
+    long nanoseconds;
+  };
+
+  struct LogAvailabilityStatus{
+    boolean off_duty;
+    boolean log_full;
+  };
   
-  //
-  //RESOVLE - struct LogEvent: CosLwLog::ProducerLogRecord   for 1.11
-  //
 
   struct LogEvent {
     string   producerId;                      // resource instance identifier
@@ -46,9 +97,48 @@ module CF {
     string   msg;
   };
 
+
+  struct LogRecord {
+    RecordId    id;                          
+    LogTime     time;
+    LogEvent    info;
+  };
+
+  typedef sequence< LogRecord > LogRecordSequence;
+
   typedef sequence< LogEvent > LogEventSequence;
 
   typedef sequence< LogLevel > LogLevelSequence;
+
+  interface LogStatus {
+    unsigned long long get_max_size();
+    unsigned long long get_current_size();
+    unsigned long long get_n_records();
+    LogFullAction get_log_full_action();
+    LogAdministrativeState get_administrative_state();
+    LogOperationalState get_operational_state();
+    LogAvailabilityStatus get_availability_status();
+  };
+
+  interface LogAdministrator: LogStatus {
+    void  set_max_size(in unsigned long long size);
+    void  set_log_full_action(in LogFullAction action);
+    void  set_administrative_state( in LogAdministrativeState state );
+    void  clear_log();
+    void  destroy();
+  };
+
+  /**
+   * LogProducer
+   *  
+   * Allow a resource to publish logging event records to a consumer that is attached
+   * to this interface.
+   *
+   */
+  interface LogProducer : LogStatus {
+    oneway void write_records(in LogEventSequence records);
+    oneway void write_record(in LogEventSequence record);
+  };
 
   /**
    * LogEventConsumer
@@ -56,7 +146,6 @@ module CF {
    * This interface defines the basic logging event retrival methods from a resource.  
    * 
    */
-  
   interface LogEventConsumer {
 
     /**
@@ -93,7 +182,7 @@ module CF {
      *
      */
     LogEventSequence retrieve_records_by_date( inout unsigned long howMany, 
-				       in   unsigned long long to_timeStamp );
+                                               in   unsigned long long to_timeStamp );
 
     /**
      * retrieve_records_from_date
@@ -112,7 +201,7 @@ module CF {
      *
      */
     LogEventSequence retrieve_records_from_date( inout unsigned long howMany, 
-				       in   unsigned long long from_timeStamp );
+                                                 in   unsigned long long from_timeStamp );
     /**
      * retrieve_records_by_level
      *
@@ -125,9 +214,6 @@ module CF {
     //in   LogLevelSequence valueList ); 
 
   };
-
-
-
 
   typedef string   LogConfigID;
   
@@ -154,11 +240,6 @@ module CF {
      * @return string   str:///string   contents of configuration as string stream object
      */
     string getLogConfig( in LogConfigID  config_id ) raises (CF::UnknownIdentifier);
-
-    /**
-     * getConfig - Get a logging configuration information for a key or path
-     */
-    //CF::File getConfigFile(in LogConfigID  config_id );
 
   };
 
@@ -204,4 +285,4 @@ module CF {
 
 };
 
-#endif // MODULE_CF_LOGGING_INF_IDL
+#endif

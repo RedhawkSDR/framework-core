@@ -1,3 +1,22 @@
+/*
+ * This file is protected by Copyright. Please refer to the COPYRIGHT file
+ * distributed with this source distribution.
+ *
+ * This file is part of REDHAWK core.
+ *
+ * REDHAWK core is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see http://www.gnu.org/licenses/.
+ */
 #include <sys/time.h>
 #include <algorithm>
 #include <sstream>
@@ -492,16 +511,22 @@ namespace rh_logger {
     uint64_t ts;
     gettimeofday(&tmp_time, &tmp_tz);
     ts = tmp_time.tv_sec;
-    return  log_records.push_back( LogRecord( name, level, ts, msg) );
+    boost::mutex::scoped_lock(log_mutex);
+    log_records.push_back( LogRecord( name, level, ts, msg) );
+    return;
   }
 
   void Logger::appendLogRecord( const LogRecord &rec)  {
-      return  log_records.push_back(rec);
+    boost::mutex::scoped_lock(log_mutex);
+    log_records.push_back(rec);
+    return; 
   }
 
   void Logger::setLogRecordLimit( size_t newSize ) {
-      return  log_records.set_capacity(newSize);
-    }
+      boost::mutex::scoped_lock(log_mutex);
+      log_records.set_capacity(newSize);
+      return;
+  }
   
   size_t  Logger::getLogRecordLimit() {
       return log_records.size();

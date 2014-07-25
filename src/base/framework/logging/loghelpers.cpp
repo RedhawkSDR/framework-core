@@ -809,6 +809,9 @@ namespace ossie {
 
     }
 
+    void Terminate() {
+       log4cxx::LogManager::shutdown();
+   }
 
 
   }; // end of logging namespace

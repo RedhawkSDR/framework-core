@@ -502,8 +502,8 @@ public abstract class Device extends Resource implements DeviceOperations {
                             logger.debug("Cannot allocate capacity. Insufficient capacity for property '" + cap.id + "'");
                             return false;
                         }
-                    } catch (final IllegalArgumentException ex) {
-                        throw new InvalidCapacity("Invalid value type", new DataType[]{cap});
+                    } catch (final RuntimeException ex) {
+                        throw new InvalidCapacity(ex.getMessage(), new DataType[]{cap});
                     }
                 }
             }
@@ -546,9 +546,7 @@ public abstract class Device extends Resource implements DeviceOperations {
                 final IProperty property = this.propSet.get(cap.id);
                 try {
                     property.deallocate(cap.value);
-                } catch (final IllegalArgumentException ex) {
-                    throw new InvalidCapacity("Invalid value type", new DataType[]{cap});
-                } catch (final ArithmeticException ex) {
+                } catch (final RuntimeException ex) {
                     throw new InvalidCapacity(ex.getMessage(), new DataType[]{cap});
                 }
             }

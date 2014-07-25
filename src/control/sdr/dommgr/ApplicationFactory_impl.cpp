@@ -102,6 +102,7 @@ static void rotateDeviceList(DeviceList& devices, const std::string& identifier)
 
 static std::vector<std::string> mergeProcessorDeps(const ossie::ImplementationInfo::List& implementations)
 {
+    // this function merges the overlap in processors between the different components that have been selected
     std::vector<std::string> processorDeps;
     for (ossie::ImplementationInfo::List::const_iterator impl = implementations.begin(); impl != implementations.end(); ++impl) {
         const std::vector<std::string>& implDeps = (*impl)->getProcessorDeps();
@@ -110,9 +111,17 @@ static std::vector<std::string> mergeProcessorDeps(const ossie::ImplementationIn
                 // No prior processor dependencies, so overwrite
                 processorDeps = implDeps;
             } else {
+                std::vector<std::string> toremove;
+                toremove.resize(0);
                 for (std::vector<std::string>::iterator proc = processorDeps.begin(); proc != processorDeps.end(); ++proc) {
                     if (std::find(implDeps.begin(), implDeps.end(), *proc) == implDeps.end()) {
-                        proc = processorDeps.erase(proc);
+                        toremove.push_back(*proc);
+                    }
+                }
+                for (std::vector<std::string>::iterator _rem = toremove.begin(); _rem != toremove.end(); ++_rem) {
+                    std::vector<std::string>::iterator proc = std::find(processorDeps.begin(), processorDeps.end(), *_rem);
+                    if (proc != processorDeps.end()) {
+                        processorDeps.erase(proc);
                     }
                 }
             }
@@ -123,6 +132,7 @@ static std::vector<std::string> mergeProcessorDeps(const ossie::ImplementationIn
 
 static std::vector<ossie::SPD::NameVersionPair> mergeOsDeps(const ossie::ImplementationInfo::List& implementations)
 {
+    // this function merges the overlap in operating systems between the different components that have been selected
     std::vector<ossie::SPD::NameVersionPair> osDeps;
     for (ossie::ImplementationInfo::List::const_iterator impl = implementations.begin(); impl != implementations.end(); ++impl) {
         const std::vector<ossie::SPD::NameVersionPair>& implDeps = (*impl)->getOsDeps();
@@ -131,9 +141,17 @@ static std::vector<ossie::SPD::NameVersionPair> mergeOsDeps(const ossie::Impleme
                 // No prior OS dependencies, so overwrite
                 osDeps = implDeps;
             } else {
+                std::vector<ossie::SPD::NameVersionPair> toremove;
+                toremove.resize(0);
                 for (std::vector<ossie::SPD::NameVersionPair>::iterator pair = osDeps.begin(); pair != osDeps.end(); ++pair) {
                     if (std::find(implDeps.begin(), implDeps.end(), *pair) == implDeps.end()) {
-                        pair = osDeps.erase(pair);
+                        toremove.push_back(*pair);
+                    }
+                }
+                for (std::vector<ossie::SPD::NameVersionPair>::iterator _rem = toremove.begin(); _rem != toremove.end(); ++_rem) {
+                    std::vector<ossie::SPD::NameVersionPair>::iterator pair = std::find(osDeps.begin(), osDeps.end(), *_rem);
+                    if (pair != osDeps.end()) {
+                        osDeps.erase(pair);
                     }
                 }
             }
@@ -747,41 +765,47 @@ void createHelper::_removeUnmatchedImplementations(std::vector<ossie::Implementa
         ossie::ImplementationInfo::List::iterator impl = (*impl_list).begin();
         std::vector<ossie::SPD::NameVersionPair> reference_pair = (*impl)->getOsDeps();
         std::vector<std::string> reference_procs = (*impl)->getProcessorDeps();
+        bool os_init_to_zero = (reference_pair.size()==0);
+        bool proc_init_to_zero = (reference_procs.size()==0);
         impl++;
         bool match = true;
         while (impl != (*impl_list).end()) {
             std::vector<ossie::SPD::NameVersionPair> pair = (*impl)->getOsDeps();
             std::vector<std::string> procs = (*impl)->getProcessorDeps();
-            if (pair.size() == 0) {
-                if (reference_pair.size() != 0) {match = false;break;}
-            }
-            if (reference_pair.size() == 0) {
-                if (pair.size() != 0) {match = false;break;}
-            }
-            if (procs.size() == 0) {
-                if (reference_procs.size() != 0) {match = false;break;}
-            }
-            if (reference_procs.size() == 0) {
-                if (procs.size() != 0) {match = false;break;}
-            }
-            bool at_least_one_match = false;
-            for (std::vector<ossie::SPD::NameVersionPair>::iterator ref=reference_pair.begin(); ref<reference_pair.end(); ref++) {
-                for (std::vector<ossie::SPD::NameVersionPair>::iterator cur=pair.begin(); cur<pair.end(); cur++) {
-                    if ((*ref)==(*cur)) {
-                        at_least_one_match = true;
-                        break;
+            bool os_must_match = false;
+            bool proc_must_match = false;
+            if (os_init_to_zero)
+                os_must_match = false;
+            if (proc_init_to_zero)
+                proc_must_match = false;
+            if ((reference_pair.size() != 0) and (pair.size() != 0)) {os_must_match = true;}
+            if ((reference_procs.size() != 0) and (procs.size() != 0)) {proc_must_match = true;}
+            // if os must match (because both lists are non-zero length), check that at least one of the sets matches
+            if (os_must_match) {
+                bool at_least_one_match = false;
+                for (std::vector<ossie::SPD::NameVersionPair>::iterator ref=reference_pair.begin(); ref<reference_pair.end(); ref++) {
+                    for (std::vector<ossie::SPD::NameVersionPair>::iterator cur=pair.begin(); cur<pair.end(); cur++) {
+                        if ((*ref)==(*cur)) {
+                            at_least_one_match = true;
+                            break;
+                        }
                     }
                 }
+                if (!at_least_one_match) {match = false;break;}
             }
-            if (!at_least_one_match) {match = false;break;}
-            for (std::vector<std::string>::iterator ref=reference_procs.begin(); ref<reference_procs.end(); ref++) {
-                for (std::vector<std::string>::iterator cur=procs.begin(); cur<procs.end(); cur++) {
-                    if ((*ref)==(*cur)) {
-                        at_least_one_match = true;
+            // if proc must match (because both lists are non-zero length), check that at least one of the sets matches
+            if (proc_must_match) {
+                bool at_least_one_match = false;
+                for (std::vector<std::string>::iterator ref=reference_procs.begin(); ref<reference_procs.end(); ref++) {
+                    for (std::vector<std::string>::iterator cur=procs.begin(); cur<procs.end(); cur++) {
+                        if ((*ref)==(*cur)) {
+                            at_least_one_match = true;
+                        }
                     }
                 }
+                if (!at_least_one_match) {match = false;break;}
             }
-            if (!at_least_one_match) {match = false;break;}
+            // reduce the number of os that can be used as a reference to the overlapping set
             if (reference_pair.size()>pair.size()) {
                 for (std::vector<ossie::SPD::NameVersionPair>::iterator ref=reference_pair.begin(); ref<reference_pair.end(); ref++) {
                     bool found_match = false;
@@ -795,6 +819,7 @@ void createHelper::_removeUnmatchedImplementations(std::vector<ossie::Implementa
                     }
                 }
             }
+            // reduce the number of procs that can be used as a reference to the overlapping set
             if (reference_procs.size()>procs.size()) {
                 for (std::vector<std::string>::iterator ref=reference_procs.begin(); ref<reference_procs.end(); ref++) {
                     bool found_match = false;
@@ -805,6 +830,24 @@ void createHelper::_removeUnmatchedImplementations(std::vector<ossie::Implementa
                     }
                     if (not found_match) {
                         reference_procs.erase(ref);
+                    }
+                }
+            }
+            // if the initial entity did not have an os, add it if the current one holds an os requirement
+            if (os_init_to_zero) {
+                if (pair.size() != 0) {
+                    os_init_to_zero = false;
+                    for (std::vector<ossie::SPD::NameVersionPair>::iterator cur=pair.begin(); cur<pair.end(); cur++) {
+                        reference_pair.push_back((*cur));
+                    }
+                }
+            }
+            // if the initial entity did not have a proc, add it if the current one holds a proc requirement
+            if (proc_init_to_zero) {
+                if (procs.size() != 0) {
+                    proc_init_to_zero = false;
+                    for (std::vector<std::string>::iterator cur=procs.begin(); cur<procs.end(); cur++) {
+                        reference_procs.push_back((*cur));
                     }
                 }
             }
@@ -898,6 +941,7 @@ void createHelper::_placeHostCollocation(const SoftwareAssembly::HostCollocation
             }
         }
     }
+    
 
     for (size_t index = 0; index < res_vec.size(); ++index) {
         // Merge processor and OS dependencies from all implementations

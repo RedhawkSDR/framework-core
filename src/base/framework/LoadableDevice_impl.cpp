@@ -291,11 +291,12 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
             if (lastSlash == std::string::npos) { // there are no slashes in the name
                 std::string fileOrDirectoryName = relativeFileName;
                 std::string relativePath = "";
-                unsigned int fileNameSize = fileOrDirectoryName.size();
-                if (!fileOrDirectoryName.compare(fileNameSize-4, 4, ".pyc")) {
-                    fileOrDirectoryName.erase(fileNameSize-4, 4);
-                } else if (!fileOrDirectoryName.compare(fileNameSize-3, 3, ".py")) {
-                    fileOrDirectoryName.erase(fileNameSize-3, 3);
+                std::string::size_type iext = fileOrDirectoryName.find_last_of(".");
+                if (iext != std::string::npos) {
+                    std::string extension = fileOrDirectoryName.substr(iext);
+                    if ((extension == ".py") || (extension == ".pyc")) {
+                        fileOrDirectoryName.erase(iext);
+                    }
                 }
                 std::string command = "python -c \"import ";
                 command += fileOrDirectoryName;
@@ -327,11 +328,12 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                 std::string fileOrDirectoryName = "";
                 std::string relativePath = "";
                 fileOrDirectoryName.assign(relativeFileName, lastSlash+1, relativeFileName.size()-lastSlash);
-                unsigned int fileNameSize = fileOrDirectoryName.size();
-                if (!fileOrDirectoryName.compare(fileNameSize-4, 4, ".pyc")) {
-                    fileOrDirectoryName.erase(fileNameSize-4, 4);
-                } else if (!fileOrDirectoryName.compare(fileNameSize-3, 3, ".py")) {
-                    fileOrDirectoryName.erase(fileNameSize-3, 3);
+                std::string::size_type iext = fileOrDirectoryName.find_last_of(".");
+                if (iext != std::string::npos) {
+                    std::string extension = fileOrDirectoryName.substr(iext);
+                    if ((extension == ".py") || (extension == ".pyc")) {
+                        fileOrDirectoryName.erase(iext);
+                    }
                 }
                 relativePath.assign(relativeFileName, 0, lastSlash);
                 if (chdir(relativePath.c_str())) {

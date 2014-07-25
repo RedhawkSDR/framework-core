@@ -872,9 +872,10 @@ PushEventSupplier::PushEventSupplier(   const std::string &channelName,
   PushEventSupplier::~PushEventSupplier( ) {
 
     LNDEBUG("PushEventSupplier", "DTOR - START." );
-
+    CORBA::ORB_ptr orb = ossie::corba::Orb();
     int tries = retries;
-    if ( CORBA::is_nil(proxy_for_consumer) == false ) {
+    if ( CORBA::is_nil(proxy_for_consumer) == false && 
+         CORBA::is_nil(orb) == false ) {
      // Disconnect - retrying on Comms Failure.
      do {
         try {
@@ -1063,8 +1064,10 @@ PushEventSupplier::PushEventSupplier(   const std::string &channelName,
   PushEventConsumer::~PushEventConsumer( ) {
 
     LNDEBUG("PushEventConsumer", "DTOR - START." );
+    CORBA::ORB_ptr orb = ossie::corba::Orb();
     int tries = retries;
-    if ( CORBA::is_nil(proxy_for_supplier) == false ) {
+    if ( CORBA::is_nil(proxy_for_supplier) == false && 
+         CORBA::is_nil(orb) == false ) {
      // Disconnect - retrying on Comms Failure.
      do {
         try {
@@ -1097,8 +1100,10 @@ PushEventSupplier::PushEventSupplier(   const std::string &channelName,
   void   PushEventConsumer::detach() {
 
     LNDEBUG("PushEventConsumer", "DETTACH - START." );
+    CORBA::ORB_ptr orb = ossie::corba::Orb();
     int tries = retries;
-    if ( CORBA::is_nil(proxy_for_supplier) == false ) {
+    if ( CORBA::is_nil(proxy_for_supplier) == false &&
+         CORBA::is_nil(orb) == false ) {
       // Disconnect - retrying on Comms Failure.
       do {
         try {
@@ -1132,10 +1137,12 @@ PushEventSupplier::PushEventSupplier(   const std::string &channelName,
     if ( consumer == NULL ) return;
 
     LNDEBUG("PushEventConsumer", "Register Consumer." );    
+    CORBA::ORB_ptr orb = ossie::corba::Orb();
     CosEventComm::PushConsumer_var sptr = consumer->_this();
     int tries = retries;
 
-    if ( CORBA::is_nil(proxy_for_supplier) == false ) {
+    if ( CORBA::is_nil(proxy_for_supplier) == false && 
+         CORBA::is_nil(orb) ==  false ) {
       // now attach supplier to the proxy
       do {
 	try {

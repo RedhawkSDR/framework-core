@@ -20,7 +20,10 @@
 
 package org.ossie.properties;
 
+import CF.DevicePackage.InvalidCapacity;
+import CF.DevicePackage.InvalidState;
+
 public interface Allocator<E> {
-    public boolean allocate(E capacity);
-    public void deallocate(E capacity);
+    public boolean allocate(E capacity) throws InvalidCapacity, InvalidState;
+    public void deallocate(E capacity) throws InvalidCapacity, InvalidState;
 }

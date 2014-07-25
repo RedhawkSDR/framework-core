@@ -338,6 +338,11 @@ namespace ossie
     //
     void Configure( const std::string  &configure_data, const MacroTable &ctx, std::string &cfgContents );   
 
+    //
+    // Terminate
+    //   Teriminate the logging context because we are shutting down
+    //   
+    void Terminate();
 
 
   };  // end logging interface
