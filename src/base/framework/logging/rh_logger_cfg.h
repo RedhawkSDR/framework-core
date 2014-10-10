@@ -166,10 +166,10 @@ namespace rh_logger {
 
   
 
-  // 
-  namespace LogManager {
-       void         shutdown();
-  }
+  class  LogManager {
+  public:
+       static void         shutdown() {};
+  };
 
   // 
   // Needs to be removed if we provide a more functional 

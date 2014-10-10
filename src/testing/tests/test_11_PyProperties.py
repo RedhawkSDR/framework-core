@@ -23,6 +23,7 @@ from _unitTestHelpers import scatest
 from ossie.cf import CF
 from omniORB import CORBA, any
 import os
+from ossie.utils import sb
 
 class PyPropertiesTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -609,3 +610,55 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                                                 ))
                     self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [my_structseq])
 
+    def test_QueryBadValue(self):
+        """
+        Tests that invalid values in Python components do not break query()
+        """
+        self.assertNotEqual(self._domMgr, None, "DomainManager not available")
+        self.assertNotEqual(self._devMgr, None, "DeviceManager not available")
+
+        self._app = self._launchApp('TestPythonProps')
+        self.assertNotEqual(self._app, None, "Application not created")
+
+        pre_props = self._app.query([])
+
+        # Set the internal variable to an invalid value
+        # NB: In the future, we may disallow the ability to set properties from
+        #     invalid values; this test will need to be updated
+        self._app.configure([CF.DataType('test_float', any.to_any('bad string'))])
+
+        # Try querying the broken property to check that the query doesn't
+        # throw an unexpected exception
+        self._app.query([CF.DataType('test_float', any.to_any(None))])
+
+        # Try querying all properties to ensure that the invalid value does not
+        # derail the entire query
+        post_props = self._app.query([])
+        self.assertEqual(len(pre_props), len(post_props))
+
+class PyCallbacksTest(scatest.CorbaTestCase):
+    def test_Callbacks(self):
+        comp = sb.launch('PyCallbacks')
+
+        # Clear callback log
+        comp.callbacks_run = []
+
+        # Simple
+        count = comp.count + 1
+        comp.count = count
+        self.assertEqual(comp.callbacks_run.count('count'), 1)
+
+        # Simple sequence
+        constellation = comp.constellation[::2]
+        comp.constellation = constellation
+        self.assertEqual(comp.callbacks_run.count('constellation'), 1)
+
+        # Struct
+        station = {'name': 'WYPR', 'frequency': 88.1}
+        comp.station = station
+        self.assertEqual(comp.callbacks_run.count('station'), 1)
+
+        # Struct sequence
+        servers = comp.servers + [{'host': 'localhost', 'port':8080}]
+        comp.servers = servers
+        self.assertEqual(comp.callbacks_run.count('servers'), 1)

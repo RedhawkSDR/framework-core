@@ -24,12 +24,14 @@ from _unitTestHelpers import scatest
 from xml.dom import minidom
 import omniORB
 from omniORB import URI, any, CORBA
-from ossie.cf import CF
+from ossie.cf import CF, CF__POA
 import tempfile
 import threading
 import CosEventComm,CosEventComm__POA
 import CosEventChannelAdmin
+from ossie import properties
 from ossie.cf import StandardEvent
+from ossie.utils import uuid
 
 
 class Supplier_i(CosEventComm__POA.PushSupplier):
@@ -53,6 +55,17 @@ class Consumer_i(CosEventComm__POA.PushConsumer):
 
     def disconnect_push_consumer (self):
         pass
+
+class TestDomainManager(CF__POA.DomainManager):
+    def __init__(self, name):
+        self._name = name
+        self._identifier = 'DCE:%s' % (uuid.uuid4(),)
+
+    def _get_name(self):
+        return self._name
+
+    def _get_identifier(self):
+        return self._identifier
 
 # if SIGKILL is used (simulating a nodeBooter unexpected abort)
 # the next attempt to communicate with the domain manager will
@@ -879,6 +892,79 @@ class DomainPersistenceTest(scatest.CorbaTestCase):
 
         # Make sure configure doesn't fail
         newApp.configure(props)
+
+    def test_RegisteredDomains(self):
+        nb, domMgr = self.launchDomainManager(endpoint='giop:tcp::5679', dbURI=self._dbfile, debug=self.debuglevel)
+
+        testMgr1 = TestDomainManager('test1')
+        domMgr.registerRemoteDomainManager(testMgr1._this())
+        
+        testMgr2 = TestDomainManager('test2')
+        domMgr.registerRemoteDomainManager(testMgr2._this())
+
+        remotes = [r._get_identifier() for r in domMgr._get_remoteDomainManagers()]
+        self.assertEqual(len(remotes), 2)
+        self.assert_(testMgr1._get_identifier() in remotes)
+        self.assert_(testMgr2._get_identifier() in remotes)
+
+        # Kill the DomainManager
+        os.kill(nb.pid, signal.SIGTERM)
+        if not self.waitTermination(nb):
+            self.fail("Domain Manager Failed to Die")
+        
+        # Deactivate the second domain manager to check that its connection is
+        # not restored
+        poa = testMgr2._default_POA()
+        oid = poa.servant_to_id(testMgr2)
+        poa.deactivate_object(oid)
+
+        # Re-launch and check that the remote domain is restored
+        nb, domMgr = self.launchDomainManager(endpoint='giop:tcp::5679', dbURI=self._dbfile, debug=self.debuglevel)
+        remotes = domMgr._get_remoteDomainManagers()
+        self.assertEqual(len(remotes), 1)
+        self.assertEqual(remotes[0]._get_identifier(), testMgr1._get_identifier())
+
+    def test_Allocations(self):
+        nb, domMgr = self.launchDomainManager(endpoint="giop:tcp::5679", dbURI=self._dbfile)
+        self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
+
+        # Make a couple of different allocations
+        allocMgr = domMgr._get_allocationMgr()
+        memCapacityId = 'DCE:8dcef419-b440-4bcf-b893-cab79b6024fb'
+        bogoMipsId = 'DCE:5636c210-0346-4df7-a5a3-8fd34c5540a8'
+        nicCapacityId = 'DCE:4f9a57fc-8fb3-47f6-b779-3c2692f52cf9'
+        allocations = { 'test1': {memCapacityId:2048, nicCapacityId:0.125},
+                        'test2': {bogoMipsId:10000}}
+        requests = [CF.AllocationManager.AllocationRequestType(k, properties.props_from_dict(v), [], []) for k,v in allocations.iteritems()]
+        results = allocMgr.allocate(requests)
+        self.assertEqual(len(results), len(requests))
+
+        # Save the allocation state prior to termination
+        pre = dict((al.allocationID, al) for al in allocMgr.allocations([]))
+        self.assertEqual(len(pre), len(results))
+
+        # Kill the DomainManager
+        os.kill(nb.pid, signal.SIGTERM)
+        if not self.waitTermination(nb):
+            self.fail("Domain Manager Failed to Die")
+
+        # Re-launch and check that the allocation state remains the same;
+        # implicitly tests that the AllocationManager reference is persistent
+        self.launchDomainManager(endpoint='giop:tcp::5679', dbURI=self._dbfile, debug=self.debuglevel)
+        post = dict((al.allocationID, al) for al in allocMgr.allocations([]))
+        self.assertEqual(len(pre), len(post))
+        self.assertEqual(pre.keys(), post.keys())
+        for allocId, status in pre.iteritems():
+            self._compareAllocation(status, post[allocId])
+
+    def _compareAllocation(self, lhs, rhs):
+        self.assertEqual(lhs.allocationID, rhs.allocationID)
+        self.assertEqual(lhs.requestingDomain, rhs.requestingDomain)
+        lhsProps = properties.props_to_dict(lhs.allocationProperties)
+        rhsProps = properties.props_to_dict(rhs.allocationProperties)
+        self.assertEqual(lhsProps, rhsProps)
+        self.assert_(lhs.allocatedDevice._is_equivalent(rhs.allocatedDevice))
+        self.assert_(lhs.allocationDeviceManager._is_equivalent(rhs.allocationDeviceManager))
 
 # Only run these tests if persistence was enabled at compile time
 if not scatest.persistenceEnabled():

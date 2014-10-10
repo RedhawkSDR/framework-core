@@ -179,11 +179,13 @@ if test "x$want_boost" = "xyes"; then
         dnl check for the EPEL 5 version of boost
         if test "x$succeeded" != "xyes"; then
             for libsubdir in $libsubdirs ; do
-                if ls "/usr/$libsubdirs/boost141/libboost_"* >/dev/null 2>&1 ; then break; fi
+                if ls "/usr/$libsubdir/boost141/libboost_"* >/dev/null 2>&1 ; then
+                    BOOST_LDFLAGS="-L/usr/$libsubdir/boost141"
+                    BOOST_CPPFLAGS="-I/usr/include/boost141"
+                    try_compile_boost
+                    if test "x$succeeded" == "xyes"; then break; fi
+                fi
             done
-            BOOST_LDFLAGS="-L/usr/$libsubdir/boost141"
-            BOOST_CPPFLAGS="-I/usr/include/boost141"
-            try_compile_boost
         fi
     fi
 

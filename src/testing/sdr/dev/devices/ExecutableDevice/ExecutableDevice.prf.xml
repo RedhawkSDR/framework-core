@@ -44,4 +44,20 @@ with this program.  If not, see http://www.gnu.org/licenses/.
         <kind kindtype="allocation"/>
         <action type="eq"/>
     </simple>
+    <simple id="LD_LIBRARY_PATH" mode="readonly" type="string">
+        <kind kindtype="configure"/>
+        <action type="external"/>
+    </simple>
+    <simple id="PYTHONPATH" mode="readonly" type="string">
+        <kind kindtype="configure"/>
+        <action type="external"/>
+    </simple>
+    <simple id="CLASSPATH" mode="readonly" type="string">
+        <kind kindtype="configure"/>
+        <action type="external"/>
+    </simple>
+    <simple id="OCTAVE_PATH" mode="readonly" type="string">
+        <kind kindtype="configure"/>
+        <action type="external"/>
+    </simple>
 </properties>

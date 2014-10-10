@@ -101,9 +101,14 @@ namespace ossie {
         CF::DeviceManager_var allocationDeviceManager;
     };
 
+    struct RemoteAllocationType : public AllocationType {
+        CF::AllocationManager_var allocationManager;
+    };
+
     typedef std::pair<std::string, boost::shared_ptr<DeviceNode> > AllocationResult;
 
     typedef std::map<std::string, AllocationType> AllocationTable;
+    typedef std::map<std::string, RemoteAllocationType> RemoteAllocationTable;
 
     class AllocationManagerNode {
         public:
@@ -231,6 +236,13 @@ namespace boost {
         }
 
         template<class Archive>
+        void serialize(Archive& ar, ossie::DomainManagerNode& node, const unsigned int version) {
+            ar & (node.identifier);
+            ar & (node.name);
+            ar & (node.domainManager);
+        }
+
+        template<class Archive>
         void serialize(Archive& ar, ossie::DeviceNode& node, const unsigned int version) {
             ar & (node.identifier);
             ar & (node.label);
@@ -329,6 +341,12 @@ namespace boost {
             ar & (at.allocationProperties);
             ar & (at.allocatedDevice);
             ar & (at.allocationDeviceManager);
+        }
+
+        template<class Archive>
+        void serialize(Archive& ar, ossie::RemoteAllocationType& at, const unsigned int version) {
+            serialize(ar, static_cast<ossie::AllocationType&>(at), version);
+            ar & (at.allocationManager);
         }
 
         template<class CorbaClass, class Archive>
@@ -566,6 +584,17 @@ namespace boost {
         }
 
         template<class Archive>
+        void save(Archive& ar, const CF::DomainManager_var& obj, const unsigned int version) {
+            std::string ior = ::ossie::corba::objectToString(obj);
+            ar << ior; 
+        }
+
+        template<class Archive>
+        void load(Archive& ar, CF::DomainManager_var& obj, const unsigned int version) {
+            obj = loadAndNarrow<CF::DomainManager>(ar, version);
+        }
+
+        template<class Archive>
         void save(Archive& ar, const CF::AllocationManager_var& obj, const unsigned int version) {
             std::string ior = ::ossie::corba::objectToString(obj);
             ar << ior;
@@ -621,6 +650,7 @@ BOOST_SERIALIZATION_SPLIT_FREE(CF::Port_var);
 BOOST_SERIALIZATION_SPLIT_FREE(CF::Resource_var);
 BOOST_SERIALIZATION_SPLIT_FREE(CF::Device_var);
 BOOST_SERIALIZATION_SPLIT_FREE(CF::DeviceManager_var);
+BOOST_SERIALIZATION_SPLIT_FREE(CF::DomainManager_var);
 BOOST_SERIALIZATION_SPLIT_FREE(CF::AllocationManager_var);
 BOOST_SERIALIZATION_SPLIT_FREE(CosEventChannelAdmin::EventChannel_var);
 BOOST_SERIALIZATION_SPLIT_FREE(CORBA::Object_var);
@@ -642,6 +672,7 @@ namespace ossie {
             void open(const std::string& locationUrl) throw (PersistenceException) {
                 if (_isopen) return;
 
+                boost::mutex::scoped_lock lock(_bdbLock);
                 try {
                     db.open(NULL, locationUrl.c_str(), NULL, DB_HASH, DB_CREATE, 0);
                     _isopen = true;
@@ -689,6 +720,7 @@ namespace ossie {
     
             void close() {
                 if (!_isopen) return;
+                boost::mutex::scoped_lock lock(_bdbLock);
                 try {
                     db.close(0);
                 } catch ( DbException &e ) {
@@ -701,6 +733,7 @@ namespace ossie {
                 if (!_isopen) return;
 
                 Dbt k((void*)key.c_str(), key.size() + 1);
+                boost::mutex::scoped_lock lock(_bdbLock);
                 try { 
                     db.del(NULL, &k, 0);
                     db.sync(0);
@@ -713,6 +746,7 @@ namespace ossie {
             void storeRaw(const std::string& key, const std::string& value) {
                 Dbt k((void*)key.c_str(), key.size() + 1);
                 Dbt v((void*)value.c_str(), value.size() + 1);
+                boost::mutex::scoped_lock lock(_bdbLock);
                 try { 
                     db.put(NULL, &k, &v, 0);
                     db.sync(0);
@@ -724,6 +758,7 @@ namespace ossie {
             bool fetchRaw(const std::string& key, std::string& value, bool consume) {
                 Dbt k((void*)key.c_str(), key.size() + 1);
                 Dbt v;
+                boost::mutex::scoped_lock lock(_bdbLock);
                 if (db.get(NULL, &k, &v, 0) != DB_NOTFOUND) {;
                     value = static_cast<char*>(v.get_data());
                     if (consume) {
@@ -739,6 +774,7 @@ namespace ossie {
         private:
             Db db;
             bool _isopen;
+            boost::mutex _bdbLock;
     };
 
     typedef _PersistenceStore<BdbPersistenceBackend> PersistenceStore;
@@ -891,6 +927,7 @@ namespace ossie {
             void open(const std::string& locationUrl) throw (PersistenceException) {
                 if (db != NULL) return;
 
+                boost::mutex::scoped_lock lock(_sqliteLock);
                 if (sqlite3_open(locationUrl.c_str(), &db) == SQLITE_OK) {
                     createTable();
                 } else {
@@ -937,8 +974,9 @@ namespace ossie {
     
             void close() {
                 if (db == NULL) return;
+                boost::mutex::scoped_lock lock(_sqliteLock);
                 sqlite3_close(db);
-                    db = NULL;
+                db = NULL;
             }
 
             void del(const std::string& key) {
@@ -946,6 +984,7 @@ namespace ossie {
                 oss << "DELETE FROM domainmanager WHERE key=\"" << key << "\";";
                 std::string deleteStatement = oss.str();
                 char* errmsg;
+                boost::mutex::scoped_lock lock(_sqliteLock);
                 if (sqlite3_exec(db, deleteStatement.c_str(), NULL, NULL, &errmsg) != SQLITE_OK) {
                     throw PersistenceException(std::string("delete: ") + errmsg);
                 }
@@ -973,6 +1012,7 @@ namespace ossie {
                 std::string insertStatement = "INSERT OR REPLACE INTO domainmanager (key, value) VALUES(?,?);";
                 sqlite3_stmt* statement;
                 const char* tail;
+                boost::mutex::scoped_lock lock(_sqliteLock);
                 if (sqlite3_prepare(db, insertStatement.c_str(), -1, &statement, &tail)) {
                     throw PersistenceException(std::string("prepare: ") + sqlite3_errmsg(db));
                 }
@@ -992,6 +1032,7 @@ namespace ossie {
                 std::string selectStatement = "SELECT value FROM domainmanager WHERE key=?;";
                 sqlite3_stmt* statement;
                 const char* tail;
+                boost::mutex::scoped_lock lock(_sqliteLock);
                 if (sqlite3_prepare(db, selectStatement.c_str(), -1, &statement, &tail)) {
                     throw PersistenceException(std::string("prepare: ") + sqlite3_errmsg(db));
                 }
@@ -1006,11 +1047,18 @@ namespace ossie {
                 sqlite3_finalize(statement);
                 if (status == SQLITE_ERROR) {
                     throw PersistenceException(std::string("step: ") + sqlite3_errmsg(db));
+                } else if (status != SQLITE_ROW) {
+                    return false;
                 }
-                return (status == SQLITE_ROW);
+                if (consume) {
+                    std::string deleteStatement = "DELETE FROM domainmanager WHERE key=\"" + key + "\";";
+                    sqlite3_exec(db, deleteStatement.c_str(), NULL, NULL, NULL);
+                }
+                return true;
             }
 
         private:
+            boost::mutex _sqliteLock;
             sqlite3* db;
     };
 

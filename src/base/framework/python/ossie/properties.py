@@ -232,7 +232,7 @@ def _convertComplexToCFComplex(data, type_):
 
 def to_tc_value(data, type_):
     ''' Returns an AnyType. '''
-    if data == None:
+    if data is None:
         return any.to_any(None)
 
     if type_.find('complex') == 0:
@@ -241,25 +241,28 @@ def to_tc_value(data, type_):
  
         # get the CF typecode
         tc = getTypeCode(type_)
-       
-    else:
-        # non-complex types
-        # get CORBA typecode
-        tc, data = any._to_tc_value(data)
-        # first getting the appropriate TypeCode based on the type_ attribute
-        pytype = getPyType(type_)
-        tc = getTypeCode(type_)
-        if type(data) != pytype:
+        return CORBA.Any(tc, data)
+    elif __TYPE_MAP.has_key(type_):
+        # If the typecode is known, use that
+        pytype, tc = __TYPE_MAP[type_]
+        # Convert to the correct Python type, if necessary
+        if not isinstance(data, pytype):
             data = to_pyvalue(data, type_)
-    return CORBA.Any(tc, data)
+        return CORBA.Any(tc, data)
+    else:
+        # Unknown type, let omniORB decide
+        return any.to_any(data)
 
 def struct_fields(value):
-    clazz = type(value)
+    if isinstance(value, types.ClassType) or hasattr(value, '__bases__'):
+        clazz = value
+    else:
+        clazz = type(value)
     # Try to get the correct field ordering, if it is available, otherwise
     # just look at the class dictionary to find the fields.
     fields = getattr(clazz, '__fields', None)
     if fields is None:
-        fields = filter(lambda x: isinstance(x, simple_property), clazz.__dict__.values())
+        fields = [p for p in clazz.__dict__.itervalues() if isinstance(p, simple_property)]
     return fields
 
 def struct_values(value):
@@ -276,18 +279,15 @@ def struct_values(value):
             result.append((attr.id_, field_value))
     return result
 
-def struct_to_props(value):
-    result = []
-    # Try to get the correct field ordering, if it is available, otherwise
-    # just look at the class dictionary to find the fields.
-    fields = struct_fields(value)
-    for attr in fields:
-        field_value = attr.get(value)
-        result.append(CF.DataType(id=attr.id_, value=attr._toAny(field_value)))
-    return result
+def struct_to_props(value, fields=None):
+    if fields is None:
+        # Try to get the correct field ordering, if it is available, otherwise
+        # just look at the class dictionary to find the fields.
+        fields = struct_fields(value)
+    return [CF.DataType(attr.id_, attr._toAny(attr.get(value))) for attr in fields]
 
-def struct_to_any(value):
-    return props_to_any(struct_to_props(value))
+def struct_to_any(value, fields=None):
+    return props_to_any(struct_to_props(value, fields))
 
 def struct_from_props(value, structdef):
     # Create an uninitialized struct definition
@@ -1383,7 +1383,9 @@ class structseq_property(_sequence_property):
     def _toAny(self, value):
         if value is None:
             return any.to_any(value)
-        result = [struct_to_any(item) for item in value]
+        # Get the struct field format once for all items
+        fields = struct_fields(self.structdef)
+        result = [struct_to_any(item, fields) for item in value]
         return CORBA.Any(CORBA._tc_AnySeq, result)
     
     def compareValues(self, oldValue, newValue):
@@ -1438,6 +1440,7 @@ class PropertyStorage:
         self._loadProperties()
         self._loadTuples(propertydefs)
         self._changeListeners = {}
+        self._genericListeners = []
 
 
     _ID_IDX = 0
@@ -1541,9 +1544,9 @@ class PropertyStorage:
         oldvalue = prop.get(self.__resource)
         prop.configure(self.__resource, value, operator)
         newvalue = prop.get(self.__resource)
-        for callback, filter in self._changeListeners.items():
-            if filter and not id_ in filter:
-                continue
+        if id_ in self._changeListeners:
+            self._changeListeners[id_](id_, oldvalue, newvalue)
+        for callback in self._genericListeners:
             callback(id_, oldvalue, newvalue)
         
     def splitId(self, propid):
@@ -1696,10 +1699,30 @@ class PropertyStorage:
             return str(value)
 
     def addChangeListener(self, callback, filter=None):
-        self._changeListeners[callback] = filter
+        if filter is None:
+            # Backwards compatibility: if no filter given, callback applies to
+            # all properties
+            self._genericListeners.append(callback)
+        else:
+            # Turn single property ID into a list of one
+            if isinstance(filter, basestring):
+                filter = [filter]
+
+            # Associate the property IDs with the callback
+            for propid in filter:
+                self._changeListeners[propid] = callback
 
     def removeChangeListener(self, callback):
-        del self._changeListeners[callback]
+        if isinstance(callback, basestring):
+            # Caller provided a property ID
+            del self._changeListeners[callback]
+        else:
+            # Remove any by-id callbacks that use the same function
+            for propid in self._changeListeners.keys():
+                if self._changeListeners[propid] == callback:
+                    del self._changeListeners[propid]
+            # Filter out generic callbacks that use the same function
+            self._genericListeners = [cb for cb in self._genericListeners if cb != callback]
     
     def setPropertyChangeEvent(self, callback):
         self.__propertyChangeEvent = callback

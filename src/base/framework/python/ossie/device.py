@@ -69,6 +69,16 @@ def _getCallback(obj, methodName):
         else:
             return None
 
+def _checkpg(pid):
+    """
+    Checks if any members of a process group are alive.
+    """
+    try:
+        os.killpg(pid, 0)
+        return True
+    except OSError:
+        return False
+
 class Device(resource.Resource):
     """A basic device implementation that deals with the core SCA requirements for a device.
     You are required to implement:
@@ -750,6 +760,7 @@ class LoadableDevice(Device):
                 os.rename(localPath, modifiedName)
                 f = open(localPath, "w+")
             else:
+                fileToLoad.close();
                 raise
         fileSize = fileToLoad.sizeOf()
         floorFileTransferSize=1024*1024
@@ -862,7 +873,6 @@ class LoadableDevice(Device):
 
     def unload(self, fileName):
         self._log.debug("unload(%s)", fileName)
-        self._log.debug("%s", self._applications)
         # SR:435
         if self.isLocked(): raise CF.Device.InvalidState("System is locked down")
         if self.isDisabled(): raise CF.Device.InvalidState("System is disabled")
@@ -874,7 +884,7 @@ class ExecutableDevice(LoadableDevice):
     STOP_SIGNALS = ((signal.SIGINT, 2),
                     (signal.SIGQUIT, 3),
                     (signal.SIGTERM, 15),
-                    (signal.SIGKILL, 0))
+                    (signal.SIGKILL, 0.1))
 
     def __init__(self, devmgr, identifier, label, softwareProfile, compositeDevice, execparams, propertydefs=(),loggerName=None):
         LoadableDevice.__init__(self, devmgr, identifier, label, softwareProfile, compositeDevice, execparams, propertydefs,loggerName=loggerName)
@@ -997,15 +1007,16 @@ class ExecutableDevice(LoadableDevice):
         # SR:456
         sp = self._applications[pid]
         for sig, timeout in self.STOP_SIGNALS:
-            if sp.poll() is not None:
+            if not _checkpg(pid):
                 break
+            self._log.debug('Sending signal %d to process group %d', sig, pid)
             try:
                 # the group id is used to handle child processes (if they exist) of the component being cleaned up
                 os.killpg(pid, sig)
             except OSError:
                 pass
             giveup_time = time.time() + timeout
-            while sp.poll() is None and time.time() < giveup_time:
+            while _checkpg(pid) and time.time() < giveup_time:
                 time.sleep(0.1)
         try:
             del self._applications[pid]

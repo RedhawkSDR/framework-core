@@ -154,7 +154,8 @@ public:
     
     void removeApplication(std::string app_id);
 
-    void updateAllocations(std::map<std::string, ossie::AllocationType> &ref_allocations, std::map<std::string, CF::AllocationManager_var> &ref_remoteAllocations);
+    void updateLocalAllocations(const ossie::AllocationTable& localAllocations);
+    void updateRemoteAllocations(const ossie::RemoteAllocationTable& remoteAllocations);
 
     const std::string& getDomainManagerName (void) const {
         return _domainName;

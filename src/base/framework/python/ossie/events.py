@@ -60,6 +60,11 @@ class PropertyEventSupplier(CF__POA.Port):
         self.sendPropertiesEvent((id,))
 
     def sendPropertiesEvent(self, ids=None):
+        # Avoid marshalling overhead if there are no connections
+        if not self._outPorts:
+            self._component._log.debug("Skipping sendPropertiesEvent (no connections)")
+            return
+
         if ids is None:
             ids = [prop.id_ for prop in self._component._props.values() if prop.isSendEventChange()]
         self._component._log.debug("sendPropertiesEvent %s", ids)

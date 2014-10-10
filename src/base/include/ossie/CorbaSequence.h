@@ -87,6 +87,7 @@ namespace ossie {
             template <class T, class Enable = void>
             struct sequence_ptr {
                 typedef T& type;
+                typedef const T& const_type;
                 static type as_ptr (T& sequence) {
                     return sequence;
                 }
@@ -99,6 +100,7 @@ namespace ossie {
             template <class T>
             struct sequence_ptr<T, typename boost::enable_if<is_sequence<T> >::type> {
                 typedef T* type;
+                typedef const T* const_type;
                 static type as_ptr (T& sequence) {
                     return &sequence;
                 }
@@ -168,6 +170,28 @@ namespace ossie {
         inline Sequence slice (const Sequence& source, size_t first)
         {
             return slice(source, first, source.length());
+        }
+
+        // Appends the values from source to the end of dest; the sequence may
+        // be passed by reference or pointer, or as a var type.
+        template <class Sequence1, class Sequence2>
+        inline void extend(Sequence1& dest, const Sequence2& source)
+        {
+            // NB: Both dest and source are converted to pointers to allow a
+            //     single implementation for references, pointers and vars; the
+            //     compiler will eliminate these temporaries, so there is no
+            //     additional overhead created.
+            typename detail::sequence_ptr<Sequence1>::type p_dest = detail::as_ptr(dest);
+            typename detail::sequence_ptr<Sequence2>::const_type p_src = detail::as_ptr(source);
+            CORBA::ULong offset = p_dest->length();
+            CORBA::ULong length = offset + p_src->length();
+            p_dest->length(length);
+            for (CORBA::ULong ii = 0; offset < length; ++offset, ++ii) {
+                // NB: Var types do not offer a const version of operator[],
+                //     but we can get the sequence's const operator[] by
+                //     calling it explicitly via the arrow operator
+                dest[offset] = p_src->operator[](ii);
+            }
         }
 
     } // namespace corba

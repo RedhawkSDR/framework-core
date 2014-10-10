@@ -23,6 +23,28 @@ from _unitTestHelpers import scatest
 from omniORB import any as _any
 from ossie.cf import CF
 from ossie.cf import ExtendedCF
+from ossie import properties
+
+def _parseDevices(domMgr):
+    devices = {}
+    domainName = domMgr._get_name()
+    for devMgr in domMgr._get_deviceManagers():
+        nodeName = devMgr._get_identifier()
+        for dev in devMgr._get_registeredDevices():
+            devId = dev._get_identifier()
+            devices[devId] = {'domain': domainName, 'node' : nodeName}
+    return devices
+
+def _parseDeviceLocations(devLocs):
+    devices = {}
+    for loc in devLocs:
+        devId = loc.dev._get_identifier()
+        nodeName = loc.devMgr._get_identifier()
+        devices[devId] = {'domain':loc.domainName, 'node':nodeName}
+    return devices
+
+def _packageRequest(requestId, props, pools=[], devices=[]):
+    return CF.AllocationManager.AllocationRequestType(requestId, props, pools, devices)
 
 class AllocationManagerTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -30,14 +52,8 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         nb, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
         self._allocMgr = self._domMgr._get_allocationMgr()
 
-    def _packageRequest(self, requestId, props, pools=[], devices=[]):
-        return CF.AllocationManager.AllocationRequestType(requestId, props, pools, devices)
-
-    def _formatProperties(self, props):
-        return [CF.DataType(key, _any.to_any(value)) for key, value in props.iteritems()]
-
     def _tryAllocation(self, props):
-        request = [self._packageRequest('test', self._formatProperties(props))]
+        request = [_packageRequest('test', properties.props_from_dict(props))]
         response = self._allocMgr.allocate(request)
         if response:
             self._allocMgr.deallocate([r.allocationID for r in response])
@@ -119,7 +135,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
 
         props = [('supported_components', 1), ('supported_components', 1)]
         allocProps = [CF.DataType(key, _any.to_any(value)) for key, value in props]
-        request = [self._packageRequest('test', allocProps)]
+        request = [_packageRequest('test', allocProps)]
         response = self._allocMgr.allocate(request)
         if response:
             self._allocMgr.deallocate([r.allocationID for r in response])
@@ -129,15 +145,15 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         nb, devMgr = self.launchDeviceManager('/nodes/test_SADUsesDevice/DeviceManager.dcd.xml', debug=self.debuglevel)
 
         # Try two requests that should succeed
-        props = self._formatProperties({'simple_alloc': 1})
-        request = [self._packageRequest('test1', props), self._packageRequest('test2', props)]
+        props = properties.props_from_dict({'simple_alloc': 1})
+        request = [_packageRequest('test1', props), _packageRequest('test2', props)]
         response = self._allocMgr.allocate(request)
         self.assertEqual(len(request), len(response))
         self._allocMgr.deallocate([r.allocationID for r in response])
 
         # The second request should fail
-        props = self._formatProperties({'simple_alloc': 8})
-        request = [self._packageRequest('test1', props), self._packageRequest('test2', props)]
+        props = properties.props_from_dict({'simple_alloc': 8})
+        request = [_packageRequest('test1', props), _packageRequest('test2', props)]
         response = self._allocMgr.allocate(request)
         good_requests = [r.requestID for r in response]
         self.assertTrue(len(request) > len(response))
@@ -149,7 +165,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         bad_props = {'simple_alloc': 12}
         good_props = {'simple_alloc': 8}
         request = [('test1', bad_props), ('test2', bad_props), ('test3', good_props)]
-        request = [self._packageRequest(k, self._formatProperties(v)) for k, v in request]
+        request = [_packageRequest(k, properties.props_from_dict(v)) for k, v in request]
         response = self._allocMgr.allocate(request)
         good_requests = [r.requestID for r in response]
         self.assertTrue(len(request) > len(response))
@@ -160,8 +176,98 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         request = [('external', {'simple_alloc': 1}),
                    ('matching', {'DCE:ac73446e-f935-40b6-8b8d-4d9adb6b403f':2,
                                  'DCE:7f36cdfb-f828-4e4f-b84f-446e17f1a85b':'BasicTestDevice'})]
-        request = [self._packageRequest(k, self._formatProperties(v)) for k, v in request]
+        request = [_packageRequest(k, properties.props_from_dict(v)) for k, v in request]
         response = dict((r.requestID, r) for r in self._allocMgr.allocate(request))
         self.assertEqual(len(request), len(response))
         self.assertFalse(response['external'].allocatedDevice._is_equivalent(response['matching'].allocatedDevice))
         self._allocMgr.deallocate([r.allocationID for r in response.values()])
+
+    def test_allocationsMethod(self):
+        nb, devMgr = self.launchDeviceManager('/nodes/test_SADUsesDevice/DeviceManager.dcd.xml', debug=self.debuglevel)
+
+        # Check that there are no allocations reported
+        allocs = self._allocMgr.allocations([])
+        self.assertEqual(len(allocs), 0)
+
+        # Make a single allocation request and check that it looks right
+        props = properties.props_from_dict({'simple_alloc': 1})
+        request = [_packageRequest('test1', props)]
+        response = self._allocMgr.allocate(request)
+        self.assertEqual(len(request), len(response))
+        self.assertEqual(request[0].requestID, response[0].requestID)
+        
+        # Save allocation IDs for later checks
+        allocIDs = [resp.allocationID for resp in response]
+
+        # Check that the reported allocations match expectations
+        allocs = self._allocMgr.allocations([])
+        self.assertEqual(len(allocs), 1)
+        self.assertEqual(allocs[0].allocationID, allocIDs[0])
+
+        # Make two more allocation requests
+        request = [('external', {'simple_alloc': 1}),
+                   ('matching', {'DCE:ac73446e-f935-40b6-8b8d-4d9adb6b403f':2,
+                                 'DCE:7f36cdfb-f828-4e4f-b84f-446e17f1a85b':'BasicTestDevice'})]
+        request = [_packageRequest(k, properties.props_from_dict(v)) for k, v in request]
+        response = self._allocMgr.allocate(request)
+        self.assertEqual(len(request), len(response))
+        allocIDs.extend(resp.allocationID for resp in response)
+
+        allocs = self._allocMgr.allocations([])
+        self.assertEqual(len(allocs), 3)
+
+        # Try to retrieve an invalid allocation ID, making sure it throws an
+        # exception
+        self.assertRaises(CF.AllocationManager.InvalidAllocationId, self._allocMgr.allocations, ['missing'])
+
+        # Check that we can retrieve a specific allocation
+        allocs = self._allocMgr.allocations(allocIDs[-1:])
+        self.assertEqual(len(allocs), 1)
+
+    def test_BasicOperations(self):
+        # Check that the domain manager back link is correct
+        domMgr = self._allocMgr._get_domainMgr()
+        self.assert_(self._domMgr._is_equivalent(domMgr))
+
+        # Check that the device list attributes work as expected (with no
+        # devices), and do not throw exceptions
+        self.assertEqual(self._allocMgr._get_localDevices(), [])
+        self.assertEqual(self._allocMgr._get_allDevices(), [])
+        self.assertEqual(self._allocMgr._get_authorizedDevices(), [])
+
+        # Check that the allocation list functions work as expected (with no
+        # devices), and do not throw exceptions
+        self.assertEqual(self._allocMgr.allocations([]), [])
+        self.assertEqual(self._allocMgr.localAllocations([]), [])
+
+    def test_DeviceLists(self):
+        """
+        Tests the operation of the device list attributes (allDevices,
+        authorizedDevices, localDevices).
+        """
+        # Keep adding nodes and testing the device lists to ensure that the
+        # state is up-to-date
+        devCount = 0
+        for node in ('test_collocation_good_node', 'test_SADUsesDevice', 'test_MultipleExecutableDevice_node'):
+            nb, devMgr = self.launchDeviceManager('/nodes/'+node+'/DeviceManager.dcd.xml', debug=self.debuglevel)
+
+            # Collect the complete set of device IDs, making sure new devices
+            # are added every time through the loop
+            devices = _parseDevices(self._domMgr)
+            self.assert_(len(devices) > devCount)
+            devCount = len(devices)
+
+            # Make sure localDevices matches our known state
+            localDevices = _parseDeviceLocations(self._allocMgr._get_localDevices())
+            self.assertEqual(devices, localDevices)
+
+            # No policy is applied in default implementation, so authorized devices
+            # should be the complete set of local devices
+            authDevices = _parseDeviceLocations(self._allocMgr._get_authorizedDevices())
+            self.assertEqual(devices, authDevices)
+
+            # Make sure allDevices matches our known state; since there are no
+            # remote domains, it should be the same as localDevices
+            allDevices = _parseDeviceLocations(self._allocMgr._get_allDevices())
+            self.assertEqual(devices, allDevices)
+

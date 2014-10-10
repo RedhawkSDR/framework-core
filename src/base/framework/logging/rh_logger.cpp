@@ -41,7 +41,7 @@
 //
 #ifdef  NO_RH_LOGGER
 
-#include <ossie/logging/loghelers.h>
+#include <ossie/logging/loghelpers.h>
 void ossie::configureLogging(const char* logcfgUri, int defaultLevel)
 {
   ossie::logging::Configure(logcfgUri, defaultLevel );
@@ -285,6 +285,19 @@ namespace rh_logger {
       }
   }
 
+  LevelPtr Level::toLevel( const std::string &val )
+  {
+    LevelPtr defaultLevel = getInfo();
+    if ( val == "OFF" ) return getOff();
+    if ( val == "FATAL" ) return getFatal();
+    if ( val == "ERROR" ) return getError();
+    if ( val == "WARN" ) return getWarn();
+    if ( val == "DEBUG" ) return getDebug();
+    if ( val == "TRACE" ) return getTrace();
+    if ( val == "ALL" ) return getAll();
+    return defaultLevel;
+  };
+
   bool Level::equals(const LevelPtr& level1) const
   {
     return (this->level == level1->level);
@@ -511,19 +524,19 @@ namespace rh_logger {
     uint64_t ts;
     gettimeofday(&tmp_time, &tmp_tz);
     ts = tmp_time.tv_sec;
-    boost::mutex::scoped_lock(log_mutex);
+    boost::mutex::scoped_lock lock(log_mutex);
     log_records.push_back( LogRecord( name, level, ts, msg) );
     return;
   }
 
   void Logger::appendLogRecord( const LogRecord &rec)  {
-    boost::mutex::scoped_lock(log_mutex);
+    boost::mutex::scoped_lock lock(log_mutex);
     log_records.push_back(rec);
     return; 
   }
 
   void Logger::setLogRecordLimit( size_t newSize ) {
-      boost::mutex::scoped_lock(log_mutex);
+      boost::mutex::scoped_lock lock(log_mutex);
       log_records.set_capacity(newSize);
       return;
   }

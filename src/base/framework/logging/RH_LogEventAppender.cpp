@@ -230,7 +230,9 @@ void RH_LogEventAppender::append(const spi::LoggingEventPtr& event, Pool& p){
     level=CF::LogLevels::ALL;
   rh_event.level = level;
 
-  rh_event.timeStamp = event->getStartTime();
+  //timeStamp in LoggingEventPtr is in microseconds
+  //need to convert to seconds for rh_event
+  rh_event.timeStamp = event->getTimeStamp()/1000000;
   rh_event.msg = CORBA::string_dup(fMsg.c_str());
   
   // push log message to the event channel

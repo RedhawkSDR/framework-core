@@ -544,23 +544,78 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
         } CATCH_LOG_WARN(DomainManager_impl, "Failed to restore application" << i->identifier);
     }
 
-    LOG_DEBUG(DomainManager_impl, "Recovering allocation manager");
-    // Recover allocation manager and consume the value
-    AllocationManagerNode _restoredAllocations;
+    LOG_DEBUG(DomainManager_impl, "Recovering remote domains");
+    // Recover domain manager connections and consume the value so that
+    // the persistence store no longer has any domain manager stored
+    DomainManagerList _restoredDomainManagers;
     try {
-        db.fetch("ALLOCATION_MANAGER", _restoredAllocations, true);
-    } catch (ossie::PersistenceException& e) {
-        LOG_ERROR(DomainManager_impl, "Error loading allocation manager persistent state: " << e.what());
-    } catch ( std::exception& ex ) {
-        std::ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" while recovering the allocation manager";
-        LOG_ERROR(DomainManager_impl, eout.str())
-    } catch ( CORBA::Exception& ex ) {
-        std::ostringstream eout;
-        eout << "The following CORBA exception occurred: "<<ex._name()<<" while recovering the allocation manager";
-        LOG_ERROR(DomainManager_impl, eout.str())
+        db.fetch("DOMAIN_MANAGERS", _restoredDomainManagers, true);
+    } catch (const ossie::PersistenceException& e) {
+        LOG_ERROR(DomainManager_impl, "Error loading domain managers persistent state: " << e.what());
+        _restoredDomainManagers.clear();
+    } catch (const std::exception& ex) {
+        _restoredDomainManagers.clear();
+        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" while recovering the domain manager connections");
     }
-    _allocationMgr->restoreAllocations(_restoredAllocations._allocations, _restoredAllocations._remoteAllocations);
+
+    for (DomainManagerList::iterator ii = _restoredDomainManagers.begin(); ii != _restoredDomainManagers.end(); ++ii) {
+        LOG_TRACE(DomainManager_impl, "Attempting to recover connection to domain '" << ii->name << "'");
+        try {
+            if (ossie::corba::objectExists(ii->domainManager)) {
+                LOG_INFO(DomainManager_impl, "Recovered connection to domain '" << ii->name << "'");
+                addDomainMgr(ii->domainManager);
+            } else {
+                LOG_WARN(DomainManager_impl, "Failed to recover connection to domain '" << ii->name << "': domain manager object no longer exists");
+            }
+        } CATCH_LOG_WARN(DomainManager_impl, "Unable to restore connection to domain '" << ii->name << "'");
+    }
+
+    LOG_DEBUG(DomainManager_impl, "Recovering allocation manager");
+    ossie::AllocationTable _restoredLocalAllocations;
+    try {
+        db.fetch("LOCAL_ALLOCATIONS", _restoredLocalAllocations);
+    } catch (ossie::PersistenceException& e) {
+        LOG_ERROR(DomainManager_impl, "Error loading local allocation persistent state: " << e.what());
+    } catch (std::exception& ex) {
+        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: " << ex.what()
+                  << " while recovering local allocations");
+    }
+    _allocationMgr->restoreLocalAllocations(_restoredLocalAllocations);
+
+    ossie::RemoteAllocationTable _restoredRemoteAllocations;
+    try {
+        db.fetch("REMOTE_ALLOCATIONS", _restoredRemoteAllocations);
+    } catch (const ossie::PersistenceException& e) {
+        LOG_ERROR(DomainManager_impl, "Error loading remote allocations persistent state: " << e.what());
+    } catch (const std::exception& ex) {
+        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: " << ex.what()
+                  << " while recovering remote allocations");
+    }
+    _allocationMgr->restoreRemoteAllocations(_restoredRemoteAllocations);
+
+    if (_restoredLocalAllocations.empty() && _restoredRemoteAllocations.empty()) {
+        // Migration from 1.10.0 to 1.10.1; database format was changed, so if
+        // no local or remote allocations were restored, try to recover from the
+        // old format
+        AllocationManagerNode _restoredAllocations;
+        try {
+            db.fetch("ALLOCATION_MANAGER", _restoredAllocations, true);
+        } catch (const ossie::PersistenceException& e) {
+            LOG_ERROR(DomainManager_impl, "Error loading allocation manager persistent state: " << e.what());
+        } catch ( std::exception& ex ) {
+            std::ostringstream eout;
+            eout << "The following standard exception occurred: "<<ex.what()<<" while recovering the allocation manager";
+            LOG_ERROR(DomainManager_impl, eout.str());
+        } catch ( CORBA::Exception& ex ) {
+            std::ostringstream eout;
+            eout << "The following CORBA exception occurred: "<<ex._name()<<" while recovering the allocation manager";
+            LOG_ERROR(DomainManager_impl, eout.str());
+        }
+        if (!_restoredAllocations._allocations.empty() || !_restoredAllocations._remoteAllocations.empty()) {
+            LOG_DEBUG(DomainManager_impl, "Migrating old allocation state");
+            _allocationMgr->restoreAllocations(_restoredAllocations._allocations, _restoredAllocations._remoteAllocations);
+        }
+    }
 
     LOG_DEBUG(DomainManager_impl, "Done restoring state from URL " << _db_uri);
 }
@@ -904,10 +959,6 @@ throw (CORBA::SystemException, CF::InvalidObjectReference,
     } catch ( ... ) {
         throw;
     }
-
-    CORBA::String_var identifier = domainMgr->identifier();
-    //ossie::sendObjectAddedEvent(DomainManager_impl::__logger, _configuration.getID(), identifier, label,
-    //        deviceMgr, StandardEvent::DEVICE_MANAGER, proxy_consumer);
 }
 
 void
@@ -932,25 +983,14 @@ throw (CORBA::SystemException, CF::InvalidObjectReference,
         return;
     }
 
-    // Save the identifier and label, as the iterator will be invalidated.
-    const std::string identifier = domMgrIter->identifier;
-    const std::string label = domMgrIter->name;
-
     _registeredDomainManagers.erase(domMgrIter);
-    /*try {
-        db.store("DEVICE_MANAGERS", _registeredDeviceManagers);
-    } catch ( ossie::PersistenceException& ex) {
-        LOG_ERROR(DomainManager_impl, "Error persisting change to device managers");
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" persisting the device managers")
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" persisting the device managers")
-    }*/
-
-/*
-    ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _configuration.getID(), identifier.c_str(), label.c_str(),
-                                  StandardEvent::DEVICE_MANAGER, proxy_consumer);
-*/
+    try {
+        db.store("DOMAIN_MANAGERS", _registeredDomainManagers);
+    } catch (const ossie::PersistenceException& ex) {
+        LOG_ERROR(DomainManager_impl, "Error persisting change to domain managers");
+    } catch (const std::exception& ex) {
+        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" persisting the domain managers");
+    }
 }
 
 
@@ -1117,28 +1157,25 @@ DomainManager_impl::addDeviceMgr (CF::DeviceManager_ptr deviceMgr)
     TRACE_EXIT(DomainManager_impl)
 }
 
-void
-DomainManager_impl::addDomainMgr (CF::DomainManager_ptr domainMgr)
+void DomainManager_impl::addDomainMgr (CF::DomainManager_ptr domainMgr)
 {
     TRACE_ENTER(DomainManager_impl)
     boost::recursive_mutex::scoped_lock lock(stateAccess);
 
     if (!domainMgrIsRegistered (domainMgr)) {
-        LOG_TRACE(DomainManager_impl, "Adding DeviceManager ref to list")
-        DomainManagerNode tmp_domMgr;
-        CORBA::String_var identifier = domainMgr->identifier();
-        CORBA::String_var name = domainMgr->name();
-        tmp_domMgr.domainManager = CF::DomainManager::_duplicate(domainMgr);
-        tmp_domMgr.identifier = static_cast<char*>(identifier);
-        tmp_domMgr.name = static_cast<char*>(name);
-        _registeredDomainManagers.push_back(tmp_domMgr);
+        LOG_TRACE(DomainManager_impl, "Adding DomainManager ref to list")
+        DomainManagerNode node;
+        node.domainManager = CF::DomainManager::_duplicate(domainMgr);
+        node.identifier = ossie::corba::returnString(domainMgr->identifier());
+        node.name = ossie::corba::returnString(domainMgr->name());
+        _registeredDomainManagers.push_back(node);
 
         try {
-            db.store("DEVICE_MANAGERS", _registeredDeviceManagers);
-        } catch ( ossie::PersistenceException& ex) {
-            LOG_ERROR(DomainManager_impl, "Error persisting change to device managers");
-        } catch ( std::exception& ex ) {
-            LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" persisting the device managers")
+            db.store("DOMAIN_MANAGERS", _registeredDomainManagers);
+        } catch (const ossie::PersistenceException& ex) {
+            LOG_ERROR(DomainManager_impl, "Error persisting change to domain managers");
+        } catch (const std::exception& ex) {
+            LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" persisting the domain managers");
         }
     }
     TRACE_EXIT(DomainManager_impl)
@@ -1595,10 +1632,10 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
                     continue;
                 }
 
-                CF::DeviceAssignmentSequence* compDevices = app->componentDevices();
+                CF::DeviceAssignmentSequence_var compDevices = app->componentDevices();
                 bool foundMatch = false;
                 for  (unsigned int j = 0; j < compDevices->length(); j++) {
-                    if (strcmp((*deviceNode)->identifier.c_str(), (*compDevices)[j].assignedDeviceId) == 0) {
+                    if (strcmp((*deviceNode)->identifier.c_str(), compDevices[j].assignedDeviceId) == 0) {
                         LOG_WARN(DomainManager_impl, "Releasing application that depends on registered device " << (*deviceNode)->identifier)
                         app->releaseObject();
                         foundMatch = true;
@@ -1941,17 +1978,24 @@ throw (CORBA::SystemException, CF::DomainManager::InvalidIdentifier,
     }
 }
 
-void DomainManager_impl::updateAllocations(AllocationTable &ref_allocations, std::map<std::string, CF::AllocationManager_var> &ref_remoteAllocations)
+void DomainManager_impl::updateLocalAllocations(const ossie::AllocationTable& localAllocations)
 {
     TRACE_ENTER(DomainManager_impl)
-    boost::recursive_mutex::scoped_lock lock(stateAccess);
-    AllocationManagerNode allocNode;
-    allocNode._allocations = ref_allocations;
-    allocNode._remoteAllocations = ref_remoteAllocations;
     try {
-        db.store("ALLOCATION_MANAGER", allocNode);
+        db.store("LOCAL_ALLOCATIONS", localAllocations);
     } catch ( ossie::PersistenceException& ex) {
-        LOG_ERROR(DomainManager_impl, "Error persisting allocation");
+        LOG_ERROR(DomainManager_impl, "Error persisting local allocations");
+    }
+    TRACE_EXIT(DomainManager_impl)
+}
+
+void DomainManager_impl::updateRemoteAllocations(const ossie::RemoteAllocationTable& remoteAllocations)
+{
+    TRACE_ENTER(DomainManager_impl)
+    try {
+        db.store("REMOTE_ALLOCATIONS", remoteAllocations);
+    } catch ( ossie::PersistenceException& ex) {
+        LOG_ERROR(DomainManager_impl, "Error persisting remote allocation");
     }
     TRACE_EXIT(DomainManager_impl)
 }

@@ -358,3 +358,33 @@ class ComplexApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(self._getBogoMips(device1), 100000000)
 
         self._domMgr.uninstallApplication(appFact._get_identifier())
+
+    def test_DomainLockupOnDeviceCrash(self):
+        """
+        Test to recreate a scenario in which:
+
+          1. One application already deployed
+          2. Attempt to create a new application
+          3. Allocation succeeds, but device crashes in execute()
+          4. Device crash causes DeviceManager to unregister it
+          5. Unregistration causes DomainManager to release existing app
+          6. Failed app cleanup and release/cleanup of existing app overlap
+
+        This situation lead to deadlock in 1.10.0, due to a priority inversion
+        of the AllocationManager and DomainManager locks.
+        """
+        nb, node = self.launchDeviceManager("/nodes/CrashableNode/DeviceManager.dcd.xml")
+
+        self._domMgr.installApplication("/waveforms/CapacityUsage/CapacityUsage.sad.xml")
+        appFact = self._domMgr._get_applicationFactories()[0]
+
+        app = appFact.create(appFact._get_name(), [], [])
+
+        device = node._get_registeredDevices()[0]
+        device.configure([CF.DataType('crashEnabled', any.to_any(True))])
+
+        try:
+            app2 = appFact.create(appFact._get_name(), [], [])
+            self.fail('Application creation should have failed')
+        except CF.ApplicationFactory.CreateApplicationError:
+            pass

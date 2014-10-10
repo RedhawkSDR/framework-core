@@ -1340,8 +1340,7 @@ class Domain(_CF__POA.DomainManager, object):
                 break
     
         if app_factory_num == -1:
-            print "Application factory not found"
-            _sys.exit(-1)
+            raise AssertionError("Application factory not found")
     
         _appFacProps = []
     

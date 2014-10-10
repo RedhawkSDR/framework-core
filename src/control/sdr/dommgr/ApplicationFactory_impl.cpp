@@ -970,6 +970,11 @@ void createHelper::_placeHostCollocation(const SoftwareAssembly::HostCollocation
                 collocAssignedDevs[i].device = CF::Device::_duplicate(node->device);
                 collocAssignedDevs[i].deviceAssignment.assignedDeviceId = CORBA::string_dup(deviceId.c_str());
                 (*comp)->setSelectedImplementation(*impl);
+                if (!resolveSoftpkgDependencies(*impl, *node)) {
+                    LOG_TRACE(ApplicationFactory_impl, "Unable to resolve softpackage dependencies for component "
+                              << (*comp)->getIdentifier() << " implementation " << (*impl)->getId());
+                    continue;
+                }
                 (*comp)->setAssignedDeviceId(deviceId.c_str());
                 collocAssignedDevs[i].deviceAssignment.componentId = CORBA::string_dup((*comp)->getIdentifier());
             }
@@ -2420,7 +2425,7 @@ void createHelper::loadAndExecuteComponents(
             // Naming Context IOR, Name Binding, and component identifier
             CF::DataType ncior;
             ncior.id = "NAMING_CONTEXT_IOR";
-            ncior.value <<= (CORBA::String_var)ossie::corba::Orb()->object_to_string(WaveformContext);
+            ncior.value <<= ossie::corba::objectToString(WaveformContext);
             component->addExecParameter(ncior);
 
             CF::DataType ci;

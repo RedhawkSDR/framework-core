@@ -596,6 +596,7 @@ namespace sad
   {
       assert(structref != 0);
       structref->_values[simpleref->_id] = simpleref->_value;
+      delete simpleref;
   }
 
   void structref_pimpl::
@@ -655,6 +656,7 @@ namespace sad
   simpleref (ossie::SimplePropertyRef* simpleref)
   {
       values[simpleref->_id] = simpleref->_value;
+      delete simpleref;
   }
 
   std::map<std::string, std::string> structvalue_pimpl::

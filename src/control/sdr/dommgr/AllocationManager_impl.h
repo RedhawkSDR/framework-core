@@ -86,19 +86,23 @@ class AllocationManager_impl: public virtual POA_CF::AllocationManager
                 }
             }
 
-            this->_domainManager->updateAllocations(this->_allocations, this->_remoteAllocations);
+            this->_domainManager->updateLocalAllocations(this->_allocations);
+            this->_domainManager->updateRemoteAllocations(this->_remoteAllocations);
             if (invalidAllocations.length() != 0) {
                 throw CF::AllocationManager::InvalidAllocationId(invalidAllocations);
             }
         }
 
         // Local interface for persistance support
+        void restoreLocalAllocations(const ossie::AllocationTable& localAllocations);
+        void restoreRemoteAllocations(const ossie::RemoteAllocationTable& remoteAllocations);
+
         void restoreAllocations(ossie::AllocationTable& ref_allocations, std::map<std::string, CF::AllocationManager_var> &ref_remoteAllocations);
 
     private:
-        CF::AllocationManager::AllocationResponseSequence* allocateDevices(const CF::AllocationManager::AllocationRequestSequence &requests, ossie::DeviceList& devices);
+        CF::AllocationManager::AllocationResponseSequence* allocateDevices(const CF::AllocationManager::AllocationRequestSequence &requests, ossie::DeviceList& devices, const std::string& domainName);
 
-        std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> allocateRequest(const std::string& requestID, const CF::Properties& allocationProperties, ossie::DeviceList& devices, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps);
+        std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> allocateRequest(const std::string& requestID, const CF::Properties& allocationProperties, ossie::DeviceList& devices, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps, const std::string& domainName);
 
         bool checkDeviceMatching(ossie::Properties& _prf, CF::Properties& externalProps, const CF::Properties& dependencyPropertiesFromComponent, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps);
 
@@ -115,7 +119,7 @@ class AllocationManager_impl: public virtual POA_CF::AllocationManager
 
         DomainManager_impl* _domainManager;
         ossie::AllocationTable _allocations;
-        std::map<std::string, CF::AllocationManager_var> _remoteAllocations;
+        ossie::RemoteAllocationTable _remoteAllocations;
         void unfilledRequests(CF::AllocationManager::AllocationRequestSequence &requests, const CF::AllocationManager::AllocationResponseSequence &result);
     
     protected:

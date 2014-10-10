@@ -29,6 +29,19 @@
 #include "ossie/CorbaUtils.h"
 #include "ossie/ossieSupport.h"
 
+namespace {
+    static inline CF::AllocationManager::AllocationStatusType convertAllocTableEntry(const ossie::AllocationTable::value_type& entry)
+    {
+        CF::AllocationManager::AllocationStatusType status;
+        status.allocationID = entry.first.c_str();
+        status.requestingDomain = entry.second.requestingDomain.c_str();
+        status.allocationProperties = entry.second.allocationProperties;
+        status.allocatedDevice = CF::Device::_duplicate(entry.second.allocatedDevice);
+        status.allocationDeviceManager = CF::DeviceManager::_duplicate(entry.second.allocationDeviceManager);
+        return status;
+    }
+}
+
 PREPARE_LOGGING(AllocationManager_impl);
 
 AllocationManager_impl::AllocationManager_impl (DomainManager_impl* domainManager) :
@@ -79,7 +92,9 @@ CF::AllocationManager::AllocationResponseSequence* AllocationManager_impl::alloc
     boost::recursive_mutex::scoped_lock lock(allocationAccess);
     
     // try to fulfill the request locally
-    CF::AllocationManager::AllocationResponseSequence_var result = this->allocateLocal(requests, this->_domainManager->getDomainManagerName().c_str());
+    const std::string domainName = this->_domainManager->getDomainManagerName();
+
+    CF::AllocationManager::AllocationResponseSequence_var result = this->allocateLocal(requests, domainName.c_str());
 
     if (result->length() != requests.length()) {
         const ossie::DomainManagerList remoteDomains = this->_domainManager->getRegisteredRemoteDomainManagers();
@@ -94,18 +109,24 @@ CF::AllocationManager::AllocationResponseSequence* AllocationManager_impl::alloc
         while ((remoteDomains_itr != remoteDomains.end()) and (result->length() != requests.length())) {
             unfilledRequests(remaining_requests, result);
             CORBA::String_var domain_name = this->_domainManager->name();
-            CF::AllocationManager::AllocationResponseSequence_var new_result = (*remoteDomains_itr).domainManager->allocationMgr()->allocateLocal(remaining_requests, domain_name);
-            if (new_result->length() != 0) {
-                for (unsigned int idx=0; idx<new_result->length(); idx++) {
-                    ossie::corba::push_back((CF::AllocationManager::AllocationResponseSequence&)result, new_result[idx]);
-                    std::string allocid = ossie::corba::returnString(new_result[idx].allocationID);
-                    _remoteAllocations[allocid] = CF::AllocationManager::_duplicate((*remoteDomains_itr).domainManager->allocationMgr());
-                }
+            CF::AllocationManager_var allocationMgr = remoteDomains_itr->domainManager->allocationMgr();
+            CF::AllocationManager::AllocationResponseSequence_var new_result = allocationMgr->allocateLocal(remaining_requests, domain_name);
+            for (unsigned int idx=0; idx<new_result->length(); idx++) {
+                ossie::corba::push_back(result, new_result[idx]);
+                ossie::RemoteAllocationType allocation;
+                allocation.allocationID = new_result[idx].allocationID;
+                allocation.allocatedDevice = CF::Device::_duplicate(new_result[idx].allocatedDevice);
+                allocation.allocationDeviceManager = CF::DeviceManager::_duplicate(new_result[idx].allocationDeviceManager);
+                allocation.allocationProperties = new_result[idx].allocationProperties;
+                allocation.requestingDomain = domainName;
+                allocation.allocationManager = CF::AllocationManager::_duplicate(allocationMgr);
+                _remoteAllocations[allocation.allocationID] = allocation;
             }
             remoteDomains_itr++;
         }
+
         // allocateLocal updates the database, so update only if remote allocations were needed
-        this->_domainManager->updateAllocations(this->_allocations, this->_remoteAllocations);
+        this->_domainManager->updateRemoteAllocations(this->_remoteAllocations);
     }
 
     TRACE_EXIT(AllocationManager_impl)
@@ -120,7 +141,7 @@ CF::AllocationManager::AllocationResponseSequence* AllocationManager_impl::alloc
     CF::AllocationManager::AllocationResponseSequence* results;
     if (requests.length() > 0) {
         ossie::DeviceList registeredDevices = this->_domainManager->getRegisteredDevices();
-        results = allocateDevices(requests, registeredDevices);
+        results = allocateDevices(requests, registeredDevices, domainName);
     } else {
         results = new CF::AllocationManager::AllocationResponseSequence();
     }
@@ -129,7 +150,7 @@ CF::AllocationManager::AllocationResponseSequence* AllocationManager_impl::alloc
     return results;
 }
 
-CF::AllocationManager::AllocationResponseSequence* AllocationManager_impl::allocateDevices(const CF::AllocationManager::AllocationRequestSequence &requests, ossie::DeviceList& devices)
+CF::AllocationManager::AllocationResponseSequence* AllocationManager_impl::allocateDevices(const CF::AllocationManager::AllocationRequestSequence &requests, ossie::DeviceList& devices, const std::string& domainName)
 {
     LOG_TRACE(AllocationManager_impl, "Servicing " << requests.length() << " allocation request(s)");
     CF::AllocationManager::AllocationResponseSequence_var response = new CF::AllocationManager::AllocationResponseSequence();
@@ -166,7 +187,7 @@ CF::AllocationManager::AllocationResponseSequence* AllocationManager_impl::alloc
             }
         }
 
-        std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> result = allocateRequest(requestID, request.allocationProperties, requestedDevices, std::vector<std::string>(), std::vector<ossie::SPD::NameVersionPair>());
+        std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> result = allocateRequest(requestID, request.allocationProperties, requestedDevices, std::vector<std::string>(), std::vector<ossie::SPD::NameVersionPair>(), domainName);
         if (result.first) {
             local_allocations.push_back(result.first);
             ossie::AllocationType* allocation(result.first);
@@ -183,12 +204,12 @@ CF::AllocationManager::AllocationResponseSequence* AllocationManager_impl::alloc
     }
 
     if (response->length() != 0) {
-        this->_domainManager->updateAllocations(this->_allocations, this->_remoteAllocations);
+        this->_domainManager->updateLocalAllocations(this->_allocations);
     }
     return response._retn();
 }
 
-std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> AllocationManager_impl::allocateRequest(const std::string& requestID, const CF::Properties& dependencyProperties, ossie::DeviceList& devices, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps)
+std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> AllocationManager_impl::allocateRequest(const std::string& requestID, const CF::Properties& dependencyProperties, ossie::DeviceList& devices, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps, const std::string& domainName)
 {
     for (ossie::DeviceList::iterator iter = devices.begin(); iter != devices.end(); ++iter) {
         boost::shared_ptr<ossie::DeviceNode> node = *iter;
@@ -199,7 +220,7 @@ std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> AllocationManager_
             allocation->allocatedDevice = CF::Device::_duplicate(node->device);
             allocation->allocationDeviceManager = CF::DeviceManager::_duplicate(node->devMgr.deviceManager);
             allocation->allocationProperties = allocatedProperties;
-            allocation->requestingDomain = this->_domainManager->getDomainManagerName();
+            allocation->requestingDomain = domainName;
             return std::make_pair(allocation, iter);
         }
     }
@@ -208,13 +229,14 @@ std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> AllocationManager_
 
 ossie::AllocationResult AllocationManager_impl::allocateDeployment(const std::string& requestID, const CF::Properties& allocationProperties, ossie::DeviceList& devices, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps)
 {
-    std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> result = allocateRequest(requestID, allocationProperties, devices, processorDeps, osDeps);
+    const std::string domainName = this->_domainManager->getDomainManagerName();
+    std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> result = allocateRequest(requestID, allocationProperties, devices, processorDeps, osDeps, domainName);
     if (result.first) {
         // Update the allocation table, including the persistence store
         const std::string allocationID = result.first->allocationID;
         boost::recursive_mutex::scoped_lock lock(allocationAccess);
         this->_allocations[allocationID] = *(result.first);
-        this->_domainManager->updateAllocations(this->_allocations, this->_remoteAllocations);
+        this->_domainManager->updateLocalAllocations(this->_allocations);
 
         // Delete the temporary
         delete result.first;
@@ -425,17 +447,48 @@ CF::AllocationManager::AllocationStatusSequence* AllocationManager_impl::allocat
     boost::recursive_mutex::scoped_lock lock(allocationAccess);
     
     CF::AllocationManager::AllocationStatusSequence_var result = new CF::AllocationManager::AllocationStatusSequence();
-    result->length(this->_allocations.size());
-    ossie::AllocationTable::iterator _alloc_iter = this->_allocations.begin();
-    unsigned int idx = 0;
-    while (_alloc_iter != this->_allocations.end()){
-        result[idx].allocatedDevice = CF::Device::_duplicate(_alloc_iter->second.allocatedDevice);
-        result[idx].allocationDeviceManager = CF::DeviceManager::_duplicate(_alloc_iter->second.allocationDeviceManager);
-        result[idx].allocationID = CORBA::string_dup((*_alloc_iter).first.c_str());
-        result[idx].allocationProperties = (*_alloc_iter).second.allocationProperties;
-        result[idx].requestingDomain = CORBA::string_dup((*_alloc_iter).second.requestingDomain.c_str());
-        _alloc_iter++;
-        idx++;
+
+    if (allocationIDs.length() == 0) {
+        // Empty allocation ID list, return all allocations
+
+        // Start with the local allocations
+        result = localAllocations(allocationIDs);
+
+        // Add the remote allocations to the end of the results
+        size_t offset = result->length();
+        result->length(offset + _remoteAllocations.size());
+        ossie::RemoteAllocationTable::const_iterator start = _remoteAllocations.begin();
+        const ossie::RemoteAllocationTable::const_iterator end = _remoteAllocations.end();
+        for (; start != end; ++offset, ++start) {
+            result[offset] = convertAllocTableEntry(*start);
+        }
+    } else {
+        // Caller provided a list of requested allocation IDs
+        CF::AllocationManager::allocationIDSequence invalid_ids;
+        result->length(allocationIDs.length());
+        for (size_t ii = 0; ii < allocationIDs.length(); ++ii) {
+            // Try to find the allocation ID locally
+            const std::string alloc_id(allocationIDs[ii]);
+            ossie::AllocationTable::const_iterator alloc = _allocations.find(alloc_id);
+            if (alloc != _allocations.end()) {
+                // Valid local allocation, convert into CORBA sequence element
+                result[ii] = convertAllocTableEntry(*alloc);
+            } else {
+                // Not found locally, try remote
+                ossie::RemoteAllocationTable::const_iterator ralloc = _remoteAllocations.find(alloc_id);
+                if (ralloc != _remoteAllocations.end()) {
+                    result[ii] = convertAllocTableEntry(*ralloc);
+                } else {
+                    // Allocation was not found, mark ID as invalid
+                    ossie::corba::push_back(invalid_ids, allocationIDs[ii]);
+                }
+            }
+        }
+
+        // If one or more allocation IDs was invalid, throw an exception
+        if (invalid_ids.length() > 0) {
+            throw CF::AllocationManager::InvalidAllocationId(invalid_ids);
+        }
     }
     
     TRACE_EXIT(AllocationManager_impl)
@@ -447,9 +500,36 @@ CF::AllocationManager::AllocationStatusSequence* AllocationManager_impl::localAl
 {
     TRACE_ENTER(AllocationManager_impl)
     boost::recursive_mutex::scoped_lock lock(allocationAccess);
-    
+
     CF::AllocationManager::AllocationStatusSequence_var result = new CF::AllocationManager::AllocationStatusSequence();
-    result->length(0);
+    if (allocationIDs.length() == 0) {
+        // Empty allocation ID list, return all allocations
+        result->length(_allocations.size());
+        ossie::AllocationTable::const_iterator start = _allocations.begin();
+        const ossie::AllocationTable::const_iterator end = _allocations.end();
+        for (int ii = 0; start != end; ++ii, ++start) {
+            result[ii] = convertAllocTableEntry(*start);
+        }
+    } else {
+        // Caller provided a list of requested allocation IDs
+        CF::AllocationManager::allocationIDSequence invalid_ids;
+        result->length(allocationIDs.length());
+        for (size_t ii = 0; ii < allocationIDs.length(); ++ii) {
+            ossie::AllocationTable::const_iterator alloc = _allocations.find(std::string(allocationIDs[ii]));
+            if (alloc != _allocations.end()) {
+                // Valid allocation ID, convert into CORBA sequence element
+                result[ii] = convertAllocTableEntry(*alloc);
+            } else {
+                // Allocation was not found, mark ID as invalid
+                ossie::corba::push_back(invalid_ids, allocationIDs[ii]);
+            }
+        }
+
+        // If one or more allocation IDs was invalid, throw an exception
+        if (invalid_ids.length() > 0) {
+            throw CF::AllocationManager::InvalidAllocationId(invalid_ids);
+        }
+    }
     
     TRACE_EXIT(AllocationManager_impl)
     return result._retn();
@@ -460,9 +540,21 @@ CF::AllocationManager::DeviceLocationSequence* AllocationManager_impl::allDevice
 {
     TRACE_ENTER(AllocationManager_impl)
     boost::recursive_mutex::scoped_lock lock(allocationAccess);
-    
-    CF::AllocationManager::DeviceLocationSequence_var result = new CF::AllocationManager::DeviceLocationSequence();
-    result->length(0);
+
+    // Start with local devices
+    CF::AllocationManager::DeviceLocationSequence_var result = localDevices();
+
+    // Add local devices from remote domains
+    const ossie::DomainManagerList remoteDomains = this->_domainManager->getRegisteredRemoteDomainManagers();
+    const ossie::DomainManagerList::const_iterator end = remoteDomains.end();
+    for (ossie::DomainManagerList::const_iterator start = remoteDomains.begin(); start != end; ++start) {
+        CF::AllocationManager_var allocationMgr = start->domainManager->allocationMgr();
+        CF::AllocationManager::DeviceLocationSequence_var remoteDevices = allocationMgr->localDevices();
+        LOG_TRACE(AllocationManager_impl, "Adding " << remoteDevices->length() << " device(s) from domain '"
+                  << ossie::corba::returnString(start->domainManager->name()) << "' to list");
+        ossie::corba::extend(result, remoteDevices);
+    }
+    LOG_TRACE(AllocationManager_impl, result->length() << " total device(s)");
     
     TRACE_EXIT(AllocationManager_impl)
     return result._retn();
@@ -473,9 +565,9 @@ CF::AllocationManager::DeviceLocationSequence* AllocationManager_impl::authorize
 {
     TRACE_ENTER(AllocationManager_impl)
     boost::recursive_mutex::scoped_lock lock(allocationAccess);
-    
-    CF::AllocationManager::DeviceLocationSequence_var result = new CF::AllocationManager::DeviceLocationSequence();
-    result->length(0);
+
+    // Default implementation has no policy engine; return all local devices
+    CF::AllocationManager::DeviceLocationSequence_var result = localDevices();
     
     TRACE_EXIT(AllocationManager_impl)
     return result._retn();
@@ -487,27 +579,84 @@ CF::AllocationManager::DeviceLocationSequence* AllocationManager_impl::localDevi
     TRACE_ENTER(AllocationManager_impl)
     boost::recursive_mutex::scoped_lock lock(allocationAccess);
 
+    // Get a point-in-time copy of the domain's devices
+    const ossie::DeviceList registeredDevices = _domainManager->getRegisteredDevices();
+    const std::string domainName = _domainManager->getDomainManagerName();
+
+    // Copy the devices in the local device list into CORBA sequence
     CF::AllocationManager::DeviceLocationSequence_var result = new CF::AllocationManager::DeviceLocationSequence();
-    result->length(0);
+    result->length(registeredDevices.size());
+    ossie::DeviceList::const_iterator start = registeredDevices.begin();
+    const ossie::DeviceList::const_iterator end = registeredDevices.end();
+    for (int ii = 0; start != end; ++ii, ++start) {
+        result[ii].domainName = domainName.c_str();
+        result[ii].pools.length(0);
+        result[ii].devMgr = CF::DeviceManager::_duplicate((*start)->devMgr.deviceManager);
+        result[ii].dev = CF::Device::_duplicate((*start)->device);
+    }
+    LOG_TRACE(AllocationManager_impl, result->length() << " local device(s)");
 
     TRACE_EXIT(AllocationManager_impl)
     return result._retn();
 }
 
-/* Returns all devices that are located within the local Domain */
+/* Returns a link to the local Domain */
 CF::DomainManager_ptr AllocationManager_impl::domainMgr()
 {
-    TRACE_ENTER(AllocationManager_impl)
-    boost::recursive_mutex::scoped_lock lock(allocationAccess);
+    TRACE_ENTER(AllocationManager_impl);
 
-    TRACE_EXIT(AllocationManager_impl)
-    return CF::DomainManager::_duplicate(this->domainMgr());
+    TRACE_EXIT(AllocationManager_impl);
+    return _domainManager->_this();
+}
+
+void AllocationManager_impl::restoreLocalAllocations (const ossie::AllocationTable& localAllocations)
+{
+    _allocations = localAllocations;
+}
+
+void AllocationManager_impl::restoreRemoteAllocations (const ossie::RemoteAllocationTable& remoteAllocations)
+{
+    _remoteAllocations = remoteAllocations;
 }
 
 void AllocationManager_impl::restoreAllocations (ossie::AllocationTable &ref_allocations, std::map<std::string, CF::AllocationManager_var> &ref_remoteAllocations)
 {
-    this->_allocations = ref_allocations;
-    this->_remoteAllocations = ref_remoteAllocations;
+    // NB: This function remains for backwards-compatibility between 1.10.1 and
+    //     1.10.0 databases; remove for 1.11
+    _allocations = ref_allocations;
+    
+    _remoteAllocations.clear();
+    std::map<std::string, CF::AllocationManager_var>::const_iterator start = ref_remoteAllocations.begin();
+    const std::map<std::string, CF::AllocationManager_var>::const_iterator end = ref_remoteAllocations.end();
+    for (; start != end; ++start) {
+        // Contact the remote AllocationManager to get the full state for each
+        // allocation
+        LOG_TRACE(AllocationManager_impl, "Restoring allocation '" << start->first << "'");
+        CF::AllocationManager::allocationIDSequence alloc_ids;
+        alloc_ids.length(1);
+        alloc_ids[0] = start->first.c_str();
+        CF::AllocationManager::AllocationStatusSequence_var result;
+        try {
+            result = start->second->localAllocations(alloc_ids);
+        } catch (const CORBA::Exception& ex) {
+            LOG_ERROR(AllocationManager_impl, "Unable to restore allocation '" << start->first << "': CORBA::"
+                      << ex._name());
+            continue;
+        }
+
+        ossie::RemoteAllocationType allocation;
+        allocation.allocationID = result[0].allocationID;
+        allocation.allocatedDevice = CF::Device::_duplicate(result[0].allocatedDevice);
+        allocation.allocationDeviceManager = CF::DeviceManager::_duplicate(result[0].allocationDeviceManager);
+        allocation.allocationProperties = result[0].allocationProperties;
+        allocation.requestingDomain = _domainManager->getDomainManagerName();
+        allocation.allocationManager = CF::AllocationManager::_duplicate(start->second);
+        _remoteAllocations[allocation.allocationID] = allocation;
+    }
+
+    // Update the persistence store with the new database format
+    _domainManager->updateLocalAllocations(_allocations);
+    _domainManager->updateRemoteAllocations(_remoteAllocations);
 }
 
 /* Deallocates a single allocation (assumes lock is held) */
@@ -557,7 +706,7 @@ bool AllocationManager_impl::deallocateLocal(const std::string& allocationID)
 
 bool AllocationManager_impl::deallocateRemote(const std::string& allocationID)
 {
-    std::map<std::string, CF::AllocationManager_var>::iterator alloc = this->_remoteAllocations.find(allocationID);
+    ossie::RemoteAllocationTable::iterator alloc = this->_remoteAllocations.find(allocationID);
     if (alloc == this->_remoteAllocations.end()) {
         return false;
     }
@@ -565,9 +714,9 @@ bool AllocationManager_impl::deallocateRemote(const std::string& allocationID)
     LOG_TRACE(AllocationManager_impl, "Deallocating remote allocation " << allocationID);
     CF::AllocationManager::allocationIDSequence allocations;
     allocations.length(1);
-    allocations[0] = CORBA::string_dup(allocationID.c_str());
+    allocations[0] = allocationID.c_str();
     try {
-        alloc->second->deallocate(allocations);
+        alloc->second.allocationManager->deallocate(allocations);
     } catch (const CF::AllocationManager::InvalidAllocationId&) {
         // Although the remote AllocationManager disagrees, the allocation ID
         // was valid on this side and should be removed

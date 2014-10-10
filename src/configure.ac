@@ -1,25 +1,25 @@
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
 dnl Update this version number immedately after a release
-AC_INIT([ossie],[1.10.0])
+AC_INIT([ossie],[1.10.1])
 #AM_INIT_AUTOMAKE(nostdinc)
 # allows filenames over 99 characters long during dist
 AM_INIT_AUTOMAKE([1.9 tar-pax])
@@ -29,7 +29,7 @@ dnl The version number is in the format "current:revision:age"
 dnl
 dnl Follow these steps (in order) to correctly update the
 dnl version info:
-dnl 
+dnl
 dnl 1. If any source code has changed at all, increment revision
 dnl 2. If any interfaces have been added, modified, or removed
 dnl    then increment current and set revision to 0
@@ -134,10 +134,10 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 AC_ARG_ENABLE([xml_validation], AS_HELP_STRING([--disable-xml-validation], [Disable xml validation in the parsers]))
 AC_MSG_CHECKING([if xml parsers should perform validation])
 if test "x$enable_xml_validation" != "xno"; then
-  AC_SUBST(OSSIE_XSDFLAGS, "--generate-validation") 
+  AC_SUBST(OSSIE_XSDFLAGS, "--generate-validation")
   AC_MSG_RESULT([yes])
 else
-  AC_SUBST(OSSIE_XSDFLAGS, "--suppress-validation") 
+  AC_SUBST(OSSIE_XSDFLAGS, "--suppress-validation")
   AC_MSG_RESULT([no])
 fi
 
@@ -246,7 +246,7 @@ if test "$HAVE_JAVASUPPORT" = yes; then
     pkgpythondir='${prefix}/lib/python/ossie'
   fi
 
-  # Set flags and variables for building with omnijni 
+  # Set flags and variables for building with omnijni
   AC_SUBST(OMNIJNI_CPPFLAGS, '$(JNI_CPPFLAGS) -I$(omnijni_srcdir)/include -I$(omnijni_builddir)/src/cpp/CORBA')
   AC_SUBST(OMNIJNI_LIBS, '$(omnijni_builddir)/src/cpp/libomnijni.la')
   AC_SUBST(OMNIJNI_PYTHONDIR, '$(omnijni_srcdir)/src/python')
