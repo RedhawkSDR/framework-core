@@ -463,11 +463,10 @@ void signal_catcher( int sig )
 {
     // IMPORTANT Don't call exit(...) in this function
     if ((( sig == SIGINT ) || (sig == SIGQUIT) || (sig == SIGTERM))) {
-        if (devPid) {
-            kill(devPid, sig);
-        }
         if (domPid) {
             kill(domPid, sig);
+        } else {
+            kill(devPid, sig);
         }
     }
 }

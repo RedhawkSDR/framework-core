@@ -2644,6 +2644,8 @@ void DeviceManager_impl::clean_registeredDevices()
         LOG_TRACE(DeviceManager_impl, "Releasing device " << label);
         lock.unlock();
         try {
+            unsigned long timeout = 3; // seconds
+            omniORB::setClientCallTimeout(deviceRef, timeout * 1000);
             deviceRef->releaseObject();
         } CATCH_LOG_ERROR(DeviceManager_impl, "Exception calling releaseObject on " << label);
         lock.lock();

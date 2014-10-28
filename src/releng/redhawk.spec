@@ -27,7 +27,7 @@ Prefix:         %{_sysconfdir}
 
 Name:           redhawk
 Version:        1.10.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        REDHAWK is a Software Defined Radio framework
 
 Group:          Applications/Engineering
@@ -85,13 +85,13 @@ REDHAWK is a Software Defined Radio framework.
  * Source Date/Time: __DATETIME__
 
 %package sdrroot-dom-mgr
-Summary:        SDRROOT Domain Manager
+Summary:        Domain Manager
 Group:          Applications/Engineering
 Requires:       %{name} = %{version}-%{release}
 Provides:       DomainManager = %{version}-%{release}
 
 %description sdrroot-dom-mgr
-The SDDROOT Domain Manager software package
+The Domain Manager software package
 
 %package sdrroot-dom-profile
 Summary:        Basic domain manager profile
@@ -102,13 +102,13 @@ Requires:       %{name}-sdrroot-dom-mgr = %{version}-%{release}
 A generic domain profile and domain profile template
 
 %package sdrroot-dev-mgr
-Summary:        SDRROOT Device Manager
+Summary:        Device Manager
 Group:          Applications/Engineering
 Requires:       %{name} = %{version}-%{release}
 Provides:       DeviceManager = %{version}-%{release}
 
 %description sdrroot-dev-mgr
-The SDDROOT Device Manager software package
+The Device Manager software package
 
 %package devel
 Summary:        The REDHAWK development package

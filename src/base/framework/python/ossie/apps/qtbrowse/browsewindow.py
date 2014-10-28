@@ -535,7 +535,10 @@ class BrowseWindow(BrowseWindowBase):
         # Build the list of Device Managers.
         self.devMgrs = []
         for devMgr in self.domManager.devMgrs:
-            self.parseDeviceManager(devMgr)
+            try:
+                self.parseDeviceManager(devMgr)
+            except Exception, e:
+                print "Failed to parse a Device Manager. Continuing..."
 
     def parseDeviceManager (self, devMgr):
         _id = devMgr.id
