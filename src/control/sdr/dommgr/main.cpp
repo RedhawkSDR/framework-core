@@ -23,6 +23,7 @@
 #include <stdexcept>
 #include <signal.h>
 #include <sys/utsname.h>
+#include <sys/wait.h>
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -60,6 +61,24 @@ void signal_catcher( int sig )
     }
 }
 
+static void raise_limit(int resource, const char* name, const rlim_t DEFAULT_MAX=1024)
+{
+    struct rlimit limit;
+    if (getrlimit(resource, &limit) == 0) {
+        if (limit.rlim_max < DEFAULT_MAX) {
+            std::cerr << "The current " << name << " maximum for this user is unusually low: "
+                      << limit.rlim_max << ", and at least " << DEFAULT_MAX << " was expected" << std::endl;
+        }
+        if (limit.rlim_cur < limit.rlim_max) {
+            limit.rlim_cur = limit.rlim_max;
+            if (setrlimit(resource, &limit)) {
+                std::cerr << "Unable to change " << name << " soft limit to the maximum allowed for this user ("
+                          << limit.rlim_max << ")" << std::endl;
+            }
+        }
+    }
+}
+
 int main(int argc, char* argv[])
 {
     // parse command line options
@@ -71,7 +90,13 @@ int main(int argc, char* argv[])
     int debugLevel = 3;
 
     // If "--nopersist" is asserted, turn off persistent IORs.
-    bool enablePersistence = true;
+    bool enablePersistence = false;
+#if ENABLE_BDB_PERSISTENCE || ENABLE_GDBM_PERSISTENCE || ENABLE_SQLITE_PERSISTENCE
+    enablePersistence = true;
+#endif
+    
+    raise_limit(RLIMIT_NPROC, "process");
+    raise_limit(RLIMIT_NOFILE, "file descriptor");
 
     // If "--force-rebind" is asserted, this instance will replace any existing name binding
     // for the DomainManager.
@@ -101,7 +126,9 @@ int main(int argc, char* argv[])
         } else if (param == "PERSISTENCE") {
             string value = argv[ii];
             std::transform(value.begin(), value.begin(), value.end(), ::tolower);
+#if ENABLE_BDB_PERSISTENCE || ENABLE_GDBM_PERSISTENCE || ENABLE_SQLITE_PERSISTENCE
             enablePersistence = (value == "true");
+#endif
         } else if (param == "FORCE_REBIND") {
             string value = argv[ii];
             std::transform(value.begin(), value.begin(), value.end(), ::tolower);
@@ -111,7 +138,6 @@ int main(int argc, char* argv[])
             execparams[param] = argv[ii];
         }
     }
-
 
     if (dmdFile.empty() || domainName.empty()) {
         std::cerr << "ERROR: DMD_FILE and DOMAIN_NAME must be provided" << std::endl;
@@ -246,6 +272,13 @@ int main(int argc, char* argv[])
     LOG_DEBUG(DomainManager, "Machine " << un.machine);
     LOG_DEBUG(DomainManager, "Version " << un.release);
     LOG_DEBUG(DomainManager, "OS " << un.sysname);
+    struct rlimit limit;
+    if (getrlimit(RLIMIT_NPROC, &limit) == 0) {
+        LOG_DEBUG(DomainManager, "Process limit " << limit.rlim_cur);
+    }
+    if (getrlimit(RLIMIT_NOFILE, &limit) == 0) {
+        LOG_DEBUG(DomainManager, "File descriptor limit " << limit.rlim_cur);
+    }
 
     try {
         // Create Domain Manager servant and object

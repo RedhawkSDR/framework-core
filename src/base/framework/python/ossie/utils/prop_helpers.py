@@ -626,6 +626,20 @@ class simpleProperty(Property):
                 return str.__invert__(val, *args)
         except:
             raise
+
+    def __nonzero__(self, *args):
+        try:
+            val = self.queryValue()
+            if self.type in ['short', 'long', 'longlong', 'octet', 'ulong', 'ushort', 'longlong', 'ulonglong']:
+                return int.__nonzero__(val, *args)
+            if self.type in ['double', 'float']:
+                return float.__nonzero__(val, *args)
+            if self.type in ['boolean']:
+                return bool.__nonzero__(val, *args)
+            if self.type in ['char', 'string']:
+                return str.__nonzero__(val, *args)
+        except:
+            raise
     
     def __le__(self, *args):
         try:
@@ -1955,6 +1969,21 @@ class structProperty(Property):
                     self.compRef.configure([configRef])
             return value
     
+
+    def _getMember(self, name):
+        '''
+        Helper function to get the simple member of a struct.  Needed when there are duplicate simple
+        property names in different structs.
+        '''
+        try:
+            return object.__getattribute__(self, "members")[_displayNames[self.compRef._refid][name]]
+        except:
+            for member in object.__getattribute__(self, "members").itervalues():
+                if name in member.clean_name and _duplicateNames[self.compRef._refid].has_key(name):
+                    return member
+            return None
+    
+   
     def __str__(self):
         currValue = self.queryValue()
         structView = "ID: " + self.id
@@ -1969,18 +1998,18 @@ class structProperty(Property):
             structView = structView + '\n  ' + str(self.members[key].clean_name) + ": " + str(currValue[key])
         print structView,
         return ''
-    
+
     def __getattr__(self, name):
         '''
         If the attribute being looked up is actually a member of the struct,
         then return that simple property, otherwise default to the normal
         getattribute function
-        '''
-        try:
-           return object.__getattribute__(self, "members")[_displayNames[self.compRef._refid][name]]
-        except:
-           return object.__getattribute__(self,name)
-    
+        ''' 
+        member =self._getMember(name)
+        if member is not None:
+            return member
+        return object.__getattribute__(self,name)
+        
     def __setattr__(self, name, value):
         '''
         If the attribute being looked up is actually a member of the struct,
@@ -1988,6 +2017,9 @@ class structProperty(Property):
         configure of the entire struct in the simpleProperty class
         '''
         try:
+            member = self._getMember(name)
+            if member is not None:
+                name = member.clean_name
             self.members[_displayNames[self.compRef._refid][name]].configureValue(value)
         except AttributeError:
             return object.__setattr__(self, name, value)

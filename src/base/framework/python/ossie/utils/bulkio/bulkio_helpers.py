@@ -445,7 +445,29 @@ def createBULKIOInputPort(portType):
                 if H.blocking:
                     self.blocking = H.blocking
         self.port_lock.release()
-        
+
+    def SDDS_pushSRI(self, H, T):
+        """
+        This function is called whenever the pushSRI call is
+        made on the connected output port.  This function will
+        store the SRI in a dictionary with the streamID as the
+        key and the SRI and whether or not the SRI changed as
+        the values
+        """
+        self.port_lock.acquire()
+        if H.streamID not in self.sriDict:
+            self.sriDict[H.streamID] = (copy.deepcopy(H), copy.deepcopy(T))
+            if H.blocking:
+                self.blocking = H.blocking
+        else:
+            sri, cur_T = self.sriDict[H.streamID]
+            timediff = not ((cur_T.twsec == T.twsec) and (cur_T.tfsec == T.tfsec))
+            if (not compareSRI(sri, H)) or timediff:
+                self.sriDict[H.streamID] = (copy.deepcopy(H), copy.deepcopy(T))
+                if H.blocking:
+                    self.blocking = H.blocking
+        self.port_lock.release()
+
     def pushPacket(self, *args):
         """
         This function is called whenever the pushPacket call is
@@ -562,7 +584,7 @@ def createBULKIOInputPort(portType):
     if portType == BULKIO__POA.dataSDDS:
         PortClass = classobj('Port',
                              (object,portType),
-                             {'pushSRI':pushSRI,
+                             {'pushSRI':SDDS_pushSRI,
                               'attach':attach,
                               'detach':detach,
                               'sriDict':{},

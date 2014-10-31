@@ -1358,10 +1358,10 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
                     continue;
                 }
 
-                CF::DeviceAssignmentSequence* compDevices = app->componentDevices();
+                CF::DeviceAssignmentSequence_var compDevices = app->componentDevices();
                 bool foundMatch = false;
                 for  (unsigned int j = 0; j < compDevices->length(); j++) {
-                    if (strcmp(deviceNode->identifier.c_str(), (*compDevices)[j].assignedDeviceId) == 0) {
+                    if (strcmp(deviceNode->identifier.c_str(), compDevices[j].assignedDeviceId) == 0) {
                         LOG_WARN(DomainManager_impl, "Releasing application that depends on registered device " << deviceNode->identifier)
                         app->releaseObject();
                         foundMatch = true;

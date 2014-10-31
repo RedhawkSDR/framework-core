@@ -516,3 +516,92 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
     def test_py_FileChanged(self):
         self._test_FileChanged("BasicTestDevice_node", "BasicTestDevice1")
 
+    def _failIfOpen(self, fileSys, path):
+        for info in fileSys.list(path):
+            for prop in info.fileProperties:
+                if prop.id != 'IOR_AVAILABLE':
+                    continue
+                ior_list = prop.value.value()
+                self.assertEqual(len(ior_list), 0, 'File was not closed on copy')
+
+    def _test_LoadedFileClosed(self, nodeName):
+        devBooter, devMgr = self.launchDeviceManager("/nodes/%s/DeviceManager.dcd.xml" % nodeName)
+        device = devMgr._get_registeredDevices()[0]
+        fileSys = devMgr._get_fileSys()
+
+        # Load a single file
+        scaPath = '/devices/ExecutableDevice/ExecutableDevice'
+        device.load(fileSys, scaPath, CF.LoadableDevice.EXECUTABLE)
+        self._failIfOpen(fileSys, scaPath)
+
+        # Load an entire directory
+        scaPath = '/devices/ExecutableDevice'
+        device.load(fileSys, scaPath, CF.LoadableDevice.EXECUTABLE)
+        self._failIfOpen(fileSys, scaPath+'/')
+
+    def test_cpp_LoadedFileClosed(self):
+        self._test_LoadedFileClosed('test_ExecutableDevice_node')
+
+    def test_py_LoadedFileClosed(self):
+        self._test_LoadedFileClosed('test_BasicTestDevice_node')
+
+    def _query(self, comp, propid):
+        dt = comp.query([CF.DataType(propid, any.to_any(None))])[0]
+        return any.from_any(dt.value)
+
+    def _checkCachePath(self, cachePath, targetPath):
+        for path in cachePath.split(':'):
+            # The Python device may add a trailing slash, which is harmless
+            path = path.rstrip('/')
+            if path.endswith(targetPath):
+                return True
+        return False
+
+    def _test_LoadSoftpkgDir(self, nodeName):
+        devBooter, devMgr = self.launchDeviceManager("/nodes/%s/DeviceManager.dcd.xml" % nodeName)
+        device = devMgr._get_registeredDevices()[0]
+        fileSys = self._domMgr._get_fileMgr()
+
+        # Use a directory known to contain .so files
+        scaPath = '/components/linkedLibraryTest/.libs'
+
+        # Get LD_LIBRARY_PATH prior to the load
+        path_pre = self._query(device, 'LD_LIBRARY_PATH')
+        self.failIf(self._checkCachePath(path_pre, scaPath), 'Library directory already in LD_LIBRARY_PATH')
+
+        device.load(fileSys, scaPath, CF.LoadableDevice.SHARED_LIBRARY)
+
+        # Check that LD_LIBRARY has been augmented with the directory
+        path_post = self._query(device, 'LD_LIBRARY_PATH')
+        self.assert_(self._checkCachePath(path_post, scaPath), 'Library directory not added to LD_LIBRARY_PATH')
+
+    def test_cpp_LoadSoftpkgDir(self):
+        self._test_LoadSoftpkgDir('test_ExecutableDevice_node')
+
+    def test_py_LoadSoftpkgDir(self):
+        self._test_LoadSoftpkgDir('test_ExecutableDevicePy_node')
+
+    def _test_LoadSoftpkgLib(self, nodeName):
+        devBooter, devMgr = self.launchDeviceManager("/nodes/%s/DeviceManager.dcd.xml" % nodeName)
+        device = devMgr._get_registeredDevices()[0]
+        fileSys = self._domMgr._get_fileMgr()
+
+        # Use a directory known to contain .so files
+        scaPath = '/components/linkedLibraryTest/.libs'
+        scaFile = os.path.join(scaPath, 'liblinkedLibraryTest.so')
+
+        # Get LD_LIBRARY_PATH prior to the load
+        path_pre = self._query(device, 'LD_LIBRARY_PATH')
+        self.failIf(self._checkCachePath(path_pre, scaPath), 'Library directory already in LD_LIBRARY_PATH')
+
+        device.load(fileSys, scaFile, CF.LoadableDevice.SHARED_LIBRARY)
+
+        # Check that LD_LIBRARY has been augmented with the directory
+        path_post = self._query(device, 'LD_LIBRARY_PATH')
+        self.assert_(self._checkCachePath(path_post, scaPath), 'Library directory not added to LD_LIBRARY_PATH')
+
+    def test_cpp_LoadSoftpkgLib(self):
+        self._test_LoadSoftpkgLib('test_ExecutableDevice_node')
+
+    def test_py_LoadSoftpkgLib(self):
+        self._test_LoadSoftpkgLib('test_ExecutableDevicePy_node')

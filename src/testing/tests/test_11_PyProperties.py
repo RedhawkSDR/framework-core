@@ -148,4 +148,29 @@ class PyPropertiesTest(scatest.CorbaTestCase):
         self.assertEqual(len(v1), 1)
         self.assertEqual(v1[0], value[1])
 
+    def test_QueryBadValue(self):
+        """
+        Tests that invalid values in Python components do not break query()
+        """
+        self.assertNotEqual(self._domMgr, None, "DomainManager not available")
+        self.assertNotEqual(self._devMgr, None, "DeviceManager not available")
+
+        self._app = self._launchApp('TestPythonProps')
+        self.assertNotEqual(self._app, None, "Application not created")
+
+        pre_props = self._app.query([])
+
+        # Set the internal variable to an invalid value
+        # NB: In the future, we may disallow the ability to set properties from
+        #     invalid values; this test will need to be updated
+        self._app.configure([CF.DataType('test_float', any.to_any('bad string'))])
+
+        # Try querying the broken property to check that the query doesn't
+        # throw an unexpected exception
+        self._app.query([CF.DataType('test_float', any.to_any(None))])
+
+        # Try querying all properties to ensure that the invalid value does not
+        # derail the entire query
+        post_props = self._app.query([])
+        self.assertEqual(len(pre_props), len(post_props))
 

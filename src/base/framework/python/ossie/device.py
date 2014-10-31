@@ -41,6 +41,7 @@ import threading
 import exceptions
 from Queue import Queue
 import time
+import zipfile
 
 
 if hasEvents:
@@ -66,6 +67,16 @@ def _getCallback(obj, methodName):
             return callback
         else:
             return None
+
+def _checkpg(pid):
+    """
+    Checks if any members of a process group are alive.
+    """
+    try:
+        os.killpg(pid, 0)
+        return True
+    except OSError:
+        return False
 
 class Device(resource.Resource):
     """A basic device implementation that deals with the core SCA requirements for a device.
@@ -103,6 +114,7 @@ class Device(resource.Resource):
         self._capacityLock = threading.Lock()
         self._proxy_consumer = None
         self._cmdLock = threading.Lock()
+        self._devnull = open(os.devnull)
 
         self.__initialize()
 
@@ -627,12 +639,10 @@ class LoadableDevice(Device):
         matchesPattern = False
         # check to see if it's a C shared library
         #status, output = commands.getstatusoutput('nm '+localFilePath)
-        pipe = subprocess.Popen(['nm', localFilePath], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        pipe = subprocess.Popen(['readelf', '-h', localFilePath], stdout=self._devnull, stderr=self._devnull, close_fds=True )
+        pipe.wait()
         status = pipe.returncode
-        if status == None:
-            status = pipe.wait()
-        output = pipe.communicate()[0]
-        self._log.debug("LOAD -SHARED (SI-1)  FILE:" + str(localFilePath )+ " CWD:" + os.getcwd() )                        
+        self._log.debug("LOAD -SHARED (SI-1)  status:" + str(status) + " FILE:" + str(localFilePath )+ " CWD:" + os.getcwd() )
         if status == 0:
             # This is a C library
             currentdir=os.getcwd()
@@ -663,7 +673,9 @@ class LoadableDevice(Device):
                     break
             if not foundValue:
                 try:
+                    self._log.debug("LOAD -SHARED (SI-1)  ADDING PATH:" + str(candidatePath ) )
                     os.environ['LD_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']+':'+candidatePath+':'
+                    self._log.debug("LOAD -SHARED (SI-1)  NEW LD_LIBRARY_PATH:" + str(os.environ['LD_LIBRARY_PATH']) )
                 except KeyError:
                     os.environ['LD_LIBRARY_PATH'] = candidatePath+':'
             matchesPattern = True
@@ -719,13 +731,7 @@ class LoadableDevice(Device):
         self._log.debug("LOAD -SHARED (JAVA-1)  FILE:" + str(localFilePath )+ " CWD:" + os.getcwd() )                    
         os.chdir(currentdir)
         # check to see if it's a java package
-        #status, output = commands.getstatusoutput('file '+localFilePath)
-        pipe = subprocess.Popen(['file', localFilePath], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        status = pipe.returncode
-        if status == None:
-            status = pipe.wait()
-        output = pipe.communicate()[0]
-        if localFilePath[-4:] == '.jar' and 'Zip' in output:
+        if localFilePath[-4:] == '.jar' and zipfile.is_zipfile(localFilePath):
             currentdir=os.getcwd()
             subdirs = localFilePath.split('/')
             path = ''
@@ -750,6 +756,7 @@ class LoadableDevice(Device):
 
         # it matches no patterns. Assume that it's a set of libraries
         if not matchesPattern:
+            self._log.debug("LOAD -SHARED (LIBRARY DIRECTORY)  FILE:" + str(localFilePath )+ " CWD:" + os.getcwd() )
             # Split the path up
             try:
                 path = [ x for x in os.environ['LD_LIBRARY_PATH'].split(os.path.pathsep) if x != "" ]
@@ -915,7 +922,6 @@ class LoadableDevice(Device):
         #self._cmdLock.acquire()
         try:
             self._log.debug("unload(%s)", fileName)
-            self._log.debug("%s", self._applications)
             # SR:435
             if self.isLocked(): raise CF.Device.InvalidState("System is locked down")
             if self.isDisabled(): raise CF.Device.InvalidState("System is disabled")
@@ -930,7 +936,7 @@ class ExecutableDevice(LoadableDevice):
     STOP_SIGNALS = ((signal.SIGINT, 2),
                     (signal.SIGQUIT, 3),
                     (signal.SIGTERM, 15),
-                    (signal.SIGKILL, None))
+                    (signal.SIGKILL, 0.1))
 
     def __init__(self, devmgr, identifier, label, softwareProfile, compositeDevice, execparams, propertydefs=(),loggerName=None):
         LoadableDevice.__init__(self, devmgr, identifier, label, softwareProfile, compositeDevice, execparams, propertydefs,loggerName=loggerName)
@@ -1078,17 +1084,17 @@ class ExecutableDevice(LoadableDevice):
         # SR:456
         sp = self._applications[pid]
         for sig, timeout in self.STOP_SIGNALS:
+            self._log.debug('Sending signal %d to process group %d', sig, pid)
             try:
                 # the group id is used to handle child processes (if they exist) of the component being cleaned up
                 os.killpg(pid, sig)
             except OSError:
                 pass
-            if timeout != None:
-                giveup_time = time.time() + timeout
-            while sp.poll() == None:
+            giveup_time = time.time() + timeout
+            while _checkpg(pid):
                 if time.time() > giveup_time: break
                 time.sleep(0.1)
-            if sp.poll() != None: break
+            if not _checkpg(pid): break
         sp.wait()
         try:
             del self._applications[pid]

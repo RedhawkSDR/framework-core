@@ -26,6 +26,7 @@ import signal
 from omniORB import CORBA
 from ossie.resource import load_logging_config_uri
 from ossie.cf import CF
+import ossie.resource as resource
 
 def __exit_handler(signum, frame):
     # Raise SystemExit - but only the first time we get a signal
@@ -84,7 +85,7 @@ def start_service(serviceclass, thread_policy=None):
                 load_logging_config_uri(orb, execparams["LOGGING_CONFIG_URI"])
             else:
                 try:
-                    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+                    resource.configureLogging(execparams, None, orb)
                 except:
                     logging.basicConfig()
                     logging.getLogger().setLevel(logging.DEBUG)

@@ -807,6 +807,8 @@ CORBA::TCKind ossie::getTypeKind(std::string type) {
         kind = CORBA::tk_ushort;
     } else if (type == "ulong") {
         kind = CORBA::tk_ulong;
+    } else if (type == "ulonglong") {
+        kind = CORBA::tk_ulonglong;
     } else if (type == "string") {
         kind = CORBA::tk_string;
     } else {
@@ -1179,7 +1181,7 @@ bool ossie::checkOs(const std::vector<ossie::SPD::NameVersionPair>& osDeps, cons
                             dev_os_version = tmp_dev_os_version;
                         }
                         LOG_TRACE(prop_helpers, "Performing comparison operation " << dev_os_version << " " << action << " " << osVersion)
-                        matchOsVersion = ossie::perform_action(dev_os_version, os, action);
+                        matchOsVersion = ossie::perform_action(dev_os_version, osVersion, action);
                         if (matchOsVersion) break;
                     }
                 }

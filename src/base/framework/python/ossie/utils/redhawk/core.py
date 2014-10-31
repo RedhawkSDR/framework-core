@@ -991,6 +991,9 @@ class Component(_componentBase):
 
     def _populatePorts(self, fs=None):
         """Add all port descriptions to the component instance"""
+        cname=object.__getattribute__(self,'name')
+        if _DEBUG == True:
+            print ' Populating Ports For:' + str(cname)
         if object.__getattribute__(self,'_spd') == '':
             print "Unable to create port list for " + object.__getattribute__(self,'name') + " - profile unavailable"
             return
@@ -1051,6 +1054,8 @@ class Component(_componentBase):
                 continue
             int_entry = int_list[idl_repid]
 
+            if _DEBUG == True:
+                print '---> UsesPort ' + str(uses.getAttribute('usesname'))
             new_port = _Port(str(uses.getAttribute('usesname')), interface=None, direction="Uses", using=int_entry)
             try:
                 new_port.generic_ref = self.getPort(str(new_port.name))
@@ -1066,7 +1071,8 @@ class Component(_componentBase):
                     continue
                 int_entry = int_list[idl_repid]
                 new_port._interface = int_entry
-
+                if _DEBUG == True:
+                   print 'Component Adding USES Port:' + str(new_port.name)
                 object.__getattribute__(self,'ports').append(new_port)
             except:
                 if _DEBUG == True:
@@ -1078,6 +1084,8 @@ class Component(_componentBase):
                     print "Invalid port descriptor in scd for " + self.name + " for " + idl_repid
                 continue
             int_entry = int_list[idl_repid]
+            if _DEBUG == True:
+                print '---> ProvidesPort ' + str(provides.getAttribute('providesname'))
             new_port = _Port(str(provides.getAttribute('providesname')), interface=int_entry, direction="Provides")
             try:
                 new_port.generic_ref = object.__getattribute__(self,'ref').getPort(str(new_port.name))
@@ -1119,8 +1127,12 @@ class Component(_componentBase):
         
                 try:
                     exec(exec_string)
+                    if _DEBUG == True:
+                        print 'Component Adding PROVDES Port:' + str(new_port.name)
                     object.__getattribute__(self,'ports').append(new_port)
                 except:
+                    if _DEBUG == True:
+                        print 'ERROR, Provides NARROW failed: ' + exec_string
                     continue
             except:
                 if _DEBUG == True:
@@ -1366,7 +1378,11 @@ class App(_CF__POA.Application, object):
              self.assemblyController = compfile.getElementsByTagName('componentinstantiationref')[0].getAttribute('refid')
 
         for comp_entry in component_list:
-            new_comp = Component(componentDescriptor=comp_entry.softwareProfile,componentObj=comp_entry.componentObject,domainMgr=self._domain,int_list=self._interface_list)
+            new_comp = Component(
+                componentDescriptor=comp_entry.softwareProfile,
+                componentObj=comp_entry.componentObject,
+                domainMgr=self._domain,
+                int_list=self._interface_list)
 
             foundObject = False
             try:
@@ -1632,6 +1648,12 @@ class Device(Component):
                 globals()["_interface_list"] = _importIDL.importStandardIdl()
                 globals()["_loadedInterfaceList"] = True
             self._interface_list = globals()["_interface_list"]
+
+        if refid == None:
+            self._refid = _uuidgen()
+        else:
+            self._refid = refid
+
         if domainMgr != None:
             self._fileManager = domainMgr.ref._get_fileMgr()
 
@@ -1640,6 +1662,9 @@ class Device(Component):
                 self._profile = componentDescriptor
                 self.name = _os.path.basename(componentDescriptor).split('.')[0]
                 self._parseComponentXMLFiles()
+                self._buildAPI()
+                if self.ref != None:
+                    self._populatePorts(fs=self._fileManager)
             else:
                 raise AssertionError, "Component:__init__() ERROR - Failed to instantiate invalid component % " % (str(self.name))
 
@@ -1953,7 +1978,11 @@ class DeviceManager(_CF__POA.DeviceManager, object):
             dce_list[str(compplac.getElementsByTagName('componentinstantiation')[0].getAttribute('id'))] = str(compplac.getElementsByTagName('componentfileref')[0].getAttribute('refid'))
 
         for comp_entry in dev_list:
-            new_comp = Device(componentDescriptor="/"+self.name+comp_entry._get_softwareProfile(),componentObj=comp_entry._narrow(_CF.Device), domain=self._domain,int_list=self._interface_list)
+            new_comp = Device(
+                componentDescriptor="/"+self.name+comp_entry._get_softwareProfile(),
+                componentObj=comp_entry._narrow(_CF.Device), 
+                domainMgr=self._domain,
+                int_list=self._interface_list)
             new_comp.updateReferences()
 
             foundObject = False
@@ -2064,7 +2093,10 @@ class Domain(_CF__POA.DomainManager, object):
 
             parsed_dcd=_minidom.parseString(dcdContents)
 
-            self._addDeviceManager(DeviceManager(name=devMgr._get_label(), devMgr=devMgr, int_list=object.__getattribute__(self, '_interface_list'), dcd=parsed_dcd, domain=self))
+            self._addDeviceManager(DeviceManager(name=devMgr._get_label(), 
+                                                 devMgr=devMgr, 
+                                                 int_list=object.__getattribute__(self, '_interface_list'), 
+                                                 dcd=parsed_dcd, domain=self))
             
     def _populateApps(self):
         self.__setattr__('_waveformsUpdated', True)
@@ -2356,8 +2388,7 @@ class Domain(_CF__POA.DomainManager, object):
                 break
     
         if app_factory_num == -1:
-            print "Application factory not found"
-            _sys.exit(-1)
+            raise AssertionError("Application factory not found")
     
         _appFacProps = []
     

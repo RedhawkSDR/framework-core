@@ -2474,6 +2474,8 @@ void DeviceManager_impl::clean_registeredDevices()
         LOG_TRACE(DeviceManager_impl, "Releasing device " << label);
         try {
             lock.unlock();
+            unsigned long timeout = 3; // seconds
+            omniORB::setClientCallTimeout(deviceNode->device, timeout * 1000);
             deviceNode->device->releaseObject();
             lock.lock();
         } catch (const CORBA::Exception& ex) {

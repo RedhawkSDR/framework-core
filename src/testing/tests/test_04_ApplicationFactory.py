@@ -464,6 +464,28 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         domMgr.uninstallApplication(appFact._get_identifier())
 
+    def test_checkOsVersion(self):
+        nodebooter, domMgr = self.launchDomainManager(debug=9)
+        self.assertNotEqual(domMgr, None)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/ticket_cf_939_node/DeviceManager.dcd.xml", debug=9)
+        self.assertNotEqual(devMgr, None)
+
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        domMgr.installApplication("/waveforms/ticket_cf_939_wave/ticket_cf_939_wave.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        appFact = domMgr._get_applicationFactories()[0]
+        app = appFact.create(appFact._get_name(), [], [])
+        self.assertEqual(len(domMgr._get_applications()), 1)
+        app.releaseObject()
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        domMgr.uninstallApplication(appFact._get_identifier())
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
+
     def test_StackSizeAndPriority(self):
         # test basic operation of launching an application and checking allocation capacities
 
@@ -1811,6 +1833,24 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         domMgr.uninstallApplication(appFact._get_identifier())
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
 
+    def test_CppsoftpkgDependency_CppDev_with_hostcollocation(self):
+        dommgr_nb, domMgr = self.launchDomainManager(debug=9)
+        self.assertNotEqual(domMgr, None)
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml", debug=9)
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication("/waveforms/CppsoftpkgDep_with_hostcollocation/CppsoftpkgDep_with_hostcollocation.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+        appFact = domMgr._get_applicationFactories()[0]
+        app = appFact.create(appFact._get_name(), [], [])
+        self.assertEqual(len(domMgr._get_applications()), 1)
+        app.releaseObject()
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        domMgr.uninstallApplication(appFact._get_identifier())
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
+
     def test_JavasoftpkgDependency(self):
         dommgr_nb, domMgr = self.launchDomainManager(debug=9)
         self.assertNotEqual(domMgr, None)
@@ -2157,3 +2197,68 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         
         app.stop()
         app.releaseObject()                
+
+    def test_sadULongLongPropertyOverride(self):
+        nodebooter, domMgr = self.launchDomainManager(debug=9)
+        self.assertNotEqual(domMgr, None)
+        
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        domMgr.installApplication("/waveforms/ulonglong_override/ulonglong_override.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        # Ensure the expected device is available
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=9)
+        self.assertNotEqual(devMgr, None)
+        self.assertEqual(len(domMgr._get_deviceManagers()), 1)
+        self.assertEqual(len(devMgr._get_registeredDevices()), 1)
+        device = devMgr._get_registeredDevices()[0]
+
+        appFact = domMgr._get_applicationFactories()[0]
+
+        app = appFact.create(appFact._get_name(), [], [])
+
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 1)
+
+        # Verify that the ulonglong property has been overridden with the SAD value
+        prop = app.query([CF.DataType('my_ulonglong', any.to_any(None))])[0]
+        self.assertEqual(any.from_any(prop.value), 1000)
+
+        app.releaseObject()
+
+        domMgr.uninstallApplication(appFact._get_identifier())
+
+    def test_OrphanProcesses(self):
+        """
+        Tests that all child processes associated with a component get
+        terminated with that component.
+        """
+        nb, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+
+        nb, devMgr = self.launchDeviceManager('/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml')
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication('/waveforms/orphaned_child/orphaned_child.sad.xml')
+
+        appFact = domMgr._get_applicationFactories()[0]
+        self.assertEqual(appFact._get_name(), 'orphaned_child')
+
+        app = appFact.create(appFact._get_name(), [], [])
+        pid = app._get_componentProcessIds()[0].processId
+        children = [int(line) for line in commands.getoutput('ps --ppid %d --no-headers -o pid' % (pid,)).split()]
+
+        app.releaseObject()
+
+        orphans = 0
+        for pid in children:
+            try:
+                os.kill(pid, 9)
+                orphans += 1
+            except OSError:
+                pass
+
+        self.assertEqual(orphans, 0)

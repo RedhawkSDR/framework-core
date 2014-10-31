@@ -1,21 +1,21 @@
 #! /usr/bin/env python
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file 
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
 # distributed with this source distribution.
-# 
+#
 # This file is part of REDHAWK core.
-# 
-# REDHAWK core is free software: you can redistribute it and/or modify it under 
-# the terms of the GNU Lesser General Public License as published by the Free 
-# Software Foundation, either version 3 of the License, or (at your option) any 
+#
+# REDHAWK core is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-# 
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT 
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+#
+# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
 # details.
-# 
-# You should have received a copy of the GNU Lesser General Public License 
+#
+# You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
@@ -54,20 +54,20 @@ ossiepy = ['ossie', 'ossie/cf', \
            'ossie/parsers', 'ossie/utils/tools', 'ossie/utils/log4py', 'ossie/utils/testing',
            'redhawk']
 
-version='1.8.7'
+version='1.8.8'
 
 setup(
         name='ossiepy',
         version=version,
         description='OSSIE Python',
         packages=ossiepy,
-        scripts=['ossie/utils/tools/prf2py.py', 
-                 'ossie/apps/qtbrowse/qtbrowse', 
-                 'ossie/apps/scaclt', 
+        scripts=['ossie/utils/tools/prf2py.py',
+                 'ossie/apps/qtbrowse/qtbrowse',
+                 'ossie/apps/scaclt',
                  'ossie/apps/py2prf',
                  'ossie/apps/eventviewer',
-                 'ossie/apps/rh_net_diag', 
-                 'ossie/apps/cleanns', 
-                 'ossie/apps/cleanes', 
+                 'ossie/apps/rh_net_diag',
+                 'ossie/apps/cleanns',
+                 'ossie/apps/cleanes',
                  'ossie/apps/sdrlint'],
     )

@@ -223,7 +223,12 @@ class Resource(object):
                 rv = []
                 for propid in self._props.keys():
                     if self._props.has_id(propid) and self._props.isQueryable(propid):
-                        rv.append(CF.DataType(id=propid, value=self._props.query(propid)))
+                        try:
+                            value = self._props.query(propid)
+                        except Exception, e:
+                            self._log.error('Failed to query %s: %s', propid, e)
+                            value = any.to_any(None)
+                        rv.append(CF.DataType(propid, value))
             except:
                 self.propertySetAccess.release()
                 raise
@@ -235,7 +240,10 @@ class Resource(object):
                 unknownProperties = []
                 for prop in configProperties:
                     if self._props.has_id(prop.id) and self._props.isQueryable(prop.id):
-                        prop.value = self._props.query(prop.id)
+                        try:
+                            prop.value = self._props.query(prop.id)
+                        except Exception, e:
+                            self._log.error('Failed to query %s: %s', prop.id, e)
                     else:
                         self._log.warning("property %s cannot be queried.  valid Id: %s", 
                                         prop.id, self._props.has_id(prop.id))
@@ -505,6 +513,7 @@ def parseCommandLineArgs(componentclass):
 def start_component(componentclass, interactive_callback=None, thread_policy=None, loggerName=None):   
     execparams, interactive = parseCommandLineArgs(componentclass)
     setupSignalHandlers()
+    orb = None
 
     try:
         try:
@@ -554,6 +563,11 @@ def start_component(componentclass, interactive_callback=None, thread_policy=Non
                 else:
                     print orb.object_to_string(component_Obj._this())
                     orb.run()
+            try:
+                orb.shutdown(true)
+            except:
+                pass
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
         except SystemExit:
             pass
         except KeyboardInterrupt:

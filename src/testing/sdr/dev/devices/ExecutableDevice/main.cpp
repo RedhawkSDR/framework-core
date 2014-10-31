@@ -34,21 +34,25 @@ class TestDevice : public virtual CF::AggregateExecutableDevice, public virtual 
     TestDevice(char *devMgr_ior, char *id, char *lbl, char *sftwrPrfl) :
           ExecutableDevice_impl (devMgr_ior, id, lbl, sftwrPrfl)
     {
+        loadProperties();
     }
 
     TestDevice(char *devMgr_ior, char *id, char *lbl, char *sftwrPrfl, char *compDev) :
           ExecutableDevice_impl (devMgr_ior, id, lbl, sftwrPrfl)
     {
+        loadProperties();
     }
 
     TestDevice(char *devMgr_ior, char *id, char *lbl, char *sftwrPrfl, CF::Properties capacities) :
           ExecutableDevice_impl (devMgr_ior, id, lbl, sftwrPrfl, capacities)
     {
+        loadProperties();
     }
 
     TestDevice(char *devMgr_ior, char *id, char *lbl, char *sftwrPrfl, CF::Properties capacities, char *compDev) :
           ExecutableDevice_impl (devMgr_ior, id, lbl, sftwrPrfl, capacities)
     {
+        loadProperties();
     }
 
     ~TestDevice()
@@ -61,9 +65,61 @@ class TestDevice : public virtual CF::AggregateExecutableDevice, public virtual 
     void removeDevice(CF::Device_ptr associatedDevice) {
     }
 
+    virtual void query(CF::Properties& configProperties) throw (CF::UnknownProperties, CORBA::SystemException)
+    {
+        resync();
+        ExecutableDevice_impl::query(configProperties);
+    }
+
     CF::DeviceSequence* devices() {
         return 0;
     }
+
+private:
+    void loadProperties() {
+        addProperty(LD_LIBRARY_PATH,
+                    "LD_LIBRARY_PATH",
+                    "",
+                    "readonly",
+                    "",
+                    "external",
+                    "configure");
+
+        addProperty(PYTHONPATH,
+                    "PYTHONPATH",
+                    "",
+                    "readonly",
+                    "",
+                    "external",
+                    "configure");
+
+        addProperty(CLASSPATH,
+                    "CLASSPATH",
+                    "",
+                    "readonly",
+                    "",
+                    "external",
+                    "configure");
+    }
+
+    std::string getEnvVar(const char* name) {
+        std::string result;
+        const char* value = getenv(name);
+        if (value) {
+            result = value;
+        }
+        return result;
+    }
+
+    void resync() {
+        LD_LIBRARY_PATH = getEnvVar("LD_LIBRARY_PATH");
+        PYTHONPATH = getEnvVar("PYTHONPATH");
+        CLASSPATH = getEnvVar("CLASSPATH");
+    }
+
+    std::string LD_LIBRARY_PATH;
+    std::string PYTHONPATH;
+    std::string CLASSPATH;
 };
 
 CREATE_LOGGER(ExecutableTestDevice)

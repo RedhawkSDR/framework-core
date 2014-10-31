@@ -141,7 +141,7 @@ def fileConfig(f, category=None):
           for appenderOption in appenderOptions:
             opt = appenderOption[len(appenderKey+"."):]
             value = props[appenderOption].strip()
-            if opt.endswith("layout"):
+            if opt.lower().endswith("layout"):
               layoutClass = value
               klass = _import_layout(layoutClass)
               layout = klass()
@@ -150,12 +150,12 @@ def fileConfig(f, category=None):
                 opt = layoutOption[len(appenderKey+".layout."):]
                 value = props[layoutOption].strip()
                 setattr(layout, opt, value)
-            elif opt.endswith("filter"):
+            elif opt.lower().endswith("filter"):
               pass
-            elif opt.endswith("errorhandler"):
+            elif opt.lower().endswith("errorhandler"):
               pass
-            elif opt.endswith("threshold"):
-              setattr(handler, opt, _LEVEL_TRANS[value])
+            elif opt.lower().endswith("threshold"):
+              setattr(handler, opt.lower(), _LEVEL_TRANS[value])
             else:
               setattr(handler, opt, value)
           handler.activateOptions()
@@ -185,7 +185,7 @@ def fileConfig(f, category=None):
       for appenderOption in appenderOptions:
         opt = appenderOption[len(appenderKey+"."):]
         value = props[appenderOption].strip()
-        if opt.endswith("layout"):
+        if opt.lower().endswith("layout"):
           layoutClass = value
           klass = _import_layout(layoutClass)
           layout = klass()
@@ -194,12 +194,12 @@ def fileConfig(f, category=None):
             opt = layoutOption[len(appenderKey+".layout."):]
             value = props[layoutOption].strip()
             setattr(layout, opt, value)
-        elif opt.endswith("filter"):
+        elif opt.lower().endswith("filter"):
           pass
-        elif opt.endswith("errorhandler"):
+        elif opt.lower().endswith("errorhandler"):
           pass
-        elif opt.endswith("threshold"):
-          setattr(handler, opt, _LEVEL_TRANS[value])
+        elif opt.lower().endswith("threshold"):
+          setattr(handler, opt.lower(), _LEVEL_TRANS[value])
         else:
           setattr(handler, opt, value)
       handler.activateOptions()

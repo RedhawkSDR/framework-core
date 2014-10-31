@@ -674,6 +674,12 @@ class SBTestTest(scatest.CorbaTestCase):
         comp = sb.Component('SlowComponent', execparams={'CREATE_DELAY':15}, timeout=20)
         self.assert_(comp.ref != None)
 
+    def test_nonzero(self):
+        comp = sb.Component('Sandbox')
+        
+        if comp.my_bool_false:
+            self.fail('Boolean False evaluated to True in conditional')
+
         #TODO if BULKIO ever gets folded into core framework these tests can be used
         # to add them proper components must be created
         # 1 with multiple good connections

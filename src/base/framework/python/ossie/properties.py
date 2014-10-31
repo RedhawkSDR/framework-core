@@ -112,26 +112,30 @@ def to_xmlvalue(data, type_):
     return v
 
 def to_tc_value(data, type_):
-    if data == None:
+    if data is None:
         return any.to_any(None)
-    tc, data = any._to_tc_value(data)
 
-    # first getting the appropriate TypeCode based on the type_ attribute
+    # If the typecode is known, use that
     if __TYPE_MAP.has_key(type_):
-        pytype = __TYPE_MAP[type_][0]
-        tc = __TYPE_MAP[type_][1]
-        if type(data) != pytype:
+        pytype, tc = __TYPE_MAP[type_]
+        # Convert to the correct Python type, if necessary
+        if not isinstance(data, pytype):
             data = to_pyvalue(data, type_)
-            
-    return CORBA.Any(tc, data)
+        return CORBA.Any(tc, data)
+    else:
+        # Unknown type, let omniORB decide
+        return any.to_any(data)
 
 def struct_fields(value):
-    clazz = type(value)
+    if isinstance(value, types.ClassType) or hasattr(value, '__bases__'):
+        clazz = value
+    else:
+        clazz = type(value)
     # Try to get the correct field ordering, if it is available, otherwise
     # just look at the class dictionary to find the fields.
     fields = getattr(clazz, '__fields', None)
     if fields is None:
-        fields = filter(lambda x: isinstance(x, simple_property), clazz.__dict__.values())
+        fields = [p for p in clazz.__dict__.itervalues() if isinstance(p, simple_property)]
     return fields
 
 def struct_values(value):
@@ -144,18 +148,15 @@ def struct_values(value):
         result.append((attr.id_, field_value))
     return result
 
-def struct_to_props(value):
-    result = []
-    # Try to get the correct field ordering, if it is available, otherwise
-    # just look at the class dictionary to find the fields.
-    fields = struct_fields(value)
-    for attr in fields:
-        field_value = attr.get(value)
-        result.append(CF.DataType(id=attr.id_, value=attr._toAny(field_value)))
-    return result
+def struct_to_props(value, fields=None):
+    if fields is None:
+        # Try to get the correct field ordering, if it is available, otherwise
+        # just look at the class dictionary to find the fields.
+        fields = struct_fields(value)
+    return [CF.DataType(attr.id_, attr._toAny(attr.get(value))) for attr in fields]
 
-def struct_to_any(value):
-    return props_to_any(struct_to_props(value))
+def struct_to_any(value, fields=None):
+    return props_to_any(struct_to_props(value, fields))
 
 def struct_from_props(value, structdef):
     # Create an uninitialized struct definition
@@ -1032,7 +1033,9 @@ class structseq_property(_sequence_property):
     def _toAny(self, value):
         if value is None:
             return any.to_any(value)
-        result = [struct_to_any(item) for item in value]
+        # Get the struct field format once for all items
+        fields = struct_fields(self.structdef)
+        result = [struct_to_any(item, fields) for item in value]
         return CORBA.Any(CORBA._tc_AnySeq, result)
     
     def compareValues(self, oldValue, newValue):

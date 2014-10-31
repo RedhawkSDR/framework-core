@@ -25,7 +25,7 @@
 %define username redhawk
 
 Name:		redhawk
-Version:	1.8.7
+Version:	1.8.8
 Release:        1%{?dist}
 Summary:	REDHAWK is a Software Defined Radio framework
 
@@ -54,6 +54,7 @@ Requires: apr apr-util
 Requires: apache-log4cxx >= 0.10
 Requires: boost >= 1.41
 Requires: java >= 1.6
+Requires: binutils
 BuildRequires: autoconf automake libtool
 %if 0%{?rhel} >= 6 || 0%{?fedora} >= 12
 BuildRequires: libuuid-devel
@@ -80,7 +81,7 @@ REDHAWK is a Software Defined Radio framework.
  * Source Date/Time: __DATETIME__
 
 %package sdrroot-dom-mgr
-Summary:        SDRROOT Domain Manager
+Summary:        Domain Manager
 Group:          Applications/Engineering
 Requires:       %{name} = %{version}-%{release}
 Provides:       DomainManager = %{version}-%{release}
@@ -88,7 +89,7 @@ Provides:       DomainManager = %{version}-%{release}
 Obsoletes:      sdrroot redhawk-sdrroot-dom
 
 %description sdrroot-dom-mgr
-The SDDROOT Domain Manager software package
+The Domain Manager software package
 
 %package sdrroot-dom-profile
 Summary:        Basic domain manager profile
@@ -99,7 +100,7 @@ Requires:       %{name}-sdrroot-dom-mgr = %{version}-%{release}
 A generic domain profile and domain profile template
 
 %package sdrroot-dev-mgr
-Summary:        SDRROOT Device Manager
+Summary:        Device Manager
 Group:          Applications/Engineering
 Requires:       %{name} = %{version}-%{release}
 Provides:       DeviceManager = %{version}-%{release}
@@ -107,7 +108,7 @@ Provides:       DeviceManager = %{version}-%{release}
 Obsoletes:      sdrroot redhawk-sdrroot-dev
 
 %description sdrroot-dev-mgr
-The SDDROOT Device Manager software package
+The Device Manager software package
 
 %package devel
 Summary:        The REDHAWK development package
@@ -179,10 +180,11 @@ rm -rf --preserve-root $RPM_BUILD_ROOT
 
 
 %pre
+# -r is system account, -f is force (ignore already exists)
 groupadd -r -f %{groupname}
-if id %{username} &> /dev/null; then
-  echo "%{username} user account exists and will not be added"
-else
+if ! id %{username} &> /dev/null; then
+  # -M is don't create home dir, -r is system account, -s is shell
+  # -c is comment, -n is don't create group, -g is group name/id
   /usr/sbin/useradd -M -r -s /sbin/nologin \
     -c "REDHAWK System Account" -n -g %{groupname} %{username} > /dev/null
 fi
@@ -266,9 +268,11 @@ fi
 
 
 %changelog
-* Tue Mar 18 2014 - 1.8.7-1
+* Mon Mar 31 2014 - 1.8.7-1
 - Improve OS version detection for RHEL/CentOS/Fedora
 - Exclude qtbrowse on el7
+- Clarify useradd/groupadd
+- Add missing package requirement
 
 * Fri May 24 2013 - 1.8.5-1
 - Stop overloading the python_sitelib macro

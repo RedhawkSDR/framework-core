@@ -38,6 +38,23 @@ static time_t getModTime (const CF::Properties& properties)
     return static_cast<time_t>(modTime);
 }
 
+static bool checkPath(const std::string& envpath, const std::string& pattern, char delim=':')
+{
+    // First, check if the pattern is even in the input path
+    std::string::size_type start = envpath.find(pattern);
+    if (start == std::string::npos) {
+        return false;
+    }
+    // Next, make sure that the pattern starts at a boundary--either at the
+    // beginning, or immediately following a delimiter
+    if ((start != 0) && (envpath[start-1] != delim)) {
+        return false;
+    }
+    // Finally, make sure that the pattern ends at a boundary as well
+    std::string::size_type end = start + pattern.size();
+    return ((end == envpath.size()) || (envpath[end] == delim));
+}
+
 PREPARE_LOGGING(LoadableDevice_impl)
 
 
@@ -248,6 +265,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
             fileStream.write((const char*)data->get_buffer(), data->length());
             fileStream.close();
         }
+        srcFile->close();
         chmod(relativeFileName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         fileTypeTable[workingFileName] = CF::FileSystem::PLAIN;
     } else {
@@ -272,6 +290,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
         LOG_DEBUG(LoadableDevice_impl, "Configuring shared library");
         bool CLibrary = false;
         bool PythonPackage = false;
+        bool JavaJar = false;
         // Check to see if it's a C library
         std::string command = "nm ";
         command += relativeFileName;
@@ -280,19 +299,22 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
         int status = pclose(fileCheck);
         std::string currentPath = get_current_dir_name();
         if (!status) { // this file is a C library
-            std::string ld_library_path = "";
+            std::string ld_library_path;
             if (getenv("LD_LIBRARY_PATH")) {
                 ld_library_path = getenv("LD_LIBRARY_PATH");
             }
-            // make sure that the current path is not already in LD_LIBRARY_PATH
+            // Determine the full directory path of the file; there is always
+            // at least one slash, so it's safe to erase from that point on
             std::string additionalPath = currentPath+std::string("/")+relativeFileName;
-            std::string::size_type pathLocation = ld_library_path.find(additionalPath);
-            if (pathLocation == std::string::npos) {
-                ld_library_path += std::string(":")+additionalPath;
-                unsigned int filenameLocation = ld_library_path.rfind('/');
-                unsigned int ld_lib_path_length = ld_library_path.size();
-                ld_library_path.erase(filenameLocation, ld_lib_path_length-filenameLocation);
+            additionalPath.erase(additionalPath.rfind('/'));
+
+            // Make sure that the current path is not already in LD_LIBRARY_PATH
+            if (!checkPath(ld_library_path, additionalPath)) {
                 LOG_DEBUG(LoadableDevice_impl, "Adding " << additionalPath << " to LD_LIBRARY_PATH");
+                if (!ld_library_path.empty()) {
+                    ld_library_path += ':';
+                }
+                ld_library_path += additionalPath;
                 setenv("LD_LIBRARY_PATH", ld_library_path.c_str(), 1);
             }
             CLibrary = true;
@@ -420,7 +442,25 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                         LOG_DEBUG(LoadableDevice_impl, "Adding " << additionalPath << " to CLASSPATH");
                         setenv("CLASSPATH", classpath.c_str(), 1);
                     }
+                    JavaJar = true;
                 }
+            }
+        }
+        // It doesn't match anything, assume that it's a set of libraries
+        if (!(CLibrary || PythonPackage || JavaJar)) {
+            std::string ld_library_path;
+            if (getenv("LD_LIBRARY_PATH")) {
+                ld_library_path = getenv("LD_LIBRARY_PATH");
+            }
+            // Make sure that the current path is not already in LD_LIBRARY_PATH
+            const std::string additionalPath = currentPath+std::string("/")+relativeFileName;
+            if (!checkPath(ld_library_path, additionalPath)) {
+                LOG_DEBUG(LoadableDevice_impl, "Adding " << additionalPath << " to LD_LIBRARY_PATH");
+                if (!ld_library_path.empty()) {
+                    ld_library_path += ':';
+                }
+                ld_library_path += additionalPath;
+                setenv("LD_LIBRARY_PATH", ld_library_path.c_str(), 1);
             }
         }
     }
@@ -491,7 +531,7 @@ void LoadableDevice_impl::_deleteTree(std::string fileKey)
 void LoadableDevice_impl::_copyFile(CF::FileSystem_ptr fs, std::string remotePath, std::string localPath, std::string fileKey)
 {
 
-    CF::File_ptr fileToLoad = fs->open(remotePath.c_str(), true);
+    CF::File_var fileToLoad = fs->open(remotePath.c_str(), true);
     size_t blockTransferSize = 1024;
     size_t toRead;
     CF::OctetSequence_var data;
@@ -518,7 +558,7 @@ void LoadableDevice_impl::_copyFile(CF::FileSystem_ptr fs, std::string remotePat
         fileSize -= toRead;
     }
     fileStream.close();
-
+    fileToLoad->close();
 }
 
 
