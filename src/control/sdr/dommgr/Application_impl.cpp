@@ -176,6 +176,7 @@ throw (CORBA::SystemException, CF::Resource::StopError)
 {
     if (CORBA::is_nil(assemblyController)) { return; }
 
+    unsigned long timeout = 3; // seconds
     try {
         LOG_TRACE(Application_impl, "Calling stop on assembly controller");
 
@@ -185,9 +186,11 @@ throw (CORBA::SystemException, CF::Resource::StopError)
             msg = msg.append(ossie::corba::returnString(_appStartSeq[i]->identifier()));
             LOG_TRACE(Application_impl, msg);
 
+            omniORB::setClientCallTimeout(_appStartSeq[i], timeout * 1000);
             _appStartSeq[i]-> stop();
         }
 
+        omniORB::setClientCallTimeout(assemblyController, timeout * 1000);
         assemblyController->stop ();
     } catch( CF::Resource::StopError& se ) {
         LOG_ERROR(Application_impl, "Stop failed with CF::Resource::StopError")

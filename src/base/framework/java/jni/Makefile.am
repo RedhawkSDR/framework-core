@@ -47,6 +47,10 @@ nobase_nodist_include_HEADERS = ossie/CF/jni_LogInterfaces.h \
 				ossie/CF/jni_ExtendedEvent.h \
 				ossie/CF/jni_sandbox.h
 
+# Ensure that the headers get built first to avoid potential race conditions,
+# as many of the .cpp files depend on one or more other headers
+BUILT_SOURCES = $(nobase_nodist_include_HEADERS)
+
 libossiecfjni_la_LIBADD = COS/libcosjni.la $(OMNICOS_LIBS) $(OSSIEIDL_LIBS) $(OMNIJNI_LIBS)
 
 clean-local:

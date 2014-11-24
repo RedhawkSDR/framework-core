@@ -521,7 +521,8 @@ std::string ossie::convertComplexAnyToString(const CORBA::Any& value){
 std::string ossie::complexAnyToString(const CORBA::Any& value)
 {
     std::string result;
-    std::string structName = any_to_string(*((value.type())->parameter(0)));
+    CORBA::TypeCode_var valueType = value.type();
+    std::string structName = any_to_string(*(valueType->parameter(0)));
     if (structName == "complexFloat"){
          result = convertComplexAnyToString<CF::complexFloat>(value);
     } else if (structName == "complexBoolean"){
@@ -546,7 +547,7 @@ std::string ossie::complexAnyToString(const CORBA::Any& value)
         result = convertComplexAnyToString<CF::complexULongLong>(value);
     } else {
         std::ostringstream tmp;
-        tmp << "Kind: " << value.type();
+        tmp << "Kind: " << valueType;
         result = tmp.str();
     }
     return result;
@@ -656,7 +657,8 @@ std::string ossie::any_to_string(const CORBA::Any& value)
 {
     std::string result;
 
-    if ((value.type())->kind() == CORBA::tk_struct) {
+    CORBA::TypeCode_var valueType = value.type();
+    if (valueType->kind() == CORBA::tk_struct) {
         result = complexAnyToString(value);
     }
     else {

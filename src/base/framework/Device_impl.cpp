@@ -168,9 +168,6 @@ void  Device_impl::run ()
 void  Device_impl::halt ()
 {
     LOG_DEBUG(Device_impl, "Halting Device")
-    if (not _adminState == CF::Device::LOCKED) {
-        return;
-    }
     Resource_impl::halt();
 }
 

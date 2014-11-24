@@ -196,7 +196,8 @@ public:
     virtual short compare (const CORBA::Any& a)
     {
         if (super::isNil_) {
-            if (a.type()->kind() == (CORBA::tk_null)) {
+            CORBA::TypeCode_var aType = a.type();
+            if (aType->kind() == (CORBA::tk_null)) {
                 return 0;
             }
             return 1;

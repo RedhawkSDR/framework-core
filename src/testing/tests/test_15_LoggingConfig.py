@@ -18,12 +18,12 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-from omniORB import any
 import unittest
 from _unitTestHelpers import scatest
 from ossie.cf import CF
-from omniORB import CORBA
-import struct
+from omniORB import URI
+import CosNaming
+import CosEventChannelAdmin
 from ossie.utils import sb
 
 class CppLoggingConfig(scatest.CorbaTestCase):
@@ -33,6 +33,26 @@ class CppLoggingConfig(scatest.CorbaTestCase):
 
         
     def tearDown(self):
+        self.comp.releaseObject()
+
+        # Try to clean up the event channel, if it was created
+        context = None
+        try:
+            channel = self._root.resolve(URI.stringToName('TEST_APPENDER/TEST_EVT_CH1'))
+            channel = channel._narrow(CosEventChannelAdmin.EventChannel)
+            channel.destroy()
+        except:
+            pass
+
+        # Clean up naming context, too
+        try:
+            context = self._root.resolve(URI.stringToName('TEST_APPENDER'))
+            context = context._narrow(CosNaming.NamingContext)
+            self._root.unbind(URI.stringToName('TEST_APPENDER'))
+            context.destroy()
+        except:
+            pass
+
         # Do all application shutdown before calling the base class tearDown,
         # or failures will probably occur.
         scatest.CorbaTestCase.tearDown(self)

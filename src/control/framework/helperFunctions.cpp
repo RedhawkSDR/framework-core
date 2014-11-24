@@ -44,6 +44,9 @@ bool ossie::isValidFileName(const char* fileName)
 {
     int fsOpSuccessAttempts = 0;
     bool fsOpSuccess = false;
+    if (fileName[0] == 0) {
+        return fsOpSuccess;
+    }
     while (!fsOpSuccess) {
         try {
 #if BOOST_FILESYSTEM_VERSION < 3            

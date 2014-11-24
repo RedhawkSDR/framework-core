@@ -23,6 +23,7 @@ from subprocess import Popen
 from _unitTestHelpers import scatest
 from xml.dom import minidom
 from omniORB import CORBA, URI, any
+import omniORB
 from ossie.cf import CF, CF__POA
 import commands
 
@@ -2283,3 +2284,27 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
                 pass
 
         self.assertEqual(orphans, 0)
+
+    def test_HangingStopAndRelease(self):
+        """
+        Tests that all child processes associated with a component get
+        terminated with that component.
+        """
+        nb, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        self.assertNotEqual(domMgr, None)
+
+        nb, devMgr = self.launchDeviceManager('/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml', debug=self.debuglevel)
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication('/waveforms/hang_release/hang_release.sad.xml')
+
+        appFact = domMgr._get_applicationFactories()[0]
+        self.assertEqual(appFact._get_name(), 'hang_release')
+
+        app = appFact.create(appFact._get_name(), [], [])
+
+        timeout=40 # this is in seconds
+        omniORB.setClientCallTimeout(app,timeout*1000)
+        app.releaseObject()
+        apps = domMgr._get_applications()
+        self.assertEqual(len(apps),0)

@@ -273,7 +273,7 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
                     }
                 }
                 if (!foundEventChannel) {
-                    LOG_WARN(DomainManager_impl, "Failed to recover Event Channel: " << i->boundName);
+                    _eventChannels.push_back(*i);
                 }
             } else {
                 LOG_WARN(DomainManager_impl, "Failed to recover Event Channel: " << i->boundName);

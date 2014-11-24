@@ -614,6 +614,15 @@ class FileManagerTest(scatest.CorbaTestCase):
 
         os.remove(devlocalfile)
 
+    def test_EmptyFilename(self):
+        #################
+        # test move
+        #################
+        self.assertNotEqual(self._domMgr, None)
+        fileMgr = self._domMgr._get_fileMgr()
+        
+        self.assertRaises(CF.InvalidFileName, fileMgr.open, '', True)
+
     def test_readException(self):
         # Makes sure that File_impl::read() throws correct exception and doesn't kill domain
         # Issue #533

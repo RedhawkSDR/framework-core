@@ -1838,7 +1838,8 @@ void createHelper::_evaluateMATHinRequest(CF::Properties &request, CF::Propertie
 
                 std::string math = args[2];
                 CORBA::Any compValue = matchingCompProp->value;
-                request[math_prop].value = ossie::calculateDynamicProp(operand, compValue, math, matchingCompProp->value.type()->kind());
+                CORBA::TypeCode_var matchingCompPropType = matchingCompProp->value.type();
+                request[math_prop].value = ossie::calculateDynamicProp(operand, compValue, math, matchingCompPropType->kind());
                 std::string retval = ossie::any_to_string(request[math_prop].value);
             } else {
                 std::ostringstream eout;

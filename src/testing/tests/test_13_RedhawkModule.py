@@ -377,3 +377,28 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         app.my_structseq_name[0] = new_value[0]
         app.my_structseq_name[1] = new_value[1]
         self.assertEqual(app.my_structseq_name, new_value)
+
+    def test_connect(self):
+        """
+        Tests that applications can make connections between their external ports
+        """
+        self.launchDeviceManager('/nodes/test_PortTestDevice_node/DeviceManager.dcd.xml', debug=self.debuglevel)
+
+        app1 = self._rhDom.createApplication('/waveforms/PortConnectExternalPort/PortConnectExternalPort.sad.xml')
+        app2 = self._rhDom.createApplication('/waveforms/PortConnectExternalPort/PortConnectExternalPort.sad.xml')
+
+        # Tally up the connections prior to making an app-to-app connection;
+        # the PortTest component's runTest method returns the identifiers of
+        # any connected Resources
+        pre = []
+        for comp in app1.comps + app2.comps:
+            pre.extend(comp.runTest(0, []))
+
+        app1.connect(app2)
+
+        # Tally up the connections to check that a new one has been made
+        post = []
+        for comp in app1.comps + app2.comps:
+            post.extend(comp.runTest(0, []))
+
+        self.assertTrue(len(post) > len(pre))

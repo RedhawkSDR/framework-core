@@ -500,12 +500,13 @@ namespace boost {
             for (std::size_t i = 0; i < props.length(); ++i) {
                 std::string id(props[i].id);
                 std::string value(ossie::any_to_string(props[i].value));
-                CORBA::TypeCode_ptr typecode = props[i].value.type();
+                CORBA::TypeCode_var typecode = props[i].value.type();
                 CORBA::TCKind kind = typecode->kind();
                 ar << id;
                 ar << kind;
                 if (typecode->kind() == CORBA::tk_struct) {
-                    std::string structName = ossie::any_to_string(*((props[i].value.type())->parameter(0)));
+                    CORBA::TypeCode_var propsValueType = props[i].value.type();
+                    std::string structName = ossie::any_to_string(*(propsValueType->parameter(0)));
                     ar << structName;
                 } else {
                     std::string structName("simple");

@@ -90,6 +90,25 @@ static void child_exit (int sig)
 }
 
 
+static void raise_limit(int resource, const char* name, const rlim_t DEFAULT_MAX=1024)
+{
+    struct rlimit limit;
+    if (getrlimit(resource, &limit) == 0) {
+        if (limit.rlim_max < DEFAULT_MAX) {
+            std::cerr << "The current " << name << " maximum for this user is unusually low: "
+                      << limit.rlim_max << ", and at least " << DEFAULT_MAX << " was expected" << std::endl;
+        }
+        if (limit.rlim_cur < limit.rlim_max) {
+            limit.rlim_cur = limit.rlim_max;
+            if (setrlimit(resource, &limit)) {
+                std::cerr << "Unable to change " << name << " soft limit to the maximum allowed for this user ("
+                          << limit.rlim_max << ")" << std::endl;
+            }
+        }
+    }
+}
+
+
 int main(int argc, char* argv[])
 {
     // parse command line options
@@ -103,6 +122,9 @@ int main(int argc, char* argv[])
     std::string name_binding("DEVICE_MANAGER");
 
     std::map<std::string, char*>execparams;
+
+    raise_limit(RLIMIT_NPROC, "process");
+    raise_limit(RLIMIT_NOFILE, "file descriptor");
 
     for (int ii = 1; ii < argc; ++ii) {
         std::string param = argv[ii];
@@ -123,6 +145,10 @@ int main(int argc, char* argv[])
             logfile_uri = argv[ii];
         } else if (param == "DEBUG_LEVEL") {
             debugLevel = atoi(argv[ii]);
+            if (debugLevel > 5) {
+                std::cout<<"Logging level "<<debugLevel<<" invalid. Lowering to 5"<<std::endl;
+                debugLevel = 5;
+            }
         } else if (ii > 0 ) {
             execparams[param] = argv[ii];
         }
@@ -269,6 +295,13 @@ int main(int argc, char* argv[])
     LOG_DEBUG(DeviceManager, "Machine " << un.machine);
     LOG_DEBUG(DeviceManager, "Version " << un.release);
     LOG_DEBUG(DeviceManager, "OS " << un.sysname);
+    struct rlimit limit;
+    if (getrlimit(RLIMIT_NPROC, &limit) == 0) {
+        LOG_DEBUG(DeviceManager, "Process limit " << limit.rlim_cur);
+    }
+    if (getrlimit(RLIMIT_NOFILE, &limit) == 0) {
+        LOG_DEBUG(DeviceManager, "File descriptor limit " << limit.rlim_cur);
+    }
 
     // Locate the physical location for the Device Manager's cache.
     std::string devMgrCache;

@@ -121,6 +121,7 @@ bool ThreadedComponent::stopThread ()
         if (!serviceThread->release(2)) {
             return false;
         }
+        delete  serviceThread;
         serviceThread = 0;
     }
     return true;

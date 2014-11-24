@@ -618,8 +618,12 @@ def loadSADFile(filename, props={}):
                     providesPortName = None
                     # Check for uses port
                     if connection.get_usesport() != None:
-                        usesPortName = connection.get_usesport().get_usesidentifier() 
-                        usesPortComponentRefid = connection.get_usesport().get_componentinstantiationref().get_refid()
+                        usesPortName = connection.get_usesport().get_usesidentifier()
+                        if connection.get_usesport().get_componentinstantiationref() != None:
+                            usesPortComponentRefid = connection.get_usesport().get_componentinstantiationref().get_refid()
+                        else:
+                            log.warn("Unable to create connection for '%s'",connection.get_usesport().get_usesidentifier())
+                            continue
                         log.debug("CONNECTION INTERFACE: uses port name '%s'", usesPortName)
                         log.debug("CONNECTION INTERFACE: uses port component ref '%s'", usesPortComponentRefid)
                         # Loop through launched components to find one containing the uses port to be connected
@@ -631,8 +635,12 @@ def loadSADFile(filename, props={}):
                         # Look for end point of the connection
                         # Check for provides port 
                         if connection.get_providesport() != None:
-                            providesPortName = connection.get_providesport().get_providesidentifier() 
-                            providesPortComponentRefid = connection.get_providesport().get_componentinstantiationref().get_refid()
+                            providesPortName = connection.get_providesport().get_providesidentifier()
+                            if connection.get_providesport().get_componentinstantiationref() != None:
+                                providesPortComponentRefid = connection.get_providesport().get_componentinstantiationref().get_refid()
+                            else:
+                                log.warn("Unable to create connection for '%s'",connection.get_providesport().get_providesidentifier())
+                                continue
                             log.debug("CONNECTION INTERFACE: provides port name '%s'", providesPortName)
                             log.debug("CONNECTION INTERFACE: provides port component ref '%s'", providesPortComponentRefid)
                             # Loop through launched components to find one containing the provides port to be connected
@@ -641,10 +649,14 @@ def loadSADFile(filename, props={}):
                                     providesPortComponent = component
                                     break
                         elif connection.get_componentsupportedinterface() != None:
+                            if connection.get_componentsupportedinterface().get_componentinstantiationref() != None:
+                                providesPortComponentRefid = connection.get_componentsupportedinterface().get_componentinstantiationref().get_refid()
+                            else:
+                                log.warn("Unable to create connection")
+                                continue
                             if _DEBUG == True:
                                 print "loadSADFile(): CONNECTION INTERFACE: componentsupportedinterface port interface " + str(connection.get_componentsupportedinterface().get_supportedidentifier())
                                 print "loadSADFile(): CONNECTION INTERFACE: componentsupportedinterface port component ref " + str(connection.get_componentsupportedinterface().get_componentinstantiationref().get_refid())
-                            providesPortComponentRefid = connection.get_componentsupportedinterface().get_componentinstantiationref().get_refid()
                             # Loop through launched components to find one containing the provides port to be connected
                             for component in launchedComponents:
                                 if component._refid == providesPortComponentRefid:

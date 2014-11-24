@@ -73,7 +73,8 @@ inline bool operator!= (const FloatStruct_struct& s1, const FloatStruct_struct& 
 
 template<> inline short StructProperty<FloatStruct_struct>::compare (const CORBA::Any& a) {
     if (super::isNil_) {
-        if (a.type()->kind() == (CORBA::tk_null)) {
+        CORBA::TypeCode_var aType = a.type();
+        if (aType->kind() == (CORBA::tk_null)) {
             return 0;
         }
         return 1;
@@ -136,7 +137,8 @@ inline bool operator!= (const complexFloatStruct_struct& s1, const complexFloatS
 
 template<> inline short StructProperty<complexFloatStruct_struct>::compare (const CORBA::Any& a) {
     if (super::isNil_) {
-        if (a.type()->kind() == (CORBA::tk_null)) {
+        CORBA::TypeCode_var aType = a.type();
+        if (aType->kind() == (CORBA::tk_null)) {
             return 0;
         }
         return 1;
@@ -199,7 +201,8 @@ inline bool operator!= (const FloatStructSequenceMember_struct& s1, const FloatS
 
 template<> inline short StructProperty<FloatStructSequenceMember_struct>::compare (const CORBA::Any& a) {
     if (super::isNil_) {
-        if (a.type()->kind() == (CORBA::tk_null)) {
+        CORBA::TypeCode_var aType = a.type();
+        if (aType->kind() == (CORBA::tk_null)) {
             return 0;
         }
         return 1;
@@ -262,7 +265,8 @@ inline bool operator!= (const complexFloatStructSequenceMember_struct& s1, const
 
 template<> inline short StructProperty<complexFloatStructSequenceMember_struct>::compare (const CORBA::Any& a) {
     if (super::isNil_) {
-        if (a.type()->kind() == (CORBA::tk_null)) {
+        CORBA::TypeCode_var aType = a.type();
+        if (aType->kind() == (CORBA::tk_null)) {
             return 0;
         }
         return 1;
@@ -298,7 +302,8 @@ inline bool operator!= (const std::vector<FloatStructSequenceMember_struct>& s1,
 
 template<> inline short StructSequenceProperty<FloatStructSequenceMember_struct>::compare (const CORBA::Any& a) {
     if (super::isNil_) {
-        if (a.type()->kind() == (CORBA::tk_null)) {
+        CORBA::TypeCode_var aType = a.type();
+        if (aType->kind() == (CORBA::tk_null)) {
             return 0;
         }
         return 1;
@@ -333,7 +338,8 @@ inline bool operator!= (const std::vector<complexFloatStructSequenceMember_struc
 
 template<> inline short StructSequenceProperty<complexFloatStructSequenceMember_struct>::compare (const CORBA::Any& a) {
     if (super::isNil_) {
-        if (a.type()->kind() == (CORBA::tk_null)) {
+        CORBA::TypeCode_var aType = a.type();
+        if (aType->kind() == (CORBA::tk_null)) {
             return 0;
         }
         return 1;

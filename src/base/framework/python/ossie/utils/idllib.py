@@ -133,6 +133,18 @@ class IDLLibrary(object):
         self.__log.trace('Importing all BULKIO IDL')
         self._importAllFromPath(bulkio_path)
     
+    def _importOmniPath(self):
+        # Import the omniORB IDL path non-recursively, as COS is typically
+        # installed as a subdirectory, and many of its modules dump errors to
+        # the console.
+        self.__log.trace("Importing all from '%s'", self._omniPath)
+        for filename in glob.glob(os.path.join(self._omniPath, '*.idl')):
+            if os.path.basename(filename) in ('poa.idl', 'poa_include.idl'):
+                # Exclude the POA IDL, which is unlikely to appear in real use
+                # but will cause parser warnings
+                continue
+            self._importFile(filename)
+
     def _parseInterface(self, repoid):
         try:
             idl, name, version = repoid.split(':')
@@ -170,11 +182,8 @@ class IDLLibrary(object):
                 self.__log.trace("Found '%s' in search path '%s'", repoid, path)
                 return
 
-        # Import the omniORB IDL path non-recursively, as COS is typically
-        # installed as a subdirectory, and many of its modules dump errors to
-        # the console.
-        self.__log.trace("Importing all from '%s'", self._omniPath)
-        self._importAllFromPath(self._omniPath)
+        # If all else fails, search the omniORB IDL
+        self._importOmniPath()
         if repoid in self._interfaces:
             self.__log.trace("Found '%s' in search path '%s'", repoid, self._omniPath)
             return

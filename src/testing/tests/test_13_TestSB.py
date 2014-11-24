@@ -402,6 +402,14 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.over_simple, "override")
         self.assertEquals(comp.over_struct_seq, [{'a_word': 'something', 'a_number': 1}])
 
+    def test_loadSADFileUses_p(self):
+        retval = sb.loadSADFile('sdr/dom/waveforms/SADUsesDeviceWave/SADUsesDeviceWaveConnectionDevProvides.sad.xml')
+        self.assertEquals(retval, True)
+
+    def test_loadSADFileUses_u(self):
+        retval = sb.loadSADFile('sdr/dom/waveforms/SADUsesDeviceWave/SADUsesDeviceWaveConnectionDevUses.sad.xml')
+        self.assertEquals(retval, True)
+
     def test_loadSADFileNoOverriddenProperties(self):
         retval = sb.loadSADFile('sdr/dom/waveforms/ticket_841_and_854/ticket_841_and_854.sad.xml')
         self.assertEquals(retval, True)

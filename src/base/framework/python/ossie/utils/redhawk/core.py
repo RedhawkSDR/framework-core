@@ -205,7 +205,7 @@ class App(_CF__POA.Application, Resource):
 
     def __getattribute__(self, name):
         try:
-            if name == 'ports':
+            if name in ('ports', '_usesPortDict', '_providesPortDict'):
                 if not object.__getattribute__(self,'_portsUpdated'):
                     self._populatePorts()
             if name == 'comps':
@@ -325,8 +325,6 @@ class App(_CF__POA.Application, Resource):
         print "Waveform [" + self.ns_name + "]"
         print "---------------------------------------------------"
 
-        # Force the ports to be updated
-        self.ports
         print "External Ports =============="
         PortSupplier.api(self)
 
@@ -355,7 +353,7 @@ class App(_CF__POA.Application, Resource):
 
     def _populatePorts(self, fs=None):
         """Add all port descriptions to the component instance"""
-        self.__setattr__('_portsUpdated', True)
+        object.__setattr__(self, '_portsUpdated', True)
 
         sad = object.__getattribute__(self,'_sad')
         if not sad:
@@ -426,14 +424,19 @@ class App(_CF__POA.Application, Resource):
                 if usesName != portName:
                     continue
                 idl_repid = str(uses.get_repid())
+
+                #Checks if this external port was renamed
+                if externalport.get_externalname():
+                    usesName = externalport.get_externalname()
+
+                # Add the port to the uses port list
+                self._usesPortDict[usesName] = {'Port Name': usesName, 'Port Interface':idl_repid}
+
                 try:
                     int_entry = _idllib.getInterface(idl_repid)
                 except idllib.IDLError:
                     print "Invalid port descriptor in scd for " + self.name + " for " + idl_repid
                     continue
-                #Checks if this external port was renamed
-                if externalport.get_externalname():
-                    usesName = externalport.get_externalname()
                 new_port = _Port(usesName, interface=None, direction="Uses", using=int_entry)
                 new_port.generic_ref = self.ref.getPort(str(new_port._name))
                 new_port.ref = new_port.generic_ref._narrow(_ExtendedCF.QueryablePort)
@@ -441,9 +444,6 @@ class App(_CF__POA.Application, Resource):
                     new_port.ref = new_port.generic_ref._narrow(_CF.Port)
                 new_port.extendPort()
     
-                # Add the port to the uses port list
-                self._usesPortDict[usesName] = {'Port Name': usesName, 'Port Interface':idl_repid}
-
                 idl_repid = new_port.ref._NP_RepositoryId
                 try:
                     int_entry = _idllib.getInterface(idl_repid)
@@ -459,19 +459,21 @@ class App(_CF__POA.Application, Resource):
                 if providesName != portName:
                     continue
                 idl_repid = str(provides.get_repid())
+
+                #checks if this external port was renamed
+                if externalport.get_externalname():
+                    providesName = externalport.get_externalname()
+
+                # Add the port to the provides port list
+                self._providesPortDict[providesName] = {'Port Name': providesName, 'Port Interface':idl_repid}
+
                 try:
                     int_entry = _idllib.getInterface(idl_repid)
                 except idllib.IDLError:
                     print "Invalid port descriptor in scd for " + self.name + " for " + idl_repid
                     continue
-                #checks if this external port was renamed
-                if externalport.get_externalname():
-                    providesName = externalport.get_externalname()
                 new_port = _Port(providesName, interface=int_entry, direction="Provides")
                 new_port.generic_ref = self.ref.getPort(str(new_port._name))
-
-                # Add the port to the provides port list
-                self._providesPortDict[providesName] = {'Port Name': providesName, 'Port Interface':idl_repid}
 
                 # See if interface python module has been loaded, if not then try to import it
                 if str(int_entry.nameSpace) not in interface_modules:
@@ -485,7 +487,7 @@ class App(_CF__POA.Application, Resource):
                 except ImportError, msg:
                     pass
                 if not success:
-                    std_idl_path = _os.path.join(_os.environ['OSSIEHOME'], 'lib/python')
+                    std_idl_path = _os.path.join(_os.environ.get('OSSIEHOME', ''), 'lib/python')
                     for dirpath, dirs, files in _os.walk(std_idl_path):
                         if len(dirs) == 0:
                             continue
@@ -864,7 +866,7 @@ class Domain(_CF__POA.DomainManager, object):
         - terminate - uninstalls all running waveforms and terminates the node
         - waveform management:
             - createApplication - install/create a particular waveform application
-            - releaseApplication - release a particular waveform application
+            - removeApplication - release a particular waveform application
     """
     @notification
     def deviceManagerAdded(self, deviceManager):

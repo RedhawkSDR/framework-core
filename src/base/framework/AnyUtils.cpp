@@ -55,7 +55,8 @@ namespace {
     template <typename T>
     inline bool anyToNumber (const CORBA::Any& any, T& value)
     {
-        switch (any.type()->kind()) {
+        CORBA::TypeCode_var anyType = any.type();
+        switch (anyType->kind()) {
         case CORBA::tk_octet:
             value = extractAndConvert<T, CORBA::Octet>(any);
             break;

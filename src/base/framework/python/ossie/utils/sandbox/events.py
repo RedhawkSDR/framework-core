@@ -65,9 +65,10 @@ class EventChannel(CosEventChannelAdmin__POA.EventChannel):
                     self._supplier.disconnect_push_supplier()
                 except:
                     pass
-            object_id = poa.servant_to_id(self)
-            if object_id:
-                poa.deactivate_object(object_id)
+            try:
+                poa.deactivate_object(poa.servant_to_id(self))
+            except:
+                pass
 
     class SupplierAdmin(CosEventChannelAdmin__POA.SupplierAdmin):
         def __init__(self, channel):
@@ -86,9 +87,10 @@ class EventChannel(CosEventChannelAdmin__POA.EventChannel):
             for consumer in self._consumers:
                 consumer.destroy()
             self._consumers = []
-            object_id = poa.servant_to_id(self)
-            if object_id:
-                poa.deactivate_object(object_id)
+            try:
+                poa.deactivate_object(poa.servant_to_id(self))
+            except:
+                pass
 
     class ProxyPushSupplier(CosEventChannelAdmin__POA.ProxyPushSupplier):
         __slots__ = ('_channel', '_admin', '_consumer')
@@ -120,9 +122,10 @@ class EventChannel(CosEventChannelAdmin__POA.EventChannel):
                     self._consumer.disconnect_push_consumer()
                 except:
                     pass
-            object_id = poa.servant_to_id(self)
-            if object_id:
-                poa.deactivate_object(object_id)
+            try:
+                poa.deactivate_object(poa.servant_to_id(self))
+            except:
+                pass
 
     class ConsumerAdmin(CosEventChannelAdmin__POA.ConsumerAdmin):
         def __init__(self, channel):
@@ -142,9 +145,10 @@ class EventChannel(CosEventChannelAdmin__POA.EventChannel):
             for supplier in self._suppliers:
                 supplier.destroy()
             self._suppliers = []
-            object_id = poa.servant_to_id(self)
-            if object_id:
-                poa.deactivate_object(object_id)
+            try:
+                poa.deactivate_object(poa.servant_to_id(self))
+            except:
+                pass
 
     @notification
     def consumerConnected(self, consumer):
@@ -212,6 +216,7 @@ class EventChannel(CosEventChannelAdmin__POA.EventChannel):
         log.trace("Destroying event channel '%s'", self._name)
         self._consumerAdmin._destroy()
         self._supplierAdmin._destroy()
-        object_id = poa.servant_to_id(self)
-        if object_id:
-            poa.deactivate_object(object_id)
+        try:
+            poa.deactivate_object(poa.servant_to_id(self))
+        except:
+            pass

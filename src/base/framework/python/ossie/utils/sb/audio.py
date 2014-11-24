@@ -113,8 +113,10 @@ class SoundSink(_SinkBase):
     def releaseObject(self):
         super(SoundSink,self).releaseObject()
         poa = self._sink._default_POA()
-        objid = poa.servant_to_id(self._sink)
-        poa.deactivate_object(objid)
+        try:
+            poa.deactivate_object(poa.servant_to_id(self._sink))
+        except:
+            pass
         self._sink = None
 
     def start(self):

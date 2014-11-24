@@ -187,6 +187,6 @@ def attach(domain=None, location=None):
             print "Multiple domains found: "+str(domains)+". Please specify one."
             return None
     
-    dom_entry = _core.Domain(name=domain, location=location)
+    dom_entry = _core.Domain(name=str(domain), location=location)
     
     return dom_entry
