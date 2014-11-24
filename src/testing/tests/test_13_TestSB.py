@@ -322,6 +322,23 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.over_simple, "override")
         self.assertEquals(comp.over_struct_seq, [{'a_word': 'something', 'a_number': 1}])
 
+    def test_loadSADFilePartialOverloadStruct(self):
+        # This tests partially overloading a struct or struct seq property in sad
+        retval = sb.loadSADFile('sdr/dom/waveforms/more_ticket_462/more_ticket_462.sad.xml')
+        comp = sb.getComponent('another_ticket_462_1')
+        self.assertNotEquals(comp, None)
+        self.assertEquals(comp.simple_prop, "This is a string")
+        self.assertEquals(comp.seq_prop, [9,8,7])
+        self.assertEquals(comp.struct_prop.prop_two, 'string overload')
+        self.assertEquals(comp.struct_seq_prop[0].prop_five, 1)
+        self.assertEquals(comp.struct_seq_prop[0].prop_six, 123.0)
+        self.assertEquals(comp.struct_seq_prop[1].prop_four, "anotherString")
+        self.assertEquals(comp.struct_seq_prop[1].prop_six, 345.0)
+        self.assertEquals(comp.struct_seq_prop[2].prop_four, "string_overload")
+        self.assertEquals(comp.struct_seq_prop[2].prop_five, 3)
+        self.assertEquals(comp.struct_seq_prop[2].prop_six, 678.0)
+        self.assertEquals(comp.struct_seq_prop[3].prop_six, 987.0)
+
     def test_loadSADFileNoOverriddenProperties(self):
         retval = sb.loadSADFile('sdr/dom/waveforms/ticket_841_and_854/ticket_841_and_854.sad.xml')
         self.assertEquals(retval, True)
