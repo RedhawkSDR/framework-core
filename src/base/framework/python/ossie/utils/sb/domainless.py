@@ -772,7 +772,7 @@ def loadSADFile(filename, props={}):
                             structseq_vals.append(overloadContainer(str(structseq.refid),values_vals))
                     if len(sandboxComponent._propertySet) > 0:
                         overloadProperty(sandboxComponent, simple_vals, simpleseq_vals, struct_vals, structseq_vals)
-            if assemblyController:
+            if assemblyController and len(props) > 0 :
                 prop_types = {}
                 prop_types['simple'] = []
                 prop_types['simpleseq'] = []
