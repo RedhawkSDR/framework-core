@@ -24,6 +24,8 @@
 #include <signal.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
+#include <sys/resource.h>
+#include <sys/time.h>
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
