@@ -43,6 +43,7 @@ File_impl::File_impl (const char* fileName, fs::path& path, FileSystem_impl *_pt
     fullFileName += fileName;
     fs::path filePath(path / fileName);
     ptrFs = _ptrFs;
+    fileIOR="";
 
     std::ios_base::openmode mode;
     if (create) {
@@ -77,9 +78,19 @@ File_impl::File_impl (const char* fileName, fs::path& path, FileSystem_impl *_pt
 
 File_impl::~File_impl ()
 {
-    TRACE_ENTER(File_impl)
-    TRACE_EXIT(File_impl)
+  TRACE_ENTER(File_impl);
+  LOG_TRACE(File_impl, "Closing file..... " << fullFileName );
+  f.close();
+  TRACE_EXIT(File_impl);
 }
+
+
+void File_impl::setIOR( const std::string &ior)
+{
+  boost::mutex::scoped_lock lock(interfaceAccess);
+  fileIOR=ior;
+}
+
 
 
 void File_impl::read (CF::OctetSequence_out data, CORBA::ULong length) throw (CORBA::SystemException, CF::File::IOException)
@@ -303,10 +314,18 @@ throw (CORBA::SystemException, CF::FileException)
             usleep(10000);
         }
     }
-    
-    CF::File_var fileObj = _this();
-    std::string fileIOR = ossie::corba::objectToString(fileObj);
-    ptrFs->decrementFileIORCount(fullFileName, fileIOR);
+
+    if ( ptrFs) {
+      std::string ior;
+      if ( fileIOR != "" ) {
+        ior = fileIOR;
+      }
+      else {
+        CF::File_var fileObj = _this();
+        ior = ossie::corba::objectToString(fileObj);
+      }
+      ptrFs->decrementFileIORCount(fullFileName, ior);
+    }
 
     // clean up reference and clean up memory
     try {

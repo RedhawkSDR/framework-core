@@ -465,6 +465,7 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
                                                   &(i->componentProcessIds),
                                                   i->connections,
                                                   i->fileTable,
+                                                  i->softpkgList,
                                                   i->allocPropsTable);
 
                 PortableServer::POA_var dm_poa = ossie::corba::RootPOA()->find_POA("DomainManager", 0);

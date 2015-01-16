@@ -61,10 +61,12 @@ void Application_impl::populateApplication(CF::Resource_ptr _controller,
                                            CF::Application::ComponentProcessIdSequence* _pidSeq,
                                            std::vector<ConnectionNode>& connections,
                                            std::map<std::string, std::string>& fileTable,
+                                           ossie::SoftPkgList  &softpkgList,
                                            std::map<std::string, std::vector<ossie::AllocPropsInfo> >& allocPropsTable)
 {
     TRACE_ENTER(Application_impl)
     _fileTable = fileTable;
+    _softpkgList = softpkgList;
     _allocPropsTable = allocPropsTable;
     _connections = connections;
     _componentDevices = _devSeq;
@@ -438,6 +440,37 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
                 }
             }
         }
+
+#if 0
+        //  Removes soft package dependencies when applications are released...This can potentially slow
+        // down deployments because we are cleaning up files that could be used again....e.g. the
+        // same waveform with dependencies is started and stopped and started..
+        //
+        ossie::SoftPkgList::iterator pkg = _softpkgList.begin();
+        for ( ;  pkg != _softpkgList.end(); pkg++ ) {
+          try {
+            if ( ossie::corba::objectExists(pkg->first) ) {
+              CF::LoadableDevice_ptr loadDev = CF::LoadableDevice::_narrow(pkg->first);
+              if ( CORBA::is_nil(loadDev) == false ) {
+                LOG_DEBUG(Application_impl, "Unload soft package dependency:" << pkg->second);
+                loadDev->unload(pkg->second.c_str());
+              }
+              else {
+                throw -1;
+              }
+            }
+            else {
+              throw -1;
+            }
+          }
+          catch(...) {
+            // issue warning the unload failed for soft pkg unload
+            LOG_WARN(Application_impl, "Unable to unload soft package dependency:" << pkg->second);
+          }
+          
+
+        }
+#endif
         
         // deallocate capacity
         LOG_DEBUG(Application_impl, "Determining if we need to deallocate capacities")

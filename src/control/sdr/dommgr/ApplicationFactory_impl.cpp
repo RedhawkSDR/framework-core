@@ -402,6 +402,33 @@ void createHelper::_cleanupLoadAndExecuteComponents()
         }
     }
 
+
+    // clean up soft package dependencies that were loaded...
+    ossie::SoftPkgList::iterator pkg = _softpkgList.begin();
+        for ( ;  pkg != _softpkgList.end(); pkg++ ) {
+          try {
+            if ( ossie::corba::objectExists(pkg->first) ) {
+              CF::LoadableDevice_ptr loadDev = CF::LoadableDevice::_narrow(pkg->first);
+              if ( CORBA::is_nil(loadDev) == false ) {
+                LOG_DEBUG(ApplicationFactory_impl, "Unload soft package dependency:" << pkg->second);
+                loadDev->unload(pkg->second.c_str());
+              }
+              else {
+                throw -1;
+              }
+            }
+            else {
+              throw -1;
+            }
+          }
+          catch(...) {
+            // issue warning the unload failed for soft pkg unload
+            LOG_WARN(ApplicationFactory_impl, "Unable to unload soft package dependency:" << pkg->second);
+          }
+          
+
+        }
+
     _cleanupAllocateDevices();
 }
 
@@ -435,6 +462,7 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
     string _waveform_context_name;
     string base_naming_context;
     CosNaming::NamingContext_var _waveformContext;
+    boost::mutex::scoped_lock lock(_pendingCreateLock);
 
     ///////////////////////////////////////////////////
     // Establish new naming context for waveform
@@ -442,7 +470,7 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
     try {
         // VERY IMPORTANT: we must first lock the operations in this try block
         //    in order to prevent a naming context collision due to multiple create calls
-        boost::mutex::scoped_lock lock(_pendingCreateLock);
+        //RESOLVE :boost::mutex::scoped_lock lock(_pendingCreateLock);
 
         // get new naming context name
         _waveform_context_name = getWaveformContextName(name);
@@ -502,6 +530,7 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
             alreadyCleaned = false;
 
             _pidSeq.length (0);
+            _softpkgList.clear();
             _fileTable.clear();
             _loadedComponentTable.clear();  // mapping of component id to filenames/device id tuple
             _runningComponentTable.clear();  // mapping of component id to filenames/device id tuple
@@ -591,7 +620,7 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
                     badDAS[0].assignedDeviceId = CORBA::string_dup(deviceAssignments[ii].assignedDeviceId);
                     throw CF::ApplicationFactory::CreateApplicationRequestError(badDAS);
                 }
-                allocateComponent(component, deviceAssignments, _appCapacityTable, _appUsedDevs );
+                allocateComponent(component, deviceAssignments, _appCapacityTable, _appUsedDevs,_softpkgList );
             }
 
             //
@@ -703,7 +732,7 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
                                 LOG_TRACE(ApplicationFactory_impl, "  TRYING TO ALLOCATE ON DEVICE: " << *dev_id);
                                 try {
                                     // try and place the component... if it does not work we clean up after we try all the different available devices
-                                    allocateComponent(component, componentDAS, collocCapacities, collocAssignedDevs, false );
+                                  allocateComponent(component, componentDAS, collocCapacities, collocAssignedDevs, _softpkgList, false );
                                     c_placed = true;
                                     LOG_TRACE(ApplicationFactory_impl, "    **ALLOCATION SUCCESS**  COMP_INST_ID: " << c_id << " DEVICE: " << *dev_id);
                                 } catch (...) {
@@ -753,7 +782,7 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
                 ossie::ComponentInfo* component = _requiredComponents[rc_idx];
 
                 if (!component->isAssignedToDevice()) {
-                    allocateComponent(component, deviceAssignments, _appCapacityTable, _appUsedDevs );
+                  allocateComponent(component, deviceAssignments, _appCapacityTable, _appUsedDevs,_softpkgList );
                 }
             }
 
@@ -882,6 +911,7 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
                 &_pidSeq,
                 connections, 
                 _fileTable, 
+                _softpkgList,
                 _appCapacityTable);
 
             // Activate the new Application servant, and let the POA manage its deletion. The
@@ -1146,6 +1176,7 @@ void createHelper::allocateComponent(ossie::ComponentInfo*  component,
                                      const CF::DeviceAssignmentSequence& deviceAssignments,
                                      CapacityAllocationTable  &appCapacities,
                                      DeviceAssignmentList     &appAssignedDevs,
+                                     ossie::SoftPkgList              &softpkgList,
                                      bool cleanup)
 {
     // get the implementations from the component
@@ -1235,7 +1266,7 @@ void createHelper::allocateComponent(ossie::ComponentInfo*  component,
                throw -1;
             }
 
-            foundSoftpkgDependencies = resolveSoftpkgDependencies(impl, devCapacityAlloc.device, devicePRF);
+            foundSoftpkgDependencies = resolveSoftpkgDependencies(impl, devCapacityAlloc.device, devicePRF, softpkgList );
 
             if (!foundSoftpkgDependencies) {
                 LOG_DEBUG(ApplicationFactory_impl, "Softpackage dependency failed.need to clean up");
@@ -1750,7 +1781,10 @@ throw (CF::ApplicationFactory::CreateApplicationError)
 }
 
 
-bool createHelper::resolveSoftpkgDependencies(ossie::ImplementationInfo* implementation, CF::Device_ptr device,  ossie::Properties& devicePRF)
+bool createHelper::resolveSoftpkgDependencies(ossie::ImplementationInfo* implementation, 
+                                              CF::Device_ptr device,  
+                                              ossie::Properties& devicePRF,
+                                              ossie::SoftPkgList  &softpkgList )
 throw (CF::ApplicationFactory::CreateApplicationError)
 {
     std::vector< std::pair<std::string, ossie::optional_value<std::string> > > implementationReference;
@@ -1787,7 +1821,7 @@ throw (CF::ApplicationFactory::CreateApplicationError)
 
             for (unsigned int implCount = 0; implCount < spd_i.size(); implCount++) {
                 if (requestedImplementation==spd_i[implCount].implementationID) {
-                    foundImplementation = checkImplementationDependencyMatch(*implementation, spd_i[implCount], device, devicePRF);
+                  foundImplementation = checkImplementationDependencyMatch(*implementation, spd_i[implCount], device, devicePRF, softpkgList );
                     if (foundImplementation) {
                         targetImplementation = implCount;
                         break;
@@ -1803,7 +1837,7 @@ throw (CF::ApplicationFactory::CreateApplicationError)
             const std::vector <SPD::Implementation>& spd_i = spd.getImplementations();
 
             for (unsigned int implCount = 0; implCount < spd_i.size(); implCount++) {
-                foundImplementation = checkImplementationDependencyMatch(*implementation, spd_i[implCount], device, devicePRF);
+              foundImplementation = checkImplementationDependencyMatch(*implementation, spd_i[implCount], device, devicePRF, softpkgList );
                 if (foundImplementation) {
                     targetImplementation = implCount;
                     break;
@@ -1850,6 +1884,7 @@ throw (CF::ApplicationFactory::CreateApplicationError)
             if (codeLocalFile.has_leaf() && codeLocalFile.leaf() == ".") {
                 codeLocalFile = codeLocalFile.branch_path();
             }
+            softpkgList.push_back( SoftPkgLoad( loadableDevice, codeLocalFile.string().c_str()) );
             loadableDevice->load(_appFact._fileMgr, codeLocalFile.string().c_str(), codeType);
         } catch ( ... ) {
             return false;
@@ -1865,7 +1900,8 @@ bool createHelper::checkImplementationDependencyMatch(
     ossie::ImplementationInfo&       implementation_1, 
     const ossie::ImplementationInfo& implementation_2, 
     CF::Device_ptr device,
-    ossie::Properties& devicePRF)
+    ossie::Properties& devicePRF,
+    ossie::SoftPkgList  &softpkgList)
 {
    if (!implementation_2.checkProcessorAndOs(devicePRF)) {
         return false;
@@ -1877,7 +1913,7 @@ bool createHelper::checkImplementationDependencyMatch(
     bool retval = true;
     if (iterSoftpkg != tmpSoftpkg.end()) {
         ossie::ImplementationInfo* tmp_impl = const_cast<ossie::ImplementationInfo*>(&implementation_2);
-        retval = (resolveSoftpkgDependencies(tmp_impl, device, devicePRF));
+        retval = (resolveSoftpkgDependencies(tmp_impl, device, devicePRF, softpkgList ));
     }
     return retval;
 }

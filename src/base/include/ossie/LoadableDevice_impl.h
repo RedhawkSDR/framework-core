@@ -54,7 +54,7 @@ public:
     LoadableDevice_impl (char*, char*, char*, char*, CF::Properties capacities);
     LoadableDevice_impl (char*, char*, char*, char*, char*);
     LoadableDevice_impl (char*, char*, char*, char*, CF::Properties capacities, char*);
-    ~LoadableDevice_impl ();
+    virtual ~LoadableDevice_impl ();
     void
     load (CF::FileSystem_ptr fs, const char* fileName,
           CF::LoadableDevice::LoadType loadKind)
@@ -68,15 +68,20 @@ public:
     bool
     isFileLoaded (const char* fileName);
 
-    void _loadTree(CF::FileSystem_ptr fs, std::string remotePath, boost::filesystem::path& localPath, std::string fileKey);
-    void _deleteTree(std::string fileKey);
-    void _copyFile(CF::FileSystem_ptr fs, std::string remotePath, std::string localPath, std::string fileKey);
-
     void configure (const CF::Properties& configProperties)
     throw (CF::PropertySet::PartialConfiguration,
            CF::PropertySet::InvalidConfiguration, CORBA::SystemException);
     LoadableDevice_impl(); // No default constructor
     LoadableDevice_impl(LoadableDevice_impl&); // No copying
+
+
+ protected:
+
+    void _loadTree(CF::FileSystem_ptr fs, std::string remotePath, boost::filesystem::path& localPath, std::string fileKey);
+    void _deleteTree(const std::string &fileKey);
+    void _copyFile(CF::FileSystem_ptr fs, const std::string &remotePath, const std::string &localPath, const std::string &fileKey);
+
+
 
 private:
 };

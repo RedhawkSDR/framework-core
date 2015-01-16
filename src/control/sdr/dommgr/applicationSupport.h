@@ -312,5 +312,10 @@ namespace ossie
         CF::DeviceAssignmentType deviceAssignment;
         CF::Device_var  device;
     };
+
+
+    typedef std::pair< CF::Device_ptr, std::string >   SoftPkgLoad;
+    typedef std::vector< SoftPkgLoad >                 SoftPkgList;
+
 }
 #endif

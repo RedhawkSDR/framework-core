@@ -86,6 +86,7 @@ namespace ossie {
             std::vector<CF::Resource_ptr> _startOrder;
             std::vector<ConnectionNode> connections;
             std::map<std::string, std::string> fileTable;
+            ossie::SoftPkgList  softpkgList;
             std::map<std::string, std::vector<ossie::AllocPropsInfo> > allocPropsTable;
     };
     

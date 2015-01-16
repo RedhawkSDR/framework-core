@@ -472,6 +472,8 @@ CF::File_ptr FileSystem_impl::create (const char* fileName) throw (CORBA::System
     file->_remove_ref();
 
     CF::File_var fileServant = file->_this();
+    std::string fileIOR = ossie::corba::objectToString(fileServant);
+    file->setIOR(fileIOR);
 
     TRACE_EXIT(FileSystem_impl);
     return fileServant._retn();
@@ -539,6 +541,7 @@ CF::File_ptr FileSystem_impl::open (const char* fileName, CORBA::Boolean read_On
     std::string strFileName = root.string();
     strFileName += fileName;
     incrementFileIORCount(strFileName, fileIOR);
+    file->setIOR(fileIOR);
 
     TRACE_EXIT(FileSystem_impl);
     return fileObj._retn();

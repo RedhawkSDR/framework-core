@@ -110,7 +110,7 @@ namespace ossie
     const char* spd_rel_file(const char* spdfile, const char* name, std::string& fileName);
 
     void configureLogging(const char* logcfgUri, int defaultLevel);
-
+    std::string getCurrentDirName();
     std::string generateUUID();
 
     class ossieComponent

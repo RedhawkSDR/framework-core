@@ -170,6 +170,7 @@ private:
     
     CF::Application::ComponentProcessIdSequence _pidSeq;
     std::map<std::string, std::string>          _fileTable;
+    ossie::SoftPkgList                          _softpkgList;
 
     // mapping of component id to filenames/device id tuple
     std::map<std::string, std::pair<std::string, std::string> > _loadedComponentTable; 
@@ -211,6 +212,7 @@ private:
                            const CF::DeviceAssignmentSequence& deviceAssignments,
                            CapacityAllocationTable &appCapacities,
                            DeviceAssignmentList    &appAssignedDevices,
+                           ossie::SoftPkgList      &softpkgList,
                            bool cleanup=true );
 
     void allocateComponentToDevice(ossie::ComponentInfo* component,
@@ -228,14 +230,16 @@ private:
     bool resolveSoftpkgDependencies(
         ossie::ImplementationInfo* implementation, 
         CF::Device_ptr             device,
-        ossie::Properties&         devicePRF)
+        ossie::Properties&         devicePRF,
+        ossie::SoftPkgList         &softpkgList )
             throw (CF::ApplicationFactory::CreateApplicationError);
     
     bool checkImplementationDependencyMatch(
         ossie::ImplementationInfo&       implementation_1, 
         const ossie::ImplementationInfo& implementation_2, 
         CF::Device_ptr device,
-        ossie::Properties& devicePRF);
+        ossie::Properties& devicePRF,
+        ossie::SoftPkgList& softpkgList );
     
     void errorMsgAllocate(
         std::ostringstream&        eout, 
