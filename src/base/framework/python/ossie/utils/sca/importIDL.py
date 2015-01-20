@@ -24,12 +24,15 @@ from ossie.utils.idl import omniidl_be
 from omniidl_be.cxx import types
 from ossie.utils.idl import _omniidl
 import os
+import threading
 try:
     from omniORB import URI, any, CORBA
 except:
     import CORBA
 
 #import base
+
+_lock = threading.Lock()
 
 keyList = range(34)
 valList = ['null','void','short','long','ushort','ulong','float','double','boolean', \
@@ -285,22 +288,28 @@ def getInterfacesFromFile(filename, includepath=None):
             popen_cmd += ' -I "' + newpath + '"'
     popen_cmd += ' "' + filename + '"'
     f = os.popen(popen_cmd, 'r')
-    try:
-        tree = _omniidl.compile(f)
-    except TypeError:
-        tree = _omniidl.compile(f, filename)
 
+    _lock.acquire()
     try:
-        ints = run(tree,'')
-    except:
-        #print popen_cmd
-        #print filename
-        pass
-    f.close()
-    del tree
-    idlast.clear()
-    idltype.clear()
-    _omniidl.clear()
+        try:
+            tree = _omniidl.compile(f)
+        except TypeError:
+            tree = _omniidl.compile(f, filename)
+
+        try:
+            ints = run(tree,'')
+        except:
+            #print popen_cmd
+            #print filename
+            pass
+        f.close()
+        del tree
+        idlast.clear()
+        idltype.clear()
+        _omniidl.clear()
+    finally:
+        _lock.release()
+
     #store file name and location information for each interface
     for x in ints:
         x.fullpath = filename
