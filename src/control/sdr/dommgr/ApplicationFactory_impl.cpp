@@ -462,7 +462,6 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
     string _waveform_context_name;
     string base_naming_context;
     CosNaming::NamingContext_var _waveformContext;
-    boost::mutex::scoped_lock lock(_pendingCreateLock);
 
     ///////////////////////////////////////////////////
     // Establish new naming context for waveform
@@ -470,7 +469,7 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
     try {
         // VERY IMPORTANT: we must first lock the operations in this try block
         //    in order to prevent a naming context collision due to multiple create calls
-        //RESOLVE :boost::mutex::scoped_lock lock(_pendingCreateLock);
+        boost::mutex::scoped_lock lock(_pendingCreateLock);
 
         // get new naming context name
         _waveform_context_name = getWaveformContextName(name);
