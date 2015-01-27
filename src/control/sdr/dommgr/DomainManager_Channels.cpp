@@ -29,40 +29,6 @@
 
 using namespace ossie;
 
-class IDM_Channel_Consumer_i: public virtual POA_CosEventComm::PushConsumer
-{
-public:
-    IDM_Channel_Consumer_i (DomainManager_impl *_dmn)
-    {
-        TRACE_ENTER(DomainManager_impl);
-        _dmnMgr = _dmn;
-        TRACE_EXIT(DomainManager_impl);
-    }
-
-
-    void push (const CORBA::Any& _any) throw (CORBA::SystemException, CosEventComm::Disconnected)
-    {
-        TRACE_ENTER(DomainManager_impl);
-        CORBA::ULong tmp = 0;
-        float tmp2 = 0.0;
-        _any >>= tmp;
-        _any >>= tmp2;
-
-        TRACE_EXIT(DomainManager_impl);
-    }
-
-
-    void disconnect_push_consumer () throw (CORBA::SystemException)
-    {
-        TRACE_ENTER(DomainManager_impl);
-        TRACE_EXIT(DomainManager_impl);
-    }
-
-private:
-    DomainManager_impl * _dmnMgr;
-
-};
-
 class ODM_Channel_Supplier_i : public virtual POA_CosEventComm::PushSupplier
 {
 public:
@@ -133,7 +99,7 @@ CosEventChannelAdmin::EventChannel_ptr DomainManager_impl::createEventChannel (c
 
     try {
         db.store("EVENT_CHANNELS", _eventChannels);
-    } catch ( ossie::PersistenceException& ex) {
+    } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting change to event channels");
     }
     TRACE_EXIT(DomainManager_impl);
@@ -165,69 +131,13 @@ void DomainManager_impl::destroyEventChannel (const std::string& name)
 
     try {
         db.store("EVENT_CHANNELS", _eventChannels);
-    } catch ( ossie::PersistenceException& ex) {
+    } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting change to event channels");
     }
 
     TRACE_EXIT(DomainManager_impl);
 }
 
-
-void DomainManager_impl::createEventChannels (void)
-{
-    TRACE_ENTER(DomainManager_impl);
-
-    std::string nameODMChannel = "ODM_Channel";
-    std::string nameIDMChannel = "IDM_Channel";
-    
-    CosEventChannelAdmin::EventChannel_var ODM_channel;
-    CosEventChannelAdmin::EventChannel_var IDM_channel;
-
-    // Check for existing event channels.
-    try {
-        ODM_channel = ossie::event::connectToEventChannel(rootContext, _domainName + "." + nameODMChannel);
-    } catch (...) {
-        LOG_WARN(DomainManager_impl, "Ignoring unexpected exception checking for existing ODM channel");
-    }
-    if (!CORBA::is_nil(ODM_channel)) {
-        ossie::EventChannelNode tmpNode;
-        tmpNode.connectionCount = 0;
-        tmpNode.name = _domainName + "." + nameODMChannel;
-        _eventChannels.push_back(tmpNode);
-        (*(_eventChannels.end()-1)).channel = CosEventChannelAdmin::EventChannel::_duplicate(ODM_channel);
-    }
-    try {
-        IDM_channel = ossie::event::connectToEventChannel(rootContext, _domainName + "." + nameIDMChannel);
-    } catch (...) {
-        LOG_WARN(DomainManager_impl, "Ignoring unexpected exception checking for existing IDM channel");
-    }
-    if (!CORBA::is_nil(IDM_channel)) {
-        ossie::EventChannelNode tmpNode;
-        tmpNode.connectionCount = 0;
-        tmpNode.name = _domainName + "." + nameIDMChannel;
-        _eventChannels.push_back(tmpNode);
-        (*(_eventChannels.end()-1)).channel = CosEventChannelAdmin::EventChannel::_duplicate(IDM_channel);
-    }
-
-    // If both event channels already existed, return early.
-    if (!CORBA::is_nil(ODM_channel) && !CORBA::is_nil(IDM_channel)) {
-        LOG_DEBUG(DomainManager_impl, "Reconnected to existing event channels");
-        TRACE_EXIT(DomainManager_impl);
-        return;
-    }
-
-    // Try to create the ODM channel if it was not found.
-    if (CORBA::is_nil(ODM_channel)) {
-        ODM_channel = createEventChannel(nameODMChannel);
-    }
-
-    // Try to create the IDM channel if it was not found.
-    if (CORBA::is_nil(IDM_channel)) {
-        IDM_channel = createEventChannel(nameIDMChannel);
-    }
-
-    TRACE_EXIT(DomainManager_impl);
-}
 
 void DomainManager_impl::destroyEventChannels()
 {
@@ -335,118 +245,6 @@ void DomainManager_impl::connectToOutgoingEventChannel (void)
     {
         try {
             proxy_consumer->connect_push_supplier(sptr.in());
-            break;
-        }
-        catch (CORBA::BAD_PARAM& ex) {
-            (*_iter).channel->destroy();
-            (*_iter).channel = CosEventChannelAdmin::EventChannel::_nil();
-            _eventChannels.erase(_iter);
-            return;
-        }
-        catch (CosEventChannelAdmin::AlreadyConnected& ex) {
-            break;
-        }
-        catch (CORBA::COMM_FAILURE& ex) {
-            if (number_tries == maximum_tries) {
-                (*_iter).channel->destroy();
-                (*_iter).channel = CosEventChannelAdmin::EventChannel::_nil();
-                _eventChannels.erase(_iter);
-                return;
-            }
-            usleep(1000);   // wait 1 ms
-            number_tries++;
-            continue;
-        }
-    }
-}
-
-
-void DomainManager_impl::connectToIncomingEventChannel (void)
-{
-    std::string nameIDMChannel = _domainName+".IDM_Channel";
-
-    std::vector < ossie::EventChannelNode >::iterator _iter = _eventChannels.begin();
-
-    while (_iter != _eventChannels.end()) {
-        if ((*_iter).name == nameIDMChannel) {
-            break;
-        }
-        _iter++;
-    }
-
-    if (_iter == _eventChannels.end()) {
-        return;
-    }
-
-    CosEventChannelAdmin::ConsumerAdmin_var consumer_admin;
-    unsigned int number_tries;
-    unsigned int maximum_tries = 10;
-
-    number_tries = 0;
-    while (true)
-    {
-        try {
-            consumer_admin = (*_iter).channel->for_consumers ();
-            if (CORBA::is_nil (consumer_admin))
-            {
-                (*_iter).channel->destroy();
-                (*_iter).channel = CosEventChannelAdmin::EventChannel::_nil();
-                _eventChannels.erase(_iter);
-                return;
-            }
-            break;
-        }
-        catch (CORBA::COMM_FAILURE& ex) {
-            if (number_tries == maximum_tries) {
-                (*_iter).channel->destroy();
-                (*_iter).channel = CosEventChannelAdmin::EventChannel::_nil();
-                _eventChannels.erase(_iter);
-                return;
-            }
-            usleep(1000);   // wait 1 ms
-            number_tries++;
-            continue;
-        }
-    }
-
-    number_tries = 0;
-    CosEventChannelAdmin::ProxyPushSupplier_var proxy_supplier;
-    while (true)
-    {
-        try {
-            proxy_supplier = consumer_admin->obtain_push_supplier ();
-            if (CORBA::is_nil (proxy_supplier))
-            {
-                (*_iter).channel->destroy();
-                (*_iter).channel = CosEventChannelAdmin::EventChannel::_nil();
-                _eventChannels.erase(_iter);
-                return;
-            }
-            break;
-        }
-        catch (CORBA::COMM_FAILURE& ex) {
-            if (number_tries == maximum_tries) {
-                (*_iter).channel->destroy();
-                (*_iter).channel = CosEventChannelAdmin::EventChannel::_nil();
-                _eventChannels.erase(_iter);
-                return;
-            }
-            usleep(1000);   // wait 1 ms
-            number_tries++;
-            continue;
-        }
-    }
-
-    number_tries = 0;
-    IDM_Channel_Consumer_i* consumer_servant = new IDM_Channel_Consumer_i(this);
-    PortableServer::POA_var event_poa = poa->find_POA("EventChannels", 1);
-    PortableServer::ObjectId_var oid = event_poa->activate_object(consumer_servant);
-    CosEventComm::PushConsumer_var consumer = consumer_servant->_this();
-    consumer_servant->_remove_ref();
-    while (true)
-    {
-        try {
-            proxy_supplier->connect_push_consumer(consumer);
             break;
         }
         catch (CORBA::BAD_PARAM& ex) {

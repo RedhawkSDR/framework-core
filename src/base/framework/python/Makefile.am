@@ -31,9 +31,6 @@ ossie__v_pysetup__0 = $(ossie__v_pysetup_0)
 
 all-local:
 	python setup.py $(OSSIE_V_pysetup) build
-if INSTALL_PYTHON_BACKPORTS
-	cd backports; python setup-backports.py build
-endif
 
 clean-local:
 	python setup.py clean
@@ -61,9 +58,6 @@ PYTHON_INSTALL_FILES=".pythonInstallFiles"
 
 install-exec-hook:
 	python setup.py install -f --$(PYTHON_INSTALL_SCHEME)=$(DESTDIR)$(prefix) --record $(PYTHON_INSTALL_FILES)
-if INSTALL_PYTHON_BACKPORTS
-	cd backports; python setup-backports.py install --$(PYTHON_INSTALL_SCHEME)=$(DESTDIR)$(prefix)
-endif
 
 uninstall:
 	rm `cat $(PYTHON_INSTALL_FILES)`

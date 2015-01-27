@@ -149,11 +149,7 @@ void MessageConsumerPort::fireCallback (const std::string& id, const CORBA::Any&
     }
 
     // Invoke the callback for those messages that are generic
-    GenericCallbackTable::iterator gcallback = generic_callbacks_.begin();
-    while (gcallback != generic_callbacks_.end()) {
-        (**gcallback)(id, data);
-        gcallback++;
-    }
+    generic_callbacks_(id, data);
 };
 
 MessageSupplierPort::MessageSupplierPort (std::string port_name) :

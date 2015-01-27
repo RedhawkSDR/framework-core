@@ -33,6 +33,9 @@ class FailStartup(CF__POA.Resource):
     def _get_identifier(self):
         return self._identifier
 
+    def _get_softwareProfile(self):
+        return "/components/FailStartup/FailStartup.spd.xml"
+
     def initialize(self):
         if self.execparams["FAIL_AT"] == "Initialize":
             raise StandardError

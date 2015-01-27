@@ -786,11 +786,12 @@ class simpleProperty(Property):
         return _CORBA.Any(self.typecode, value)
 
     def __repr__(self, *args):
+        ret=''
         if self.mode != "writeonly":
             value = self.queryValue()
             if value != None:
-                print str(value),
-        return ''
+                ret=str(value)
+        return ret
         
     def __str__(self, *args):
         return self.__repr__()
@@ -1082,8 +1083,12 @@ class structProperty(Property):
 
         structVal = {}
         for simple in value.value():
-            member = self.members[simple.id]
-            structVal[simple.id] = member.fromAny(simple.value)
+            try:
+                member = self.members[simple.id]
+                structVal[simple.id] = member.fromAny(simple.value)
+            except KeyError:
+                structVal[simple.id] = _any.from_any(simple.value) 
+                
         return structVal
 
     def toAny(self, value):
@@ -1139,9 +1144,11 @@ class structProperty(Property):
             currValue = self.queryValue()
         structView = "ID: " + self.id
         for key in currValue:
-            structView = structView + '\n  ' + str(self.members[key].clean_name) + ": " + str(currValue[key])
-        print structView,
-        return ''
+            try:
+                structView = structView + '\n  ' + str(self.members[key].clean_name) + ": " + str(currValue[key])
+            except KeyError:
+                structView = structView + '\n  ' + key + ": " + str(currValue[key])  
+        return structView
 
     def __getattr__(self, name):
         '''
@@ -1153,8 +1160,11 @@ class structProperty(Property):
         if member is not None:
             return member
         else:
-            return super(structProperty, self).__getattribute__(name)
-    
+            try:
+                return super(structProperty, self).__getattribute__(name)
+            except AttributeError:
+                return self.queryValue()[name]
+
     def __setattr__(self, name, value):
         '''
         If the attribute being looked up is actually a member of the struct,

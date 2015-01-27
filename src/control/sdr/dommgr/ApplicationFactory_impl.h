@@ -62,7 +62,6 @@ private:
     boost::mutex _pendingCreateLock;
 
     std::string         _domainName;
-    std::string         _domainManagerName;
     DomainManager_impl* _domainManager;
 
     unsigned short _lastWaveformUniqueId;
@@ -71,12 +70,9 @@ private:
     std::string getBaseWaveformContext(std::string waveform_context);
 
 public:
-    ApplicationFactory_impl (
-        const char*                             softwareProfile, 
-        CF::DomainManager::ApplicationSequence* unused, 
-        std::string                             domainName, 
-        std::string                             domainManagerName, 
-        DomainManager_impl*                     domainManager);
+    ApplicationFactory_impl (const std::string& softwareProfile, 
+                             const std::string& domainName, 
+                             DomainManager_impl* domainManager);
     ~ApplicationFactory_impl ();
 
     CF::Application_ptr create (const char* name,
@@ -100,11 +96,6 @@ public:
     char* softwareProfile () throw (CORBA::SystemException) {
         return CORBA::string_dup(_softwareProfile.c_str());
     }
-
-    const ossie::SoftwareAssembly& getSadParser() const {
-        return _sadParser;
-    };
-
 
     // allow createHelper to have access to ApplicationFactory_impl
     friend class createHelper;
@@ -161,15 +152,6 @@ private:
     // List of used devices assignments
     typedef std::vector< ossie::DeviceAssignmentInfo >                 DeviceAssignmentList;
 
-    // Capacity allocation relation, device -> property set
-    typedef ossie::AllocPropsInfo                                      CapacityAllocation;
-
-    // List of capacity allocations
-    typedef std::vector< CapacityAllocation >                          CapacityAllocationList;
-
-    // mapping of capacity allocations derived from a compoenent
-    typedef std::map< std::string, CapacityAllocationList >            CapacityAllocationTable;
-
     // list of components that are part of a collocation
     typedef std::vector <ossie::ComponentInfo* >                       PlacementList;
 
@@ -191,18 +173,10 @@ private:
     // List of used devices allocated during application creation
     //
     DeviceAssignmentList          _appUsedDevs;
-    std::vector<CF::Resource_ptr> _startSeq;
+    std::vector<CF::Resource_var> _startSeq;
     std::vector<std::string>      _startOrderIds;
+    ossie::SoftPkgList                          _softpkgList;
     
-    CF::Application::ComponentProcessIdSequence _pidSeq;
-    std::map<std::string, std::string>          _fileTable;
-
-    // mapping of component id to filenames/device id tuple
-    std::map<std::string, std::pair<std::string, std::string> > _loadedComponentTable; 
-    
-    // mapping of component id to filenames/device id tuple
-    std::map<std::string, std::pair<std::string, unsigned long> > _runningComponentTable; 
-
     // waveform instance-specific naming context (unique to the instance of the waveform)
     std::string _waveformContextName; 
 
@@ -212,39 +186,27 @@ private:
     // CORBA naming context
     CosNaming::NamingContext_var _waveformContext; 
 
-    CF::Application::ComponentElementSequence _namingCtxSeq;
-    CF::Application::ComponentElementSequence _implSeq;
-
     ossie::ApplicationInfo _appInfo;
 
     // createHelper helper methods
-    void overrideAssemblyControllerProperties(
-        const CF::Properties& initConfiguration,
-        ossie::ComponentInfo*& assemblyControllerComponent);
+    ossie::ComponentInfo* getAssemblyController();
     void overrideExternalProperties(const CF::Properties& initConfiguration);
-    void overrideProperties(
-        const CF::Properties& initConfiguration,
-        ossie::ComponentInfo*& component);
+    void overrideProperties(const CF::Properties& initConfiguration, ossie::ComponentInfo* component);
     void assignRemainingComponentsToDevices();
-    void initialize(void);
-    void checkRegisteredDevicesSize(const char* name);
     void _assignComponentsUsingDAS(
         const DeviceAssignmentMap& deviceAssignments);
     void _getComponentsToPlace(
         const std::vector<ossie::ComponentPlacement>& collocatedComponents,
         ossie::DeviceIDList&                          assignedDevices,
         PlacementList&                                placingComponents);
-    void _loadAndExecuteComponents();
-    void _initializeComponents(CF::Resource_var& assemblyController);
     void _connectComponents(
         std::vector<ossie::ConnectionNode>& connections);
     void _configureComponents();
     void _checkAssemblyController(
-        CF::Resource_var&      assemblyController,
-        ossie::ComponentInfo*& assemblyControllerComponent) const;
-    void setUpExternalPorts(std::auto_ptr<Application_impl>& application);
-    void setUpExternalProperties(
-        std::auto_ptr<Application_impl>& application);
+        CF::Resource_ptr      assemblyController,
+        ossie::ComponentInfo* assemblyControllerComponent) const;
+    void setUpExternalPorts(Application_impl* application);
+    void setUpExternalProperties(Application_impl* application);
     void _handleHostCollocation();
     void _placeHostCollocation(const ossie::SoftwareAssembly::HostCollocation& collocation);
     void _handleUsesDevices(const std::string& appName);
@@ -278,33 +240,24 @@ private:
                                    const std::string& assignedDeviceId);
 
     bool resolveSoftpkgDependencies(ossie::ImplementationInfo* implementation, ossie::DeviceNode& device);
+    ossie::ImplementationInfo* resolveDependencyImplementation(ossie::SoftpkgInfo* softpkg, ossie::DeviceNode& device);
     
-    bool checkImplementationDependencyMatch(
-        ossie::ImplementationInfo&       implementation_1, 
-        const ossie::ImplementationInfo& implementation_2, 
-        ossie::DeviceNode& device);
- 
     // Supports loading, executing, initializing, configuring, & connecting
-    void loadAndExecuteComponents(
-        CF::Application::ComponentProcessIdSequence*                   pid, 
-        std::map<std::string, std::string>*                            fileTable,
-        CosNaming::NamingContext_ptr                                   WaveformContext,
-        std::map<std::string, std::pair<std::string, std::string> >*   loadedComponentTable,
-        std::map<std::string, std::pair<std::string, unsigned long> >* runningComponentTable);
+    void loadDependencies(const std::string& componentId,
+                          CF::LoadableDevice_ptr device,
+                          const std::vector<ossie::SoftpkgInfo*>& dependencies);
 
-    void attemptComponentExecution (
+    void loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg);
+
+    void attemptComponentExecution(
         const boost::filesystem::path&                                  executeName,
-        const CF::ExecutableDevice_var&                                 execdev,
-        ossie::ComponentInfo*&                                          component,
-        const ossie::ImplementationInfo*&                               implementation,
-        CF::Application::ComponentProcessIdSequence*&                   pid,
-        std::map<std::string, std::pair<std::string, unsigned long> >*& runningComponentTable);
+        CF::ExecutableDevice_ptr                                        execdev,
+        ossie::ComponentInfo*                                           component,
+        const ossie::ImplementationInfo*                                implementation);
 
-    void initializeComponents(
-        CF::Resource_var&            assemblyController, 
-        CosNaming::NamingContext_ptr WaveformContext);
+    void waitForComponentRegistration();
+    void initializeComponents();
 
-    void addComponentsToApplication(Application_impl* application);
     void configureComponents();
     void connectComponents(
         std::vector<ossie::ConnectionNode>& connections, 
@@ -316,33 +269,15 @@ private:
     ossie::ComponentInfo* findComponentByInstantiationId(const std::string& identifier);
 
     // Cleanup - used when create fails/doesn't succeed for some reason
-    bool _alreadyCleaned;
-    void _cleanupLoadAndExecuteComponents();
-    void _cleanupNewContext();
-    void _cleanupCollocation( CapacityAllocationTable & collocCapacities, DeviceAssignmentList & collocAssignedDevs);
-    void _cleanupAllocateDevices();
-    void _cleanupRequiredComponents();
-    void _cleanupResourceNotFound();
-    void _cleanupAssemblyControllerInitializeFailed();
-    void _cleanupAssemblyControllerConfigureFailed();
-    void _cleanupResourceInitializeFailed();
-    void _cleanupResourceConfigureFailed();
-    void _cleanupApplicationCreateFailed();
-    void _cleanupConnectionFailed();
-    void _undoCapacityAllocations( CapacityAllocationList & alloc_set );
-    
-    // Shutdown - clean up memory
-    void _deleteRequiredComponents();
+    bool _isComplete;
+    void _cleanupFailedCreate();
+    Application_impl* _application;
 
     /** Implements the ConnectionManager functions
      *  - Makes this class compatible with the ConnectionManager
      */
     // ComponentLookup interface
     CF::Resource_ptr lookupComponentByInstantiationId(const std::string& identifier);
-    CF::DeviceManager_ptr lookupDeviceManagerByInstantiationId(const std::string& identifier);
-    CosEventChannelAdmin::EventChannel_ptr lookupEventChannel(const std::string &EventChannelName);
-    unsigned int incrementEventChannelConnections(const std::string &EventChannelName);
-    unsigned int decrementEventChannelConnections(const std::string &EventChannelName);
 
     // DeviceLookup interface
     CF::Device_ptr lookupDeviceThatLoadedComponentInstantiationId(const std::string& componentId);

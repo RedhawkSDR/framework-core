@@ -144,7 +144,7 @@ class DomainObjectList(object):
         self.__lock = threading.RLock()
 
     def __add(self, identifier, value, notify):
-        if identifier in self.__data:
+        if identifier in self.__data and self.__data[identifier].ref._is_equivalent(value):
             # Item already exists.
             return self.__data[identifier]
 

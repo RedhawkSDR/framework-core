@@ -35,6 +35,7 @@ import weakref
 import threading
 import logging
 from ossie import parsers
+from ossie import properties
 from ossie.utils import idllib
 from ossie.utils.model import _Port
 from ossie.utils.model import _readProfile
@@ -105,11 +106,11 @@ class App(_CF__POA.Application, Resource):
        
     """
     def __init__(self, name="", domain=None, sad=None):
-        # _componentsUpdated needs to be set first to prevent __setattr__ from entering an error state
-        self._componentsUpdated = False
+        # __initialized needs to be set first to prevent __setattr__ from entering an error state
+        self.__initialized = False
         Resource.__init__(self, None)
         self.name = name
-        self.comps = []
+        self.__components = None
         self.ports = []
         self._portsUpdated = False
         self.ns_name = ''
@@ -127,6 +128,10 @@ class App(_CF__POA.Application, Resource):
             self.rootContext = obj._narrow(_CosNaming.NamingContext)
         else:
             self.rootContext = self._domain.rootContext
+
+        # Mark that __init__ has completed; after this point, unknown attributes
+        # are assumed to be properties
+        self.__initialized = True
 
     ########################################
     # External Application API
@@ -203,14 +208,17 @@ class App(_CF__POA.Application, Resource):
     # End external Application API
     ########################################
 
+    @property
+    def comps(self):
+        if self.__components is None:
+            self._populateComponents()
+        return self.__components
+
     def __getattribute__(self, name):
         try:
             if name in ('ports', '_usesPortDict', '_providesPortDict'):
                 if not object.__getattribute__(self,'_portsUpdated'):
                     self._populatePorts()
-            if name == 'comps':
-                if not object.__getattribute__(self,'_componentsUpdated'):
-                    self.update()
 
             return object.__getattribute__(self,name)
         except AttributeError:
@@ -226,40 +234,41 @@ class App(_CF__POA.Application, Resource):
             else:
                 # If it's not external, check assembly controller
                 try:
+                    # Force the components to get updated
+                    self.comps
                     return getattr(self._acRef, name)
                 except AttributeError:
                     pass
             raise AttributeError('App object has no attribute ' + str(name))
     
     def __setattr__(self, name, value):
-        if name == '_componentsUpdated' or self._componentsUpdated == False:
+        # Short-circuit private attributes, if initialization is not complete,
+        # or it's an existing attribute
+        if name.startswith('_App__') or not self.__initialized or name in self.__dict__:
             return object.__setattr__(self, name, value)
+
+        # Check if current value to be set is an external prop
+        if self._externalProps.has_key(name):
+            propId, compRefId = self._externalProps[name]
+            for curr_comp in self.comps:
+                if curr_comp._get_identifier().find(compRefId) != -1:
+                    try:
+                        return setattr(curr_comp, propId, value)
+                    except AttributeError:
+                        continue
         else:
-            if self._componentsUpdated == True and (name == '_connectioncount' or name == 'assemblyController' or name == '_portsUpdated'):
-                return object.__setattr__(self, name, value)
-            # Check if current value to be set is an external prop
-            if self._externalProps.has_key(name):
-                propId, compRefId = self._externalProps[name]
-                for curr_comp in self.comps:
-                    if curr_comp._get_identifier().find(compRefId) != -1:
-                        try:
-                            return setattr(curr_comp, propId, value)
-                        except AttributeError:
-                            continue
-            else:
-                # If it's not external, check assembly controller
-                try:
-                    return setattr(self._acRef, name, value)
-                except AttributeError:
-                    pass
+            # If it's not external, check assembly controller
+            try:
+                # Force the components to get updated
+                self.comps
+                return setattr(self._acRef, name, value)
+            except AttributeError:
+                pass
            
         return object.__setattr__(self, name, value)
     
     def update(self):
-        self.__setattr__('_componentsUpdated', True)
-        comp_list = self.ref._get_registeredComponents()
-        app_name = self.ref._get_name()
-        self._populateComponents(comp_list)
+        self._populateComponents()
 
     def _getExternalProperties(self):
         # Return a map with all external properties
@@ -272,9 +281,12 @@ class App(_CF__POA.Application, Resource):
                 extProps[propId] = (prop.get_propid(), prop.get_comprefid())
         return extProps
 
-    def _populateComponents(self, component_list):
-        """component_list is a list of component names
-           in_doc_sad is a parsed version of the SAD (using ossie.parsers.sad)"""
+    def _populateComponents(self):
+        component_list = self.ref._get_registeredComponents()
+
+        # Set __components to any empty list (it starts as None), to mark that
+        # this function has been run
+        self.__components = []
 
         spd_list = {}
         for compfile in self._sad.get_componentfiles().get_componentfile():
@@ -315,7 +327,7 @@ class App(_CF__POA.Application, Resource):
             spd, scd, prf = _readProfile(profile, self._domain.fileManager)
             new_comp = Component(profile, spd, scd, prf, compRef, instanceName, refid, implId, pid, devs)
 
-            self.comps.append(new_comp)
+            self.__components.append(new_comp)
 
             if refid.find(self.assemblyController) >= 0:
                 self._acRef = new_comp
@@ -925,7 +937,7 @@ class Domain(_CF__POA.DomainManager, object):
         """
         log.trace('serviceUnregistered %s', name)
 
-    def __init__(self, name="DomainName1", location=None):
+    def __init__(self, name="DomainName1", location=None, connectDomainEvents=True):
         self.name = name
         self._sads = []
         self._sadFullPath = []
@@ -933,6 +945,8 @@ class Domain(_CF__POA.DomainManager, object):
         self.NodeAlive = True
         self._waveformsUpdated = False
         self.location = location
+        self.__odmListener = None
+        self.__idmListener = None
         
         # create orb reference
         input_arguments = _sys.argv
@@ -947,7 +961,10 @@ class Domain(_CF__POA.DomainManager, object):
 
         self.orb = _CORBA.ORB_init(input_arguments, _CORBA.ORB_ID)
         obj = self.orb.resolve_initial_references("NameService")
-        self.rootContext = obj._narrow(_CosNaming.NamingContext)
+        try:
+            self.rootContext = obj._narrow(_CosNaming.NamingContext)
+        except:
+            raise RuntimeError, "NameService not found"
         # get DomainManager reference
         dm_name = [_CosNaming.NameComponent(self.name,""),_CosNaming.NameComponent(self.name,"")]
         found_domain = False
@@ -985,43 +1002,12 @@ class Domain(_CF__POA.DomainManager, object):
         self.__applications.itemAdded.addListener(weakobj.boundmethod(self.applicationAdded))
         self.__applications.itemRemoved.addListener(weakobj.boundmethod(self.applicationRemoved))
 
-        # Connect the the IDM channel for updates to device states.
-        try:
-            idmListener = IDMListener()
-            idmListener.connect(self.ref)
-        except Exception, e:
-            # No device events will be received
-            log.warning('Unable to connect to IDM channel: %s', e)
-            idmListener = None
-        self.__idmListener = idmListener
-
-        # Connect to the ODM channel for updates to domain objects.
-        try:
-            odmListener = ODMListener()
-            odmListener.connect(self.ref)
-            
-            # Object lists directly managed by DomainManager
-            # NB: In contrast to other languages, this object is deleted before
-            #     the objects it references, so use weak listeners to prevent
-            #     race conditions that lead to annoying error messages.
-            weakobj.addListener(odmListener.deviceManagerAdded, self.__deviceManagerAddedEvent)
-            weakobj.addListener(odmListener.deviceManagerRemoved, self.__deviceManagerRemovedEvent)
-            weakobj.addListener(odmListener.applicationAdded, self.__applicationAddedEvent)
-            weakobj.addListener(odmListener.applicationRemoved, self.__applicationRemovedEvent)
-            weakobj.addListener(odmListener.applicationFactoryAdded, self.__appFactoryAddedEvent)
-            weakobj.addListener(odmListener.applicationFactoryRemoved, self.__appFactoryRemovedEvent)
-
-            # Object lists managed by DeviceManagers
-            # NB: See above.
-            weakobj.addListener(odmListener.deviceAdded, self.__deviceAddedEvent)
-            weakobj.addListener(odmListener.deviceRemoved, self.__deviceRemovedEvent)
-            weakobj.addListener(odmListener.serviceAdded, self.__serviceAddedEvent)
-            weakobj.addListener(odmListener.serviceRemoved, self.__serviceRemovedEvent)
-        except Exception, e:
-            # No domain object events will be received
-            log.warning('Unable to connect to ODM channel: %s', e)
-            odmListener = None
-        self.__odmListener = odmListener
+        # Connect the the IDM/ODM channels unless disabled.
+        self.__idmListener = None
+        self.__odmListener = None
+        if connectDomainEvents:
+            self.__connectIDMChannel()
+            self.__connectODMChannel()
 
     def _populateApps(self):
         self.__setattr__('_waveformsUpdated', True)
@@ -1069,7 +1055,6 @@ class Domain(_CF__POA.DomainManager, object):
         waveform_entry = App(name=waveform_name, domain=weakref.proxy(self), sad=doc_sad)
         waveform_entry.ref = app
         waveform_entry.ns_name = waveform_ns_name
-        waveform_entry.update()
         return waveform_entry
 
     @property
@@ -1093,6 +1078,52 @@ class Domain(_CF__POA.DomainManager, object):
             svcs.extend(devMgr.services)
         return svcs
 
+    def __connectIDMChannel(self):
+        """
+        Connect the the IDM channel for updates to device states.
+        """
+        idmListener = IDMListener()
+        try:
+            idmListener.connect(self.ref)
+        except Exception, e:
+            # No device events will be received
+            log.warning('Unable to connect to IDM channel: %s', e)
+            return
+
+        self.__idmListener = idmListener
+
+    def __connectODMChannel(self):
+        """
+        Connect to the ODM channel for updates to domain objects.
+        """
+        odmListener = ODMListener()
+        try:
+            odmListener.connect(self.ref)
+        except Exception, e:
+            # No domain object events will be received
+            log.warning('Unable to connect to ODM channel: %s', e)
+            return
+
+        self.__odmListener = odmListener
+
+        # Object lists directly managed by DomainManager
+        # NB: In contrast to other languages, this object is deleted before
+        #     the objects it references, so use weak listeners to prevent
+        #     race conditions that lead to annoying error messages.
+        weakobj.addListener(odmListener.deviceManagerAdded, self.__deviceManagerAddedEvent)
+        weakobj.addListener(odmListener.deviceManagerRemoved, self.__deviceManagerRemovedEvent)
+        weakobj.addListener(odmListener.applicationAdded, self.__applicationAddedEvent)
+        weakobj.addListener(odmListener.applicationRemoved, self.__applicationRemovedEvent)
+        weakobj.addListener(odmListener.applicationFactoryAdded, self.__appFactoryAddedEvent)
+        weakobj.addListener(odmListener.applicationFactoryRemoved, self.__appFactoryRemovedEvent)
+
+        # Object lists managed by DeviceManagers
+        # NB: See above.
+        weakobj.addListener(odmListener.deviceAdded, self.__deviceAddedEvent)
+        weakobj.addListener(odmListener.deviceRemoved, self.__deviceRemovedEvent)
+        weakobj.addListener(odmListener.serviceAdded, self.__serviceAddedEvent)
+        weakobj.addListener(odmListener.serviceRemoved, self.__serviceRemovedEvent)
+
     def __del__(self):
         """
             Destructor
@@ -1101,7 +1132,7 @@ class Domain(_CF__POA.DomainManager, object):
         if self.__odmListener:
             try:
                 self.__odmListener.disconnect()
-            except:
+            except Exception, e:
                 pass
 
         # Explictly disconnect IDM Listener to avoid warnings on shutdown
@@ -1311,7 +1342,7 @@ class Domain(_CF__POA.DomainManager, object):
             
         app_obj.ref.releaseObject()
 
-    def createApplication(self, application_sad=''):
+    def createApplication(self, application_sad='', name=None, initConfiguration={}):
         """Install and create a particular waveform. This function returns
             a pointer to the instantiated waveform"""
         uninstallAppWhenDone = True
@@ -1325,33 +1356,38 @@ class Domain(_CF__POA.DomainManager, object):
             uninstallAppWhenDone = False
     
         sadFile = self.fileManager.open(application_sad, True)
-        sadContents = sadFile.read(sadFile.sizeOf())
-        sadFile.close()
+        try:
+            sadContents = sadFile.read(sadFile.sizeOf())
+        finally:
+            sadFile.close()
     
         doc_sad = parsers.SADParser.parseString(sadContents)
+        app_id = str(doc_sad.get_id())
     
-        # get a list of the application factories in the Domain
-        _applicationFactories = self.ref._get_applicationFactories()
-    
-        # find the application factory that is needed
-        app_name = str(doc_sad.get_name())
-        app_factory_num = -1
-        for app_num in range(len(_applicationFactories)):
-            if _applicationFactories[app_num]._get_name()==app_name:
-                app_factory_num = app_num
+        # Find the application factory that is needed
+        app_factory = None
+        for factory in self.ref._get_applicationFactories():
+            if factory._get_identifier() == app_id:
+                app_factory = factory
                 break
     
-        if app_factory_num == -1:
+        if app_factory is None:
             raise AssertionError("Application factory not found")
-    
-        _appFacProps = []
-    
+
+        # If no name is given, generate a unique one from the clock
+        if name is None:
+            name = '%s_%s' % (app_factory._get_name(), getCurrentDateTimeString())
+
+        # Convert dictionary to properties, otherwise assume that initial
+        # configuration is already a list of properties.
+        if isinstance(initConfiguration, dict):
+            initConfiguration = properties.props_from_dict(initConfiguration)
+
         try:
-            app = _applicationFactories[app_factory_num].create(_applicationFactories[app_factory_num]._get_name()+"_"+getCurrentDateTimeString(),_appFacProps,[])
-        except:
+            app = app_factory.create(name, initConfiguration, [])
+        finally:
             if uninstallAppWhenDone:
-                self.ref.uninstallApplication(_applicationFactories[app_factory_num]._get_identifier())
-            raise
+                self.ref.uninstallApplication(app_id)
         
         appId = app._get_identifier()
         # Add the app to the application list, or get the existing object if
@@ -1360,9 +1396,6 @@ class Domain(_CF__POA.DomainManager, object):
         if getTrackApps():
             _launchedApps.append(waveform_entry)
         
-        if uninstallAppWhenDone:
-            self.ref.uninstallApplication(_applicationFactories[app_factory_num]._get_identifier())
-    
         return waveform_entry
     
     def _updateRunningApps(self):
@@ -1382,7 +1415,6 @@ class Domain(_CF__POA.DomainManager, object):
         self.__deviceManagers.remove(event.sourceId)
 
     def __deviceAddedEvent(self, event):
-        # TODO: Decide how to create Device object (via DeviceManager?)
         pass
 
     def __deviceRemovedEvent(self, event):
@@ -1409,7 +1441,6 @@ class Domain(_CF__POA.DomainManager, object):
             pass
 
     def __serviceAddedEvent(self, event):
-        # TODO: Decide how to create service object
         pass
 
     def __serviceRemovedEvent(self, event):

@@ -261,6 +261,10 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(app._get_componentDevices()), 1)
         self.assertEqual(len(app._get_componentImplementations()), 1)
 
+        # Give the application a moment to run, since there is no programmatic
+        # feedback to let us know that the non-compliant component is running
+        # other than the pid
+        time.sleep(0.1)
 
         # Clean-up
         app.stop()

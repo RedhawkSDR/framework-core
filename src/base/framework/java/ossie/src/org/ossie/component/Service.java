@@ -49,8 +49,11 @@ import org.omg.PortableServer.POAManagerPackage.AdapterInactive;
 import org.omg.PortableServer.POAPackage.ServantNotActive;
 import org.omg.PortableServer.POAPackage.WrongPolicy;
 import org.ossie.logging.logging;
+import org.ossie.redhawk.DomainManagerContainer;
+import org.ossie.redhawk.DeviceManagerContainer;
 
 import CF.DeviceManager;
+import CF.DomainManager;
 import CF.DeviceManagerHelper;
 import CF.InvalidObjectReference;
 
@@ -62,6 +65,8 @@ public abstract class Service
     protected org.omg.CORBA.Object serviceObj = null;
     /** The Device Manager the service is registered with */
     protected DeviceManager devMgr = null;
+    protected DeviceManagerContainer _devMgr = null;
+    protected DomainManagerContainer _domMgr = null;
     /** The service name */
     protected String serviceName;
 
@@ -156,6 +161,15 @@ public abstract class Service
         start_service(clazz, args, props);
     }
     
+    public DomainManagerContainer getDomainManager() {
+        return this._domMgr;
+    }
+    
+    public DeviceManagerContainer getDeviceManager() {
+        return this._devMgr;
+    }
+
+    
     public static void start_service(final Class<? extends Service> clazz, final String[] args, final Properties props) 
     throws InstantiationException, IllegalAccessException, InvalidObjectReference, IllegalArgumentException, SecurityException, InvocationTargetException, NoSuchMethodException
     {
@@ -221,6 +235,8 @@ public abstract class Service
         Servant tie = service_i.newServant(rootpoa);
         tie._this_object(orb);
         service_i.devMgr = deviceMgr;
+        service_i._devMgr = new DeviceManagerContainer(deviceMgr);
+        service_i._domMgr = new DomainManagerContainer(deviceMgr.domMgr());
 
         if (service_i.devMgr != null) {
             logger.debug("Registering service with device manager");

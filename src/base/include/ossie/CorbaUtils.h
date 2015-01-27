@@ -23,6 +23,7 @@
 
 #include <string>
 #include <vector>
+#include <list>
 #include <omniORB4/CORBA.h>
 #include "CorbaSequence.h"
 #include "ossie/debug.h"
@@ -37,6 +38,11 @@ namespace ossie {
 
         // Initialize the CORBA ORB.
         CORBA::ORB_ptr OrbInit (int argc, char* argv[], bool persistentIORs);
+
+        // Initialize the CORBA ORB with additional configuration options.
+        typedef std::pair<std::string,std::string> ORBProperty;
+        typedef std::list<ORBProperty> ORBProperties;
+        CORBA::ORB_ptr OrbInit (int argc, char* argv[], const ORBProperties& orbProperties, bool persistentIORs=false);
 
         // Get the ORB instance.
         CORBA::ORB_ptr Orb ();
@@ -143,6 +149,10 @@ namespace ossie {
 
         unsigned int numberBoundObjectsToContext(CosNaming::NamingContext_ptr context);
 
+        // Returns the complete contents of a naming contex; name bindings are
+        // fetched chunksize items at a time.
+        CosNaming::BindingList* listNamingContext (CosNaming::NamingContext_ptr context, int chunksize=100);
+
         void unbindAllFromContext (CosNaming::NamingContext_ptr context);
 
         inline std::string returnString (CORBA::String_var corbaString) {
@@ -158,6 +168,9 @@ namespace ossie {
                 return false;
             }
         }
+
+        // Returns the most derived CORBA repository ID for the given object reference.
+        const char* mostDerivedRepoId (CORBA::Object_ptr obj);
 
         // Set up a default handler for retrying calls on a COMM_FAILURE exception.
         void setCommFailureRetries (int numRetries);
@@ -272,6 +285,24 @@ namespace ossie {
                 } else {
                     T* begin = (T*)&(*seq)[0];
                     _s.assign(begin, begin+length);
+                }
+                return true;
+            }
+            return false;
+        }
+        template <>
+        inline bool vector_extract<std::string,CORBA::StringSeq>(const CORBA::Any& _a, std::vector<std::string>& _s)
+        {
+            CORBA::StringSeq* seq;
+            if (_a >>= seq) {
+                size_t length = seq->length();
+                if (length == 0) {
+                    _s.clear();
+                } else {
+                    _s.resize(length);
+                    for (unsigned int idx=0; idx<seq->length(); idx++) {
+                        _s[idx] = ossie::corba::returnString((*seq)[idx]);
+                    }
                 }
                 return true;
             }

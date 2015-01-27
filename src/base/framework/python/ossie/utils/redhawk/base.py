@@ -146,7 +146,10 @@ def scan(location=None):
         
     orb = _CORBA.ORB_init(input_arguments, _CORBA.ORB_ID)
     obj = orb.resolve_initial_references("NameService")
-    rootContext = obj._narrow(_CosNaming.NamingContext)
+    try:
+        rootContext = obj._narrow(_CosNaming.NamingContext)
+    except:
+        raise RuntimeError, "NameingService not found"
     
     base_list = rootContext.list(100)
     domainsFound = []
@@ -174,10 +177,17 @@ def scan(location=None):
 
     return domainsFound
 
-def attach(domain=None, location=None):
+def attach(domain=None, location=None, connectDomainEvents=True):
     """
-        Attach to a Domain and return a reference
-        to the Domain.
+    Attach to a Domain and return a reference to the Domain.
+
+    Arguments
+      domain   - Name of domain. If there is only one domain, passing None
+                 will connect to that domain.
+      location - Location of naming service to look up domain. If None, use
+                 the default NameService initial reference.
+      connectDomainEvents - If True, connect to the IDM and ODM channels for
+                            domain state updates (default: True).
     """
     if domain == None:
         domains = scan(location)
@@ -187,6 +197,6 @@ def attach(domain=None, location=None):
             print "Multiple domains found: "+str(domains)+". Please specify one."
             return None
     
-    dom_entry = _core.Domain(name=str(domain), location=location)
+    dom_entry = _core.Domain(name=str(domain), location=location, connectDomainEvents=connectDomainEvents)
     
     return dom_entry

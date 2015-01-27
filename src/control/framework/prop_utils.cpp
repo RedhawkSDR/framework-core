@@ -227,7 +227,6 @@ static CF::Properties overrideStructValues(const StructProperty* prop, const std
                 // Turn propvalue into a string for easy parsing
                 std::string mathStatement = value.substr(8);
                 if ((*mathStatement.begin() == '(') && (*mathStatement.rbegin() == ')')) {
-                    // TODO - implement a more relaxed parser
                     mathStatement.erase(mathStatement.begin(), mathStatement.begin() + 1);
                     mathStatement.erase(mathStatement.end() - 1, mathStatement.end());
                     std::vector<std::string> args;
@@ -571,7 +570,6 @@ CF::DataType ossie::convertDataTypeToPropertyType(const CF::DataType& value, con
 
 CORBA::Any ossie::convertAnyToPropertyType(const CORBA::Any& value, const SimpleSequenceProperty* property)
 {
-    // TODO
     return CORBA::Any();
 }
 

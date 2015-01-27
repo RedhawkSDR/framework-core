@@ -654,7 +654,6 @@ void StructProperty::override(const Property* otherProp) {
 void StructProperty::override(const ComponentProperty* newValue) {
     const StructPropertyRef* structRef = dynamic_cast<const StructPropertyRef*>(newValue);
     if (structRef) {
-        // TODO
     } else {
         LOG_WARN(StructProperty, "Ignoring override request");
     }
@@ -710,7 +709,6 @@ void StructSequenceProperty::override(const Property* otherProp) {
 void StructSequenceProperty::override(const ComponentProperty* newValue) {
     const StructSequencePropertyRef* structSeqRef = dynamic_cast<const StructSequencePropertyRef*>(newValue);
     if (structSeqRef) {
-        // TODO
     } else {
         LOG_WARN(StructSequenceProperty, "Ignoring override request");
     }

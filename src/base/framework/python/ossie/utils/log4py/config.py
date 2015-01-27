@@ -64,7 +64,6 @@ def _parsePropertiesFile(f):
     value = None
     for i, char in enumerate(line):
       if char in ('\\'):
-        # TODO properly deal with escape characters and line continuations
         continue
 
       # The key contains all of the characters in the line starting with the
@@ -99,7 +98,6 @@ def _parsePropertiesStream( cfg ):
     value = None
     for i, char in enumerate(line):
       if char in ('\\'):
-        # TODO properly deal with escape characters and line continuations
         continue
 
       # The key contains all of the characters in the line starting with the

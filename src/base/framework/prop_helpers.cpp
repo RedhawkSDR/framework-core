@@ -154,7 +154,6 @@ bool ossie::compare_anys(const CORBA::Any& a, const CORBA::Any& b, std::string& 
         result = perform_action(std::string(tmp1), std::string(tmp2), action);
         break;
     }
-// TODO: support for comparing complex values
     default:
         result = false;
     }

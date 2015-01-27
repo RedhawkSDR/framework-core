@@ -26,8 +26,8 @@ Prefix:         %{_sdrroot}
 Prefix:         %{_sysconfdir}
 
 Name:           redhawk
-Version:        1.10.1
-Release:        3%{?dist}
+Version:        1.11.0
+Release:        1%{?dist}
 Summary:        REDHAWK is a Software Defined Radio framework
 
 Group:          Applications/Engineering
@@ -50,7 +50,13 @@ Requires:       util-linux-ng
 Requires:       e2fsprogs
 Requires:       python-elementtree
 %endif
-Requires:       java >= 1.6
+
+%if 0%{?rhel} >= 7 || 0%{?fedora} >= 17
+Requires:       java >= 1.7
+%else
+Requires:       java7 >= 1.7
+%endif
+
 Requires:       python
 Requires:       numpy
 Requires:       python-omniORB >= 3.0
@@ -66,7 +72,13 @@ BuildRequires:  python-elementtree
 %endif
 BuildRequires:  autoconf automake libtool
 BuildRequires:  expat-devel
-BuildRequires:  java-devel >= 1.6
+
+%if 0%{?rhel} >= 7 || 0%{?fedora} >= 17
+BuildRequires:  java-devel >= 1.7
+%else
+BuildRequires:  java7-devel >= 1.7
+%endif
+
 BuildRequires:  python-devel >= 2.4
 BuildRequires:  log4cxx-devel >= 0.10
 BuildRequires:  omniORB-devel >= 4.1.0
@@ -135,7 +147,12 @@ Requires:       omniORBpy-devel >= 3.0
 # Languages
 Requires:       gcc-c++
 Requires:       python-devel >= 2.4
-Requires:       java-devel >= 1.6
+
+%if 0%{?rhel} >= 7 || 0%{?fedora} >= 17
+Requires:       java-devel >= 1.7
+%else
+Requires:       java7-devel >= 1.7
+%endif
 
 %description devel
 This package ensures that all requirements for REDHAWK development are installed. It also provides a useful development utilities.
@@ -265,6 +282,9 @@ fi
 
 
 %changelog
+* Wed Sep 15 2014 - 1.11.0-1
+- Update for dependency on java7
+
 * Wed May 21 2014 - 1.10.0-7
 - Move a dependency that was on the wrong package
 

@@ -47,8 +47,11 @@ import org.apache.log4j.Level;
 import org.omg.CORBA.ORB;
 import org.omg.CORBA.UserException;
 import org.omg.CORBA.ORBPackage.InvalidName;
+import org.omg.CosNaming.NameComponent;
 import org.omg.CosNaming.NamingContextExt;
 import org.omg.CosNaming.NamingContextExtHelper;
+import org.omg.CosNaming.NamingContext;
+import org.omg.CosNaming.NamingContextHelper;
 import org.omg.CosNaming.NamingContextPackage.CannotProceed;
 import org.omg.CosNaming.NamingContextPackage.NotFound;
 import org.omg.PortableServer.POA;
@@ -63,12 +66,15 @@ import org.ossie.events.PropertyEventSupplier;
 import org.ossie.properties.IProperty;
 import org.ossie.properties.AnyUtils;
 import org.ossie.logging.logging;
+import org.ossie.redhawk.DomainManagerContainer;
 
 import CF.AggregateDevice;
 import CF.AggregateDeviceHelper;
 import CF.DataType;
 import CF.Device;
 import CF.DeviceHelper;
+import CF.ApplicationRegistrar;
+import CF.ApplicationRegistrarHelper;
 import CF.DeviceManager;
 import CF.DeviceManagerHelper;
 import CF.InvalidObjectReference;
@@ -132,7 +138,8 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
     public  static logging.ResourceCtx loggerCtx = null;
     
     protected CF.Resource resource;
-
+    
+    protected DomainManagerContainer _domMgr = null;
     /**
      * The CORBA ORB to use for servicing requests
      */
@@ -357,7 +364,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 
                 // multi-stage destruction for the ports is necessary to account for the initial memory
                 // allocation and the creation of the different maps
-                // TODO Might have to do something different here
+                // Might have to do something different here?
                 this.ports.clear();
 
                 this.poa.deactivate_object(this.poa.reference_to_id(resource));
@@ -530,8 +537,26 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         return this.poa;
     }
     
-    public void setAdditionalParameters(String _softwareProfile) {
-        this.softwareProfile = _softwareProfile;
+    /**
+     * This function is used by derived classes to set a pointer to the 
+     * Domain Manager and Application
+     * 
+     * @param ApplicationRegistrarIOR IOR to either the Application Registrar or Naming Context
+     */
+    public void setAdditionalParameters(final String ApplicationRegistrarIOR) {
+        final org.omg.CORBA.Object obj = this.orb.string_to_object(ApplicationRegistrarIOR);
+        ApplicationRegistrar appReg = null;
+        try {
+            appReg = ApplicationRegistrarHelper.narrow(obj);
+        } catch (Exception e) {}
+        if (appReg!=null) {
+            this._domMgr = new DomainManagerContainer(appReg.domMgr());
+            return;
+        }
+    }
+    
+    public DomainManagerContainer getDomainManager() {
+        return this._domMgr;
     }
     
     /**
@@ -1078,9 +1103,18 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         // Configure log4j from the execparams (or use default settings).
         // TOBERM Resource.configureLogging(execparams, orb);
 
-        NamingContextExt nameContext = null;
+        NamingContext nameContext = null;
+        ApplicationRegistrar applicationRegistrar = null;
         if (execparams.containsKey("NAMING_CONTEXT_IOR")) {
-            nameContext = NamingContextExtHelper.narrow(orb.string_to_object(execparams.get("NAMING_CONTEXT_IOR")));
+            try {
+                final org.omg.CORBA.Object tmp_obj = orb.string_to_object(execparams.get("NAMING_CONTEXT_IOR"));
+                try {
+                    applicationRegistrar = ApplicationRegistrarHelper.narrow(tmp_obj);
+                } catch (Exception e) {}
+                nameContext = NamingContextHelper.narrow(tmp_obj);
+            } catch (Exception e) {
+                System.out.println(e);
+            }
         }
 
         String identifier = null;
@@ -1140,12 +1174,29 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 
         final Resource resource_i = clazz.newInstance();
         final CF.Resource resource = resource_i.setup(identifier, nameBinding, profile, orb, rootpoa);
+        resource_i.setAdditionalParameters(execparams.get("NAMING_CONTEXT_IOR"));
         resource_i.initializeProperties(execparams);
 
 	resource_i.saveLoggingContext( logcfg_uri, debugLevel, ctx );
 
         if ((nameContext != null) && (nameBinding != null)) {
-            nameContext.rebind(nameContext.to_name(nameBinding), resource);
+            if (applicationRegistrar != null) {
+                try {
+                    applicationRegistrar.registerComponent(nameBinding, resource);
+                } catch (Exception e) {
+                    System.out.println("Unable to register "+nameBinding);
+                    System.out.println(e);
+                }
+            } else {
+                String[] names = nameBinding.split("/");
+                ArrayList<org.omg.CosNaming.NameComponent> name_to_bind = new ArrayList<org.omg.CosNaming.NameComponent>();
+                for (String name : names) {
+                    org.omg.CosNaming.NameComponent Cos_name = new org.omg.CosNaming.NameComponent(name, "");
+                    name_to_bind.add(Cos_name);
+                }
+                org.omg.CosNaming.NameComponent[] name_binding_array = new org.omg.CosNaming.NameComponent[0];
+                nameContext.rebind(name_to_bind.toArray(name_binding_array), resource);
+            }
         } else {
             // Print out the IOR so that someone can debug against the component
             System.out.println("The IOR for your component is:\n" + orb.object_to_string(resource));

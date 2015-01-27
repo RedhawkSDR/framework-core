@@ -35,7 +35,7 @@ from ossie.utils.popen import Popen
 
 from devmgr import DeviceManagerStub
 from naming import NamingContextStub
-from debugger import GDB, PDB
+from debugger import GDB, PDB, Valgrind
 from terminal import XTerm
 
 __all__ = ('ResourceLauncher', 'DeviceLauncher', 'ServiceLauncher')
@@ -175,6 +175,8 @@ class LocalLauncher(object):
                     debugger = PDB()
                 elif debugger == 'gdb':
                     debugger = GDB()
+                elif debugger == 'valgrind':
+                    debugger = Valgrind()
                 else:
                     raise RuntimeError, 'not supported'
             except Exception, e:

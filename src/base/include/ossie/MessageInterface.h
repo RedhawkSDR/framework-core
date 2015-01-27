@@ -30,6 +30,7 @@
 #include "CF/cf.h"
 #include "CorbaUtils.h"
 #include "Port_impl.h"
+#include "callback.h"
 
 #include <COS/CosEventChannelAdmin.hh>
 
@@ -83,10 +84,10 @@ public:
         callbacks_[id] = new MemberCallback<Class, MessageStruct>(*target, func);
     }
 
-    template <class Class>
-    void registerMessage (Class* target, void (Class::*func)(const std::string&, const CORBA::Any&))
+    template <class Target, class Func>
+    void registerMessage (Target target, Func func)
     {
-        generic_callbacks_.push_back(new GenericMemberCallback<Class>(*target, func));
+        generic_callbacks_.add(target, func);
     }
 
     // CF::Port methods
@@ -162,36 +163,11 @@ protected:
         Class& target_;
         MemberFn func_;
     };
-    
-    template <class Class>
-    class GenericMemberCallback : public MessageCallback
-    {
-    public:
-        typedef void (Class::*MemberFn)(const std::string&, const CORBA::Any&);
-
-        virtual void operator() (const std::string& value, const CORBA::Any& data)
-        {
-            (target_.*func_)(value, data);
-        }
-
-    protected:
-        // Only allow MessageConsumerPort to instantiate this class.
-        GenericMemberCallback (Class& target, MemberFn func) :
-            target_(target),
-            func_(func)
-        {
-        }
-
-        friend class MessageConsumerPort;
-
-        Class& target_;
-        MemberFn func_;
-    };
 
     typedef std::map<std::string, MessageCallback*> CallbackTable;
-    typedef std::vector<MessageCallback*> GenericCallbackTable;
     CallbackTable callbacks_;
-    GenericCallbackTable generic_callbacks_;
+
+    ossie::notification<void (const std::string&, const CORBA::Any&)> generic_callbacks_;
 
     typedef std::map<std::string, CosEventComm::PushSupplier_var> SupplierTable;
     SupplierTable suppliers_;

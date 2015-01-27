@@ -37,7 +37,6 @@ libossiecf_la_SOURCES = AggregateDevice_impl.cpp \
                         FileStream.cpp \
                         POACreator.cpp \
                         CorbaUtils.cpp \
-                        ORB.cpp \
                         prop_helpers.cpp \
                         MessageInterface.cpp \
                         PropertyInterface.cpp \
@@ -48,7 +47,11 @@ libossiecf_la_SOURCES = AggregateDevice_impl.cpp \
                         logging/rh_logger.cpp \
                         logging/StringInputStream.cpp \
                         logging/RH_LogEventAppender.cpp \
-                        EventChannelSupport.cpp
+                        EventChannelSupport.cpp \
+                        Component.cpp \
+                        Value.cpp \
+                        PropertyType.cpp \
+                        PropertyMap.cpp
 
 libossiecf_la_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(OMNICOS_CFLAGS) $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS)
 libossiecf_la_LIBADD = $(BOOST_LDFLAGS) $(BOOST_FILESYSTEM_LIB) $(BOOST_SERIALIZATION_LIB) $(BOOST_THREAD_LIB) $(BOOST_SYSTEM_LIB) $(OMNICOS_LIBS) $(OMNIORB_LIBS) $(LOG4CXX_LIBS)

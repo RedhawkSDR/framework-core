@@ -29,6 +29,7 @@ from ossie.utils.model.connect import ConnectionManager
 
 from base import SdrRoot, Sandbox, SandboxComponent
 import launcher
+import pydoc
 
 log = logging.getLogger(__name__)
 
@@ -327,21 +328,120 @@ class LocalSandbox(Sandbox):
     def catalog(self, searchPath=None, objType="components"):
         files = {}
         if not searchPath:
-            if objType == "components":
-                searchPath = os.path.join(self.getSdrRoot().getLocation(), 'dom', 'components')
+            if objType == "all":
+                pathsToSearch = [os.path.join(self.getSdrRoot().getLocation(), 'dom', 'components'), \
+                               os.path.join(self.getSdrRoot().getLocation(), 'dev', 'devices'), \
+                               os.path.join(self.getSdrRoot().getLocation(), 'dev', 'services')]
+            elif objType == "components":
+                pathsToSearch = [os.path.join(self.getSdrRoot().getLocation(), 'dom', 'components')]
             elif objType == "devices":
-                searchPath = os.path.join(self.getSdrRoot().getLocation(), 'dev', 'devices')
+                pathsToSearch = [os.path.join(self.getSdrRoot().getLocation(), 'dev', 'devices')]
             elif objType == "services":
-                searchPath = os.path.join(self.getSdrRoot().getLocation(), 'dev', 'services')
+                pathsToSearch = [os.path.join(self.getSdrRoot().getLocation(), 'dev', 'services')]
             else:
                 raise ValueError, "'%s' is not a valid object type" % objType
-        for root, dirs, fnames in os.walk(searchPath):
-            for filename in fnmatch.filter(fnames, "*spd.xml"):
-                filename = os.path.join(root, filename)
-                try:
-                    spd = parsers.spd.parse(filename)
-                    files[str(spd.get_name())] = filename
-                except:
-                    log.exception('Could not parse %s', filename)
+        else:
+            pathsToSearch = [searchPath]
+
+        for path in pathsToSearch:
+            for root, dirs, fnames in os.walk(path):
+                for filename in fnmatch.filter(fnames, "*spd.xml"):
+                    filename = os.path.join(root, filename)
+                    try:
+                        spd = parsers.spd.parse(filename)
+                        files[str(spd.get_name())] = filename
+                    except:
+                        log.exception('Could not parse %s', filename)
 
         return files
+
+    def browse(self, searchPath=None, objType=None,withDescription=False):
+        if not searchPath:
+            if objType == None or objType == "all":
+                pathsToSearch = [os.path.join(self.getSdrRoot().getLocation(), 'dom', 'components'), \
+                               os.path.join(self.getSdrRoot().getLocation(), 'dev', 'devices'), \
+                               os.path.join(self.getSdrRoot().getLocation(), 'dev', 'services')]
+            elif objType == "components":
+                pathsToSearch = [os.path.join(self.getSdrRoot().getLocation(), 'dom', 'components')]
+            elif objType == "devices":
+                pathsToSearch = [os.path.join(self.getSdrRoot().getLocation(), 'dev', 'devices')]
+            elif objType == "services":
+                pathsToSearch = [os.path.join(self.getSdrRoot().getLocation(), 'dev', 'services')]
+            else:
+                raise ValueError, "'%s' is not a valid object type" % objType
+        else:
+            pathsToSearch = [searchPath]
+
+        output_text = ""
+        for path in pathsToSearch:
+            rsrcDict = {}
+            path.rstrip("/")
+            objType = path.split("/")[-1]
+            if objType == "components":
+                pathPrefix = "$SDRROOT/dom/components"
+            elif objType == "devices":
+                pathPrefix = "$SDRROOT/dev/devices"
+            elif objType == "services":
+                pathPrefix = "$SDRROOT/dev/services"
+            else:
+                pathPrefix = path
+
+            for root, dirs, fnames in os.walk(path):
+                for filename in fnmatch.filter(fnames, "*spd.xml"):
+                    filename = os.path.join(root, filename)
+                    try:
+                        spd = parsers.spd.parse(filename)
+                        full_namespace = root[root.find(path)+len(path)+1:]
+                        namespace = full_namespace[:full_namespace.find(spd.get_name())]
+                        if namespace == '':
+                            namespace = pathPrefix
+                        if rsrcDict.has_key(namespace) == False:
+                            rsrcDict[namespace] = []
+                        if withDescription == True:
+                            new_item = {}
+                            new_item['name'] = spd.get_name()
+                            if spd.description == None:
+                                if spd.get_implementation()[0].description == None or \
+                                   spd.get_implementation()[0].description == "The implementation contains descriptive information about the template for a software component.":
+                                    new_item['description'] = None
+                                else:
+                                    new_item['description'] = spd.get_implementation()[0].description.encode("utf-8")
+                            else:
+                                new_item['description'] = spd.description
+                            rsrcDict[namespace].append(new_item)
+                        else:
+                            rsrcDict[namespace].append(spd.get_name())
+                    except Exception, e:
+                        print str(e)
+                        print 'Could not parse %s', filename
+
+            for key in sorted(rsrcDict.iterkeys()):
+                if key == pathPrefix:
+                    output_text += "************************ " + str(key) + " ***************************\n"
+                else:
+                    output_text += "************************ " + str(pathPrefix + "/" + key) + " ***************************\n"
+
+                value = rsrcDict[key]
+                value.sort()
+                if withDescription == True:
+                    for item in value:
+                        if item['description']:
+                            output_text += str(item['name']) + " - " + str(item['description']) + "\n"
+                        else:
+                            output_text += str(item['name']) + "\n"
+                        output_text += "--------------------------------------\n"
+                else:
+                    l = value
+                    while len(l) % 4 != 0:
+                        l.append(" ")
+
+                    split = len(l)/4
+
+                    l1 = l[0:split]
+                    l2 = l[split:2*split]
+                    l3 = l[2*split:3*split]
+                    l4 = l[3*split:4*split]
+                    for v1,v2,v3,v4 in zip(l1,l2,l3,l4):
+                        output_text += '%-30s%-30s%-30s%-30s\n' % (v1,v2,v3,v4)
+                    output_text += "\n"
+        pydoc.pager(output_text)

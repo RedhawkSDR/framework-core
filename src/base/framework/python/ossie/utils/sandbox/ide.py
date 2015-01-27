@@ -55,7 +55,7 @@ class IDESdrRoot(SdrRoot):
 
     def getProfiles(self, objType=None):
         profiles = self.__ide._get_availableProfiles()
-        if objType is None:
+        if objType is None or objType == "all":
             return profiles
         else:
             if not objType in ('components', 'devices', 'services'):
@@ -280,6 +280,68 @@ class IDESandbox(Sandbox):
             except:
                 pass
         return files
+
+    def browse(self, searchPath=None, objType=None, withDescription=False):
+        if searchPath:
+            log.warn("IDE sandbox does not support alternate paths")
+
+        sdrroot = self.getSdrRoot()
+
+        output_text = ""
+        rsrcDict = {}
+        for profile in sdrroot.getProfiles():
+            rsrcType = "components"
+            if profile.find("/components") != -1:
+                rsrcType = "components"
+            elif profile.find("/devices") != -1:
+                rsrcType = "devices"
+            elif profile.find("/services") != -1:
+                rsrcType = "services"
+            spd, scd, prf = sdrroot.readProfile(profile)
+            if rsrcDict.has_key(rsrcType) == False:
+                rsrcDict[rsrcType] = []
+            if withDescription == True:
+                new_item = {}
+                new_item['name'] = spd.get_name()
+                if spd.description == None:
+                    if spd.get_implementation()[0].description == None or \
+                        spd.get_implementation()[0].description == "The implementation contains descriptive information about the template for a software component.":
+                        new_item['description'] = None
+                    else:
+                        new_item['description'] = spd.get_implementation()[0].description.encode("utf-8")
+                else:
+                    new_item['description'] = spd.description
+                rsrcDict[rsrcType].append(new_item)
+            else:
+                rsrcDict[rsrcType].append(spd.get_name())
+
+        for key in sorted(rsrcDict.iterkeys()):
+            output_text += "************************ " + str(key) + " ***************************\n"
+
+            value = rsrcDict[key]
+            value.sort()
+            if withDescription == True:
+                for item in value:
+                    if item['description']:
+                        output_text += str(item['name']) + " - " + str(item['description']) + "\n"
+                    else:
+                        output_text += str(item['name']) + "\n"
+                    output_text += "--------------------------------------\n"
+            else:
+                l = value
+                while len(l) % 4 != 0:
+                    l.append(" ")
+
+                split = len(l)/4
+
+                l1 = l[0:split]
+                l2 = l[split:2*split]
+                l3 = l[2*split:3*split]
+                l4 = l[3*split:4*split]
+                for v1,v2,v3,v4 in zip(l1,l2,l3,l4):
+                    output_text += '%-30s%-30s%-30s%-30s\n' % (v1,v2,v3,v4)
+                output_text += "\n"
+        print output_text
 
     def getComponent(self, name):
         self._scanChalkboard()

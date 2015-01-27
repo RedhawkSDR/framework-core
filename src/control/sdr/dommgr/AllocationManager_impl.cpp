@@ -28,6 +28,21 @@
 #include "ossie/debug.h"
 #include "ossie/CorbaUtils.h"
 #include "ossie/ossieSupport.h"
+#include "ossie/CorbaIterator.h"
+
+typedef ossie::corba::Iterator<CF::AllocationManager::AllocationStatusType,
+                               CF::AllocationManager::AllocationStatusType_out,
+                               CF::AllocationManager::AllocationStatusSequence,
+                               CF::AllocationManager::AllocationStatusSequence_out,
+                               CF::AllocationStatusIterator,
+                               POA_CF::AllocationStatusIterator> AllocationStatusIter;
+
+typedef ossie::corba::Iterator<CF::AllocationManager::DeviceLocationType,
+                               CF::AllocationManager::DeviceLocationType_out,
+                               CF::AllocationManager::DeviceLocationSequence,
+                               CF::AllocationManager::DeviceLocationSequence_out,
+                               CF::DeviceLocationIterator,
+                               POA_CF::DeviceLocationIterator> DeviceLocationIter;
 
 namespace {
     static inline CF::AllocationManager::AllocationStatusType convertAllocTableEntry(const ossie::AllocationTable::value_type& entry)
@@ -533,6 +548,39 @@ CF::AllocationManager::AllocationStatusSequence* AllocationManager_impl::localAl
     
     TRACE_EXIT(AllocationManager_impl)
     return result._retn();
+}
+
+void AllocationManager_impl::listDevices(CF::AllocationManager::DeviceScopeType deviceScope, CORBA::ULong count, CF::AllocationManager::DeviceLocationSequence_out deviceLocations, CF::DeviceLocationIterator_out iterator)
+{
+    CF::AllocationManager::DeviceLocationSequence* devices = 0;
+    switch (deviceScope) {
+    case CF::AllocationManager::LOCAL_DEVICES:
+        devices = localDevices();
+        break;
+    case CF::AllocationManager::ALL_DEVICES:
+        devices = allDevices();
+        break;
+    case CF::AllocationManager::AUTHORIZED_DEVICES:
+        devices = authorizedDevices();
+        break;
+    };
+
+    iterator = DeviceLocationIter::list(count, deviceLocations, devices);
+}
+
+void AllocationManager_impl::listAllocations(CF::AllocationManager::AllocationScopeType allocScope, CORBA::ULong count, CF::AllocationManager::AllocationStatusSequence_out allocs, CF::AllocationStatusIterator_out ai)
+{
+    CF::AllocationManager::allocationIDSequence allocationIDs;
+    CF::AllocationManager::AllocationStatusSequence* allocList = 0;
+    switch (allocScope) {
+    case CF::AllocationManager::LOCAL_ALLOCATIONS:
+        allocList = localAllocations(allocationIDs);
+        break;
+    case CF::AllocationManager::ALL_ALLOCATIONS:
+        allocList = allocations(allocationIDs);
+        break;
+    };
+    ai = AllocationStatusIter::list(count, allocs, allocList);
 }
 
 /* Returns all devices in all Domains that can be seen by any Allocation Manager seen by the local Allocation Manager */

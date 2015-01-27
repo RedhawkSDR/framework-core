@@ -122,7 +122,7 @@ __all__ = ('show', 'loadSADFile', 'IDELocation', 'connectedIDE', 'getIDE_REF',
            'start', 'getSDRROOT', 'setSDRROOT', 'Component', 'generateSADXML',
            'getDEBUG', 'setDEBUG', 'getComponent', 'IDE_REF', 'setIDE_REF',
            'stop', 'catalog', 'redirectSTDOUT', 'orb', 'reset', 'launch', 'api',
-           'createEventChannel', 'getEventChannel', 'getService')
+           'createEventChannel', 'getEventChannel', 'getService', 'browse')
 
 # Set up logging
 log = logging.getLogger(__name__)
@@ -497,7 +497,7 @@ def overloadProperty(component, simples=None, simpleseq=None, struct=None, struc
             dV = allProps[prop].defValue
             if dV == None:
                 continue
-            if allProps[prop].mode != "readonly":
+            if allProps[prop].mode != "readonly" and 'configure' in allProps[prop].kinds:
                 setattr(component, allProps[prop].clean_name, allProps[prop].defValue)
 
 def loadSADFile(filename, props={}):
@@ -592,11 +592,18 @@ def loadSADFile(filename, props={}):
                     if not (simple.refid in execprops):
                         continue
                     overload_value = str(simple.value)
-                    if simple.refid in props and assemblyController:
+                    if simple.refid in props and instanceID == assemblyControllerRefid:
                         overload_value = props[simple.refid]
                         props.pop(simple.refid)
                     container = overloadContainer(str(simple.refid),overload_value)
                     simple_exec_vals[container.id] = container.value
+                # If AC execparam property is overriden in props but not SAD file, update value
+                for prop in list(props):
+                    if prop in execprops and instanceID == assemblyControllerRefid:
+                        overload_value = props[prop]
+                        props.pop(prop)
+                        container = overloadContainer(str(prop),overload_value)
+                        simple_exec_vals[container.id] = container.value
                 try:
                     # NB: Explicitly request no configure call is made on the component
                     newComponent = launch(componentName, instanceName,instanceID,configure=None,execparams=simple_exec_vals, objType="component")
@@ -755,7 +762,7 @@ def loadSADFile(filename, props={}):
                             structseq_vals.append(overloadContainer(str(structseq.refid),values_vals))
                     if len(sandboxComponent._properties) > 0:
                         overloadProperty(sandboxComponent, simple_vals, simpleseq_vals, struct_vals, structseq_vals)
-            if assemblyController:
+            if assemblyController and len(props) > 0 :
                 prop_types = {}
                 prop_types['simple'] = []
                 prop_types['simpleseq'] = []
@@ -833,6 +840,8 @@ def catalog(searchPath=None, printResults=False, returnSPDs=False, objType="comp
     else:
         return componentNames
 
+def browse(searchPath=None, objType=None, withDescription=False):
+    _getSandbox().browse(searchPath, objType, withDescription)
 
 class Component(object):
     """
@@ -875,6 +884,18 @@ def api(descriptor, objType=None):
     profile = sdrRoot.findProfile(descriptor, objType=objType)
     spd, scd, prf = sdrRoot.readProfile(profile)
     #spd,scd,prf = _getSandbox().getSdrRoot().readProfile(descriptor)
+    if spd:
+        if spd.description == None:
+            if spd.get_implementation()[0].description == None or \
+               spd.get_implementation()[0].description == "The implementation contains descriptive information about the template for a software component.":
+                description = None
+            else:
+                description = spd.get_implementation()[0].description
+        else:
+            description = spd.description
+    if description:
+        print '\nDescription ======================\n'
+        print description
     print '\nPorts ======================'
     print '\nUses (output)'
     table = TablePrinter('Port Name', 'Port Interface')

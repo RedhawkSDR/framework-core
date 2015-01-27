@@ -21,9 +21,11 @@
 AM_CPPFLAGS = -I../include -I$(top_srcdir)/base/include
 
 noinst_LTLIBRARIES = libossiedomain.la
-libossiedomain_la_SOURCES = File_impl.cpp \
+libossiedomain_la_SOURCES = CorbaGC.cpp \
+                            File_impl.cpp \
                             FileManager_impl.cpp \
                             FileSystem_impl.cpp \
+                            GCThread.cpp \
                             helperFunctions.cpp \
                             POACreator.cpp \
                             prop_utils.cpp

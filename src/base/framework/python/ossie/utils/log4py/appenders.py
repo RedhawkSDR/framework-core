@@ -184,9 +184,8 @@ else:
       self.threshold = logging.NOTSET
       self.log4pyProps = {}
 
-    def setDatePattern(self, pattern):
+    def setDatePattern(self, pattern): # This needs to support the log4j patterns more accurately and without hardcoding
       self.pattern = pattern.strip()
-      # TODO : support the log4j patterns more accurately and without hardcoding
       if self.pattern == ".yyyy-ww":
         self.when="W0"
       elif self.pattern == ".yyyy-MM-dd":

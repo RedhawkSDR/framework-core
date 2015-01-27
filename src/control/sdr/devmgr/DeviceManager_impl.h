@@ -67,6 +67,9 @@ public:
     char* label ()
         throw (CORBA::SystemException);
 
+    CF::DomainManager_ptr domMgr ()
+        throw (CORBA::SystemException);
+
     CF::DeviceSequence * registeredDevices ()
         throw (CORBA::SystemException);
 
@@ -136,6 +139,7 @@ private:
     StringProperty* logging_config_prop;
     std::string     HOSTNAME;
     std::string logging_uri;
+    float       DEVICE_FORCE_QUIT_TIME;
     
 // read only attributes
     struct utsname _uname;

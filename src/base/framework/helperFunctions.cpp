@@ -20,57 +20,8 @@
 
 
 #include <string>
-#include <iostream>
-#include <fstream>
-
 #include <uuid/uuid.h>
-
-#include <boost/filesystem/path.hpp>
-
-namespace fs = boost::filesystem;
-
-#include <ossie/CorbaUtils.h>
 #include <ossie/ossieSupport.h>
-
-void ossie::createProfileFromFileName(std::string fileName, std::string& profile)
-{
-    profile = "<profile filename=\"" + fileName + "\" />";
-
-    return;
-}
-
-bool ossie::isValidFileName(const char* fileName)
-{
-    int fsOpSuccessAttempts = 0;
-    bool fsOpSuccess = false;
-    while (!fsOpSuccess) {
-        try {
-#if BOOST_FILESYSTEM_VERSION == 2
-            fs::path testPath(fileName, fs::portable_posix_name);
-#else            
-	    fs::path testPath(fileName);
-#endif
-	    fsOpSuccess = true;
-        } catch ( ... ) {
-            fsOpSuccessAttempts++;
-            if (fsOpSuccessAttempts == 10)
-                { break; }
-            usleep(10000);
-        }
-    }
-    return fsOpSuccess;
-}
-
-const char* ossie::spd_rel_file(const char* spdFile, const char* name, std::string& fileName)
-{
-    fs::path spdPath(spdFile);
-
-    fs::path filePath = spdPath.branch_path() / name;
-
-    fileName = filePath.string();
-
-    return fileName.c_str();
-}
 
 std::string ossie::generateUUID()
 {
@@ -82,6 +33,18 @@ std::string ossie::generateUUID()
     uuid_unparse(id, strbuf);
 
     return std::string("DCE:") + strbuf;
+}
+
+
+std::string ossie::getCurrentDirName()
+{
+  std::string retval;
+  char *tdir = get_current_dir_name();
+  if ( tdir ) {
+    retval = tdir;
+    free(tdir);
+  }
+  return retval;
 }
 
 

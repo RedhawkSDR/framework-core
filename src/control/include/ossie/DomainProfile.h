@@ -54,8 +54,7 @@ namespace ossie {
         const char* getDomainManagerSoftPkg() {
             return _domainManagerSoftPkg.c_str();
         }
-
-        // TODO add stream operator
+        
         protected:
         std::string _id;
         std::string _name;

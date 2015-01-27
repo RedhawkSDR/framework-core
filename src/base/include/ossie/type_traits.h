@@ -127,6 +127,32 @@ namespace ossie {
 	}
     };
 
+    template <typename T>
+    struct traits<const T>
+    {
+        static inline const std::string name ()
+        {
+            return "const " + traits<T>::name();
+        }
+    };
+
+    template <typename T>
+    struct traits<volatile T>
+    {
+        static inline const std::string name ()
+        {
+            return "volatile " + traits<T>::name();
+        }
+    };
+
+    template <typename T>
+    struct traits<const volatile T>
+    {
+        static inline const std::string name ()
+        {
+            return "const volatile " + traits<T>::name();
+        }
+    };
 }
 
 #endif // OSSIE_TYPE_TRAITS_H

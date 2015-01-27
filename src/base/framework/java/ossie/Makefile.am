@@ -100,6 +100,7 @@ ossie_jar_SOURCE = src/org/ossie/component/AllocCapacity.java \
 		   src/org/ossie/component/ProcessThread.java \
 		   src/org/ossie/component/QueryableUsesPort.java \
 		   src/org/ossie/component/Resource.java \
+		   src/org/ossie/component/Component.java \
 		   src/org/ossie/component/ThreadedComponent.java \
 		   src/org/ossie/component/ThreadedDevice.java \
 		   src/org/ossie/component/ThreadedResource.java \
@@ -137,7 +138,10 @@ ossie_jar_SOURCE = src/org/ossie/component/AllocCapacity.java \
 		   src/org/ossie/properties/StructDef.java \
 		   src/org/ossie/properties/StructProperty.java \
 		   src/org/ossie/properties/StructSequenceProperty.java \
-		   src/org/ossie/properties/UnsignedUtils.java
+		   src/org/ossie/properties/UnsignedUtils.java \
+                   src/org/ossie/redhawk/ApplicationContainer.java \
+                   src/org/ossie/redhawk/DomainManagerContainer.java \
+                   src/org/ossie/redhawk/DeviceManagerContainer.java
 
 # Deprecated generic property classes, replaced by strongly-typed classes but
 # maintained for source compatibility.

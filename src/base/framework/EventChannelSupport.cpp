@@ -359,12 +359,14 @@ CosEventChannelAdmin::EventChannel_ptr createEventChannel (const std::string& na
       if ( found == false ) {
 	LNDEBUG( "GetEventChannel", " : Trying InitRef Lookup " << name );
 	CORBA::Object_var obj = orb->orb->resolve_initial_references(name.c_str());
-	event_channel = CosEventChannelAdmin::EventChannel::_narrow(obj);
-	found =true;
-	LNDEBUG( "GetEventChannel", " : FOUND EXISTING, Channel " << name );
+        if ( CORBA::is_nil(obj) == false ){
+          event_channel = CosEventChannelAdmin::EventChannel::_narrow(obj);
+          found =true;
+          LNDEBUG( "GetEventChannel", " : FOUND EXISTING, Channel " << name );
+        }
       } 
     }catch (const CORBA::Exception& e) {
-      LNWARN( "GetEventChannel", "  Unable to lookup with InitRef:" << name << ",  CORBA RETURNED(" << e._name() << ")" );
+      LNDEBUG( "GetEventChannel", "  Unable to lookup with InitRef:" << name << ",  CORBA RETURNED(" << e._name() << ")" );
     } 
 
 
@@ -385,13 +387,15 @@ CosEventChannelAdmin::EventChannel_ptr createEventChannel (const std::string& na
 	tname=os.str();
 	LNDEBUG( "GetEventChannel", " : Trying corbaname resolution " << tname );
 	CORBA::Object_var obj = obj=orb->orb->string_to_object(tname.c_str());
-	event_channel = CosEventChannelAdmin::EventChannel::_narrow(obj);
-	found =true;
-	LNDEBUG( "GetEventChannel", " : FOUND EXISTING, Channel " << tname );
+        if ( CORBA::is_nil(obj) == false ){
+          event_channel = CosEventChannelAdmin::EventChannel::_narrow(obj);
+          found =true;
+          LNDEBUG( "GetEventChannel", " : FOUND EXISTING, Channel " << tname );
+        }
       } 
 
     }catch (const CORBA::Exception& e) {
-      LNWARN( "GetEventChannel",  "  Unable to lookup with corbaname:  URI:" << tname << ",  CORBA RETURNED(" << e._name() << ")");
+      LNDEBUG( "GetEventChannel",  "  Unable to lookup with corbaname:  URI:" << tname << ",  CORBA RETURNED(" << e._name() << ")");
     }
 
 
@@ -418,14 +422,16 @@ CosEventChannelAdmin::EventChannel_ptr createEventChannel (const std::string& na
 	}
       } 
     }catch (const CORBA::Exception& e) {
-      LNWARN( "GetEventChannel", "  Unable to lookup with corbaloc URI:" << tname << ", CORBA RETURNED(" << e._name() << ")" );
+      if ( !create ) {
+        LNWARN( "GetEventChannel", "  Unable to lookup with corbaloc URI:" << tname << ", CORBA RETURNED(" << e._name() << ")" );
+      }
     }
 
     try{
       if ( !found && create ) {
 
 	LNDEBUG( "GetEventChannel", " CREATE NEW CHANNEL " << name );
-	event_channel = CreateEventChannel( name );
+	event_channel = CreateEventChannel( name, ossie::corba::NS_NOBIND);
 	if ( !CORBA::is_nil(event_channel) )
 	  LNINFO( "GetEventChannel", " --- CREATED NEW CHANNEL ---" << name );
       }
@@ -433,6 +439,7 @@ CosEventChannelAdmin::EventChannel_ptr createEventChannel (const std::string& na
       LNERROR( "GetEventChannel", "  CORBA (" << e._name() << ") during event creation, channel " << name );
     }
 
+    LNDEBUG( "GetEventChannel", "  RETURN: channel " << name  << " found " << found );
     return event_channel._retn();
   }
 
@@ -468,12 +475,13 @@ CosEventChannelAdmin::EventChannel_ptr createEventChannel (const std::string& na
 
       LNDEBUG("GetEventChannel",  " : NamingService look up : " << cname );
       CORBA::Object_var obj = orb->namingServiceCtx->resolve_str(cname.c_str());
-      event_channel = CosEventChannelAdmin::EventChannel::_narrow(obj);
-
-      LNDEBUG("GetEventChannel", " : FOUND EXISTING, Channel NC<"<<nc_name<<"> Channel " << name );
-      found = true;
+        if ( CORBA::is_nil(obj) == false ){
+          event_channel = CosEventChannelAdmin::EventChannel::_narrow(obj);
+          found =true;
+          LNINFO( "GetEventChannel", " : FOUND EXISTING, CHANNEL " << name  << " FROM CONTEXT: " << nc_name );
+        }
     } catch (const CosNaming::NamingContext::NotFound&) {
-      LNWARN("GetEventChannel",  "  Unable to resolve event channel (" << name << ") in NamingService..." );
+      LNDEBUG("GetEventChannel",  "  Unable to resolve event channel (" << name << ") in NamingService..." );
     } catch (const CORBA::Exception& e) {
       LNERROR("GetEventChannel", "  CORBA (" << e._name() << ") exception during event channel look up, CH:" << name );
     }
@@ -485,7 +493,7 @@ CosEventChannelAdmin::EventChannel_ptr createEventChannel (const std::string& na
 	LNDEBUG( "GetEventChannel", " CREATE NEW CHANNEL " << name );
 	event_channel = CreateEventChannel( name, nc_name );
 	if ( !CORBA::is_nil(event_channel) )
-	  LNINFO( "GetEventChannel", " --- CREATED NEW CHANNEL ---" << name );
+	  LNINFO( "GetEventChannel", " --- CREATED NEW CHANNEL ---" << name << " ASSIGNED TO CONTEXT:" << nc_name);
       }
     } catch (const CORBA::Exception& e) {
       LNERROR( "GetEventChannel", "  CORBA (" << e._name() << ") during event creation, channel " << name );
@@ -500,7 +508,7 @@ CosEventChannelAdmin::EventChannel_ptr createEventChannel (const std::string& na
   //
   // @param orb  context of the orb we are associated with 
   // @param name human readable path to the event channel being requested
-  // @parm  bind bind the channel name to the object in the NamingService if channel was created
+  // @parm  action bind the channel name to the object in the NamingService if channel was created
   //
   CosEventChannelAdmin::EventChannel_ptr CreateEventChannel (  const std::string& name, 
 							      corba::NS_ACTION action  ) {
@@ -541,11 +549,9 @@ CosEventChannelAdmin::EventChannel_ptr createEventChannel (const std::string& na
     //
     LNINFO( "CreateEventChannel", " Request to create event channel:" << name.c_str() << " bind action:" << action );
     CosLifeCycle::Criteria criteria;
-    criteria.length(2);
+    criteria.length(1);
     criteria[0].name=CORBA::string_dup("InsName");
     criteria[0].value<<=name.c_str();
-    criteria[1].name=CORBA::string_dup("CyclePeriod_ns");
-    criteria[1].value<<=(CORBA::ULong)10;
 
     //
     // Create Event Channel Object.

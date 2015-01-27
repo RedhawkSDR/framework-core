@@ -22,9 +22,12 @@ from ossie.utils.idl import omniidl
 from omniidl import idlast, idlvisitor, idlutil, main, idltype
 from ossie.utils.idl import _omniidl
 import os
+import threading
 from omniORB import CORBA
 
 #import base
+
+_lock = threading.Lock()
 
 valList = ('null','void','short','long','ushort','ulong','float','double','boolean',
            'char','octet','any','TypeCode','Principal','objref','struct','union','enum',
@@ -308,23 +311,28 @@ def getInterfacesFromFile(filename, includepath=None):
             popen_cmd += ' -I "' + newpath + '"'
     popen_cmd += ' "' + filename + '"'
     f = os.popen(popen_cmd, 'r')
-    try:
-        tree = _omniidl.compile(f)
-    except TypeError:
-        tree = _omniidl.compile(f, filename)
 
-    if tree == None:
-        return []
-
+    _lock.acquire()
     try:
-        ints = run(tree,'')
-    except:
-        pass
-    f.close()
-    del tree
-    idlast.clear()
-    idltype.clear()
-    _omniidl.clear()
+        try:
+            tree = _omniidl.compile(f)
+        except TypeError:
+            tree = _omniidl.compile(f, filename)
+        if tree == None:
+            return []
+
+        try:
+            ints = run(tree,'')
+        except:
+            pass
+        f.close()
+        del tree
+        idlast.clear()
+        idltype.clear()
+        _omniidl.clear()
+    finally:
+        _lock.release()
+
     #store file name and location information for each interface
     for x in ints:
         if not x.fullpath.startswith('/'):

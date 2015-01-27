@@ -26,7 +26,9 @@ DomainManager_SOURCES = applicationSupport.cpp \
                         connectionSupport.cpp \
                         AllocationManager_impl.cpp \
                         Application_impl.cpp \
+                        ApplicationRegistrar.cpp \
                         ApplicationFactory_impl.cpp \
+                        ConnectionManager.cpp \
                         DomainManager_Channels.cpp \
                         DomainManager_impl.cpp \
                         main.cpp

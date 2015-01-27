@@ -46,6 +46,13 @@ with this program.  If not, see http://www.gnu.org/licenses/.
         <kind kindtype="execparam"/>
         <action type="external"/>
     </simple>
+    <simple id="DEVICE_FORCE_QUIT_TIME" mode="readwrite" name="DEVICE_FORCE_QUIT_TIME" type="float">
+        <description>
+        The amount of time (in seconds) that the Device Manager will wait for a Device to exit before issuing a kill signal
+        </description>
+        <value>0.5</value>
+        <kind kindtype="configure"/>
+    </simple>
     <simple id="SDRCACHE" mode="readwrite" name="SDRCACHE" type="string">
         <description>
             The location where files from remote SCA filesystems will be cached.

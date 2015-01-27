@@ -25,13 +25,7 @@ try:
 except ImportError:
     import numpy.oldnumeric as Numeric
 import platform
-try:
-    # Prefer the system version
-    import bluefile  
-except ImportError:
-    # But use the ossie version, if necessary.
-    # This may fail if Numeric isn't available
-    from ossie.backports import bluefile
+import bluefile  
 
 from ossie.cf import CF
 import ossie.properties

@@ -68,7 +68,7 @@ def getSoftPkg():
 #IDE_REF_ENV = os.getenv('IDE_REF')
 IDE_REF_ENV = None
 if IDE_REF_ENV != None:
-    sb.setIDE_REF(CORBA.ORB_init().string_to_object(IDE_REF_ENV)._narrow(ExtendedCF.Sandbox))
+    sb.setIDE_REF(sb.orb.string_to_object(IDE_REF_ENV)._narrow(ExtendedCF.Sandbox))
 
 def stringToComplex(value, type):
     real, imag = parseComplexString(value, type)
@@ -146,12 +146,11 @@ class ScaComponentTestCase(unittest.TestCase):
                 self.comp.releaseObject()
             except CORBA.Exception:
                 pass
-        else:
-            # TODO: Services
+        else: # this is where Services would be handled
             pass
         self.comp_obj = None
             
-    def launch(self, execparams={}, ossiehome=None, configure={}, initialize=True, objType=None):
+    def launch(self, execparams={}, ossiehome=None, configure={}, initialize=True, objType=None, debugger=None):
         """
         Launch the component. The component will be executed as a child process,
         then (optionally) initialized and configured.
@@ -173,14 +172,14 @@ class ScaComponentTestCase(unittest.TestCase):
                 model._idllib = IDLLibrary()
                 model._idllib.addSearchPath(str(ossiehome)+'/idl')
             component = sb.launch(self.spd_file, impl=self.impl, execparams=execparams,
-                                  configure=configure, initialize=initialize, objType=objType)
+                                  configure=configure, initialize=initialize, objType=objType, debugger=debugger)
         else:
             # spd file path passed in to unit test is relative to current component tests directory (i.e. "..")
             # IDE unit test requires spd file path relative to sca file system
             componentName = str(self.spd.get_name())
             sca_file_system_spd_file = "components/" + componentName + "/" + self.spd_file[3:]
             component = sb.launch(sca_file_system_spd_file, impl=self.impl, execparams=execparams,
-                                  configure=configure, initialize=initialize, objType=objType)
+                                  configure=configure, initialize=initialize, objType=objType, debugger=debugger)
         self.comp_obj = component.ref
         self.comp = component
             

@@ -21,6 +21,8 @@
 import unittest
 from _unitTestHelpers import scatest
 import time
+from omniORB import CORBA
+from ossie.cf import CF
 from ossie.utils import redhawk
 from ossie.utils import type_helpers
 
@@ -377,6 +379,46 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         app.my_structseq_name[0] = new_value[0]
         app.my_structseq_name[1] = new_value[1]
         self.assertEqual(app.my_structseq_name, new_value)
+
+    def test_createApplicationName(self):
+        """
+        Tests that createAppliction() allows overriding the instance name of
+        the application
+        """
+        sadfile = '/waveforms/TestCppProps/TestCppProps.sad.xml'
+        name = 'TestWave'
+
+        # Create an app and make sure that the given name was used as a prefix
+        app1 = self._rhDom.createApplication(sadfile, name)
+        self.assertNotEqual(app1, None, 'Application not created')
+        self.assert_(app1.ns_name.startswith(name))
+
+        # Create a second instance, and verify that the names are unique
+        app2 = self._rhDom.createApplication(sadfile, name)
+        self.assertNotEqual(app2, None, 'Application not created')
+        self.assert_(app2.ns_name.startswith(name))
+        self.assertNotEqual(app1.ns_name, app2.ns_name)
+
+    def test_createApplicationInitConfig(self):
+        """
+        Tests that createAppliction() allows overriding the initial
+        configuration of the application
+        """
+        sadfile = '/waveforms/TestPythonPropsRange/TestPythonPropsRange.sad.xml'
+
+        # Use a dictionary to override the properties; at present, this only
+        # supports the use of property IDs
+        props = {'my_long':1000}
+        app1 = self._rhDom.createApplication(sadfile, initConfiguration=props)
+        for name, value in props.iteritems():
+            self.assertEqual(getattr(app1, name), value)
+
+        # Use CF.Properties to override the properties
+        props = [CF.DataType('my_short', CORBA.Any(CORBA.TC_short, -300))]
+        app2 = self._rhDom.createApplication(sadfile, initConfiguration=props)
+        for dt in props:
+            value = dt.value.value()
+            self.assertEqual(getattr(app2, dt.id), value)
 
     def test_connect(self):
         """

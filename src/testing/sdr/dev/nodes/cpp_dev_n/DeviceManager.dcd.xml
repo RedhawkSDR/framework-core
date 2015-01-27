@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE deviceconfiguration PUBLIC "-//JTRS//DTD SCA V2.2.2 DCD//EN" "deviceconfiguration.dtd">
+<deviceconfiguration name="cpp_dev_n" id="DCE:30bdb407-2cb2-4a50-a7d5-b1003300165d">
+    <devicemanagersoftpkg>
+    	<localfile name="/mgr/DeviceManager.spd.xml">
+    	</localfile>
+    </devicemanagersoftpkg>
+    <componentfiles> 
+    	<componentfile type="SPD" id="cpp_dev_2c937b52-d7b4-40fd-a2c2-022a066405c6">
+    		<localfile name="/devices/cpp_dev/cpp_dev.spd.xml">
+    		</localfile>
+    	</componentfile>
+    </componentfiles>    
+    <partitioning>
+		<componentplacement>
+	    	<componentfileref refid="cpp_dev_2c937b52-d7b4-40fd-a2c2-022a066405c6">
+    		</componentfileref>
+	     	<componentinstantiation id="DCE:f0957f19-1197-4872-bb84-edd8ec567b0a">
+	     		<usagename>cpp_dev_1</usagename>
+	     	</componentinstantiation>
+    	</componentplacement>
+    </partitioning>
+    <domainmanager>
+    	<namingservice name="REDHAWK_DEV/REDHAWK_DEV">
+    	</namingservice>
+    </domainmanager>
+</deviceconfiguration>

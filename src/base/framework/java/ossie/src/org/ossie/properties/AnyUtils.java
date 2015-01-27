@@ -145,7 +145,6 @@ public final class AnyUtils {
             return ComplexUtils.parseComplexDouble(stringValue);
         } else if (type.equals("complexBoolean")) {
             return ComplexUtils.parseComplexBoolean(stringValue);
-        // TODO: complexChar
         /*
         } else if (type.equals("complexChar")) {
             String[] realAndImag = new String[2];

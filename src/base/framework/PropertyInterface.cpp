@@ -173,6 +173,12 @@ inline void SimplePropertyWrapper<unsigned char>::toAny (const CORBA::Octet& v, 
 }
 
 template <>
+inline bool SimplePropertyWrapper<bool>::fromAny (const CORBA::Any& a, bool& v)
+{
+    return ossie::any::toNumber(a, v);
+}
+
+template <>
 inline short SimplePropertyWrapper<std::string>::compare (const CORBA::Any& a)
 {
     const char* tmp;

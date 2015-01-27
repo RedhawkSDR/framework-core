@@ -37,6 +37,7 @@
 #include "internal/equals.h"
 #include "type_traits.h"
 #include "exceptions.h"
+#include "callback.h"
 
 #include "CF/ExtendedEvent.h"
 #include <COS/CosEventChannelAdmin.hh>
@@ -98,6 +99,8 @@ public:
 protected:
     PropertyInterface(CORBA::TypeCode_ptr _type);
 
+    virtual bool matchesAddress(const void* address) = 0;
+
     friend class PropertySet_impl;
     
     bool isNil_;
@@ -113,43 +116,46 @@ class PropertyWrapper : public PropertyInterface
 public:
     typedef T value_type;
     typedef PropertyInterface super;
-    typedef boost::function<void (const value_type*, const value_type*)> Callback;
-    typedef boost::function<bool (const value_type&)> Allocator;
-    typedef boost::function<void (const value_type&)> Deallocator;
+
+    virtual void enableNil(bool enable)
+    {
+        if (enable && !valueListeners_.empty()) {
+            throw std::logic_error("cannot enable nil values while using by-value change listeners");
+        }
+        super::enableNil(enable);
+    }
 
     virtual void getValue (CORBA::Any& outValue)
     {
         if (enableNil_ && isNil_) {
             outValue = CORBA::Any();
         } else {
-            toAny(value_, outValue);
+            toAny(getValue(), outValue);
         }
     }
 
     virtual void setValue (const CORBA::Any& any)
     {
-        // Save existing value and create a pointer to it, representing nil as
-        // a null pointer.
+        // Save existing value and create a pointer to it, which accounts for
+        // nil values
         value_type savedValue = value_;
-        value_type* oldValue;
-        if (enableNil_ && isNil_) {
-            oldValue = 0;
+        const value_type* oldValue = toPointer(savedValue);
+
+        // Convert value from Any to natural type (or nil)
+        value_type temp;
+        if (this->fromAny(any, temp)) {
+            setValue(temp);
+        } else if (ossie::any::isNull(any)) {
+            // NB: For backwards compatibility, silently ignore null values if
+            //     nil is not enabled; in the future, consider throwing an
+            //     exception
+            isNil_ = enableNil_;
         } else {
-            oldValue = &savedValue;
+            throw std::invalid_argument("unable to set value");
         }
 
-        // Convert value from Any to natural type, and create a pointer to the
-        // new value, representing nil as a null pointer.
-        value_type* newValue;
-        if (this->fromAny(any, value_)) {
-            isNil_ = false;
-            newValue = &value_;
-        } else if (ossie::any::isNull(any)) {
-            isNil_ = enableNil_;
-            newValue = 0;
-        } else {
-            throw std::invalid_argument("Unable to set value");
-        }
+        // Create a pointer to the new value, again accounting for nil
+        const value_type* newValue = toPointer(value_);
 
         // Check if the value has changed; if it has, fire the callback(s).
         if (!this->equals(oldValue, newValue)) {
@@ -159,36 +165,37 @@ public:
 
     virtual const value_type& getValue (void)
     {
+        if (query_) {
+            value_ = query_();
+        }
         return value_;
     }
 
     virtual void setValue (const value_type& newValue)
     {
-        value_ = newValue;
-        isNil_ = false;
+        if (configure_) {
+            configure_(newValue);
+        } else {
+            value_ = newValue;
+            isNil_ = false;
+        }
     }
 
     virtual short compare (const CORBA::Any& any)
     {
         // Account for the possibility of nil in the current value
-        value_type* current;
-        if (enableNil_ && isNil_) {
-            current = 0;
-        } else {
-            current = &value_;
-        }
+        const value_type* current = toPointer(value_);
         
         // Extract the any value, also accounting for the possibility of nil
         value_type temp;
         value_type* other;
         if (ossie::any::isNull(any)) {
             other = 0;
-        } else {
-            if (!this->fromAny(any, temp)) {
-                // Extraction failed, assume unequal
-                return 1;
-            }
+        } else if (this->fromAny(any, temp)) {
             other = &temp;
+        } else {
+            // Extraction failed, assume unequal
+            return 1;
         }
 
         // Compare the effective values, converting boolean return into short
@@ -235,19 +242,112 @@ public:
         }
     }
 
-    void addChangeListener (Callback listener)
+    template <class Func>
+    void setQuery (Func func)
     {
-        changeListeners_.push_back(listener);
+        if (!isQueryable()) {
+            throw std::logic_error("property '" + id + "' is not queryable");
+        }
+        query_ = func;
     }
 
-    void setAllocator (Allocator allocator)
+    template <class Target, class Func>
+    void setQuery (Target target, Func func)
     {
-        allocator_ = allocator;
+        if (!isQueryable()) {
+            throw std::logic_error("property '" + id + "' is not queryable");
+        }
+        ossie::bind(query_, target, func);
     }
 
-    void setDeallocator (Deallocator deallocator)
+    template <class Func>
+    void setConfigure (Func func)
     {
-        deallocator_ = deallocator;
+        if (!isConfigurable()) {
+            throw std::logic_error("property '" + id + "' is not configurable");
+        }
+        configure_ = func;
+    }
+
+    template <class Target, class Func>
+    void setConfigure (Target target, Func func)
+    {
+        if (!isConfigurable()) {
+            throw std::logic_error("property '" + id + "' is not configurable");
+        }
+        ossie::bind(configure_, target, func);
+    }
+
+    template <class R, class A1, class A2>
+    void addChangeListener (R (*func)(A1*, A2*))
+    {
+        pointerListeners_.add(func);
+    }
+
+    template <class Target, class Base, class R, class A1, class A2>
+    void addChangeListener (Target target, R (Base::*func)(A1*, A2*))
+    {
+        pointerListeners_.add(target, func);
+    }
+
+    template <class Target, class Base, class R, class A1, class A2>
+    void addChangeListener (Target target, R (Base::*func)(A1*, A2*) const)
+    {
+        pointerListeners_.add(target, func);
+    }
+
+    template <class Func>
+    void addChangeListener (Func func)
+    {
+        if (enableNil_) {
+            throw std::logic_error("cannot set by-value change listener with nil values enabled");
+        }
+        valueListeners_.add(func);
+    }
+
+    template <class Target, class Func>
+    void addChangeListener (Target target, Func func)
+    {
+        if (enableNil_) {
+            throw std::logic_error("cannot set by-value change listener with nil values enabled");
+        }
+        valueListeners_.add(target, func);
+    }
+
+    template <class Func>
+    void setAllocator (Func func)
+    {
+        if (!isAllocatable()) {
+            throw std::logic_error("property '" + id + "' is not allocatable");
+        }
+        allocator_ = func;
+    }
+
+    template <class Target, class Func>
+    void setAllocator (Target target, Func func)
+    {
+        if (!isAllocatable()) {
+            throw std::logic_error("property '" + id + "' is not allocatable");
+        }
+        ossie::bind(allocator_, target, func);
+    }
+
+    template <class Func>
+    void setDeallocator (Func func)
+    {
+        if (!isAllocatable()) {
+            throw std::logic_error("property '" + id + "' is not allocatable");
+        }
+        deallocator_ = func;
+    }
+
+    template <class Target, class Func>
+    void setDeallocator (Target target, Func func)
+    {
+        if (!isAllocatable()) {
+            throw std::logic_error("property '" + id + "' is not allocatable");
+        }
+        ossie::bind(deallocator_, target, func);
     }
 
     const std::string getNativeType () const
@@ -256,23 +356,25 @@ public:
     }
 
 protected:
-    typedef std::list<Callback> CallbackList;
-    CallbackList changeListeners_;
-
-    Allocator allocator_;
-    Deallocator deallocator_;
-
     PropertyWrapper (value_type& value, CORBA::TypeCode_ptr typecode) :
         super(typecode),
         value_(value)
     {
     }
 
+    inline const value_type* toPointer(const value_type& value)
+    {
+        if (enableNil_ && isNil_) {
+            return 0;
+        } else {
+            return &value;
+        }
+    }
+
     void valueChanged (const value_type* oldValue, const value_type* newValue)
     {
-        for (typename CallbackList::iterator ii = changeListeners_.begin(); ii != changeListeners_.end(); ++ii) {
-            (*ii)(oldValue, newValue);
-        }
+        pointerListeners_(oldValue, newValue);
+        valueListeners_(*oldValue, *newValue);
     }
 
     bool equals (const value_type* oldValue, const value_type* newValue)
@@ -308,8 +410,29 @@ protected:
     {
         throw ossie::not_implemented_error("deallocate");
     }
+
+    virtual bool matchesAddress(const void* address)
+    {
+        return (address == &value_);
+    }
     
     value_type& value_;
+
+private:
+    // Delegate function types
+    typedef boost::function<value_type()> QueryFunc;
+    typedef boost::function<void (const value_type&)> ConfigureFunc;
+    typedef boost::function<bool (const value_type&)> AllocateFunc;
+    typedef boost::function<void (const value_type&)> DeallocateFunc;
+
+    QueryFunc query_;
+    ConfigureFunc configure_;
+    AllocateFunc allocator_;
+    DeallocateFunc deallocator_;
+
+    // By-pointer and by-value change listeners
+    ossie::notification<void (const value_type*, const value_type*)> pointerListeners_;
+    ossie::notification<void (const value_type&, const value_type&)> valueListeners_;
 };
 
 // Convenience typedefs for simple property types.

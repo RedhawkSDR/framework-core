@@ -51,12 +51,15 @@ import org.omg.PortableServer.POAPackage.WrongPolicy;
 import org.ossie.properties.AnyUtils;
 import org.ossie.properties.IProperty;
 import org.ossie.logging.logging;
+import org.ossie.redhawk.DomainManagerContainer;
+import org.ossie.redhawk.DeviceManagerContainer;
 
 import CF.AggregateDevice;
 import CF.AggregateDeviceHelper;
 import CF.DataType;
 import CF.DeviceHelper;
 import CF.DeviceManager;
+import CF.DomainManager;
 import CF.DeviceManagerHelper;
 import CF.DeviceOperations;
 import CF.DevicePOATie;
@@ -82,6 +85,7 @@ import StandardEvent.StateChangeType;
 public abstract class Device extends Resource implements DeviceOperations {
 
     protected DeviceManager devMgr;
+    protected DeviceManagerContainer _devMgr = null;
     protected AggregateDevice compositeDevice;
     protected CF.Device device;
 
@@ -197,7 +201,6 @@ public abstract class Device extends Resource implements DeviceOperations {
     }
 
     public void connectEventChannel(EventChannel idm_channel){
-        // TODO check for null idm_channel
         SupplierAdmin supplier_admin = idm_channel.for_suppliers();
         proxy_consumer = supplier_admin.obtain_push_consumer();
 
@@ -208,7 +211,6 @@ public abstract class Device extends Resource implements DeviceOperations {
             logger.warn("Failed to connect to IDM channel.");
         }
     }
-
 
     /**
      * The setup() function exists to make it easy for start_device to invoke the no-arg constructor.
@@ -240,6 +242,8 @@ public abstract class Device extends Resource implements DeviceOperations {
 
         this.devMgr = devMgr;
         if (devMgr != null) {
+            this._devMgr = new DeviceManagerContainer(devMgr);
+            this._domMgr = new DomainManagerContainer(devMgr.domMgr());
             devMgr.registerDevice(device);
         }
 
@@ -247,13 +251,13 @@ public abstract class Device extends Resource implements DeviceOperations {
         if (compositeDevice != null) {
             compositeDevice.addDevice(device);
         }
-
-        // TODO Handle IDM_CHANNEL_IOR
-
-
+        
         return device;
     }
-
+    
+    public DeviceManagerContainer getDeviceManager() {
+        return this._devMgr;
+    }
 
     /**
      * Start-up function to be used from a main() function.
@@ -708,7 +712,7 @@ public abstract class Device extends Resource implements DeviceOperations {
      * 
      * @param newUsageState
      */
-    private void setUsageState(UsageType newUsageState){
+    protected void setUsageState(UsageType newUsageState){
         /* Checks to see if the usageState has change */
         if (newUsageState.value() != this.usageState().value()){
 
@@ -814,7 +818,7 @@ public abstract class Device extends Resource implements DeviceOperations {
      * 
      * @param newAdminState
      */
-    private void setAdminState(AdminType newAdminState){
+    protected void setAdminState(AdminType newAdminState){
         /* Checks to see if the admin state has changed */
         if (newAdminState.value() != this.adminState().value()){
             /* Keep a copy of the actual admin state */
@@ -865,7 +869,7 @@ public abstract class Device extends Resource implements DeviceOperations {
      * Sets a new operation state and sends an event if it has changed
      * @param newOperationState
      */
-    private void setOperationState(OperationalType newOperationState){
+    protected void setOperationState(OperationalType newOperationState){
         /* Checks to see if the operational state has changed */
         if (newOperationState.value() != this.operationalState().value()){
             /* Keep a copy of the actual operational state */

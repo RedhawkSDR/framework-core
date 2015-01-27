@@ -28,7 +28,8 @@ Resource_impl::Resource_impl (const char* _uuid) :
     _identifier(_uuid),
     _started(false),
     component_running_mutex(),
-    component_running(&component_running_mutex)
+    component_running(&component_running_mutex),
+    _domMgr(NULL)
 {
 }
 
@@ -38,14 +39,34 @@ Resource_impl::Resource_impl (const char* _uuid, const char *label) :
     naming_service_name(label),
     _started(false),
     component_running_mutex(),
-    component_running(&component_running_mutex)
+    component_running(&component_running_mutex),
+    _domMgr(NULL)
 {
 }
 
 
-void Resource_impl::setAdditionalParameters(std::string softwareProfile)
+void Resource_impl::setAdditionalParameters(std::string &softwareProfile, std::string &application_registrar_ior)
 {
     _softwareProfile = softwareProfile;
+    CORBA::ORB_ptr orb = ossie::corba::Orb();
+    CORBA::Object_var applicationRegistrarObject = CORBA::Object::_nil();
+    try {
+        applicationRegistrarObject = orb->string_to_object(application_registrar_ior.c_str());
+    } catch ( ... ) {
+        this->_domMgr = new redhawk::DomainManagerContainer();
+        return;
+    }
+    CF::ApplicationRegistrar_ptr applicationRegistrar = ossie::corba::_narrowSafe<CF::ApplicationRegistrar>(applicationRegistrarObject);
+    if (!CORBA::is_nil(applicationRegistrar)) {
+        this->_domMgr = new redhawk::DomainManagerContainer(applicationRegistrar->domMgr());
+        return;
+    }
+    CF::DeviceManager_ptr devMgr = ossie::corba::_narrowSafe<CF::DeviceManager>(applicationRegistrarObject);
+    if (!CORBA::is_nil(devMgr)) {
+        this->_domMgr = new redhawk::DomainManagerContainer(devMgr->domMgr());
+        return;
+    }
+    this->_domMgr = new redhawk::DomainManagerContainer();
 }
 
 
@@ -120,7 +141,7 @@ static void sigint_handler(int signum)
 
 void Resource_impl::start_component(Resource_impl::ctor_type ctor, int argc, char* argv[])
 {
-    std::string naming_context_ior;
+    std::string application_registrar_ior;
     std::string component_identifier;
     std::string name_binding;
     std::string profile = "";
@@ -135,7 +156,7 @@ void Resource_impl::start_component(Resource_impl::ctor_type ctor, int argc, cha
     // Parse execparams.
     for (int i=0; i < argc; i++) {
         if (strcmp("NAMING_CONTEXT_IOR", argv[i]) == 0) {
-            naming_context_ior = argv[++i];
+            application_registrar_ior = argv[++i];
         } else if (strcmp("PROFILE_NAME", argv[i]) == 0) {
             profile = argv[++i];
         } else if (strcmp("COMPONENT_IDENTIFIER", argv[i]) == 0) {
@@ -166,7 +187,7 @@ void Resource_impl::start_component(Resource_impl::ctor_type ctor, int argc, cha
             name_binding = "";
         }
     } else {
-        if (naming_context_ior.empty()) {
+        if (application_registrar_ior.empty()) {
             std::cout<<std::endl<<"usage: "<<argv[0]<<" [options] [execparams]"<<std::endl<<std::endl;
             std::cout<<"The set of execparams is defined in the .prf for the component"<<std::endl;
             std::cout<<"They are provided as arguments pairs ID VALUE, for example:"<<std::endl;
@@ -189,20 +210,17 @@ void Resource_impl::start_component(Resource_impl::ctor_type ctor, int argc, cha
 
     if (!skip_run) {
         // configure the  logging library
-        //std::cout << "Resource::Main debug_level:" << debug_level << std::endl;
         ossie::logging::Configure(logcfg_uri, debug_level, ctx);
-        //std::cout << "Resource debug_level:" << debug_level << std::endl;
     }
 
 
     // Create the servant.
     LOG_TRACE(Resource_impl, "Creating component with identifier '" << component_identifier << "'");
     Resource_impl* resource = ctor(component_identifier, name_binding);
-        
-    resource->setAdditionalParameters(profile);
+
+    resource->setAdditionalParameters(profile, application_registrar_ior);
 
     if ( !skip_run ) {
-        //std::cout << "Resource::Main Save Logging Context to Resource:"<< name_binding << "  LEVEL:" << debug_level << std::endl;
         // assign the logging context to the resource to support logging interface
         resource->saveLoggingContext( logcfg_uri, debug_level, ctx );
     }
@@ -221,11 +239,17 @@ void Resource_impl::start_component(Resource_impl::ctor_type ctor, int argc, cha
     CF::Resource_var resource_obj = resource->_this();
 
     // Get the application naming context and bind the component into it.
-    if (!naming_context_ior.empty()) {
+    if (!application_registrar_ior.empty()) {
         LOG_TRACE(Resource_impl, "Binding component to application context with name '" << name_binding << "'");
-        CORBA::Object_var applicationObject = orb->string_to_object(naming_context_ior.c_str());
-        CosNaming::NamingContext_ptr applicationContext = CosNaming::NamingContext::_narrow(applicationObject);
-        ossie::corba::bindObjectToContext(resource_obj, applicationContext, name_binding);
+        CORBA::Object_var applicationRegistrarObject = orb->string_to_object(application_registrar_ior.c_str());
+        CF::ApplicationRegistrar_ptr applicationRegistrar = ossie::corba::_narrowSafe<CF::ApplicationRegistrar>(applicationRegistrarObject);
+        if (!CORBA::is_nil(applicationRegistrar)) {
+            applicationRegistrar->registerComponent(name_binding.c_str(), resource_obj);
+        } else {
+            // the registrar is not available (because the invoking infrastructure only uses the name service)
+            CosNaming::NamingContext_ptr applicationContext = ossie::corba::_narrowSafe<CosNaming::NamingContext>(applicationRegistrarObject);
+            ossie::corba::bindObjectToContext(resource_obj, applicationContext, name_binding);
+        }
     } else {
         if (standAlone) {
             std::cout<<orb->object_to_string(resource_obj)<<std::endl;

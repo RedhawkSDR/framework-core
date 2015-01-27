@@ -43,6 +43,7 @@ from Queue import Queue
 import time
 import traceback
 import zipfile
+import containers
 
 
 if hasEvents:
@@ -111,11 +112,16 @@ class Device(resource.Resource):
         self._label = label
         self._softwareProfile = softwareProfile
         self._devmgr = devmgr
+        self._devMgr = containers.DeviceManagerContainer(devmgr)
+        self._domMgr = containers.DomainManagerContainer(devmgr._get_domMgr())
         self._compositeDevice = compositeDevice
         self._capacityLock = threading.Lock()
         self._proxy_consumer = None
 
         self.__initialize()
+    
+    def getDeviceManager(self):
+        return self._devMgr
 
     def registerDevice(self):
         """This function registers the device with the device manager.
@@ -911,7 +917,6 @@ class ExecutableDevice(LoadableDevice):
         if self.isLocked(): raise CF.Device.InvalidState("System is locked down")
         if self.isDisabled(): raise CF.Device.InvalidState("System is disabled")
 
-        # TODO SR:448
         priority = 0
         stack_size = 4096
         invalidOptions = []
@@ -934,9 +939,6 @@ class ExecutableDevice(LoadableDevice):
         command = name[1:] # This is relative to our CWD
         self._log.debug("Running %s %s", command, os.getcwd())
 
-        # SR:452
-        # TODO should we also check the load file reference count?
-        # Workaround
         if not os.path.isfile(command):
             raise CF.InvalidFileName(CF.CF_EINVAL, "File could not be found %s" % command)
         os.chmod(command, os.stat(command)[0] | stat.S_IEXEC | stat.S_IREAD | stat.S_IWRITE)
@@ -980,7 +982,6 @@ class ExecutableDevice(LoadableDevice):
             sp = ossie.utils.Popen(args, executable=command, cwd=os.getcwd(), close_fds=True, stdin=self._devnull, preexec_fn=os.setpgrp)
         except OSError, e:
             # SR:455
-            # TODO: SR:444
             # CF error codes do not map directly to errno codes, so at present
             # we omit the enumerated value.
             self._log.error("subprocess.Popen: %s", e.strerror)

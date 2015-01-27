@@ -88,6 +88,7 @@ void Device_impl::initResources (char* devMgr_ior, char* _id,
     initialConfiguration = true;
 
     useNewAllocation = false;
+    this->_devMgr = NULL;
 }                          
 
 
@@ -160,6 +161,7 @@ void  Device_impl::run ()
         exit(-1);
     }
 
+    this->_devMgr = new redhawk::DeviceManagerContainer(_deviceManager);
     _deviceManager->registerDevice(this->_this());
  
     Resource_impl::run(); // This won't return until halt is called
@@ -182,7 +184,6 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
         setAdminState(CF::Device::SHUTTING_DOWN);
 
         // SR:418
-        // TODO Release aggregate devices if more than one exists
         if (!CORBA::is_nil(_aggregateDevice)) {
             try {
                 _aggregateDevice->removeDevice(this->_this());
@@ -203,12 +204,17 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
         LOG_DEBUG(Device_impl, "Done Releasing Device")
     }
     
+    delete this->_devMgr;
+    
     Resource_impl::releaseObject();
 }
 
 
 Device_impl::~Device_impl ()
 {
+    if (this->_devMgr != NULL) {
+        delete this->_devMgr;
+    }
 }
 
 
@@ -747,8 +753,9 @@ void Device_impl::setUsageState (CF::Device::UsageType newUsageState)
             new_state = StandardEvent::BUSY;
             break;
     }
-    ossie::sendStateChangeEvent(Device_impl::__logger, _identifier.c_str(), _identifier.c_str(), StandardEvent::USAGE_STATE_EVENT, 
-        current_state, new_state, proxy_consumer);
+    if (_usageState != newUsageState)
+        ossie::sendStateChangeEvent(Device_impl::__logger, _identifier.c_str(), _identifier.c_str(), StandardEvent::USAGE_STATE_EVENT, 
+            current_state, new_state, proxy_consumer);
     _usageState = newUsageState;
 }
 
@@ -1107,7 +1114,11 @@ void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa,
     signal(SIGINT, SIG_IGN);
 
     Device_impl* device = ctor(devMgr_ior, id, label, profile, composite_device);
-        
+    
+    std::string tmp_devMgr_ior = devMgr_ior;
+    std::string tmp_profile = profile;
+    device->setAdditionalParameters(tmp_profile, tmp_devMgr_ior);
+    
     if ( !skip_run ) {
         // assign logging context to the resource..to support logging interface
         device->saveLoggingContext( logcfg_uri, debug_level, ctx );

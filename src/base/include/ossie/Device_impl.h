@@ -129,36 +129,68 @@ protected:
     void updateUsageState ();
 
     template <typename T>
-    void setAllocationImpl (const std::string& id, typename PropertyWrapper<T>::Allocator allocator,
-                        typename PropertyWrapper<T>::Deallocator deallocator)
+    void setAllocationImpl (const std::string& id, bool (*alloc)(const T&), void (*dealloc)(const T&))
     {
         useNewAllocation = true;
         try {
             PropertyWrapper<T>* wrapper = getAllocationPropertyById<T>(id);
-            wrapper->setAllocator(allocator); 
-            wrapper->setDeallocator(deallocator); 
-       } catch (const std::invalid_argument& error) {
+            wrapper->setAllocator(alloc);
+            wrapper->setDeallocator(dealloc);
+        } catch (const std::exception& error) {
             LOG_WARN(Device_impl, "Cannot set allocation implementation: " << error.what());
         }
     }
 
-    template <typename T>
-    void setAllocationImpl (const std::string& id, bool (*alloc)(const T&), void (*dealloc)(const T&))
-    {
-        typename PropertyWrapper<T>::Allocator allocator = alloc;
-        typename PropertyWrapper<T>::Deallocator deallocator = dealloc;
-        setAllocationImpl<T>(id, allocator, deallocator);
-    }
-
     template <class C, typename T>
     void setAllocationImpl (const std::string& id, C* target, bool (C::*alloc)(const T&),
-                        void (C::*dealloc)(const T&))
+                            void (C::*dealloc)(const T&))
     {
-        typename PropertyWrapper<T>::Allocator allocator;
-        allocator = boost::bind(alloc, target, _1);
-        typename PropertyWrapper<T>::Deallocator deallocator;
-        deallocator = boost::bind(dealloc, target, _1);
-        setAllocationImpl<T>(id, allocator, deallocator);
+        useNewAllocation = true;
+        try {
+            PropertyWrapper<T>* wrapper = getAllocationPropertyById<T>(id);
+            wrapper->setAllocator(target, alloc);
+            wrapper->setDeallocator(target, dealloc);
+        } catch (const std::exception& error) {
+            LOG_WARN(Device_impl, "Cannot set allocation implementation: " << error.what());
+        }
+    }
+
+    template <typename Alloc, typename Dealloc>
+    void setAllocationImpl (const char* id, Alloc alloc, Dealloc dealloc)
+    {
+        setAllocationImpl(std::string(id), alloc, dealloc);
+    }
+
+    template <typename Target, typename Alloc, typename Dealloc>
+    void setAllocationImpl (const char* id, Target target, Alloc alloc, Dealloc dealloc)
+    {
+        setAllocationImpl(std::string(id), target, alloc, dealloc);
+    }
+
+    template <typename T, typename Alloc, typename Dealloc>
+    void setAllocationImpl (T& value, Alloc alloc, Dealloc dealloc)
+    {
+        useNewAllocation = true;
+        try {
+            PropertyWrapper<T>* wrapper = getPropertyWrapper(value);
+            wrapper->setAllocator(alloc);
+            wrapper->setDeallocator(dealloc);
+        } catch (const std::exception& error) {
+            LOG_WARN(Device_impl, "Cannot set allocation implementation: " << error.what());
+        }
+    }
+
+    template <typename T, typename Target, typename Alloc, typename Dealloc>
+    void setAllocationImpl (T& value, Target target, Alloc alloc, Dealloc dealloc)
+    {
+        useNewAllocation = true;
+        try {
+            PropertyWrapper<T>* wrapper = getPropertyWrapper(value);
+            wrapper->setAllocator(target, alloc);
+            wrapper->setDeallocator(target, dealloc);
+        } catch (const std::exception& error) {
+            LOG_WARN(Device_impl, "Cannot set allocation implementation: " << error.what());
+        }
     }
 
     template <typename T>
@@ -172,6 +204,9 @@ protected:
     }
 
     std::string _devMgr_ior;
+    redhawk::DeviceManagerContainer* getDeviceManager() {
+        return this->_devMgr;
+    }
 
 private:
     friend class IDM_Channel_Supplier_i;
@@ -211,6 +246,8 @@ private:
     // Legacy capacity management
     bool allocateCapacityLegacy (const CF::Properties& capacities);
     void deallocateCapacityLegacy (const CF::Properties& capacities);
+    
+    redhawk::DeviceManagerContainer *_devMgr;
 };
 
 

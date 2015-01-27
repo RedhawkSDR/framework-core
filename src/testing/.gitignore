@@ -5,6 +5,7 @@ _unitTestHelpers/buildconfig.py
 sdr/cache/
 sdr/dev/devices/BasicDevWithExecParam_cpp/BasicDevWithExecParam_cpp_impl1/BasicDevWithExecParam_cpp_impl1
 sdr/dev/devices/BasicTestDevice_cpp/BasicTestDevice_cpp_impl1/BasicTestDevice_cpp_impl1
+sdr/dev/devices/cpp_dev/cpp/cpp_dev
 sdr/dev/devices/CppTestDevice/cpp/CppTestDevice
 sdr/dev/devices/ExecutableDevice/ExecutableDevice
 sdr/dev/devices/SimpleDevice/SimpleDevice_cpp_impl1/SimpleDevice_cpp_impl1
@@ -14,6 +15,7 @@ sdr/dev/devices/ProgrammableDevice/cpp/ProgrammableDevice
 sdr/dev/mgr/DeviceManager*
 sdr/dev/nodes/test_Concurrent_nodes/
 sdr/dom/components/BasicAC/BasicAC_cpp_impl1/BasicAC_cpp_impl1
+sdr/dom/components/cpp_comp/cpp/cpp_comp
 sdr/dom/components/HardLimit/HardLimit_java_impl1/fileList.txt
 sdr/dom/components/MessageReceiverCpp/MessageReceiverCpp
 sdr/dom/components/MessageSenderCpp/MessageSenderCpp

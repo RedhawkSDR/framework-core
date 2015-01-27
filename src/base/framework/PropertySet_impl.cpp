@@ -228,6 +228,16 @@ PropertyInterface* PropertySet_impl::getPropertyFromName (const std::string& nam
     return 0;
 }
 
+PropertyInterface* PropertySet_impl::getPropertyFromAddress(const void* address)
+{
+    for (PropertyMap::iterator property = propTable.begin(); property != propTable.end(); ++property) {
+        if (property->second->matchesAddress(address)) {
+            return property->second;
+        }
+    }
+    return 0;
+}
+
 void
 PropertySet_impl::validate (CF::Properties property,
                             CF::Properties& validProps,

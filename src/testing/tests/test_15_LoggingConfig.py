@@ -172,6 +172,8 @@ class JavaLoggingConfig(scatest.CorbaTestCase):
 
         
     def tearDown(self):
+        self.comp.releaseObject()
+
         # Do all application shutdown before calling the base class tearDown,
         # or failures will probably occur.
         scatest.CorbaTestCase.tearDown(self)
@@ -289,6 +291,8 @@ class PythonLoggingConfig(scatest.CorbaTestCase):
 
         
     def tearDown(self):
+        self.comp.releaseObject()
+
         # Do all application shutdown before calling the base class tearDown,
         # or failures will probably occur.
         scatest.CorbaTestCase.tearDown(self)

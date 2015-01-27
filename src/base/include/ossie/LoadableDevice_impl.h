@@ -31,6 +31,37 @@
 typedef std::multimap<std::string, std::string, std::less<std::string>, std::allocator<std::pair<std::string, std::string> > >
 copiedFiles_type;
 
+/**
+ * EnvironmentPathParser provides operations to read, write, and modify
+ * environment path strings (e.g. LD_LIBRARY_PATH).
+ */
+class EnvironmentPathParser
+{
+public:
+    /**
+     * Constructor from std::string.  Extracts paths from path.
+     * @param path Path string in the format PATH1:PATH2:PATH3
+     */
+    EnvironmentPathParser( const std::string& path="" );
+    
+    /**
+     * Constructor from const char*.  Supports NULL pointers, as returned from
+     * getenv() on unknown environment variable.
+     * @param path Path string in the format PATH1:PATH2:PATH3
+     */
+    EnvironmentPathParser( const char* path );
+
+    void from_string( const std::string& path );
+    std::string to_string() const;
+    
+    void merge_front( const std::string& path );
+    
+private:
+    void strip_empty_paths();
+    
+private:
+    std::vector<std::string> paths;
+};
 
 /* CLASS DEFINITION *******************************************************************************
  ************************************************************************************************ */
@@ -47,16 +78,24 @@ protected:
     std::map<std::string, int> loadedFiles;
     std::map<std::string, CF::FileSystem::FileType> fileTypeTable;
     copiedFiles_type copiedFiles;
+    boost::mutex load_execute_lock;
+    void update_ld_library_path (CF::FileSystem_ptr fs, const char* fileName, CF::LoadableDevice::LoadType loadKind) throw (CORBA::SystemException, CF::Device::InvalidState, CF::LoadableDevice::InvalidLoadKind, CF::InvalidFileName, CF::LoadableDevice::LoadFail);
+    void update_octave_path (CF::FileSystem_ptr fs, const char* fileName, CF::LoadableDevice::LoadType loadKind) throw (CORBA::SystemException, CF::Device::InvalidState, CF::LoadableDevice::InvalidLoadKind, CF::InvalidFileName, CF::LoadableDevice::LoadFail);
+    void merge_front_environment_path( const char* environment_variable, const std::string& path ) const;
 
 public:
     LoadableDevice_impl (char*, char*, char*, char*);
     LoadableDevice_impl (char*, char*, char*, char*, CF::Properties capacities);
     LoadableDevice_impl (char*, char*, char*, char*, char*);
     LoadableDevice_impl (char*, char*, char*, char*, CF::Properties capacities, char*);
-    ~LoadableDevice_impl ();
+    virtual ~LoadableDevice_impl ();
     void
     load (CF::FileSystem_ptr fs, const char* fileName,
           CF::LoadableDevice::LoadType loadKind)
+    throw (CF::LoadableDevice::LoadFail, CF::InvalidFileName,
+           CF::LoadableDevice::InvalidLoadKind, CF::Device::InvalidState,
+           CORBA::SystemException);
+    void do_load (CF::FileSystem_ptr fs, const char* fileName, CF::LoadableDevice::LoadType loadKind)
     throw (CF::LoadableDevice::LoadFail, CF::InvalidFileName,
            CF::LoadableDevice::InvalidLoadKind, CF::Device::InvalidState,
            CORBA::SystemException);
@@ -64,12 +103,16 @@ public:
     unload (const char* fileName)
     throw (CF::InvalidFileName, CF::Device::InvalidState,
            CORBA::SystemException);
+    void do_unload (const char* fileName) 
+    throw (CF::InvalidFileName, CF::Device::InvalidState,
+           CORBA::SystemException);
     bool
     isFileLoaded (const char* fileName);
 
+ protected:
     void _loadTree(CF::FileSystem_ptr fs, std::string remotePath, boost::filesystem::path& localPath, std::string fileKey);
-    void _deleteTree(std::string fileKey);
-    void _copyFile(CF::FileSystem_ptr fs, std::string remotePath, std::string localPath, std::string fileKey);
+    void _deleteTree(const std::string &fileKey);
+    void _copyFile(CF::FileSystem_ptr fs, const std::string &remotePath, const std::string &localPath, const std::string &fileKey);
 
     void configure (const CF::Properties& configProperties)
     throw (CF::PropertySet::PartialConfiguration,
@@ -78,6 +121,7 @@ public:
     LoadableDevice_impl(LoadableDevice_impl&); // No copying
 
 private:
+
 };
 
 #endif

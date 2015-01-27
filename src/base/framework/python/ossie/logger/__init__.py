@@ -353,7 +353,6 @@ def ConfigureWithContext( cfg_data, tbl ):
 
     except Exception, e:
         print e
-        # TODO: report an error?
         pass
     return cfg
 

@@ -33,6 +33,7 @@
 #include "ossie/debug.h"
 #include "ossie/CorbaUtils.h"
 #include "ossie/logging/loghelpers.h"
+#include "ossie/Containers.h"
 #include <signal.h>
 
 class Service_impl
@@ -222,6 +223,12 @@ public:
     
     Service_impl(); // Code that tries to use this constructor will not work
     Service_impl(Service_impl&); // No copying
+    redhawk::DeviceManagerContainer* getDeviceManager() {
+        return this->_devMgr;
+    }
+    redhawk::DomainManagerContainer* getDomainManager() {
+        return this->_domMgr;
+    }
 
 protected:
     std::string _devMgr_ior;
@@ -230,6 +237,8 @@ protected:
 
 private:
     void initResources(char*, char*);
+    redhawk::DeviceManagerContainer *_devMgr;
+    redhawk::DomainManagerContainer *_domMgr;
 };
 
 

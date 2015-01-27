@@ -50,10 +50,6 @@ def appendPath(varname, path):
 def appendClassPath(path):
     appendPath('CLASSPATH', path)
 
-if sys.hexversion < 0x020400F0:
-    # Python 2.3 requires us to import the backports module
-    prependPythonPath("../base/framework/python/backports")
-
 # Point to the testing SDR folder
 os.environ['SDRROOT'] = os.path.join(os.getcwd(), "sdr")
 

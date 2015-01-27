@@ -54,7 +54,13 @@ class AllocationManager_impl: public virtual POA_CF::AllocationManager
         
         /* Returns all current allocations that were made through the Allocation Manager that have not been deallocated */
         CF::AllocationManager::AllocationStatusSequence* localAllocations(const CF::AllocationManager::allocationIDSequence &allocationIDs) throw (CF::AllocationManager::InvalidAllocationId);
+
+        /* Lists up to 'count' devices within the given scope (local or all Domains). If there are more remaining, the out iterator can be used to fetch additional allocations. */
+        void listDevices(CF::AllocationManager::DeviceScopeType deviceScope, CORBA::ULong count, CF::AllocationManager::DeviceLocationSequence_out deviceLocations, CF::DeviceLocationIterator_out iterator);
         
+        /* Lists up to 'count' current allocations within the given scope (local or all Domains). If there are more remaining, the out iterator can be used to fetch additional allocations. */
+        void listAllocations(CF::AllocationManager::AllocationScopeType allocScope, CORBA::ULong count, CF::AllocationManager::AllocationStatusSequence_out allocs, CF::AllocationStatusIterator_out ai);
+
         /* Returns all devices in all Domains that can be seen by any Allocation Manager seen by the local Allocation Manager */
         CF::AllocationManager::DeviceLocationSequence* allDevices();
         

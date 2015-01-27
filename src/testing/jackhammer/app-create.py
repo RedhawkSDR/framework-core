@@ -21,22 +21,31 @@
 import os
 import sys
 
+from omniORB.any import to_any
+
 from ossie.cf import CF
 import ossie.parsers.sad
 
 import jackhammer
 
 class CreateApp(jackhammer.Jackhammer):
+    def __init__(self, *args, **kwargs):
+        super(CreateApp,self).__init__(*args, **kwargs)
+        self.__timeout = None
+
     def initialize (self, sadFile):
+        if self.__timeout is not None:
+            self.domMgr.configure([CF.DataType('COMPONENT_BINDING_TIMEOUT', to_any(self.__timeout))])
+
         try:
             self.domMgr.installApplication(sadFile)
         except CF.DomainManager.ApplicationAlreadyInstalled:
             pass
         domRoot = os.path.join(os.environ["SDRROOT"], "dom")
         sad = ossie.parsers.sad.parse(domRoot + sadFile)
-        id = sad.get_id()
+        app_id = sad.get_id()
         for appFact in self.domMgr._get_applicationFactories():
-            if appFact._get_identifier() == id:
+            if appFact._get_identifier() == app_id:
                 self.appFact = appFact
                 return
 
@@ -47,6 +56,14 @@ class CreateApp(jackhammer.Jackhammer):
         app.stop()
         app.releaseObject()
 
+    def options(self):
+        return '', ['timeout=']
+
+    def setOption(self, key, value):
+        if key == '--timeout':
+            self.__timeout = int(value)
+        else:
+            raise KeyError("Unknown option '%s'" % (key,))
 
 if __name__ == '__main__':
     jackhammer.run(CreateApp)

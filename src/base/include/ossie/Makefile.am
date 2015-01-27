@@ -43,7 +43,13 @@ pkginclude_HEADERS = AggregateDevice_impl.h \
              type_traits.h \
              AnyUtils.h \
              ThreadedComponent.h \
-             exceptions.h
+	     Containers.h \
+             exceptions.h \
+             Component.h \
+             Value.h \
+             PropertyMap.h \
+             PropertyType.h \
+             callback.h
 
 nobase_pkginclude_HEADERS = internal/equals.h \
 	     logging/rh_logger.h \

@@ -19,7 +19,7 @@
 #
 
 dnl Update this version number immedately after a release
-AC_INIT([ossie],[1.10.1])
+AC_INIT([ossie],[1.11.0])
 #AM_INIT_AUTOMAKE(nostdinc)
 # allows filenames over 99 characters long during dist
 AM_INIT_AUTOMAKE([1.9 tar-pax subdir-objects])
@@ -190,15 +190,7 @@ fi
 AC_SUBST([HAVE_JAVASUPPORT], $HAVE_JAVASUPPORT)
 AM_CONDITIONAL(HAVE_JAVASUPPORT, test $HAVE_JAVASUPPORT = yes)
 
-AM_PATH_PYTHON([2.3])
-AC_MSG_CHECKING([if python backports are necessary])
-if test "$PYTHON_VERSION" = "2.3"; then
-  AC_MSG_RESULT("yes")
-  export PYTHONPATH=${PWD}/framework/python/backports:${PYTHONPATH}
-else
-  AC_MSG_RESULT("no")
-fi
-AM_CONDITIONAL(INSTALL_PYTHON_BACKPORTS, test "$PYTHON_VERSION" = "2.3")
+AM_PATH_PYTHON([2.4])
 
 AC_CHECK_PYMODULE(logging ,[], [AC_MSG_ERROR([the python logging module is required])])
 AC_CHECK_PYMODULE(subprocess, [], [AC_MSG_ERROR([the python subprocess module is required])])
@@ -313,6 +305,8 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dev/devices/issue_111_java/java/Makefile \
                 testing/sdr/dev/devices/PersonaDevice/cpp/Makefile \
                 testing/sdr/dev/devices/ProgrammableDevice/cpp/Makefile \
+                testing/sdr/dev/devices/cpp_dev/cpp/Makefile \
+                testing/sdr/dev/devices/java_dev/java/Makefile \
                 testing/sdr/dev/services/BasicService_java/java/Makefile \
                 testing/sdr/dom/components/CppCallbacks/cpp/Makefile \
                 testing/sdr/dom/components/TestCppProps/Makefile \
@@ -322,6 +316,7 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dom/components/linkedLibraryTest/Makefile \
                 testing/sdr/dom/components/TestCppsoftpkgDeps/Makefile \
                 testing/sdr/dom/components/javaDep/javaDep/Makefile \
+                testing/sdr/dom/components/java_comp/java/Makefile \
                 testing/sdr/dom/components/HardLimit/HardLimit_java_impl1/Makefile \
                 testing/sdr/dom/components/SimpleComponent/SimpleComponent_cpp_impl1/Makefile \
                 testing/sdr/dom/components/BasicAC/basicac_java_impl1/Makefile \
@@ -339,6 +334,7 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dom/components/TestAllPropTypes/cpp/Makefile \
                 testing/sdr/dom/components/TestAllPropTypes/java/Makefile \
                 testing/sdr/dom/components/TestLoggingAPI/cpp/Makefile \
+                testing/sdr/dom/components/cpp_comp/cpp/Makefile \
                 testing/sdr/dom/components/TestLoggingAPI/java/Makefile )
 
 AC_OUTPUT

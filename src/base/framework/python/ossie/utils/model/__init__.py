@@ -708,13 +708,24 @@ class Device(Resource):
         if not self.ref:
             return None
         allocProps = self._capacitiesToAny(props)
-        return self.ref.allocateCapacity(allocProps)
+        results = self.ref.allocateCapacity(allocProps)
+        if results:
+            if not hasattr(self, '_alloc'):
+                self._alloc = [props]
+            else:
+                self._alloc.append(props)
+        return results
 
     def deallocateCapacity(self, props):
         if not self.ref:
             return
         allocProps = self._capacitiesToAny(props)
         self.ref.deallocateCapacity(allocProps)
+        try:
+            self._alloc.remove(props)
+        except:
+            if _DEBUG == True:
+                print ("attempted to deallocate a non-existent allocation")
 
     def api(self):
         print 'Allocation Properties ======'

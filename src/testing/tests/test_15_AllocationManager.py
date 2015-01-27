@@ -19,32 +19,11 @@
 #
 
 import unittest
-from _unitTestHelpers import scatest
+from _unitTestHelpers import scatest, allocMgrHelpers
 from omniORB import any as _any
 from ossie.cf import CF
 from ossie.cf import ExtendedCF
 from ossie import properties
-
-def _parseDevices(domMgr):
-    devices = {}
-    domainName = domMgr._get_name()
-    for devMgr in domMgr._get_deviceManagers():
-        nodeName = devMgr._get_identifier()
-        for dev in devMgr._get_registeredDevices():
-            devId = dev._get_identifier()
-            devices[devId] = {'domain': domainName, 'node' : nodeName}
-    return devices
-
-def _parseDeviceLocations(devLocs):
-    devices = {}
-    for loc in devLocs:
-        devId = loc.dev._get_identifier()
-        nodeName = loc.devMgr._get_identifier()
-        devices[devId] = {'domain':loc.domainName, 'node':nodeName}
-    return devices
-
-def _packageRequest(requestId, props, pools=[], devices=[]):
-    return CF.AllocationManager.AllocationRequestType(requestId, props, pools, devices)
 
 class AllocationManagerTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -53,7 +32,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         self._allocMgr = self._domMgr._get_allocationMgr()
 
     def _tryAllocation(self, props):
-        request = [_packageRequest('test', properties.props_from_dict(props))]
+        request = [allocMgrHelpers.createRequest('test', properties.props_from_dict(props))]
         response = self._allocMgr.allocate(request)
         if response:
             self._allocMgr.deallocate([r.allocationID for r in response])
@@ -135,7 +114,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
 
         props = [('supported_components', 1), ('supported_components', 1)]
         allocProps = [CF.DataType(key, _any.to_any(value)) for key, value in props]
-        request = [_packageRequest('test', allocProps)]
+        request = [allocMgrHelpers.createRequest('test', allocProps)]
         response = self._allocMgr.allocate(request)
         if response:
             self._allocMgr.deallocate([r.allocationID for r in response])
@@ -146,14 +125,14 @@ class AllocationManagerTest(scatest.CorbaTestCase):
 
         # Try two requests that should succeed
         props = properties.props_from_dict({'simple_alloc': 1})
-        request = [_packageRequest('test1', props), _packageRequest('test2', props)]
+        request = [allocMgrHelpers.createRequest('test1', props), allocMgrHelpers.createRequest('test2', props)]
         response = self._allocMgr.allocate(request)
         self.assertEqual(len(request), len(response))
         self._allocMgr.deallocate([r.allocationID for r in response])
 
         # The second request should fail
         props = properties.props_from_dict({'simple_alloc': 8})
-        request = [_packageRequest('test1', props), _packageRequest('test2', props)]
+        request = [allocMgrHelpers.createRequest('test1', props), allocMgrHelpers.createRequest('test2', props)]
         response = self._allocMgr.allocate(request)
         good_requests = [r.requestID for r in response]
         self.assertTrue(len(request) > len(response))
@@ -165,7 +144,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         bad_props = {'simple_alloc': 12}
         good_props = {'simple_alloc': 8}
         request = [('test1', bad_props), ('test2', bad_props), ('test3', good_props)]
-        request = [_packageRequest(k, properties.props_from_dict(v)) for k, v in request]
+        request = [allocMgrHelpers.createRequest(k, properties.props_from_dict(v)) for k, v in request]
         response = self._allocMgr.allocate(request)
         good_requests = [r.requestID for r in response]
         self.assertTrue(len(request) > len(response))
@@ -176,7 +155,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         request = [('external', {'simple_alloc': 1}),
                    ('matching', {'DCE:ac73446e-f935-40b6-8b8d-4d9adb6b403f':2,
                                  'DCE:7f36cdfb-f828-4e4f-b84f-446e17f1a85b':'BasicTestDevice'})]
-        request = [_packageRequest(k, properties.props_from_dict(v)) for k, v in request]
+        request = [allocMgrHelpers.createRequest(k, properties.props_from_dict(v)) for k, v in request]
         response = dict((r.requestID, r) for r in self._allocMgr.allocate(request))
         self.assertEqual(len(request), len(response))
         self.assertFalse(response['external'].allocatedDevice._is_equivalent(response['matching'].allocatedDevice))
@@ -191,7 +170,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
 
         # Make a single allocation request and check that it looks right
         props = properties.props_from_dict({'simple_alloc': 1})
-        request = [_packageRequest('test1', props)]
+        request = [allocMgrHelpers.createRequest('test1', props)]
         response = self._allocMgr.allocate(request)
         self.assertEqual(len(request), len(response))
         self.assertEqual(request[0].requestID, response[0].requestID)
@@ -208,7 +187,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         request = [('external', {'simple_alloc': 1}),
                    ('matching', {'DCE:ac73446e-f935-40b6-8b8d-4d9adb6b403f':2,
                                  'DCE:7f36cdfb-f828-4e4f-b84f-446e17f1a85b':'BasicTestDevice'})]
-        request = [_packageRequest(k, properties.props_from_dict(v)) for k, v in request]
+        request = [allocMgrHelpers.createRequest(k, properties.props_from_dict(v)) for k, v in request]
         response = self._allocMgr.allocate(request)
         self.assertEqual(len(request), len(response))
         allocIDs.extend(resp.allocationID for resp in response)
@@ -253,21 +232,147 @@ class AllocationManagerTest(scatest.CorbaTestCase):
 
             # Collect the complete set of device IDs, making sure new devices
             # are added every time through the loop
-            devices = _parseDevices(self._domMgr)
+            devices = allocMgrHelpers.parseDomainDevices(self._domMgr)
             self.assert_(len(devices) > devCount)
             devCount = len(devices)
 
             # Make sure localDevices matches our known state
-            localDevices = _parseDeviceLocations(self._allocMgr._get_localDevices())
+            localDevices = allocMgrHelpers.parseDeviceLocations(self._allocMgr._get_localDevices())
             self.assertEqual(devices, localDevices)
 
             # No policy is applied in default implementation, so authorized devices
             # should be the complete set of local devices
-            authDevices = _parseDeviceLocations(self._allocMgr._get_authorizedDevices())
+            authDevices = allocMgrHelpers.parseDeviceLocations(self._allocMgr._get_authorizedDevices())
             self.assertEqual(devices, authDevices)
 
             # Make sure allDevices matches our known state; since there are no
             # remote domains, it should be the same as localDevices
-            allDevices = _parseDeviceLocations(self._allocMgr._get_allDevices())
+            allDevices = allocMgrHelpers.parseDeviceLocations(self._allocMgr._get_allDevices())
             self.assertEqual(devices, allDevices)
 
+    def test_DeviceIterators(self):
+        """
+        Tests the operation of the device list iterators.
+        """
+        nb, devMgr = self.launchDeviceManager('/nodes/test_MultipleExecutableDevice_node/DeviceManager.dcd.xml', debug=self.debuglevel)
+        devices = allocMgrHelpers.parseDomainDevices(self._domMgr)
+
+        # First, try to list more devices than there are in the system, to make
+        # sure no iterator is returned
+        devlist, deviter = self._allocMgr.listDevices(CF.AllocationManager.LOCAL_DEVICES, 10)
+        self.assertEqual(allocMgrHelpers.parseDeviceLocations(devlist), devices)
+        self.assertEqual(deviter, None)
+
+        # Next, start with fewer devices and fetch one-by-one via the iterator
+        devlist, deviter = self._allocMgr.listDevices(CF.AllocationManager.LOCAL_DEVICES, 1)
+        self.assertEqual(len(devlist), 1)
+        self.assertNotEqual(deviter, None)
+        try:
+            # There has to be at least one more device
+            status, item = deviter.next_one()
+            self.assertTrue(status)
+            self.assertNotEqual(item, None)
+            devlist.append(item)
+
+            # Fetch the remainder
+            while status:
+                status, item = deviter.next_one()
+                if status:
+                    devlist.append(item)
+        finally:
+            deviter.destroy()
+        # Check the resulting list
+        self.assertEqual(allocMgrHelpers.parseDeviceLocations(devlist), devices)
+
+        # Then try fetching by a higher count
+        devlist, deviter = self._allocMgr.listDevices(CF.AllocationManager.LOCAL_DEVICES, 1)
+        self.assertEqual(len(devlist), 1)
+        self.assertNotEqual(deviter, None)
+        try:
+            # Try to fetch 2 more, which ought to succeed in full
+            status, items = deviter.next_n(2)
+            self.assertTrue(status)
+            self.assertEqual(len(items), 2)
+            devlist.extend(items)
+
+            # Try 2 more, which should return only 1
+            status, items = deviter.next_n(2)
+            self.assertTrue(status)
+            self.assertEqual(len(items), 1)
+            devlist.extend(items)
+
+            # Finally, the next fetch should fail
+            status, items = deviter.next_n(2)
+            self.assertFalse(status)
+            self.assertEqual(len(items), 0)
+        finally:
+            deviter.destroy()
+        # Check the resulting list
+        self.assertEqual(allocMgrHelpers.parseDeviceLocations(devlist), devices)
+
+    def test_AllocationIterators(self):
+        nb, devMgr = self.launchDeviceManager('/nodes/test_SADUsesDevice/DeviceManager.dcd.xml', debug=self.debuglevel)
+        # Set initial state to 4 allocations
+        request = [('test1', {'simple_alloc': 1}),
+                   ('test2', {'simple_alloc': 1}),
+                   ('external', {'simple_alloc': 1}),
+                   ('matching', {'DCE:ac73446e-f935-40b6-8b8d-4d9adb6b403f':2,
+                                 'DCE:7f36cdfb-f828-4e4f-b84f-446e17f1a85b':'BasicTestDevice'})]
+        request = [allocMgrHelpers.createRequest(k, properties.props_from_dict(v)) for k, v in request]
+        response = self._allocMgr.allocate(request)
+        self.assertEqual(len(request), len(response))
+
+        localAllocs = self._allocMgr.localAllocations([])
+
+        # First, try to list more allocations than have been made, to make sure
+        # no iterator is returned
+        allocs, allociter = self._allocMgr.listAllocations(CF.AllocationManager.LOCAL_ALLOCATIONS, 10)
+        self.assertTrue(allocMgrHelpers.compareAllocationStatusSequence(allocs, localAllocs))
+        self.assertEqual(allociter, None)
+
+        # Next, start with fewer allocations and fetch one-by-one via the iterator
+        allocs, allociter = self._allocMgr.listAllocations(CF.AllocationManager.LOCAL_ALLOCATIONS, 1)
+        self.assertEqual(len(allocs), 1)
+        self.assertNotEqual(allociter, None)
+        try:
+            # There has to be at least one more allocation
+            status, item = allociter.next_one()
+            self.assertTrue(status)
+            self.assertNotEqual(item, None)
+            allocs.append(item)
+
+            # Fetch the remainder
+            while status:
+                status, item = allociter.next_one()
+                if status:
+                    allocs.append(item)
+        finally:
+            allociter.destroy()
+        # Check the resulting list
+        self.assertTrue(allocMgrHelpers.compareAllocationStatusSequence(allocs, localAllocs))
+
+        # Then try fetching by a higher count
+        allocs, allociter = self._allocMgr.listAllocations(CF.AllocationManager.LOCAL_ALLOCATIONS, 1)
+        self.assertEqual(len(allocs), 1)
+        self.assertNotEqual(allociter, None)
+        try:
+            # Try to fetch 2 more, which ought to succeed in full
+            status, items = allociter.next_n(2)
+            self.assertTrue(status)
+            self.assertEqual(len(items), 2)
+            allocs.extend(items)
+
+            # Try 2 more, which should return only 1
+            status, items = allociter.next_n(2)
+            self.assertTrue(status)
+            self.assertEqual(len(items), 1)
+            allocs.extend(items)
+
+            # Finally, the next fetch should fail
+            status, items = allociter.next_n(2)
+            self.assertFalse(status)
+            self.assertEqual(len(items), 0)
+        finally:
+            allociter.destroy()
+        # Check the resulting list
+        self.assertTrue(allocMgrHelpers.compareAllocationStatusSequence(allocs, localAllocs))

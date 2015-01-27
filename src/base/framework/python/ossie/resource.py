@@ -32,7 +32,7 @@ import logging
 
 from ossie.properties import PropertyStorage
 import ossie.logger
-
+import containers
 
 import sys
 import CosNaming
@@ -139,6 +139,7 @@ class Resource(object):
         self.propertySetAccess = threading.Lock()
         self._id = identifier
         self._started = False
+        self._domMgr = None
 
         ##
         ## logging context for the resource
@@ -166,17 +167,38 @@ class Resource(object):
 
         logging.trace("Initial property storage %s", self._props)
 
-    def setAdditionalParameters(self, softwareProfile):
+    def setAdditionalParameters(self, softwareProfile, application_registrar_ior):
         self._softwareProfile = softwareProfile
+        orb = createOrb()
+        try:
+            obj = orb.string_to_object(application_registrar_ior)
+            applicationRegistrar = obj._narrow(CF.ApplicationRegistrar)
+            if applicationRegistrar != None:
+                self._domMgr = containers.DomainManagerContainer(applicationRegistrar._get_domMgr())
+        except:
+            self._domMgr = None
+    
+    def getDomainManager(self):
+        return self._domMgr
 
     #########################################
     # CF::Resource
     def start(self):
         self._log.trace("start()")
+        # Check all ports for a startPort() method, and call it if one exists
+        for portdef in self.__ports.itervalues():
+            port = portdef.__get__(self)
+            if hasattr(port, 'startPort'):
+                port.startPort()
         self._started = True
 
     def stop(self):
         self._log.trace("stop()")
+        # Check all ports for a stopPort() method, and call it if one exists
+        for portdef in self.__ports.itervalues():
+            port = portdef.__get__(self)
+            if hasattr(port, 'stopPort'):
+                port.stopPort()
         self._started = False
 
     def _get_identifier(self):
@@ -739,23 +761,31 @@ def start_component(componentclass, interactive_callback=None, thread_policy=Non
 
             # Create the component
             component_Obj = componentclass(execparams["COMPONENT_IDENTIFIER"], execparams)
-            component_Obj.setAdditionalParameters(execparams["PROFILE_NAME"])
             componentPOA.activate_object(component_Obj)
             component_Var = component_Obj._this()
+
+            component_Obj.setAdditionalParameters(execparams["PROFILE_NAME"],execparams['NAMING_CONTEXT_IOR'])
 
             ## sets up logging context for resource to support CF::Logging
             component_Obj.saveLoggingContext( log_config_uri, debug_level, ctx )
 
             # get the naming context and bind to it
             if execparams.has_key("NAMING_CONTEXT_IOR"):
-                rootContext = orb.string_to_object(execparams['NAMING_CONTEXT_IOR'])
-                if rootContext == None:
-                    logging.error("Failed to lookup naming context")
+                try:
+                    binding_object = orb.string_to_object(execparams['NAMING_CONTEXT_IOR'])
+                except:
+                    binding_object = None
+                if binding_object == None:
+                    logging.error("Failed to lookup application registrar and naming context")
                     sys.exit(-1)
 
-                rootContext = rootContext._narrow(CosNaming.NamingContext)
-                name = URI.stringToName(execparams['NAME_BINDING'])
-                rootContext.rebind(name, component_Var)
+                applicationRegistrar = binding_object._narrow(CF.ApplicationRegistrar)
+                if applicationRegistrar == None:
+                    name = URI.stringToName(execparams['NAME_BINDING'])
+                    rootContext = binding_object._narrow(CosNaming.NamingContext)
+                    rootContext.rebind(name, component_Var)
+                else:
+                    applicationRegistrar.registerComponent(execparams['NAME_BINDING'], component_Var)
             else:
                 if not interactive:
                     logging.warning("Skipping name-binding because required execparams 'NAMING_CONTEXT_IOR' is missing")

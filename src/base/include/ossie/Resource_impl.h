@@ -33,6 +33,8 @@
 #include "ossie/logging/loghelpers.h"
 #include "ossie/ossieSupport.h"
 #include "ossie/prop_helpers.h"
+#include "ossie/Containers.h"
+#include "ossie/PropertyMap.h"
 
 class Resource_impl: public virtual POA_CF::Resource, public PropertySet_impl, public PortSupplier_impl, public LifeCycle_impl, public TestableObject_impl, public Logging_impl
 {
@@ -54,6 +56,10 @@ public:
 
     Resource_impl (const char* _uuid);
     Resource_impl (const char* _uuid, const char *label);
+    ~Resource_impl () {
+        if (this->_domMgr != NULL)
+            delete this->_domMgr;
+    };
 
 
     void setParentId( const std::string &parentid ) { _parent_id = parentid; };
@@ -72,7 +78,10 @@ public:
     virtual void setCurrentWorkingDirectory(std::string& cwd);
     virtual std::string& getCurrentWorkingDirectory();
     
-    void setAdditionalParameters(std::string softwareProfile);
+    virtual void setAdditionalParameters(std::string &softwareProfile, std::string &application_registrar_ior);
+    redhawk::DomainManagerContainer* getDomainManager() {
+        return this->_domMgr;
+    }
 
     std::string _identifier;
     std::string naming_service_name;
@@ -104,5 +113,6 @@ private:
     static void start_component(ctor_type ctor, int argc, char* argv[]);
 
     std::string currentWorkingDirectory;
+    redhawk::DomainManagerContainer *_domMgr;
 };
 #endif

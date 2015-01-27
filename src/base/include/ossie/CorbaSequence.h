@@ -147,7 +147,7 @@ namespace ossie {
             typename detail::sequence_ptr<Sequence>::type p_seq = detail::as_ptr(sequence);
             CORBA::ULong index = p_seq->length();
             p_seq->length(index+1);
-            sequence[index] = element;
+            p_seq->operator[](index) = element;
         }
 
         // Returns a new sequence containing the range [first, last) from 

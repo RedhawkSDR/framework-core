@@ -98,6 +98,7 @@ int main(int argc, char* argv[])
 #if ENABLE_BDB_PERSISTENCE || ENABLE_GDBM_PERSISTENCE || ENABLE_SQLITE_PERSISTENCE
     enablePersistence = true;
 #endif
+    bool endPoint = false;
     
     raise_limit(RLIMIT_NPROC, "process");
     raise_limit(RLIMIT_NOFILE, "file descriptor");
@@ -142,6 +143,7 @@ int main(int argc, char* argv[])
             std::transform(value.begin(), value.begin(), value.end(), ::tolower);
             forceRebind = (value == "true");
         } else if (param == "-ORBendPoint") {
+            endPoint = true;
         } else if ( ii > 0 ) { // any other argument besides the first one is part of the execparams
             execparams[param] = argv[ii];
         }
@@ -276,7 +278,19 @@ int main(int argc, char* argv[])
 
     // Start CORBA. Only ask for persistence if "--nopersist" was not asserted, which implies
     // using the same port.
-    CORBA::ORB_ptr orb = ossie::corba::OrbInit(argc, argv, enablePersistence);
+    ossie::corba::ORBProperties orbProperties;
+    // If a user-specified ORB endpoint is present, do not override it. This
+    // allows multiple persistent endpoints on the same machine.
+    if (enablePersistence && !endPoint) {
+        orbProperties.push_back(std::make_pair("endPoint", "giop:tcp::5678"));
+    }
+    // Limit the lifetime of idle client connections to 10 seconds, to avoid
+    // leaving large numbers of file descriptors open. The DomainManager calls
+    // initialize() and configure() on each component in an application, then
+    // never talks to them again; in heavy utilization, this can cause hard-to-
+    // diagnose failures.
+    orbProperties.push_back(std::make_pair("outConScanPeriod", "10"));
+    CORBA::ORB_ptr orb = ossie::corba::OrbInit(argc, argv, orbProperties, enablePersistence);
 
     PortableServer::POA_ptr root_poa = PortableServer::POA::_nil();
     try {
@@ -315,50 +329,60 @@ int main(int argc, char* argv[])
         LOG_DEBUG(DomainManager, "File descriptor limit " << limit.rlim_cur);
     }
 
+    // Create Domain Manager servant and object
+    LOG_INFO(DomainManager, "Starting Domain Manager");
+    LOG_DEBUG(DomainManager, "Root of DomainManager FileSystem set to " << domRootPath);
+    LOG_DEBUG(DomainManager, "DMD path set to " << dmdFile);
+    LOG_DEBUG(DomainManager, "Domain Name set to " << domainName);
     try {
-        // Create Domain Manager servant and object
-        LOG_INFO(DomainManager, "Starting Domain Manager");
-        LOG_DEBUG(DomainManager, "Root of DomainManager FileSystem set to " << domRootPath);
-        LOG_DEBUG(DomainManager, "DMD path set to " << dmdFile);
-        LOG_DEBUG(DomainManager, "Domain Name set to " << domainName);
-        try {
-            DomainManager_servant = new DomainManager_impl(dmdFile.c_str(),
-                                                           domRootPath.string().c_str(),
-                                                           domainName.c_str(),
-                                                           (logfile_uri.empty()) ? NULL : logfile_uri.c_str(),
-                                                           (db_uri.empty()) ? NULL : db_uri.c_str()
-                                                           );
-            DomainManager_servant->setExecparamProperties(execparams);
+        DomainManager_servant = new DomainManager_impl(dmdFile.c_str(),
+                                                       domRootPath.string().c_str(),
+                                                       domainName.c_str(),
+                                                       (logfile_uri.empty()) ? NULL : logfile_uri.c_str()
+                                                       );
+    } catch (const CORBA::Exception& ex) {
+        LOG_ERROR(DomainManager, "Terminated with CORBA::" << ex._name() << " exception");
+        exit(-1);
+    } catch (const std::exception& ex) {
+        LOG_ERROR(DomainManager, "Terminated with exception: " << ex.what());
+        exit(-1);
+    } catch (...) {
+        LOG_ERROR(DomainManager, "Terminated with unknown exception");
+        exit(EXIT_FAILURE);
+    }
 
+    // Pass any execparams on to the DomainManager
+    DomainManager_servant->setExecparamProperties(execparams);
+
+    // If a database URI was given, attempt to restore the state. Most common errors should
+    // be handled gracefully, so any exception that escapes to this level probably indicates
+    // a severe problem.
+    // NB: This step must occur before activating the servant. Because this is almost
+    //     exclusively used with persistent IORs, a client might already hold (or be able
+    //     to get) a reference to the DomainManager, but calls may fail due to the
+    //     unpredictable state.
+    if (!db_uri.empty()) {
+        try {
+            DomainManager_servant->restoreState(db_uri);
         } catch (const CORBA::Exception& ex) {
-            LOG_ERROR(DomainManager, "Terminated with CORBA::" << ex._name() << " exception");
-            exit(-1);
+            LOG_FATAL(DomainManager, "Unable to restore state: CORBA::" << ex._name());
+            exit(EXIT_FAILURE);
         } catch (const std::exception& ex) {
-            LOG_ERROR(DomainManager, "Terminated with exception: " << ex.what());
-            exit(-1);
-        } catch( ... ) {
-            LOG_ERROR(DomainManager, "Terminated with unknown exception");
+            LOG_FATAL(DomainManager, "Unable to restore state: " << ex.what());
+            exit(EXIT_FAILURE);
+        } catch (...) {
+            LOG_FATAL(DomainManager, "Unrecoverable error restoring state");
             exit(EXIT_FAILURE);
         }
+    }
 
+    try {
         // Activate the DomainManager servant into its own POA, giving the POA responsibility
         // for its deletion.
         LOG_DEBUG(DomainManager, "Activating DomainManager into POA");
         PortableServer::POA_var dommgr_poa = root_poa->find_POA("DomainManager", 1);
         PortableServer::ObjectId_var oid = ossie::corba::activatePersistentObject(dommgr_poa, DomainManager_servant, DomainManager_servant->getFullDomainManagerName());
 
-        // If a database URI was given, attempt to restore the state. Most common errors should
-        // be handled gracefully, so any exception that escapes to this level probably indicates
-        // a severe problem.
-        // TODO: Determine whether this step can occur before activating the servant. Because this
-        // is almost exclusively used with persistent IORs, a client might already hold (or be able
-        // to get) a reference to the DomainManager, but calls may fail due to the unpredictable
-        // state.
-        if (!db_uri.empty()) {
-            try {
-                DomainManager_servant->restoreState(db_uri);
-            } CATCH_RETHROW_LOG_ERROR(DomainManager, "Unrecoverable error restoring state");
-        }
 
         // Bind the DomainManager object to its full name (e.g. "DomainName/DomainName") in the NameService.
         LOG_DEBUG(DomainManager, "Binding DomainManager to NamingService name " << DomainManager_servant->getFullDomainManagerName());

@@ -49,6 +49,12 @@ public:
                                                           CF::ExecutableDevice::InvalidParameters,
                                                           CF::ExecutableDevice::InvalidFunction, CF::Device::InvalidState,
                                                           CORBA::SystemException);
+    CF::ExecutableDevice::ProcessID_Type do_execute (const char* name, const CF::Properties& options,
+                                                  const CF::Properties& parameters, const std::vector<std::string> prepend_args) throw (CF::ExecutableDevice::ExecuteFail,
+                                                          CF::InvalidFileName, CF::ExecutableDevice::InvalidOptions,
+                                                          CF::ExecutableDevice::InvalidParameters,
+                                                          CF::ExecutableDevice::InvalidFunction, CF::Device::InvalidState,
+                                                          CORBA::SystemException);
 
     void terminate (CF::ExecutableDevice::ProcessID_Type processId) throw
     (CF::Device::InvalidState, CF::ExecutableDevice::InvalidProcess,
@@ -60,8 +66,12 @@ public:
 
     ExecutableDevice_impl();
     ExecutableDevice_impl(ExecutableDevice_impl&);
-private:
 
+protected:
+    static std::string get_component_name_from_exec_params(const CF::Properties& params);
+    static std::string component_name_from_profile_name(const std::string& profile_name);
+        
+private:
 
     CF::ExecutableDevice::ProcessID_Type PID;
 };

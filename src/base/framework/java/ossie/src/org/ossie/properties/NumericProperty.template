@@ -32,7 +32,11 @@ public class @name@Property extends NumericProperty<@box@> {
     }
 
     protected @box@ fromNumber(Number val) {
-        return val.@primitive@Value();
+        if (val != null){
+            return val.@primitive@Value();
+        }else{
+            return null;
+        }
     }
 
     protected void insert(org.omg.CORBA.Any any, @box@ value) {

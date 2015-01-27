@@ -750,6 +750,7 @@ DeviceManager_impl::ExecparamList DeviceManager_impl::createDeviceExecparams(
     // fork() and execv().
     ExecparamList execparams;
 
+    deviceMgrIOR = ossie::corba::objectToString(myObj);
     execparams.push_back(std::make_pair("DEVICE_MGR_IOR", deviceMgrIOR));
     if (componentType == "device") {
         execparams.push_back(std::make_pair("PROFILE_NAME", DCDParser.getFileNameFromRefId(componentPlacement.getFileRefId())));
@@ -1047,11 +1048,24 @@ DeviceManager_impl::DeviceManager_impl(
                "",
                "external",
                "configure");
+
+    addProperty(DEVICE_FORCE_QUIT_TIME,
+               "DEVICE_FORCE_QUIT_TIME",
+               "DEVICE_FORCE_QUIT_TIME",
+               "readwrite",
+               "",
+               "external",
+               "configure");
+    
+    // this is hard-coded here because 1.10 and earlier Device Managers do not
+    //  have this property in their prf
+    this->DEVICE_FORCE_QUIT_TIME = 0.5;
     
     char _hostname[1024];
     gethostname(_hostname, 1024);
     std::string hostname(_hostname);
     HOSTNAME = hostname;
+    this->_dmnMgr = CF::DomainManager::_nil();
 }
 
 /**
@@ -1379,8 +1393,6 @@ const SPD::Implementation* DeviceManager_impl::locateMatchingDeviceImpl(const So
 
     LOG_TRACE(DeviceManager_impl, "Matching candidate device impls to implementation " << deployOnImpl->getID() );
 
-    // TODO - support all matching properties, not just processor_name, os_name, and os_version
-    // TODO - support the generic PRF file and not just the implementation PRF file
     Properties PRFparser;
     if (deployOnImpl->getPRFFile() && (strlen(deployOnImpl->getPRFFile()) > 0)) {
         // Parse the implementations propertyfile...we are looking for processor_name, os_name, and os_version
@@ -1515,7 +1527,6 @@ DeviceManager_impl::getDomainManagerReference (const std::string& domainManagerN
 {
     CORBA::Object_var obj = CORBA::Object::_nil();
 
-/// \todo sleep prevents system from beating Name Service to death, Fix better
     bool warned = false;
     do {
         try {
@@ -1590,6 +1601,13 @@ char* DeviceManager_impl::label ()
 throw (CORBA::SystemException)
 {
     return CORBA::string_dup (_label.c_str());
+}
+
+
+CF::DomainManager_ptr DeviceManager_impl::domMgr ()throw (CORBA::
+                                                        SystemException)
+{
+    return CF::DomainManager::_duplicate(this->_dmnMgr);
 }
 
 
@@ -1699,7 +1717,6 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
     }
 
     if ( SPDParser.getPRFFile() ) {
-        // TODO Handle implementation specific PRF paths
         LOG_TRACE(DeviceManager_impl, "[DeviceManager::registerDevice] opening PRF " << SPDParser.getPRFFile())
 
 
@@ -1727,9 +1744,7 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
             LOG_ERROR(DeviceManager_impl, "[DeviceManager::registerDevice] Unknown Exception While opening SPD")
             throw(CF::InvalidObjectReference());
         }
-
-        // TODO fix this mess
-
+        
         DeviceManagerConfiguration DCDParser;
         try {
             File_stream _dcd(_fileSys, _deviceConfigurationProfile.c_str());
@@ -2670,8 +2685,9 @@ void DeviceManager_impl::clean_registeredDevices()
     // NOTE: If the DeviceManager was terminated with a ^C, sending SIGINT may
     //       cause the original SIGINT to be forwarded to all other children
     //       (which is harmless, but be aware).
-    killPendingDevices(SIGINT, 500000);
-    killPendingDevices(SIGTERM, 500000);
+    float device_force_quite_time = this->DEVICE_FORCE_QUIT_TIME * 1e6;
+    killPendingDevices(SIGINT, device_force_quite_time);
+    killPendingDevices(SIGTERM, device_force_quite_time);
     killPendingDevices(SIGKILL, 0);
 }
 

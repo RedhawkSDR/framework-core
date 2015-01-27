@@ -75,7 +75,7 @@ ossiepy = ['ossie',
            'ossie/utils/tools',
            'redhawk']
 
-version='1.10.1'
+version='1.11.0'
 
 setup(
         name='ossiepy',

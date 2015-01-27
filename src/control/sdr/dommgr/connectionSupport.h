@@ -56,7 +56,6 @@ namespace ossie
     public:
         virtual ~ComponentLookup() {};
         virtual CF::Resource_ptr lookupComponentByInstantiationId(const std::string& identifier) = 0;
-        virtual CF::DeviceManager_ptr lookupDeviceManagerByInstantiationId(const std::string& identifier) = 0;
     };
 
     // Interface to look up objects within the domain.
@@ -65,6 +64,7 @@ namespace ossie
     public:
         virtual ~DomainLookup() {};
         virtual CORBA::Object_ptr lookupDomainObject(const std::string& type, const std::string& name) = 0;
+        virtual CF::DeviceManager_ptr lookupDeviceManagerByInstantiationId(const std::string& identifier) = 0;
         virtual unsigned int incrementEventChannelConnections(const std::string &EventChannelName) = 0;
         virtual unsigned int decrementEventChannelConnections(const std::string &EventChannelName) = 0;
     };
@@ -89,13 +89,16 @@ namespace ossie
     public:
         typedef enum {
             COMPONENT,
-            SERVICENAME
+            SERVICENAME,
+            APPLICATION
         } DependencyType;
 
         virtual ~Endpoint() { };
         CORBA::Object_ptr resolve(ConnectionManager& manager);
         CORBA::Object_ptr object();
         bool isResolved();
+
+        virtual CF::ConnectionManager::EndpointStatusType toEndpointStatusType() const;
 
         virtual bool allowDeferral() = 0;
         virtual bool checkDependency(DependencyType type, const std::string& identifier) const = 0;
@@ -246,6 +249,7 @@ namespace ossie
 
         void addConnection(const std::string& deviceManagerId, const Connection& connection);
         void restoreConnection(const std::string& deviceManagerId, ConnectionNode connection);
+        void breakConnection(const std::string& deviceManagerId, const std::string& connectionId);
 
         void deviceManagerUnregistered(const std::string& deviceManagerId);
 
@@ -254,6 +258,9 @@ namespace ossie
 
         void serviceRegistered(const std::string& serviceName);
         void serviceUnregistered(const std::string& serviceName);
+
+        void applicationRegistered(const std::string& applicationId);
+        void applicationUnregistered(const std::string& applicationId);
 
         const ConnectionTable& getConnections() const;
 

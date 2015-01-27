@@ -27,6 +27,8 @@ from omniORB import CORBA
 from ossie.resource import load_logging_config_uri
 from ossie.cf import CF
 import ossie.logger
+import containers
+import types
 
 def __exit_handler(signum, frame):
     # Raise SystemExit - but only the first time we get a signal
@@ -35,6 +37,14 @@ def __exit_handler(signum, frame):
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
     raise SystemExit
 
+def patchService(target):
+    def getDeviceManager(target):
+        return self._devMgr
+    def getDomainManager(target):
+        return self._domMgr
+    target.getDeviceManager = types.MethodType(getDeviceManager,target)
+    target.getDomainManager = types.MethodType(getDomainManager,target)
+    
 def start_service(serviceclass, thread_policy=None):
     import sys
     import CosNaming
@@ -123,6 +133,9 @@ def start_service(serviceclass, thread_policy=None):
 
             if devMgr != None:
                 logging.debug("Registering service with device manager")
+                patchService(component_Obj)
+                component_Obj._devMgr = containers.DeviceManagerContainer(devMgr)
+                component_Obj._domMgr = containers.DomainManagerContainer(devMgr._get_domMgr())
                 devMgr.registerService(component_Var, execparams["SERVICE_NAME"])
             else:
                 print orb.object_to_string(component_Var)

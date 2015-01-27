@@ -36,12 +36,15 @@
 #include <ossie/FileStream.h>
 #include <ossie/ComponentDescriptor.h>
 #include <ossie/DeviceManagerConfiguration.h>
+#include <ossie/DomainManagerConfiguration.h>
+#include <ossie/GCThread.h>
 
 #include "Application_impl.h"
 #include "ApplicationFactory_impl.h"
 #include "DomainManager_impl.h"
 #include "connectionSupport.h"
 #include "AllocationManager_impl.h"
+#include "ConnectionManager.h"
 
 using namespace ossie;
 using namespace std;
@@ -63,19 +66,15 @@ static const ComponentInstantiation* findComponentInstantiation (const std::vect
 PREPARE_LOGGING(DomainManager_impl)
 
 // If _overrideDomainName == NULL read the domain name from the DMD file
-DomainManager_impl::DomainManager_impl (const char* _dmdFile, const char* _rootpath, const char* domainName, const char* _logconfig_uri, const char* db_uri) :
+DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpath, const char* domainName, const char* _logconfig_uri) :
+    _domainName(domainName),
+    _domainManagerProfile(dmdFile),
     _connectionManager(this, this, domainName)
 {
-
     TRACE_ENTER(DomainManager_impl)
-
 
     LOG_TRACE(DomainManager_impl, "Looking for DomainManager POA");
     poa = ossie::corba::RootPOA()->find_POA("DomainManager", 1);
-
-    _domainManagerProfile = _dmdFile;
-
-    _applications.length(0);
 
     // Initialize properties
     logging_config_prop = (StringProperty*)addProperty(logging_config_uri, "LOGGING_CONFIG_URI", "LOGGING_CONFIG_URI",
@@ -102,12 +101,14 @@ DomainManager_impl::DomainManager_impl (const char* _dmdFile, const char* _rootp
     std::string allocationManagerId = _domainName + "/AllocationManager";
     oid = ossie::corba::activatePersistentObject(poa, _allocationMgr, allocationManagerId);
     _allocationMgr->_remove_ref();
-    
+
+    // Likewise, create the domain-level connection manager
+    _connectionMgr = new ConnectionManager_impl(this);
+    std::string connectionManagerId = _domainName + "/ConnectionManager";
+    oid = ossie::corba::activatePersistentObject(poa, _connectionMgr, connectionManagerId);
+
     // Parse the DMD profile
     parseDMDProfile();
-
-    LOG_TRACE(DomainManager_impl, "Setting domain name to " << domainName);
-    this->_domainName = domainName;
 
     LOG_TRACE(DomainManager_impl, "Establishing domain manager naming context")
     base_context = ossie::corba::stringToName(_domainName);
@@ -118,7 +119,7 @@ DomainManager_impl::DomainManager_impl (const char* _dmdFile, const char* _rootp
         LOG_FATAL(DomainManager_impl, "Unable to find Naming Service; make sure that it is configured correctly and running.");
         exit(EXIT_FAILURE);
     }
-    try { ///\todo review this code and see what alternative solutions exist
+    try {
         rootContext = inc->bind_new_context (base_context);
     } catch (CosNaming::NamingContext::AlreadyBound&) {
         LOG_TRACE(DomainManager_impl, "Naming context already exists");
@@ -135,38 +136,19 @@ DomainManager_impl::DomainManager_impl (const char* _dmdFile, const char* _rootp
         exit(EXIT_FAILURE);
     }
 
-/// \todo lookup and install any services specified in the DMD
-
-    this->_fullDomainManagerName = this->_domainName + string("/") + this->_domainName;
-
-    /*******************************************************
-
-    At some point, memory has to be added to the system,
-    where the domain manager recalls the last configuration
-
-    *******************************************************/
-
-//      create Incoming Domain Management and Outgoing Domain Management event channels
+    // Create Outgoing Domain Management (ODM) event channel
     LOG_TRACE(DomainManager_impl, "Creating event channels");
-    createEventChannels ();
+    CosEventChannelAdmin::EventChannel_var odm_channel = createEventChannel("ODM_Channel");
+    if (!CORBA::is_nil(odm_channel)) {
+        connectToOutgoingEventChannel();
+    } else {
+        LOG_WARN(DomainManager_impl, "Disabling outgoing events");
+    }
 
-    vector < ossie::EventChannelNode >::iterator p = _eventChannels.begin();
-    while (p != _eventChannels.end()) {
-        if ((*p).name == std::string(_domainName+".ODM_Channel")) {
-            if (!CORBA::is_nil((*p).channel)) {
-                connectToOutgoingEventChannel();
-            } else {
-                LOG_WARN(DomainManager_impl, "Disabling outgoing events");
-            }
-        }
-        if ((*p).name == std::string(_domainName+".IDM_Channel")) {
-            if (!CORBA::is_nil((*p).channel)) {
-                connectToIncomingEventChannel();
-            } else {
-                LOG_WARN(DomainManager_impl, "Disabling incoming events");
-            }
-        }
-        p++;
+    // Create Incoming Domain Management (IDM) event channel
+    CosEventChannelAdmin::EventChannel_var idm_channel = createEventChannel("IDM_Channel");
+    if (CORBA::is_nil(idm_channel)) {
+        LOG_WARN(DomainManager_impl, "Disabling incoming events");
     }
 
     LOG_TRACE(DomainManager_impl, "Looking for ApplicationFactories POA");
@@ -178,10 +160,10 @@ DomainManager_impl::DomainManager_impl (const char* _dmdFile, const char* _rootp
 
 void DomainManager_impl::parseDMDProfile()
 {
+    ossie::DomainManagerConfiguration configuration;
     try {
-        LOG_TRACE(DomainManager_impl, "Loading domain manager configuration from " << _domainManagerProfile);
         File_stream dmdStream(_fileMgr, _domainManagerProfile.c_str());
-        _configuration.load(dmdStream);
+        configuration.load(dmdStream);
         dmdStream.close();
     } catch (const parser_error& e) {
         LOG_FATAL(DomainManager_impl, "Stopping domain manager; error parsing domain manager configuration " <<  _domainManagerProfile << "; " << e.what())
@@ -206,6 +188,8 @@ void DomainManager_impl::parseDMDProfile()
         LOG_FATAL(DomainManager_impl, eout.str())
         exit(EXIT_FAILURE);
     }
+
+    _identifier = configuration.getID();
 }
 
 void DomainManager_impl::restoreState(const std::string& _db_uri) {
@@ -214,18 +198,8 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
     LOG_INFO(DomainManager_impl, "Restoring state from URL " << _db_uri);
     try {
         db.open(_db_uri);
-    } catch (ossie::PersistenceException& e) {
+    } catch (const ossie::PersistenceException& e) {
         LOG_ERROR(DomainManager_impl, "Error loading persistent state: " << e.what());
-        return;
-    } catch ( std::exception& ex ) {
-        std::ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" while loading "<<_db_uri;
-        LOG_ERROR(DomainManager_impl, eout.str())
-        return;
-    } catch ( CORBA::Exception& ex ) {
-        std::ostringstream eout;
-        eout << "The following CORBA exception occurred: "<<ex._name()<<" while loading "<<_db_uri;
-        LOG_ERROR(DomainManager_impl, eout.str())
         return;
     }
 
@@ -234,19 +208,9 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
     std::vector<EventChannelNode> _restoredEventChannels;
     try {
         db.fetch("EVENT_CHANNELS", _restoredEventChannels, true);
-    } catch (ossie::PersistenceException& e) {
+    } catch (const ossie::PersistenceException& e) {
         LOG_ERROR(DomainManager_impl, "Error loading event channels persistent state: " << e.what());
         _restoredEventChannels.clear();
-    } catch ( std::exception& ex ) {
-        _restoredEventChannels.clear();
-        std::ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" while recovering the event channels";
-        LOG_ERROR(DomainManager_impl, eout.str())
-    } catch ( CORBA::Exception& ex ) {
-        _restoredEventChannels.clear();
-        std::ostringstream eout;
-        eout << "The following CORBA exception occurred: "<<ex._name()<<" while recovering the event channels";
-        LOG_ERROR(DomainManager_impl, eout.str())
     }
 
     for (std::vector<EventChannelNode>::iterator i = _restoredEventChannels.begin();
@@ -287,19 +251,9 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
     DeviceManagerList _restoredDeviceManagers;
     try {
         db.fetch("DEVICE_MANAGERS", _restoredDeviceManagers, true);
-    } catch (ossie::PersistenceException& e) {
+    } catch (const ossie::PersistenceException& e) {
         LOG_ERROR(DomainManager_impl, "Error loading device managers persistent state: " << e.what());
         _restoredDeviceManagers.clear();
-    } catch ( std::exception& ex ) {
-        _restoredDeviceManagers.clear();
-        std::ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" while recovering the device manager connections";
-        LOG_ERROR(DomainManager_impl, eout.str())
-    } catch ( CORBA::Exception& ex ) {
-        _restoredDeviceManagers.clear();
-        std::ostringstream eout;
-        eout << "The following CORBA exception occurred: "<<ex._name()<<" while recovering the device manager connections";
-        LOG_ERROR(DomainManager_impl, eout.str())
     }
 
     for (DeviceManagerList::iterator ii = _restoredDeviceManagers.begin(); ii != _restoredDeviceManagers.end(); ++ii) {
@@ -319,19 +273,9 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
     DeviceList _restoredDevices;
     try {
         db.fetch("DEVICES", _restoredDevices, true);
-    } catch (ossie::PersistenceException& e) {
+    } catch (const ossie::PersistenceException& e) {
         LOG_ERROR(DomainManager_impl, "Error loading devices persistent state: " << e.what());
         _restoredDevices.clear();
-    } catch ( std::exception& ex ) {
-        _restoredDevices.clear();
-        std::ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" while recovering the device connections";
-        LOG_ERROR(DomainManager_impl, eout.str())
-    } catch ( CORBA::Exception& ex ) {
-        _restoredDevices.clear();
-        std::ostringstream eout;
-        eout << "The following CORBA exception occurred: "<<ex._name()<<" while recovering the device connections";
-        LOG_ERROR(DomainManager_impl, eout.str())
     }
 
     for (DeviceList::iterator iter = _restoredDevices.begin(); iter != _restoredDevices.end(); ++iter) {
@@ -355,19 +299,9 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
     ServiceList _restoredServices;
     try {
         db.fetch("SERVICES", _restoredServices, true);
-    } catch (ossie::PersistenceException& e) {
+    } catch (const ossie::PersistenceException& e) {
         LOG_ERROR(DomainManager_impl, "Error loading services persistent state: " << e.what());
         _restoredServices.clear();
-    } catch ( std::exception& ex ) {
-        _restoredServices.clear();
-        std::ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" while recovering the service connections";
-        LOG_ERROR(DomainManager_impl, eout.str())
-    } catch ( CORBA::Exception& ex ) {
-        _restoredServices.clear();
-        std::ostringstream eout;
-        eout << "The following CORBA exception occurred: "<<ex._name()<<" while recovering the service connections";
-        LOG_ERROR(DomainManager_impl, eout.str())
     }
 
     for (ServiceList::iterator ii = _restoredServices.begin(); ii != _restoredServices.end(); ++ii) {
@@ -392,19 +326,9 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
     ConnectionTable _restoredConnections;
     try {
         db.fetch("CONNECTIONS", _restoredConnections, true);
-    } catch (ossie::PersistenceException& e) {
+    } catch (const ossie::PersistenceException& e) {
         LOG_ERROR(DomainManager_impl, "Error loading services persistent state: " << e.what());
         _restoredConnections.clear();
-    } catch ( std::exception& ex ) {
-        _restoredConnections.clear();
-        std::ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" while recovering the device manager connections";
-        LOG_ERROR(DomainManager_impl, eout.str())
-    } catch ( CORBA::Exception& ex ) {
-        _restoredConnections.clear();
-        std::ostringstream eout;
-        eout << "The following CORBA exception occurred: "<<ex._name()<<" while recovering the device manager connections";
-        LOG_ERROR(DomainManager_impl, eout.str())
     }
 
     for (ConnectionTable::iterator ii = _restoredConnections.begin(); ii != _restoredConnections.end(); ++ii) {
@@ -422,51 +346,29 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
     }
 
     LOG_DEBUG(DomainManager_impl, "Recovering application factories");
-    std::vector<ApplicationFactoryNode> _restoredAppFactories;
+    std::set<std::string> restoredSADs;
     try {
-        db.fetch("APP_FACTORIES", _restoredAppFactories, true);
-    } catch (ossie::PersistenceException& e) {
-        LOG_ERROR(DomainManager_impl, "Error loading application factory persistent state: " << e.what());
-        _restoredAppFactories.clear();
-    } catch ( std::exception& ex ) {
-        _restoredAppFactories.clear();
-        std::ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" while recovering the application factories";
-        LOG_ERROR(DomainManager_impl, eout.str())
-    } catch ( CORBA::Exception& ex ) {
-        _restoredAppFactories.clear();
-        std::ostringstream eout;
-        eout << "The following CORBA exception occurred: "<<ex._name()<<" while recovering the application factories";
-        LOG_ERROR(DomainManager_impl, eout.str())
+        db.fetch("APP_FACTORIES", restoredSADs, true);
+    } catch (const ossie::PersistenceException& ex) {
+        LOG_ERROR(DomainManager_impl, "Error loading application factory persistent state: " << ex.what());
+        restoredSADs.clear();
     }
 
-    for (std::vector<ApplicationFactoryNode>::iterator i = _restoredAppFactories.begin();
-         i != _restoredAppFactories.end();
-         ++i) {
-        LOG_TRACE(DomainManager_impl, "Attempting to restore application factory " << i->profile);
+    for (std::set<std::string>::iterator profile = restoredSADs.begin(); profile != restoredSADs.end(); ++profile) {
+        LOG_TRACE(DomainManager_impl, "Attempting to restore application factory " << *profile);
         try {
-            installApplication(i->profile.c_str());
-            LOG_INFO(DomainManager_impl, "Restored application factory " << i->profile);
-        } CATCH_LOG_WARN(DomainManager_impl, "Failed to restore application factory " << i->profile);
+            _local_installApplication(profile->c_str());
+            LOG_INFO(DomainManager_impl, "Restored application factory " << *profile);
+        } CATCH_LOG_WARN(DomainManager_impl, "Failed to restore application factory " << *profile);
     }
 
     LOG_DEBUG(DomainManager_impl, "Recovering applications");
     std::vector<ApplicationNode> _restoredApplications;
     try {
         db.fetch("APPLICATIONS", _restoredApplications, true);
-    } catch (ossie::PersistenceException& e) {
+    } catch (const ossie::PersistenceException& e) {
         LOG_ERROR(DomainManager_impl, "Error loading application persistent state: " << e.what());
         _restoredApplications.clear();
-    } catch ( std::exception& ex ) {
-        _restoredApplications.clear();
-        std::ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" while recovering the applications";
-        LOG_ERROR(DomainManager_impl, eout.str())
-    } catch ( CORBA::Exception& ex ) {
-        _restoredApplications.clear();
-        std::ostringstream eout;
-        eout << "The following CORBA exception occurred: "<<ex._name()<<" while recovering the applications";
-        LOG_ERROR(DomainManager_impl, eout.str())
     }
 
     for (std::vector<ApplicationNode>::iterator i = _restoredApplications.begin();
@@ -474,39 +376,19 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
          ++i) {
         LOG_TRACE(DomainManager_impl, "Attempting to restore application  " << i->name << " " << i->identifier << " " << i->profile);
         try {
-            CosNaming::NamingContext_var context = CosNaming::NamingContext::_narrow(ossie::corba::stringToObject(i->contextIOR));
-            if (ossie::corba::objectExists(context)) {
-                LOG_TRACE(DomainManager_impl, "Creating application " << i->identifier << " " << _domainName << " " << i->contextName << " " << i->contextIOR);
-                Application_impl* _application = new Application_impl (i->identifier.c_str(), i->name.c_str(), i->profile.c_str(), this, i->contextName, context);
+            if (ossie::corba::objectExists(i->context)) {
+                LOG_TRACE(DomainManager_impl, "Creating application " << i->identifier << " " << _domainName << " " << i->contextName);
+                Application_impl* _application = new Application_impl (i->identifier.c_str(), i->name.c_str(), i->profile.c_str(), this, i->contextName, i->context, i->trusted_application);
                 LOG_TRACE(DomainManager_impl, "Restored " << i->connections.size() << " connections");
-
-                i->_startOrder.resize(i->componentIORS.size());
-                for (unsigned int ii = 0; ii < i->componentIORS.size(); ++ii) {
-                    CORBA::Object_var obj = ossie::corba::stringToObject(i->componentIORS[ii]);
-                    if (!CORBA::is_nil(obj)) {
-                        i->_startOrder[ii] = CF::Resource::_duplicate(ossie::corba::_narrowSafe<CF::Resource> (obj));
-                    }
-                }
 
                 _application->populateApplication(i->assemblyController,
                                                   i->componentDevices,
-                                                  &(i->componentImplementations),
-                                                  i->_startOrder,
-                                                  &(i->componentNamingContexts),
-                                                  &(i->componentProcessIds),
+                                                  i->componentRefs,
                                                   i->connections,
-                                                  i->fileTable,
                                                   i->allocationIDs);
 
-                // Recover and register components
-                for (unsigned int ii = 0; ii < i->components.size() ; ++ii) {
-                    CF::ComponentType c;
-                    c.identifier = i->components[ii].identifier.c_str();
-                    c.softwareProfile = i->components[ii].softwareProfile.c_str();
-                    c.type = CF::APPLICATION_COMPONENT;
-                    c.componentObject = ossie::corba::stringToObject(i->components[ii].ior);
-                    _application->registerComponent(c);
-                }
+                // Restore various state about the components in the waveform
+                _application->_components = i->components;
 
                 // Add external ports
                 for (std::map<std::string, CORBA::Object_var>::const_iterator it = i->ports.begin();
@@ -522,7 +404,7 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
                     std::string extId = it->first;
                     std::string propId = it->second.first;
                     std::string compId = it->second.second;
-                    std::vector<CF::Resource_ptr> comps = i->_startOrder;
+                    std::vector<CF::Resource_var> comps = i->componentRefs;
                     comps.push_back(i->assemblyController);
                     for (unsigned int ii = 0; ii < comps.size(); ++ii) {
                         if (compId == ossie::corba::returnString(comps[ii]->identifier())) {
@@ -532,10 +414,7 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
                     }
                 }
 
-                PortableServer::POA_var dm_poa = ossie::corba::RootPOA()->find_POA("DomainManager", 0);
-                PortableServer::POA_var poa = dm_poa->find_POA("Applications", 1);
-                PortableServer::ObjectId_var app_oid = ossie::corba::activatePersistentObject(poa, _application, i->identifier);
-
+                Application_impl::Activate(_application);
                 addApplication(_application);
                 _application->_remove_ref();
 
@@ -553,9 +432,6 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
     } catch (const ossie::PersistenceException& e) {
         LOG_ERROR(DomainManager_impl, "Error loading domain managers persistent state: " << e.what());
         _restoredDomainManagers.clear();
-    } catch (const std::exception& ex) {
-        _restoredDomainManagers.clear();
-        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" while recovering the domain manager connections");
     }
 
     for (DomainManagerList::iterator ii = _restoredDomainManagers.begin(); ii != _restoredDomainManagers.end(); ++ii) {
@@ -574,11 +450,8 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
     ossie::AllocationTable _restoredLocalAllocations;
     try {
         db.fetch("LOCAL_ALLOCATIONS", _restoredLocalAllocations);
-    } catch (ossie::PersistenceException& e) {
+    } catch (const ossie::PersistenceException& e) {
         LOG_ERROR(DomainManager_impl, "Error loading local allocation persistent state: " << e.what());
-    } catch (std::exception& ex) {
-        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: " << ex.what()
-                  << " while recovering local allocations");
     }
     _allocationMgr->restoreLocalAllocations(_restoredLocalAllocations);
 
@@ -587,35 +460,8 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
         db.fetch("REMOTE_ALLOCATIONS", _restoredRemoteAllocations);
     } catch (const ossie::PersistenceException& e) {
         LOG_ERROR(DomainManager_impl, "Error loading remote allocations persistent state: " << e.what());
-    } catch (const std::exception& ex) {
-        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: " << ex.what()
-                  << " while recovering remote allocations");
     }
     _allocationMgr->restoreRemoteAllocations(_restoredRemoteAllocations);
-
-    if (_restoredLocalAllocations.empty() && _restoredRemoteAllocations.empty()) {
-        // Migration from 1.10.0 to 1.10.1; database format was changed, so if
-        // no local or remote allocations were restored, try to recover from the
-        // old format
-        AllocationManagerNode _restoredAllocations;
-        try {
-            db.fetch("ALLOCATION_MANAGER", _restoredAllocations, true);
-        } catch (const ossie::PersistenceException& e) {
-            LOG_ERROR(DomainManager_impl, "Error loading allocation manager persistent state: " << e.what());
-        } catch ( std::exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following standard exception occurred: "<<ex.what()<<" while recovering the allocation manager";
-            LOG_ERROR(DomainManager_impl, eout.str());
-        } catch ( CORBA::Exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following CORBA exception occurred: "<<ex._name()<<" while recovering the allocation manager";
-            LOG_ERROR(DomainManager_impl, eout.str());
-        }
-        if (!_restoredAllocations._allocations.empty() || !_restoredAllocations._remoteAllocations.empty()) {
-            LOG_DEBUG(DomainManager_impl, "Migrating old allocation state");
-            _allocationMgr->restoreAllocations(_restoredAllocations._allocations, _restoredAllocations._remoteAllocations);
-        }
-    }
 
     LOG_DEBUG(DomainManager_impl, "Done restoring state from URL " << _db_uri);
 }
@@ -671,25 +517,28 @@ void DomainManager_impl::cleanupDomainNamingContext (CosNaming::NamingContext_pt
 
 void DomainManager_impl::releaseAllApplications()
 {
-    while (_applicationFactories.length() > 0) {
-        CORBA::String_var appFactoryId = _applicationFactories[0]->identifier();
-        this->uninstallApplication(appFactoryId);
+    // Clear installed application list and update persistence store
+    _installedApplications.clear();
+    try {
+        db.store("APP_FACTORIES", _installedApplications);
+    } catch (const ossie::PersistenceException& ex) {
+        LOG_ERROR(DomainManager_impl, "Error persisting change to installed applications");
     }
-    while (_applications.length() > 0) {
-        unsigned int lenApps = _applications.length();
+
+    std::vector<Application_impl*> releasedApps;
+    for (ApplicationTable::iterator iter = _applications.begin(); iter != _applications.end(); ++iter) {
+        Application_impl* app = iter->second;
+        app->_add_ref();
+        releasedApps.push_back(app);
+    }
+
+    for (std::vector<Application_impl*>::iterator app = releasedApps.begin(); app != releasedApps.end(); ++app) {
         try {
-            _applications[0]->releaseObject();
+            (*app)->releaseObject();
         } catch ( ... ) {
-            std::string message("Error releasing application ");
-            message += _applications[0]->name();
-            if (lenApps == _applications.length()) {
-                for (unsigned int i=0; i<(_applications.length()-1); i++) {
-                    _applications[i] = _applications[i+1];
-                }
-                _applications.length(_applications.length()-1);
-            }
-            LOG_TRACE(DomainManager_impl, message)
+            LOG_TRACE(DomainManager_impl, "Error releasing application " << ossie::corba::returnString((*app)->name()));
         }
+        (*app)->_remove_ref();
     }
 }
 
@@ -717,23 +566,31 @@ void DomainManager_impl::shutdown (int signal)
 {
     TRACE_ENTER(DomainManager_impl)
 
-    if ((not ossie::corba::isPersistenceEnabled()) or ((ossie::corba::isPersistenceEnabled()) and (signal == SIGINT))) {
+    if (!ossie::corba::isPersistenceEnabled() || (signal == SIGINT)) {
         releaseAllApplications();
         shutdownAllDeviceManagers();
-        destroyEventChannels ();
+        destroyEventChannels();
     }
+
+    ossie::GCThread::shutdown();
 
     boost::recursive_mutex::scoped_lock lock(stateAccess);
     db.close();
 
     PortableServer::ObjectId_var oid;
 
-    for (std::vector<ApplicationFactoryNode>::iterator appFactNode = _installedApplications.begin();
-            appFactNode != _installedApplications.end();
-            ++appFactNode) {
-        appFact_poa->deactivate_object(appFactNode->servant_id);
+    for (ApplicationFactoryTable::iterator iter = _applicationFactories.begin();
+         iter != _applicationFactories.end(); ++iter) {
+        oid = appFact_poa->servant_to_id(iter->second);
+        appFact_poa->deactivate_object(oid);
+        iter->second->_remove_ref();
     }
     appFact_poa->destroy(false, true);
+
+    // Deactivate and destroy the ConnectionManager
+    oid = poa->servant_to_id(_connectionMgr);
+    poa->deactivate_object(oid);
+    _connectionMgr->_remove_ref();
 
     // Deactivate and destroy the AllocationManager
     oid = poa->servant_to_id(_allocationMgr);
@@ -781,7 +638,7 @@ throw (CORBA::SystemException)
     TRACE_ENTER(DomainManager_impl)
 
     TRACE_EXIT(DomainManager_impl)
-    return CORBA::string_dup(_configuration.getID());
+    return CORBA::string_dup(_identifier.c_str());
 }
 
 char *
@@ -815,6 +672,22 @@ CF::AllocationManager_ptr DomainManager_impl::allocationMgr (void) throw (CORBA:
     return _allocationMgr->_this();
 }
 
+namespace {
+    template <class Sequence, class Iterator>
+    void map_to_sequence(Sequence& out, Iterator begin, const Iterator end)
+    {
+        for (; begin != end; ++begin) {
+            ossie::corba::push_back(out, begin->second->_this());
+        }
+    }
+
+    template <class Sequence, class Container>
+    void map_to_sequence(Sequence& out, Container& in)
+    {
+        map_to_sequence(out, in.begin(), in.end());
+    }
+}
+
 
 CF::FileManager_ptr DomainManager_impl::fileMgr (void) throw (CORBA::
 SystemException)
@@ -826,6 +699,14 @@ SystemException)
 }
 
 
+CF::ConnectionManager_ptr DomainManager_impl::connectionMgr (void) throw (CORBA::SystemException)
+{
+    TRACE_ENTER(DomainManager_impl);
+    TRACE_EXIT(DomainManager_impl);
+    return _connectionMgr->_this();
+}
+
+
 CF::DomainManager::ApplicationFactorySequence *
 DomainManager_impl::applicationFactories (void) throw (CORBA::
                                                        SystemException)
@@ -833,7 +714,8 @@ DomainManager_impl::applicationFactories (void) throw (CORBA::
     TRACE_ENTER(DomainManager_impl)
     boost::recursive_mutex::scoped_lock lock(stateAccess);
 
-    CF::DomainManager::ApplicationFactorySequence_var result = new CF::DomainManager::ApplicationFactorySequence(_applicationFactories);
+    CF::DomainManager::ApplicationFactorySequence_var result = new CF::DomainManager::ApplicationFactorySequence();
+    map_to_sequence(result, _applicationFactories);
 
     TRACE_EXIT(DomainManager_impl)
     return result._retn();
@@ -846,7 +728,9 @@ DomainManager_impl::applications (void) throw (CORBA::SystemException)
     TRACE_ENTER(DomainManager_impl);
     boost::recursive_mutex::scoped_lock lock(stateAccess);
 
-    CF::DomainManager::ApplicationSequence_var result = new CF::DomainManager::ApplicationSequence(_applications);
+    CF::DomainManager::ApplicationSequence_var result = new CF::DomainManager::ApplicationSequence();
+    map_to_sequence(result, _applications);
+
     TRACE_EXIT(DomainManager_impl)
     return result._retn();
 }
@@ -988,8 +872,6 @@ throw (CORBA::SystemException, CF::InvalidObjectReference,
         db.store("DOMAIN_MANAGERS", _registeredDomainManagers);
     } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting change to domain managers");
-    } catch (const std::exception& ex) {
-        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" persisting the domain managers");
     }
 }
 
@@ -1000,22 +882,15 @@ throw (CORBA::SystemException, CF::InvalidObjectReference, CF::InvalidProfile,
        CF::DomainManager::RegisterError)
 {
     boost::mutex::scoped_lock lock(interfaceAccess);
-    try {
-        _local_registerDeviceManager(deviceMgr);
-    } catch ( ... ) {
-        throw;
-    }
+    _local_registerDeviceManager(deviceMgr);
 
     CORBA::String_var identifier = deviceMgr->identifier();
     CORBA::String_var label = deviceMgr->label();
-    ossie::sendObjectAddedEvent(DomainManager_impl::__logger, _configuration.getID(), identifier, label,
+    ossie::sendObjectAddedEvent(DomainManager_impl::__logger, _identifier.c_str(), identifier, label,
             deviceMgr, StandardEvent::DEVICE_MANAGER, proxy_consumer);
 }
 
-void
-DomainManager_impl::_local_registerDeviceManager (CF::DeviceManager_ptr deviceMgr)
-throw (CORBA::SystemException, CF::InvalidObjectReference, CF::InvalidProfile,
-       CF::DomainManager::RegisterError)
+void DomainManager_impl::_local_registerDeviceManager (CF::DeviceManager_ptr deviceMgr)
 {
     TRACE_ENTER(DomainManager_impl)
     boost::recursive_mutex::scoped_lock lock(stateAccess);
@@ -1062,20 +937,7 @@ throw (CORBA::SystemException, CF::InvalidObjectReference, CF::InvalidProfile,
     try {
         mountDeviceMgrFileSys(deviceMgr);
 
-        LOG_TRACE(DomainManager_impl, "Adding DeviceManager Devices to list")
-        // add all devices under device manager to registereddevice att.
-        // associate input deviceMgr with registeredDevices
-        addDeviceMgrDevices (deviceMgr);
-
-        LOG_TRACE(DomainManager_impl, "Adding DeviceManager Services to list");
-        // add all services under device manager to registeredservices
-        // associate input deviceMgr with registeredservices
-        // TODO RENABLE
-        //addDeviceMgrServices (deviceMgr);
-
         LOG_TRACE(DomainManager_impl, "Getting connections from DeviceManager DCD");
-
-
         DeviceManagerConfiguration dcdParser;
         try {
             CF::FileSystem_var devMgrFileSys = deviceMgr->fileSys();
@@ -1095,7 +957,7 @@ throw (CORBA::SystemException, CF::InvalidObjectReference, CF::InvalidProfile,
         }
         try {
             db.store("CONNECTIONS", _connectionManager.getConnections());
-        } catch (ossie::PersistenceException& ex) {
+        } catch (const ossie::PersistenceException& ex) {
             LOG_ERROR(DomainManager_impl, "Error persisting change to device manager connections");
         }
     } catch ( std::exception& ex ) {
@@ -1117,16 +979,6 @@ throw (CORBA::SystemException, CF::InvalidObjectReference, CF::InvalidProfile,
     }
 
     LOG_TRACE(DomainManager_impl, "Leaving DomainManager::registerDeviceManager");
-    //NOTE: The SCA V2.2 describes that all service connections should be established at this point.
-    //That step has been performed by the registerDevice operation (called by addDeviceMgrDevices) and by
-    //registerService ( called by addDeviceMgrServices).
-    //The registerDevice function establish all the connections required for the registering device and stores
-    //any connection when the requested service is not registered yet.
-    //The registerService function will establish any pending connection with the registering service.
-    //These two functions together will establish all service connections required.
-
-    //Note: In the event of an internal error that prevents the deviceMgr registration from success, the
-    //RegisterError exception should be raised and a FAILURE_ALARM log record written to a DomainManager's Log
 }
 
 
@@ -1148,10 +1000,8 @@ DomainManager_impl::addDeviceMgr (CF::DeviceManager_ptr deviceMgr)
 
         try {
             db.store("DEVICE_MANAGERS", _registeredDeviceManagers);
-        } catch ( ossie::PersistenceException& ex) {
+        } catch (const ossie::PersistenceException& ex) {
             LOG_ERROR(DomainManager_impl, "Error persisting change to device managers");
-        } catch ( std::exception& ex ) {
-            LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" persisting the device managers")
         }
     }
     TRACE_EXIT(DomainManager_impl)
@@ -1174,53 +1024,8 @@ void DomainManager_impl::addDomainMgr (CF::DomainManager_ptr domainMgr)
             db.store("DOMAIN_MANAGERS", _registeredDomainManagers);
         } catch (const ossie::PersistenceException& ex) {
             LOG_ERROR(DomainManager_impl, "Error persisting change to domain managers");
-        } catch (const std::exception& ex) {
-            LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" persisting the domain managers");
         }
     }
-    TRACE_EXIT(DomainManager_impl)
-}
-
-
-void
-DomainManager_impl::addDeviceMgrDevices (CF::DeviceManager_ptr deviceMgr)
-{
-    TRACE_ENTER(DomainManager_impl)
-    boost::recursive_mutex::scoped_lock lock(stateAccess);
-
-    CF::DeviceSequence_var devices = deviceMgr->registeredDevices();
-
-//Call registerDevice for each device in the DeviceMgr
-    for (unsigned int i = 0; i < devices->length (); i++) {
-        CF::Device_ptr _dev = devices[i];
-        _local_registerDevice (_dev, deviceMgr);
-    }
-//The registerDevice operation will try to establish any service connections specified in the
-//deviceMgr's DCD for each device.
-    TRACE_EXIT(DomainManager_impl)
-}
-
-
-void
-DomainManager_impl::addDeviceMgrServices (CF::DeviceManager_ptr deviceMgr)
-{
-    TRACE_ENTER(DomainManager_impl)
-    boost::recursive_mutex::scoped_lock lock(stateAccess);
-
-    CF::DeviceManager::ServiceSequence_var services = deviceMgr->registeredServices();
-
-//Call registerService for each service in the DeviceMgr
-    for (unsigned int i = 0; i < services->length (); i++ ) {
-        CF::DeviceManager::ServiceType _serv = services[i];
-        _local_registerService ( _serv.serviceObject, deviceMgr, _serv.serviceName);
-    }
-
-//The registerDeviceManager operation shall add the input deviceMgr's registeredServices and
-//each registeredService's names to the DomainManager. The registerDeviceManager operation
-//associates the input deviceMgr's with the input deviceMgr's registeredServices in the
-//DomainManager in order to support the unregisterDeviceManager operation.
-
-//Note: The registerService operation will establish any pending connection for the registering service
     TRACE_EXIT(DomainManager_impl)
 }
 
@@ -1267,7 +1072,7 @@ throw (CORBA::SystemException, CF::InvalidObjectReference,
         _local_unregisterDeviceManager(devMgrIter);
     } CATCH_LOG_ERROR(DomainManager_impl, "Exception unregistering device manager");
 
-    ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _configuration.getID(), identifier.c_str(), label.c_str(),
+    ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _identifier.c_str(), identifier.c_str(), label.c_str(),
                                   StandardEvent::DEVICE_MANAGER, proxy_consumer);
 }
 
@@ -1284,12 +1089,8 @@ ossie::DeviceManagerList::iterator DomainManager_impl::_local_unregisterDeviceMa
     _connectionManager.deviceManagerUnregistered(deviceManager->identifier);
     try {
         db.store("CONNECTIONS", _connectionManager.getConnections());
-    } catch (ossie::PersistenceException& ex) {
+    } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting change to device manager connections");
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" persisting the connections")
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" persisting the connections")
     }
 
     // Release all devices and services, which may break connections from other
@@ -1368,12 +1169,8 @@ ossie::DeviceManagerList::iterator DomainManager_impl::removeDeviceManager (ossi
     deviceManager = _registeredDeviceManagers.erase(deviceManager);
     try {
         db.store("DEVICE_MANAGERS", _registeredDeviceManagers);
-    } catch ( ossie::PersistenceException& ex) {
+    } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting change to device managers");
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" persisting the device managers")
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" persisting the device managers")
     }
 
     return deviceManager;
@@ -1388,24 +1185,16 @@ throw (CORBA::SystemException, CF::InvalidObjectReference, CF::InvalidProfile,
        CF::DomainManager::RegisterError)
 {
     boost::mutex::scoped_lock lock(interfaceAccess);
-    try {
-        _local_registerDevice(registeringDevice, registeredDeviceMgr);
-    } catch ( ... ) {
-        throw;
-    }
+    _local_registerDevice(registeringDevice, registeredDeviceMgr);
 
     CORBA::String_var identifier = registeringDevice->identifier();
     CORBA::String_var label = registeringDevice->label();
-    ossie::sendObjectAddedEvent(DomainManager_impl::__logger, _configuration.getID(), identifier, label,
+    ossie::sendObjectAddedEvent(DomainManager_impl::__logger, _identifier.c_str(), identifier, label,
             registeringDevice, StandardEvent::DEVICE, proxy_consumer);
 }
 
-void
-DomainManager_impl::_local_registerDevice (CF::Device_ptr registeringDevice,
-                                    CF::DeviceManager_ptr registeredDeviceMgr)
-throw (CORBA::SystemException, CF::InvalidObjectReference, CF::InvalidProfile,
-       CF::DomainManager::DeviceManagerNotRegistered,
-       CF::DomainManager::RegisterError)
+void DomainManager_impl::_local_registerDevice (CF::Device_ptr registeringDevice,
+                                                CF::DeviceManager_ptr registeredDeviceMgr)
 {
     TRACE_ENTER(DomainManager_impl)
     boost::recursive_mutex::scoped_lock lock(stateAccess);
@@ -1443,16 +1232,6 @@ throw (CORBA::SystemException, CF::InvalidObjectReference, CF::InvalidProfile,
 
 //Add registeringDevice and its attributes to domain manager
     storeDeviceInDomainMgr (registeringDevice, registeredDeviceMgr);
-        /*writeLogRecord(FAILURE_ALARM,the registeringDevice has an invalid profile.); */
-        // TODO
-//The registerDevice operation shall raise the CF InvalidProfile exception when:
-//      1. The Device's SPD file and the SPD's referenced files do not exist or cannot be processed
-//      due to the file not being compliant with XML syntax, or
-//      2. The Device's SPD does not reference allocation properties.
-//              throw( CF::InvalidProfile() );
-//        throw CF::InvalidProfile ();
-//    }
-
 
 //Check the DCD for connections and establish them
     try {
@@ -1460,12 +1239,8 @@ throw (CORBA::SystemException, CF::InvalidObjectReference, CF::InvalidProfile,
         _connectionManager.deviceRegistered(devId.c_str());
         try {
             db.store("CONNECTIONS", _connectionManager.getConnections());
-        } catch (ossie::PersistenceException& ex) {
+        } catch (const ossie::PersistenceException& ex) {
             LOG_ERROR(DomainManager_impl, "Error persisting change to device manager connections");
-        } catch ( std::exception& ex ) {
-            LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" while persisting the connections")
-        } catch ( const CORBA::Exception& ex ) {
-            LOG_ERROR(DomainManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while persisting the connections")
         }
     } catch ( ... ) {
         LOG_ERROR(DomainManager_impl, "Service connections could not be established")
@@ -1524,12 +1299,8 @@ void DomainManager_impl::storeDeviceInDomainMgr (CF::Device_ptr registeringDevic
 
     try {
         db.store("DEVICES", _registeredDevices);
-    } catch ( ossie::PersistenceException& ex) {
+    } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting change to device managers");
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" while persisting the device managers")
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while persisting the device managers")
     }
 
     TRACE_EXIT(DomainManager_impl)
@@ -1566,12 +1337,8 @@ DomainManager_impl::storeServiceInDomainMgr (CORBA::Object_ptr registeringServic
     _registeredServices.push_back(node);
     try {
         db.store("SERVICES", _registeredServices);
-    } catch (ossie::PersistenceException& ex) {
+    } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting change to services");
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" while persisting the services")
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while persisting the services")
     }
 }
 
@@ -1607,52 +1374,31 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
     _connectionManager.deviceUnregistered((*deviceNode)->identifier);
     try {
         db.store("CONNECTIONS", _connectionManager.getConnections());
-    } catch (ossie::PersistenceException& ex) {
+    } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting change to device manager connections");
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" while persisting the connections")
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while persisting the connections")
     }
 
     try {
-
+        const std::string device_id = (*deviceNode)->identifier;
         // Release all applications that are using this device
         // THIS BEHAVIOR ISN'T SPECIFIED IN SCA, BUT IT MAKES GOOD SENSE
-        bool done = false;
-        unsigned int startCounter = 0;
-        while ((!done) and (_applications.length() > 0)) {  // this additional loop is needed to make sure that the application sequence is correctly managed
-            for (unsigned int i = startCounter; i < _applications.length(); i++) {
-                CF::Application_ptr app = _applications[i];
-                if (CORBA::is_nil(app)) {
-                    if (i == (_applications.length()-1)) {
-                        done = true;
-                    }
-                    startCounter++;
-                    continue;
-                }
-
-                CF::DeviceAssignmentSequence_var compDevices = app->componentDevices();
-                bool foundMatch = false;
-                for  (unsigned int j = 0; j < compDevices->length(); j++) {
-                    if (strcmp((*deviceNode)->identifier.c_str(), compDevices[j].assignedDeviceId) == 0) {
-                        LOG_WARN(DomainManager_impl, "Releasing application that depends on registered device " << (*deviceNode)->identifier)
-                        app->releaseObject();
-                        foundMatch = true;
-                        break;  // No need to call releaseObject twice
-                    }
-                }
-                if (foundMatch) {
-                    startCounter--;
-                    if (startCounter > _applications.length())
-                        startCounter = 0;
+        std::vector<Application_impl*> releasedApps;
+        for (ApplicationTable::iterator app = _applications.begin(); app != _applications.end(); ++app) {
+            CF::DeviceAssignmentSequence_var compDevices = app->second->componentDevices();
+            for (unsigned int j = 0; j < compDevices->length(); j++) {
+                if (device_id == (const char*)compDevices[j].assignedDeviceId) {
+                    app->second->_add_ref();
+                    releasedApps.push_back(app->second);
                     break;
                 }
-                if (i == (_applications.length()-1)) {
-                    startCounter++;
-                    done = true;
-                }
             }
+        }
+
+        for (std::vector<Application_impl*>::iterator iter = releasedApps.begin(); iter != releasedApps.end(); ++iter) {
+            LOG_WARN(DomainManager_impl, "Releasing application that depends on registered device " << (*deviceNode)->identifier);
+            Application_impl* app = *iter;
+            app->releaseObject();
+            app->_remove_ref();
         }
 
 
@@ -1660,7 +1406,7 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
 
     // Sent event here (as opposed to unregisterDevice), so we see the event on regular
     // unregisterDevice calls, and on cleanup (deviceManager shutdown, catastropic cleanup, etc.)
-    ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _configuration.getID(), (*deviceNode)->identifier.c_str(), (*deviceNode)->label.c_str(),
+    ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _identifier.c_str(), (*deviceNode)->identifier.c_str(), (*deviceNode)->label.c_str(),
                                   StandardEvent::DEVICE, proxy_consumer);
 
     // Remove the device from the internal list.
@@ -1669,12 +1415,8 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
     // Write the updated device list to the persistence store.
     try {
         db.store("DEVICES", _registeredDevices);
-    } catch ( ossie::PersistenceException& ex) {
+    } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting change to devices");
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following standard exception occurred: "<<ex.what()<<" while persisting the devices")
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DomainManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while persisting the devices")
     }
     TRACE_EXIT(DomainManager_impl);
     return deviceNode;
@@ -1745,27 +1487,19 @@ throw (CORBA::SystemException, CF::InvalidProfile, CF::InvalidFileName,
        CF::DomainManager::ApplicationInstallationError, CF::DomainManager::ApplicationAlreadyInstalled)
 {
     boost::mutex::scoped_lock lock(interfaceAccess);
-    try {
-        _local_installApplication(profileFileName);
-    } catch ( ... ) {
-        throw;
-    }
+    _local_installApplication(profileFileName);
 
-    for (unsigned int i=0; i<_applicationFactories.length(); i++) {
-        CORBA::String_var softwareProfile = _applicationFactories[i]->softwareProfile();
-        if (!strcmp(profileFileName, softwareProfile)) {
-            CORBA::String_var identifier = _applicationFactories[i]->identifier();
-            CORBA::String_var name =_applicationFactories[i]->name();
-            ossie::sendObjectAddedEvent(DomainManager_impl::__logger, _configuration.getID(), identifier, name, _applicationFactories[i],
-                                        StandardEvent::APPLICATION_FACTORY, proxy_consumer);
-        }
+    ApplicationFactoryTable::iterator appFact = _applicationFactories.find(profileFileName);
+    if (appFact != _applicationFactories.end()) {
+        CORBA::String_var identifier = appFact->first.c_str();
+        CORBA::String_var name = appFact->second->name();
+        CF::ApplicationFactory_var appFactRef = appFact->second->_this();
+        ossie::sendObjectAddedEvent(DomainManager_impl::__logger, _identifier.c_str(), identifier, name, appFactRef,
+                                    StandardEvent::APPLICATION_FACTORY, proxy_consumer);
     }
 }
 
-void
-DomainManager_impl::_local_installApplication (const char* profileFileName)
-throw (CORBA::SystemException, CF::InvalidProfile, CF::InvalidFileName,
-       CF::DomainManager::ApplicationInstallationError, CF::DomainManager::ApplicationAlreadyInstalled)
+void DomainManager_impl::_local_installApplication (const char* profileFileName)
 {
     TRACE_ENTER(DomainManager_impl)
     boost::recursive_mutex::scoped_lock lock(stateAccess);
@@ -1783,9 +1517,7 @@ throw (CORBA::SystemException, CF::InvalidProfile, CF::InvalidFileName,
 
         LOG_INFO(DomainManager_impl, "Installing application " << profileFileName);
         this->validate (profileFileName);
-
-/// \todo verify that SAD conforms to DTD by allowing parser to throw an exception
-//               then the DomainManager throws a CF::InvalidProfile if the SAD does not conform
+        
         LOG_TRACE(DomainManager_impl, "Parsing SAD file");
         try {
             File_stream _sad(_fileMgr, profileFileName);
@@ -1799,20 +1531,13 @@ throw (CORBA::SystemException, CF::InvalidProfile, CF::InvalidFileName,
             throw(CF::DomainManager::ApplicationInstallationError());
         }
 
-// check if application factory already exists for this profile
-        try {
-            LOG_TRACE(DomainManager_impl, "Installing application ID " << sadParser.getID());
-            for (unsigned int i = 0; i < _installedApplications.size(); i++) {
-                if (!strcmp(sadParser.getID (), _installedApplications[i].identifier.c_str())) {
-                    LOG_INFO(DomainManager_impl, "Application "<<sadParser.getName()<<" with id " << sadParser.getID() << " already installed (Application Factory already exists)")
-                    throw(CF::DomainManager::ApplicationAlreadyInstalled());
-                }
-            }
-        } catch (CF::DomainManager::ApplicationAlreadyInstalled &) {
-            throw;
-        } catch ( ... ) {
-            LOG_ERROR(DomainManager_impl, "[DomainManager::installApplication] Unable to determine if application is already installed");
-            throw(CF::DomainManager::ApplicationInstallationError());
+        // Check if application factory already exists for this profile
+        const std::string appFactoryId = sadParser.getID();
+        LOG_TRACE(DomainManager_impl, "Installing application ID " << appFactoryId);
+        if (_applicationFactories.count(appFactoryId)) {
+            LOG_INFO(DomainManager_impl, "Application " << sadParser.getName() << " with id " << sadParser.getID()
+                     << " already installed (Application Factory already exists)");
+            throw CF::DomainManager::ApplicationAlreadyInstalled();
         }
 
         LOG_TRACE(DomainManager_impl, "Loading component placements");
@@ -1827,26 +1552,17 @@ throw (CORBA::SystemException, CF::InvalidProfile, CF::InvalidFileName,
             ++_iterator;
         }
         LOG_TRACE(DomainManager_impl, "installApplication: Adding new AppFac");
-        ApplicationFactory_impl* appFact = new ApplicationFactory_impl (profileFileName, &_applications, this->_domainName, this->_fullDomainManagerName, this);
-        CORBA::String_var appFactId_obj = appFact->identifier();
-        std::string appFactoryId = _domainName + "/" + static_cast<char*>(appFactId_obj);
-        PortableServer::ObjectId_var oid = ossie::corba::activatePersistentObject(appFact_poa, appFact, appFactoryId);
-        appFact->_remove_ref(); // The POA now holds our servant reference
-
-        ApplicationFactoryNode appFactNode;
-        appFactNode.servant_id = appFact_poa->servant_to_id(appFact);
-        appFactNode.profile = profileFileName;
-        appFactNode.identifier = appFactId_obj;
-        _installedApplications.push_back(appFactNode);
+        ApplicationFactory_impl* appFact = new ApplicationFactory_impl(profileFileName, this->_domainName, this);
+        std::string activationId = _domainName + "/" + appFactoryId;
+        PortableServer::ObjectId_var oid = ossie::corba::activatePersistentObject(appFact_poa, appFact, activationId);
+        _applicationFactories[appFactoryId] = appFact;
+        _installedApplications.insert(profileFileName);
 
         try {
             db.store("APP_FACTORIES", _installedApplications);
-        } catch ( ossie::PersistenceException& ex) {
+        } catch (const ossie::PersistenceException& ex) {
             LOG_ERROR(DomainManager_impl, "Error persisting change to device managers");
         }
-
-        _applicationFactories.length(_applicationFactories.length() + 1);
-        _applicationFactories[_applicationFactories.length() - 1] = appFact->_this();
     } catch (CF::FileException& ex) {
         LOG_ERROR(DomainManager_impl, "installApplication: While validating the SAD profile: " << ex.msg);
         throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
@@ -1885,26 +1601,18 @@ throw (CORBA::SystemException, CF::DomainManager::InvalidIdentifier,
     std::string appFactory_id;
     std::string appFactory_name;
 
-    for (unsigned int i=0; i<_applicationFactories.length(); i++) {
-        CORBA::String_var identifier = _applicationFactories[i]->identifier();
-        if (!strcmp(applicationId, identifier)) {
-            appFactory_id = ossie::corba::returnString(_applicationFactories[i]->identifier());
-            appFactory_name = ossie::corba::returnString(_applicationFactories[i]->name());
-            break;
-        }
+    ApplicationFactoryTable::iterator appFact = _applicationFactories.find(applicationId);
+    if (appFact != _applicationFactories.end()) {
+        appFactory_id = appFact->first;
+        appFactory_name = ossie::corba::returnString(appFact->second->name());
     }
 
-    try {
-        _local_uninstallApplication(applicationId);
-    } catch ( ... ) {
-        throw;
-    }
+    _local_uninstallApplication(applicationId);
 
         // if SUCCESS, write an ADMINISTRATIVE_EVENT to the DomainMgr's Log
 
         // send event to Outgoing Domain Management channel consisting of:
         // DomainManager identifier attribute
-        // this->_configuration.getID()
         // uninstalled AppFactory identifier
         // sadParser.getId()
         // uninstalled AppFactory name
@@ -1914,68 +1622,40 @@ throw (CORBA::SystemException, CF::DomainManager::InvalidIdentifier,
         // sourceCategory = APPLICATION_FACTORY
         // StandardEvent enumeration
 
-        ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _configuration.getID(), appFactory_id.c_str(), appFactory_name.c_str(),
+        ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _identifier.c_str(), appFactory_id.c_str(), appFactory_name.c_str(),
         StandardEvent::APPLICATION_FACTORY, proxy_consumer);
 }
 
-void
-DomainManager_impl::_local_uninstallApplication (const char* applicationId)
-throw (CORBA::SystemException, CF::DomainManager::InvalidIdentifier,
-       CF::DomainManager::ApplicationUninstallationError)
+void DomainManager_impl::_local_uninstallApplication (const char* applicationId)
 {
-    TRACE_ENTER(DomainManager_impl)
+    TRACE_ENTER(DomainManager_impl);
     boost::recursive_mutex::scoped_lock lock(stateAccess);
 
-// NOTE: applicationId is the value of the <softwareassembly> name attribute
-//               for the App Factory's SAD profile
-    try {
-        bool foundAppFactoryNode = false;
-        for (std::vector<ApplicationFactoryNode>::iterator appFactNode = _installedApplications.begin();
-         appFactNode != _installedApplications.end();
-         ++appFactNode) {
-            const char * appFactoryId = appFactNode->identifier.c_str();
-            if (strcmp(applicationId, appFactoryId) == 0) {
-                bool shift = false;
-                for (size_t i = 0; i < _applicationFactories.length() - 1; i++) {
-                    std::string appFactId = ossie::corba::returnString(_applicationFactories[i]->identifier());
-                    if (appFactId ==  applicationId) {
-                        shift = true;
-                    }
-                    if (shift) {
-                        _applicationFactories[i] = _applicationFactories[i + 1];
-                    }
-                }
-                foundAppFactoryNode = true;
-                appFact_poa->deactivate_object(appFactNode->servant_id);
-                _installedApplications.erase(appFactNode);
-
-                // Eliminate the application factory from the applicationFactory sequence
-                _applicationFactories[_applicationFactories.length() - 1] = CF::ApplicationFactory::_nil();
-                _applicationFactories.length(_applicationFactories.length() - 1);
-                break;
-            }
-        }
-
-        if (not foundAppFactoryNode) {
-            LOG_ERROR(DomainManager_impl, "ApplicationFactory not found")
-            throw CF::DomainManager::InvalidIdentifier ();
-        }
-
-
-        try {
-            db.store("APP_FACTORIES", _installedApplications);
-        } catch ( ossie::PersistenceException& ex) {
-            LOG_ERROR(DomainManager_impl, "Error persisting change to device managers");
-        }
-
-         TRACE_EXIT(DomainManager_impl)
-    } catch (const CF::DomainManager::InvalidIdentifier& ex) {
-         TRACE_EXIT(DomainManager_impl)
-        throw;
-    } catch (...) {
-         TRACE_EXIT(DomainManager_impl)
-        throw CF::DomainManager::ApplicationUninstallationError (CF::CF_NOTSET, "unknown exception");
+    // Find the factory in the table, which also validates the identifier
+    ApplicationFactoryTable::iterator appFact = _applicationFactories.find(applicationId);
+    if (appFact == _applicationFactories.end()) {
+        TRACE_EXIT(DomainManager_impl);
+        throw CF::DomainManager::InvalidIdentifier();
     }
+
+    // Update the persistence database
+    const std::string sad_file = ossie::corba::returnString(appFact->second->softwareProfile());
+    _installedApplications.erase(sad_file);
+    try {
+        db.store("APP_FACTORIES", _installedApplications);
+    } catch (const ossie::PersistenceException& ex) {
+        LOG_ERROR(DomainManager_impl, "Error persisting change to installed applications");
+    }
+
+    // Deactivate the servant
+    PortableServer::ObjectId_var oid = appFact_poa->servant_to_id(appFact->second);
+    appFact_poa->deactivate_object(oid);
+
+    // Remove the servant from the list and clean up the reference
+    _applicationFactories.erase(appFact);
+    appFact->second->_remove_ref();
+
+    TRACE_EXIT(DomainManager_impl);
 }
 
 void DomainManager_impl::updateLocalAllocations(const ossie::AllocationTable& localAllocations)
@@ -1983,7 +1663,7 @@ void DomainManager_impl::updateLocalAllocations(const ossie::AllocationTable& lo
     TRACE_ENTER(DomainManager_impl)
     try {
         db.store("LOCAL_ALLOCATIONS", localAllocations);
-    } catch ( ossie::PersistenceException& ex) {
+    } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting local allocations");
     }
     TRACE_EXIT(DomainManager_impl)
@@ -1994,7 +1674,7 @@ void DomainManager_impl::updateRemoteAllocations(const ossie::RemoteAllocationTa
     TRACE_ENTER(DomainManager_impl)
     try {
         db.store("REMOTE_ALLOCATIONS", remoteAllocations);
-    } catch ( ossie::PersistenceException& ex) {
+    } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting remote allocation");
     }
     TRACE_EXIT(DomainManager_impl)
@@ -2009,44 +1689,26 @@ DomainManager_impl::addApplication(Application_impl* new_app)
     LOG_TRACE(DomainManager_impl, "Attempting to add application to AppSeq with id: " << ossie::corba::returnString(new_app->identifier()));
 
     try {
-        long old_length = _applications.length();
-        _applications.length(old_length + 1);
-        CF::Application_var appobj = new_app->_this();
-        _applications[old_length] = CF::Application::_duplicate(appobj);
+        const std::string identifier = ossie::corba::returnString(new_app->identifier());
+        _applications[identifier] = new_app;
+        new_app->_add_ref();
 
         ApplicationNode appNode;
         appNode.name = ossie::corba::returnString(new_app->name());
         appNode.identifier = ossie::corba::returnString(new_app->identifier());
         appNode.profile = ossie::corba::returnString(new_app->profile());
         appNode.contextName = new_app->_waveformContextName;
-        appNode.contextIOR = ossie::corba::objectToString(new_app->_WaveformContext);
+        appNode.context = CosNaming::NamingContext::_duplicate(new_app->_waveformContext);
         appNode.componentDevices = new_app->_componentDevices;
-        appNode.componentNamingContexts = new_app->appComponentNamingContexts;
-        appNode.componentProcessIds = new_app->appComponentProcessIds;
-        appNode.componentImplementations = new_app->appComponentImplementations;
+        appNode.components = new_app->_components;
         appNode.assemblyController = CF::Resource::_duplicate(new_app->assemblyController);
-        appNode._startOrder = new_app->_appStartSeq;
-        appNode.componentIORS.resize(0);
+        appNode.componentRefs.clear();
         for (unsigned int i = 0; i < new_app->_appStartSeq.size(); ++i) {
-            appNode.componentIORS.push_back(ossie::corba::objectToString(new_app->_appStartSeq[i]));
+            appNode.componentRefs.push_back(CF::Resource::_duplicate(new_app->_appStartSeq[i]));
         }
-        appNode.fileTable = new_app->_fileTable;
         appNode.allocationIDs = new_app->_allocationIDs;
-        //appNode.allocPropsTable = new_app->_allocPropsTable;
         appNode.connections = new_app->_connections;
-        //appNode.usesDeviceCapacities = new_app->_usesDeviceCapacities;
-        appNode._registeredComponents.length(new_app->_registeredComponents.length());
-        for (unsigned int i=0; i<appNode._registeredComponents.length(); i++) {
-            ComponentNode compNode;
-            compNode.identifier = new_app->_registeredComponents[i].identifier;
-            compNode.softwareProfile = new_app->_registeredComponents[i].softwareProfile;
-            compNode.ior = ossie::corba::objectToString(new_app->_registeredComponents[i].componentObject);
-            appNode.components.push_back(compNode);
-            appNode._registeredComponents[i].identifier = CORBA::string_dup(new_app->_registeredComponents[i].identifier);
-            appNode._registeredComponents[i].softwareProfile = CORBA::string_dup(new_app->_registeredComponents[i].softwareProfile);
-            appNode._registeredComponents[i].type = new_app->_registeredComponents[i].type;
-            appNode._registeredComponents[i].componentObject = CORBA::Object::_duplicate(new_app->_registeredComponents[i].componentObject);
-        }
+        appNode.trusted_application = new_app->_isTrusted;
         appNode.ports = new_app->_ports;
         // Adds external properties
         for (std::map<std::string, std::pair<std::string, CF::Resource_ptr> >::const_iterator it = new_app->_properties.begin();
@@ -2060,9 +1722,12 @@ DomainManager_impl::addApplication(Application_impl* new_app)
 
         _runningApplications.push_back(appNode);
 
+        // Make any deferred connections dependent on this application
+        _connectionManager.applicationRegistered(identifier);
+
         try {
             db.store("APPLICATIONS", _runningApplications);
-        } catch ( ossie::PersistenceException& ex) {
+        } catch (const ossie::PersistenceException& ex) {
             LOG_ERROR(DomainManager_impl, "Error persisting change to device managers");
         }
     } catch (...) {
@@ -2085,55 +1750,28 @@ DomainManager_impl::removeApplication(std::string app_id)
 
     LOG_TRACE(DomainManager_impl, "Attempting to remove application from AppSeq with id: " << app_id)
 
-    unsigned long old_length = _applications.length();
-    unsigned long index_found_app;
-    bool found_index = false;
+    ApplicationTable::iterator app = _applications.find(app_id);
+    // remove the application from the sequence
+    if (app != _applications.end()) {
+        // Break dependent connections
+        _connectionManager.applicationUnregistered(app_id);
 
-    try {
-        // find app to remove
-        for (unsigned long i=0; i < old_length; i++) {
-            if (ossie::corba::returnString(_applications[i]->identifier()) == app_id) {
-                index_found_app = i;
-                found_index = true;
+        app->second->_remove_ref();
+        _applications.erase(app);
+
+        // Remove the application node as well, then reserialize.
+        for (std::vector<ApplicationNode>::iterator ii = _runningApplications.begin(); ii != _runningApplications.end(); ++ii) {
+            if (ii->identifier == app_id) {
+                _runningApplications.erase(ii);
                 break;
             }
         }
-    } catch (...) {
-        // don't need to output something here b/c
-        // we do it below if found_index == false
-    }
 
-    // remove the application from the sequence
-    if (found_index) {
         try {
-            for (unsigned long i = index_found_app; i < old_length - 1; i++) {
-                _applications[i] = _applications[i+1];
-            }
-            // now resize sequence
-            _applications.length(old_length - 1);
-
-            // Remove the application node as well, then reserialize.
-            for (std::vector<ApplicationNode>::iterator ii = _runningApplications.begin(); ii != _runningApplications.end(); ++ii) {
-                if (ii->identifier == app_id) {
-                    _runningApplications.erase(ii);
-                    break;
-                }
-            }
-
-            try {
-                db.store("APPLICATIONS", _runningApplications);
-            } catch ( ossie::PersistenceException& ex) {
-                LOG_ERROR(DomainManager_impl, "Error persisting change to device managers");
-            }
+            db.store("APPLICATIONS", _runningApplications);
+        } catch (const ossie::PersistenceException& ex) {
+            LOG_ERROR(DomainManager_impl, "Error persisting change to device managers");
         }
-        catch (...){
-            ostringstream eout;
-            eout << "Failed to remove application from AppSeq; ";
-            eout << " with application id: " << app_id << "; ";
-            eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
-            throw CF::DomainManager::ApplicationUninstallationError(CF::CF_EFAULT, eout.str().c_str());
-        }
-
     } else {
         ostringstream eout;
         eout << "Could find application in AppSeq; ";
@@ -2158,14 +1796,9 @@ throw (CORBA::SystemException, CF::InvalidObjectReference,
     _local_registerWithEventChannel(registeringObject, registeringId, eventChannelName);
 }
 
-void
-DomainManager_impl::_local_registerWithEventChannel (CORBA::
-                                              Object_ptr registeringObject,
-                                              const char* registeringId,
-                                              const char* eventChannelName)
-throw (CORBA::SystemException, CF::InvalidObjectReference,
-       CF::DomainManager::InvalidEventChannelName,
-       CF::DomainManager::AlreadyConnected)
+void DomainManager_impl::_local_registerWithEventChannel (CORBA::Object_ptr registeringObject,
+                                                          const char* registeringId,
+                                                          const char* eventChannelName)
 {
     TRACE_ENTER(DomainManager_impl)
     
@@ -2209,11 +1842,8 @@ throw (CORBA::SystemException, CF::DomainManager::InvalidEventChannelName,
     _local_unregisterFromEventChannel(unregisteringId, eventChannelName);
 }
 
-void
-DomainManager_impl::_local_unregisterFromEventChannel (const char* unregisteringId,
-                                                const char* eventChannelName)
-throw (CORBA::SystemException, CF::DomainManager::InvalidEventChannelName,
-       CF::DomainManager::NotConnected)
+void DomainManager_impl::_local_unregisterFromEventChannel (const char* unregisteringId,
+                                                            const char* eventChannelName)
 {
     TRACE_ENTER(DomainManager_impl)
     
@@ -2241,7 +1871,6 @@ void DomainManager_impl::registerService (CORBA::Object_ptr registeringService, 
 }
 
 void DomainManager_impl::_local_registerService (CORBA::Object_ptr registeringService, CF::DeviceManager_ptr registeredDeviceMgr, const char* name)
-    throw (CF::DomainManager::RegisterError, CF::DomainManager::DeviceManagerNotRegistered, CF::InvalidObjectReference, CORBA::SystemException)
 {
     TRACE_ENTER(DomainManager_impl)
     boost::recursive_mutex::scoped_lock lock(stateAccess);
@@ -2318,7 +1947,7 @@ void DomainManager_impl::_local_registerService (CORBA::Object_ptr registeringSe
     _connectionManager.serviceRegistered(name);
     try {
         db.store("CONNECTIONS", _connectionManager.getConnections());
-    } catch (ossie::PersistenceException& ex) {
+    } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting change to device manager connections");
     }
 
@@ -2334,7 +1963,7 @@ void DomainManager_impl::_local_registerService (CORBA::Object_ptr registeringSe
 //3. The sourceName shall be the input name parameter for the registering service.
 //4. The sourceIOR shall be the registered service object reference.
 //5. The sourceCategory shall be SERVICE.
-    ossie::sendObjectAddedEvent(DomainManager_impl::__logger, _configuration.getID(), serviceId.c_str(), name,
+    ossie::sendObjectAddedEvent(DomainManager_impl::__logger, _identifier.c_str(), serviceId.c_str(), name,
             registeringService, StandardEvent::SERVICE, proxy_consumer);
 
 //The registerService operation shall raise the RegisterError exception when an internal error
@@ -2374,7 +2003,7 @@ ossie::ServiceList::iterator DomainManager_impl::_local_unregisterService(ossie:
     _connectionManager.serviceUnregistered(service->name);
     try {
         db.store("CONNECTIONS", _connectionManager.getConnections());
-    } catch (ossie::PersistenceException& ex) {
+    } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting change to device manager connections");
     }
     
@@ -2384,40 +2013,32 @@ ossie::ServiceList::iterator DomainManager_impl::_local_unregisterService(ossie:
     // Remove the service from the internal list.
     service = _registeredServices.erase(service);
 
-    if (_applications.length() > 0) {
+    if (!_applications.empty()) {
         std::vector<Application_impl*> appsToRelease;
 
         PortableServer::POA_var dm_poa = ossie::corba::RootPOA()->find_POA("DomainManager", 0);
         PortableServer::POA_var poa = dm_poa->find_POA("Applications", 1);
 
-        for (CORBA::ULong ii = 0; ii < _applications.length(); ++ii) {
-            PortableServer::ServantBase* servant = poa->reference_to_servant(_applications[ii]);
-            if (!servant) {
-                LOG_DEBUG(DomainManager_impl, "No servant for application");
-                continue;
-            }
-            Application_impl* app = dynamic_cast<Application_impl*>(servant);
-            if (!app) {
-                LOG_DEBUG(DomainManager_impl, "Application servant has wrong class type");
-                continue;
-            }
-
-            if (app->checkConnectionDependency(ossie::Endpoint::SERVICENAME, serviceName)) {
-                appsToRelease.push_back(app);
+        for (ApplicationTable::iterator app = _applications.begin(); app != _applications.end(); ++app) {
+            if (app->second->checkConnectionDependency(ossie::Endpoint::SERVICENAME, serviceName)) {
+                app->second->_add_ref();
+                appsToRelease.push_back(app->second);
             }
         }
 
         LOG_DEBUG(DomainManager_impl, "Releasing " << appsToRelease.size() << " applications");
-        for (std::vector<Application_impl*>::iterator app = appsToRelease.begin(); app != appsToRelease.end(); ++app) {
-            LOG_DEBUG(DomainManager_impl, "Releasing " << ossie::corba::returnString((*app)->identifier()));
-            (*app)->releaseObject();
+        for (std::vector<Application_impl*>::iterator iter = appsToRelease.begin(); iter != appsToRelease.end(); ++iter) {
+            Application_impl* app = *iter;
+            LOG_DEBUG(DomainManager_impl, "Releasing " << ossie::corba::returnString(app->identifier()));
+            app->releaseObject();
+            app->_remove_ref();
         }
     }
 
     // Write the updated service list to the persistence store.
     try {
         db.store("SERVICES", _registeredServices);
-    } catch (ossie::PersistenceException& ex) {
+    } catch (const ossie::PersistenceException& ex) {
         LOG_ERROR(DomainManager_impl, "Error persisting change to services");
     }
 
@@ -2431,7 +2052,7 @@ ossie::ServiceList::iterator DomainManager_impl::_local_unregisterService(ossie:
     //4. The sourceCategory shall be SERVICE.
     // Sent event here (as opposed to unregisterDevice), so we see the event on regular
     // unregisterDevice calls, and on cleanup (deviceManager shutdown, catastropic cleanup, etc.)
-    ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _configuration.getID(), serviceId.c_str(), serviceName.c_str(),
+    ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _identifier.c_str(), serviceId.c_str(), serviceName.c_str(),
                                   StandardEvent::SERVICE, proxy_consumer);
 
     return service;
@@ -2469,8 +2090,6 @@ DomainManager_impl::validateSPD (const char* _spdProfile, int _cnt) throw (CF::D
         TRACE_EXIT(DomainManager_impl)
         return;
     }
-
-    /// \todo Figure out checks for xml conforming to dtd, through suitable exception if it doesn't. Possibly CF::InvalidProfile
 
     try {
         LOG_TRACE(DomainManager_impl, "Validating SPD " << _spdProfile);
@@ -2566,8 +2185,6 @@ DomainManager_impl::validateSPD (const char* _spdProfile, int _cnt) throw (CF::D
         } else {
             LOG_TRACE(DomainManager_impl, "No SCD file to validate")
         }
-
-        /// \todo Figure out if this should go: this->validateSPD( spdParser.getSPDFile(), ++_cnt );
 
     } catch (CF::InvalidFileName& ex) {
         LOG_ERROR(DomainManager_impl, "Failed to validate SPD due to " << ex.msg);
@@ -2740,6 +2357,11 @@ CORBA::Object_ptr DomainManager_impl::lookupDomainObject (const std::string& typ
         LOG_WARN(DomainManager_impl, "No service found for servicetype '" << name << "'");
     } else if (type == "domainmanager") {
         return _this();
+    } else if (type == "application") {
+        Application_impl* application = findApplicationById(name);
+        if (application) {
+            return application->_this();
+        }
     }
     return CORBA::Object::_nil();
 }
@@ -2894,9 +2516,21 @@ ossie::ServiceList::iterator DomainManager_impl::findServiceByType (const std::s
 }
 
 
+Application_impl* DomainManager_impl::findApplicationById (const std::string& identifier)
+{
+    boost::recursive_mutex::scoped_lock lock(stateAccess);
+
+    ApplicationTable::iterator application = _applications.find(identifier);
+    if (application == _applications.end()) {
+        return 0;
+    } else {
+        return application->second;
+    }
+}
+
+
 void DomainManager_impl::parseDeviceProfile (ossie::DeviceNode& node)
 {
-    // TODO: Exception handling
     CF::FileSystem_var devMgrFS = node.devMgr.deviceManager->fileSys();
 
     // Parse and cache the device's SPD

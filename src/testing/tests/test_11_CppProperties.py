@@ -121,7 +121,8 @@ class CppPropertiesTest(scatest.CorbaTestCase):
         self.assertEqual(len(self._domMgr._get_applicationFactories()), 2)
         self.assertEqual(len(self._domMgr._get_applications()), 1)
 
-        appFact = self._domMgr._get_applicationFactories()[1]
+        factories = dict((af._get_name(), af) for af in self._domMgr._get_applicationFactories())
+        appFact = factories['ticket_2093']
         app = appFact.create(appFact._get_name(), [], [])
 
         self.assertEqual(len(self._domMgr._get_applicationFactories()), 2)
