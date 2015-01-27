@@ -592,7 +592,7 @@ void setObjectCommFailureRetries (CORBA::Object_ptr obj, int numRetries)
       }
     } 
     catch(CosNaming::NamingContext::NotFound &ex) {
-      LNWARN( "Unbind", " NameContext : Name NotFound ");
+      LNWARN( "Unbind", " NameContext : Name NotFound name:" << name);
       retval=0;
     }
     catch(CosNaming::NamingContext::CannotProceed &ex) {
@@ -625,15 +625,15 @@ void setObjectCommFailureRetries (CORBA::Object_ptr obj, int numRetries)
     if(!CORBA::is_nil(orb->namingService) ) {
       try {
 	if ( namingContext == "" ) {
-	  LNDEBUG( "Unbind", " Use Root NamingContext ");
-	  ctx = orb->namingService;
+	  LNINFO( "Unbind", " Use Root NamingContext ");
+          return Unbind( name, orb->namingService );
 	}
 	else {
 	  LNDEBUG( "Bind", " LOOK UP NamingContext: " << namingContext  );
 	  orb->namingService->bind_context( cname, ctx );
+          LNINFO( "Unbind", " DIR: <" << namingContext << "> Name:" << name );
+          return Unbind( name, ctx );
 	}
-	LNDEBUG( "Unbind", " DIR: <" << namingContext << "> Name:" << name );
-	return Unbind( name, ctx );
       } catch(CosNaming::NamingContext::AlreadyBound& ex) {
 	LNDEBUG( "Unbind", " Already Bound NamingContext : " << namingContext  );
 	CORBA::Object_var tmp = orb->namingService->resolve(cname);
@@ -692,8 +692,8 @@ void setObjectCommFailureRetries (CORBA::Object_ptr obj, int numRetries)
     if(!CORBA::is_nil(orb->namingService) ) {
       try {
 	if ( namingContext == "" ) {
-	  LNDEBUG( "Bind", " Use Root NamingContext ");
-	  ctx = orb->namingService;
+          LNDEBUG( "Bind", " ROOT CONTEXT Name:" << name );
+          return Bind( name, obj, orb->namingService );
 	}
 	else {
 	  if ( create_nc ) {

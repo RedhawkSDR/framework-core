@@ -61,6 +61,7 @@ public:
                               CF::Application::ComponentProcessIdSequence* _procIdSequence,
                               std::vector<ossie::ConnectionNode>& connections,
                               std::map<std::string, std::string>& fileTable,
+                              ossie::SoftPkgList& softpkgList,
                               std::vector<std::string> allocationIDs);
 
     ~Application_impl ();
@@ -155,6 +156,7 @@ private:
     std::vector<ossie::ConnectionNode> _connections;
     std::vector<CF::Resource_ptr> _appStartSeq;
     std::map<std::string, std::string> _fileTable;
+    ossie::SoftPkgList                  _softpkgList;
     std::map<std::string, unsigned long> _pidTable;
     std::vector<std::string> _allocationIDs;
     /*std::map<std::string, std::vector<ossie::AllocPropsInfo> >_allocPropsTable;

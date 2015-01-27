@@ -786,11 +786,12 @@ class simpleProperty(Property):
         return _CORBA.Any(self.typecode, value)
 
     def __repr__(self, *args):
+        ret=''
         if self.mode != "writeonly":
             value = self.queryValue()
             if value != None:
-                print str(value),
-        return ''
+                ret=str(value)
+        return ret
         
     def __str__(self, *args):
         return self.__repr__()
@@ -1140,8 +1141,7 @@ class structProperty(Property):
         structView = "ID: " + self.id
         for key in currValue:
             structView = structView + '\n  ' + str(self.members[key].clean_name) + ": " + str(currValue[key])
-        print structView,
-        return ''
+        return structView
 
     def __getattr__(self, name):
         '''

@@ -62,6 +62,7 @@ void Application_impl::populateApplication(CF::Resource_ptr _controller,
                                            CF::Application::ComponentProcessIdSequence* _pidSeq,
                                            std::vector<ConnectionNode>& connections,
                                            std::map<std::string, std::string>& fileTable,
+                                           ossie::SoftPkgList  &softpkgList,
                                            std::vector<std::string> allocationIDs)
 {
     TRACE_ENTER(Application_impl)
@@ -720,6 +721,37 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
         }
         LOG_DEBUG(Application_impl, "Next component")
     }
+
+#if 0
+        //  Removes soft package dependencies when applications are released...This can potentially slow
+        // down deployments because we are cleaning up files that could be used again....e.g. the
+        // same waveform with dependencies is started and stopped and started..
+        //
+        ossie::SoftPkgList::iterator pkg = _softpkgList.begin();
+        for ( ;  pkg != _softpkgList.end(); pkg++ ) {
+          try {
+            if ( ossie::corba::objectExists(pkg->first) ) {
+              CF::LoadableDevice_ptr loadDev = CF::LoadableDevice::_narrow(pkg->first);
+              if ( CORBA::is_nil(loadDev) == false ) {
+                LOG_DEBUG(Application_impl, "Unload soft package dependency:" << pkg->second);
+                loadDev->unload(pkg->second.c_str());
+              }
+              else {
+                throw -1;
+              }
+            }
+            else {
+              throw -1;
+            }
+          }
+          catch(...) {
+            // issue warning the unload failed for soft pkg unload
+            LOG_WARN(Application_impl, "Unable to unload soft package dependency:" << pkg->second);
+          }
+          
+
+        }
+#endif
 
     // deallocate capacities
     try {

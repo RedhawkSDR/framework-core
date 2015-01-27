@@ -586,6 +586,32 @@ void createHelper::_cleanupLoadAndExecuteComponents()
         }
     }
 
+    // clean up soft package dependencies that were loaded...
+    ossie::SoftPkgList::iterator pkg = _softpkgList.begin();
+    for ( ;  pkg != _softpkgList.end(); pkg++ ) {
+      try {
+        if ( ossie::corba::objectExists(pkg->first) ) {
+          CF::LoadableDevice_ptr loadDev = CF::LoadableDevice::_narrow(pkg->first);
+          if ( CORBA::is_nil(loadDev) == false ) {
+            LOG_DEBUG(ApplicationFactory_impl, "Unload soft package dependency:" << pkg->second);
+            loadDev->unload(pkg->second.c_str());
+          }
+          else {
+            throw -1;
+          }
+        }
+        else {
+          throw -1;
+        }
+      }
+      catch(...) {
+        // issue warning the unload failed for soft pkg unload
+        LOG_WARN(ApplicationFactory_impl, "Unable to unload soft package dependency:" << pkg->second);
+      }
+          
+
+    }
+
     _cleanupAllocateDevices();
 }
 
@@ -685,6 +711,7 @@ void createHelper::initialize(void) {
 
     _pidSeq.length (0);
     _fileTable.clear();
+    _softpkgList.clear();
     _loadedComponentTable.clear();  // mapping of component id to 
                                     // filenames/device id tuple
     _runningComponentTable.clear(); // mapping of component id to 
@@ -1416,6 +1443,7 @@ throw (CORBA::SystemException,
                 &_pidSeq,
                 connections, 
                 _fileTable,
+                _softpkgList,
                 allocationIDs);
 
             // Activate the new Application servant, and let the POA manage its
@@ -2031,6 +2059,7 @@ bool createHelper::resolveSoftpkgDependencies(ossie::ImplementationInfo* impleme
             if (codeLocalFile.has_leaf() && codeLocalFile.leaf() == ".") {
                 codeLocalFile = codeLocalFile.branch_path();
             }
+            _softpkgList.push_back( SoftPkgLoad( loadableDevice, codeLocalFile.string().c_str()) );
             loadableDevice->load(_appFact._fileMgr, codeLocalFile.string().c_str(), codeType);
         } catch ( ... ) {
             return false;

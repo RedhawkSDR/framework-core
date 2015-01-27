@@ -496,6 +496,7 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
                                                   &(i->componentProcessIds),
                                                   i->connections,
                                                   i->fileTable,
+                                                  i->softpkgList,
                                                   i->allocationIDs);
 
                 // Recover and register components
@@ -2031,6 +2032,7 @@ DomainManager_impl::addApplication(Application_impl* new_app)
             appNode.componentIORS.push_back(ossie::corba::objectToString(new_app->_appStartSeq[i]));
         }
         appNode.fileTable = new_app->_fileTable;
+        appNode.softpkgList = new_app->_softpkgList;
         appNode.allocationIDs = new_app->_allocationIDs;
         //appNode.allocPropsTable = new_app->_allocPropsTable;
         appNode.connections = new_app->_connections;

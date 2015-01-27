@@ -410,22 +410,63 @@ class SBTestTest(scatest.CorbaTestCase):
         retval = sb.loadSADFile('sdr/dom/waveforms/SADUsesDeviceWave/SADUsesDeviceWaveConnectionDevUses.sad.xml')
         self.assertEquals(retval, True)
 
-    def test_loadSADFilePartialOverloadStruct(self):
-        # This tests partially overloading a struct or struct seq property in sad
+    def test_loadSADFilePartialOverrideStruct(self):
+        # This tests partially overriding a struct or struct seq property in sad
         retval = sb.loadSADFile('sdr/dom/waveforms/more_ticket_462/more_ticket_462.sad.xml')
         comp = sb.getComponent('another_ticket_462_1')
         self.assertNotEquals(comp, None)
         self.assertEquals(comp.simple_prop, "This is a string")
         self.assertEquals(comp.seq_prop, [9,8,7])
-        self.assertEquals(comp.struct_prop.prop_two, 'string overload')
+        self.assertEquals(comp.struct_prop.prop_two, 'string override')
         self.assertEquals(comp.struct_seq_prop[0].prop_five, 1)
         self.assertEquals(comp.struct_seq_prop[0].prop_six, 123.0)
         self.assertEquals(comp.struct_seq_prop[1].prop_four, "anotherString")
         self.assertEquals(comp.struct_seq_prop[1].prop_six, 345.0)
-        self.assertEquals(comp.struct_seq_prop[2].prop_four, "string_overload")
+        self.assertEquals(comp.struct_seq_prop[2].prop_four, "string_override")
         self.assertEquals(comp.struct_seq_prop[2].prop_five, 3)
         self.assertEquals(comp.struct_seq_prop[2].prop_six, 678.0)
         self.assertEquals(comp.struct_seq_prop[3].prop_six, 987.0)
+
+    def test_loadSADFileACPropertyWithDefaultValueOverride(self):
+        # Tests overriding a property in the sad file for an assembly controller property that has a default value
+        retval = sb.loadSADFile('sdr/dom/waveforms/ticket_cf_1066_wf/ticket_cf_1066_wf.sad.xml')
+        comp = sb.getComponent('ticket_cf_1066_comp_1')
+        self.assertNotEquals(comp, None)
+        self.assertEquals(comp.simple_prop, "This is a string")
+        self.assertEquals(comp.seq_prop, [9,8,7])
+        self.assertEquals(comp.struct_prop.prop_two, 'string override')
+        self.assertEquals(comp.struct_seq_prop[0].prop_five, 1)
+        self.assertEquals(comp.struct_seq_prop[0].prop_six, 123.0)
+        self.assertEquals(comp.struct_seq_prop[1].prop_four, "anotherString")
+        self.assertEquals(comp.struct_seq_prop[1].prop_six, 345.0)
+        self.assertEquals(comp.struct_seq_prop[2].prop_four, "string_override")
+        self.assertEquals(comp.struct_seq_prop[2].prop_five, 3)
+        self.assertEquals(comp.struct_seq_prop[2].prop_six, 678.0)
+        self.assertEquals(comp.struct_seq_prop[3].prop_six, 987.0)
+
+    def test_loadSADFileOverrideWithExecparam(self):
+        # Tests overriding a property in the sad file for a component that also has an execparam property
+        retval = sb.loadSADFile('sdr/dom/waveforms/ticket_cf_1067_wf/ticket_cf_1067_wf.sad.xml')
+        self.assertEquals(retval, True)
+        comp = sb.getComponent('ticket_cf_1067_comp_1')
+        self.assertNotEquals(comp, None)
+        self.assertEquals(comp.simple_exec_param, "default_value")
+
+    def test_loadSADFilePassingInOverrideOfExecparamWithOverrideInSadFile(self):
+        # Tests passing in an execparam property value for a property that is overridden in the sad file
+        retval = sb.loadSADFile('sdr/dom/waveforms/override_execparam_wf/override_execparam_wf.sad.xml',props={'simple_exec_param':'another_override_value'})
+        self.assertEquals(retval, True)
+        comp = sb.getComponent('ticket_cf_1067_comp_1')
+        self.assertNotEquals(comp, None)
+        self.assertEquals(comp.simple_exec_param, "another_override_value")
+
+    def test_loadSADFileMorePassingInOverrideOfExecparamWithDefaultValue(self):
+        # Tests overriding an execparam property for an assembly controller by passing value in, and the execparam is not overridden in the sad file 
+        retval = sb.loadSADFile('sdr/dom/waveforms/ticket_cf_1067_wf/ticket_cf_1067_wf.sad.xml',props={'simple_exec_param':'another_override_value'})
+        self.assertEquals(retval, True)
+        comp = sb.getComponent('ticket_cf_1067_comp_1')
+        self.assertNotEquals(comp, None)
+        self.assertEquals(comp.simple_exec_param, "another_override_value")
 
     def test_loadSADFileNoOverriddenProperties(self):
         retval = sb.loadSADFile('sdr/dom/waveforms/ticket_841_and_854/ticket_841_and_854.sad.xml')

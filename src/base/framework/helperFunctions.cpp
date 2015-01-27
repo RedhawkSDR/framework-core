@@ -85,6 +85,18 @@ std::string ossie::generateUUID()
 }
 
 
+std::string ossie::getCurrentDirName()
+{
+  std::string retval;
+  char *tdir = get_current_dir_name();
+  if ( tdir ) {
+    retval = tdir;
+    free(tdir);
+  }
+  return retval;
+}
+
+
 namespace ossie {
 
   namespace helpers {

@@ -933,6 +933,8 @@ class Domain(_CF__POA.DomainManager, object):
         self.NodeAlive = True
         self._waveformsUpdated = False
         self.location = location
+        self.__odmListener = None
+        self.__idmListener = None
         
         # create orb reference
         input_arguments = _sys.argv
@@ -1101,7 +1103,7 @@ class Domain(_CF__POA.DomainManager, object):
         if self.__odmListener:
             try:
                 self.__odmListener.disconnect()
-            except:
+            except Exception, e:
                 pass
 
         # Explictly disconnect IDM Listener to avoid warnings on shutdown

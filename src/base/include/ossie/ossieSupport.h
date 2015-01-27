@@ -110,6 +110,7 @@ namespace ossie
 
     void configureLogging(const char* logcfgUri, int defaultLevel);
 
+    std::string getCurrentDirName();
     std::string generateUUID();
 
     class ossieComponent

@@ -353,5 +353,11 @@ namespace ossie
         std::vector<ComponentInfo*> components;
         UsesDeviceInfo::List usesDevices;
     };
+
+
+
+    typedef std::pair< CF::Device_ptr, std::string >   SoftPkgLoad;
+    typedef std::vector< SoftPkgLoad >                 SoftPkgList;
+
 }
 #endif

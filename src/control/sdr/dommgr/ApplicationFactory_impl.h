@@ -196,6 +196,7 @@ private:
     
     CF::Application::ComponentProcessIdSequence _pidSeq;
     std::map<std::string, std::string>          _fileTable;
+    ossie::SoftPkgList                          _softpkgList;
 
     // mapping of component id to filenames/device id tuple
     std::map<std::string, std::pair<std::string, std::string> > _loadedComponentTable; 
