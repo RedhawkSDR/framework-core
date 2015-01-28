@@ -49,47 +49,11 @@ nobase_nodist_include_HEADERS = ossie/CF/jni_LogInterfaces.h \
 
 # Ensure that the headers get built first to avoid potential race conditions,
 # as many of the .cpp files depend on one or more other headers
-BUILT_SOURCES = $(nobase_nodist_include_HEADERS)
+BUILT_SOURCES = $(nobase_nodist_include_HEADERS) $(nodist_libossiecfjni_la_SOURCES)
 
 libossiecfjni_la_LIBADD = COS/libcosjni.la $(OMNICOS_LIBS) $(OSSIEIDL_LIBS) $(OMNIJNI_LIBS)
 
-BUILT_SOURCES = ossie/CF/jni_LogInterfaces.cpp \
-                ossie/CF/jni_cf.cpp \
-		ossie/CF/jni_AggregateDevices.cpp \
-		ossie/CF/jni_QueryablePort.cpp \
-		ossie/CF/jni_StandardEvent.cpp \
-		ossie/CF/jni_WellKnownProperties.cpp \
-		ossie/CF/jni_PortTypes.cpp \
-		ossie/CF/jni_ExtendedEvent.cpp \
-		ossie/CF/jni_sandbox.cpp \
-		ossie/CF/jni_LogInterfaces.h \
-		ossie/CF/jni_cf.h \
-		ossie/CF/jni_AggregateDevices.h \
-		ossie/CF/jni_QueryablePort.h \
-		ossie/CF/jni_StandardEvent.h \
-		ossie/CF/jni_WellKnownProperties.h \
-		ossie/CF/jni_PortTypes.h \
-		ossie/CF/jni_ExtendedEvent.h \
-		ossie/CF/jni_sandbox.h
-
-CLEANFILES    = ossie/CF/jni_LogInterfaces.cpp \
-                ossie/CF/jni_cf.cpp \
-		ossie/CF/jni_AggregateDevices.cpp \
-		ossie/CF/jni_QueryablePort.cpp \
-		ossie/CF/jni_StandardEvent.cpp \
-		ossie/CF/jni_WellKnownProperties.cpp \
-		ossie/CF/jni_PortTypes.cpp \
-		ossie/CF/jni_ExtendedEvent.cpp \
-		ossie/CF/jni_sandbox.cpp \
-		ossie/CF/jni_LogInterfaces.h \
-		ossie/CF/jni_cf.h \
-		ossie/CF/jni_AggregateDevices.h \
-		ossie/CF/jni_QueryablePort.h \
-		ossie/CF/jni_StandardEvent.h \
-		ossie/CF/jni_WellKnownProperties.h \
-		ossie/CF/jni_PortTypes.h \
-		ossie/CF/jni_ExtendedEvent.h \
-		ossie/CF/jni_sandbox.h
+CLEANFILES = $(BUILT_SOURCES)
 
 ossie/CF:
 	mkdir -p $@
