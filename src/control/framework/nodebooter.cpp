@@ -373,7 +373,7 @@ static void initializeDaemon (const std::string& user, const std::string& group,
     umask(0);
 
     // TODO: Should we change directory to SDRROOT instead?
-    chdir("/");
+    //chdir("/");
 
     // Redirect stdin, stdout and stderr to /dev/null.
     freopen("/dev/null", "r", stdin);

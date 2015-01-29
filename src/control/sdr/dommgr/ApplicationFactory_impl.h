@@ -212,7 +212,6 @@ private:
                            const CF::DeviceAssignmentSequence& deviceAssignments,
                            CapacityAllocationTable &appCapacities,
                            DeviceAssignmentList    &appAssignedDevices,
-                           ossie::SoftPkgList      &softpkgList,
                            bool cleanup=true );
 
     void allocateComponentToDevice(ossie::ComponentInfo* component,
@@ -230,16 +229,14 @@ private:
     bool resolveSoftpkgDependencies(
         ossie::ImplementationInfo* implementation, 
         CF::Device_ptr             device,
-        ossie::Properties&         devicePRF,
-        ossie::SoftPkgList         &softpkgList )
+        ossie::Properties&         devicePRF)
             throw (CF::ApplicationFactory::CreateApplicationError);
     
     bool checkImplementationDependencyMatch(
         ossie::ImplementationInfo&       implementation_1, 
         const ossie::ImplementationInfo& implementation_2, 
         CF::Device_ptr device,
-        ossie::Properties& devicePRF,
-        ossie::SoftPkgList& softpkgList );
+        ossie::Properties& devicePRF);
     
     void errorMsgAllocate(
         std::ostringstream&        eout, 

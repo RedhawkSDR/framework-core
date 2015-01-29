@@ -57,7 +57,6 @@ public:
     CORBA::ULong filePointer () throw (CORBA::SystemException) {return f.tellg(); };
     CORBA::ULong sizeOf ()throw (CF::FileException, CORBA::SystemException);
     CORBA::ULong _local_sizeOf ()throw (CF::FileException, CORBA::SystemException);
-    void setIOR( const std::string &ior );
 
 private:
     std::string fName;
@@ -65,6 +64,11 @@ private:
     std::fstream f;
     FileSystem_impl *ptrFs;
     boost::mutex interfaceAccess;
+
+ public:
+    void setIOR( const std::string &ior );
+
+ private:
     std::string fileIOR;
 };                                                /* END CLASS DEFINITION File */
 #endif                                            /* __FILE_IMPL__ */

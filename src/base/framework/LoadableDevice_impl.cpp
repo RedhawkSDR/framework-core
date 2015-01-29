@@ -541,12 +541,12 @@ void LoadableDevice_impl::_deleteTree(const std::string &fileKey)
     }
 
     // need to remove entries from list....
-    p=copiedFiles.equal_range(fileKey);
-    copiedFiles.erase( p.first, p.second );
+    //
+    copiedFiles.erase(fileKey);
 
 }
 
-void LoadableDevice_impl::_copyFile(CF::FileSystem_ptr fs, const std::string &remotePath, const std::string &localPath, const std::string &fileKey)
+void LoadableDevice_impl::_copyFile(CF::FileSystem_ptr fs, const std::string &remotePath,  const std::string &localPath, const std::string &fileKey)
 {
 
     CF::File_var fileToLoad = fs->open(remotePath.c_str(), true);
