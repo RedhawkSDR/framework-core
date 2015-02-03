@@ -2027,19 +2027,16 @@ class Domain(_CF__POA.DomainManager, object):
         self.location = location
         
         # create orb reference
-        input_arguments = _sys.argv
-        if location != None:
-            if len(_sys.argv) == 1:
-                if _sys.argv[0] == '':
-                    input_arguments = ['-ORBInitRef','NameService=corbaname::'+location]
-                else:
-                    input_arguments.extend(['-ORBInitRef','NameService=corbaname::'+location])
-            else:
-                input_arguments.extend(['-ORBInitRef','NameService=corbaname::'+location])
+        self.orb = _CORBA.ORB_init(_sys.argv, _CORBA.ORB_ID)
+        if location:
+            obj = self.orb.string_to_object('corbaname::'+location)
+        else:
+            obj = self.orb.resolve_initial_references("NameService")
+        try:
+            self.rootContext = obj._narrow(_CosNaming.NamingContext)
+        except:
+            raise RuntimeError('NameService not found')
 
-        self.orb = _CORBA.ORB_init(input_arguments, _CORBA.ORB_ID)
-        obj = self.orb.resolve_initial_references("NameService")
-        self.rootContext = obj._narrow(_CosNaming.NamingContext)
         # get DomainManager reference
         dm_name = [_CosNaming.NameComponent(self.name,""),_CosNaming.NameComponent(self.name,"")]
         found_domain = False
