@@ -484,6 +484,53 @@ namespace ossie {
     };
 
 
+    class ObjectrefEndpoint : public Endpoint {
+    public:
+        ObjectrefEndpoint() { }
+
+        ObjectrefEndpoint(CORBA::Object_ptr name) :
+            objectref_(name)
+        {
+        }
+
+        ObjectrefEndpoint(const ObjectrefEndpoint& other):
+            Endpoint(other),
+            objectref_(CORBA::Object::_duplicate(other.objectref_))
+        {
+        }
+
+        virtual bool allowDeferral(void) { return false; }
+
+        virtual bool checkDependency(DependencyType type, const std::string& identifier) const
+        {
+            return false;
+        }
+
+        virtual ObjectrefEndpoint* clone() const
+        {
+            return new ObjectrefEndpoint(*this);
+        }
+
+    private:
+        virtual CORBA::Object_ptr resolve_(ConnectionManager& manager)
+        {
+            return CORBA::Object::_duplicate(objectref_);
+        }
+
+#if HAVE_BOOST_SERIALIZATION
+        friend class boost::serialization::access;
+        template <class Archive>
+        void serialize(Archive& ar, unsigned int version)
+        {
+            ar & boost::serialization::base_object<Endpoint>(*this);
+            ar & objectref_;
+        }
+#endif
+
+        CORBA::Object_var objectref_;
+    };
+
+
     class PortEndpoint : public Endpoint {
 
         ENABLE_LOGGING;

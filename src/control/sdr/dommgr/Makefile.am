@@ -31,6 +31,7 @@ DomainManager_SOURCES = applicationSupport.cpp \
                         ConnectionManager.cpp \
                         DomainManager_Channels.cpp \
                         DomainManager_impl.cpp \
+                        FakeApplication.cpp \
                         main.cpp
 DomainManager_CPPFLAGS = -I../../include -I../../parser -I$(top_srcdir)/base/include -I$(top_srcdir)/base $(BOOST_CPPFLAGS) $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS)
 DomainManager_CXXFLAGS = -Wall

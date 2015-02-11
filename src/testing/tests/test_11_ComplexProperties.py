@@ -118,8 +118,8 @@ class SetupCommon:
         self.assertEquals(val1.real, val2.real)
         self.assertEquals(val1.imag, val2.imag)
     def setUp_(self, sadpath):
-        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        domBooter, self._domMgr = self.launchDomainManager()
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml")
         self._app = None
         if self._domMgr:
             try:

@@ -44,6 +44,12 @@ PropertyMap::PropertyMap(const CF::Properties& properties) :
 {
 }
 
+PropertyMap& PropertyMap::operator=(const CF::Properties& properties)
+{
+    CF::Properties::operator=(properties);
+    return *this;
+}
+
 bool PropertyMap::contains (const std::string& id) const
 {
     return find(id) != end();

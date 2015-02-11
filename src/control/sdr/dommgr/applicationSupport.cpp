@@ -581,7 +581,7 @@ ComponentInfo* ComponentInfo::buildComponentInfoFromSPDFile(CF::FileManager_ptr 
             }
         }
     }
-
+    
     LOG_TRACE(ComponentInfo, "Done building component info from file " << spdFileName);
     return newComponent;
 }
@@ -592,6 +592,7 @@ ComponentInfo::ComponentInfo(const std::string& spdFileName) :
     _isScaCompliant(true),
     assignedDevice()
 {
+    nicAssignment = "";
 }
 
 ComponentInfo::~ComponentInfo ()
@@ -636,6 +637,10 @@ void ComponentInfo::setIsScaCompliant(bool _isScaCompliant)
 {
     this->_isScaCompliant = _isScaCompliant;
 }
+
+void ComponentInfo::setNicAssignment(std::string nic) {
+    nicAssignment = nic;
+};
 
 void ComponentInfo::addFactoryParameter(CF::DataType dt)
 {
@@ -757,6 +762,10 @@ const char* ComponentInfo::getNamingServiceName()
 {
     return namingServiceName.c_str();
 }
+
+const std::string ComponentInfo::getNicAssignment() {
+    return nicAssignment;
+};
 
 const bool  ComponentInfo::isResource()
 {

@@ -27,12 +27,16 @@ public:
     Component(const char* _uuid);
     Component(const char* _uuid, const char *label);
     virtual ~Component();
-    void setAdditionalParameters(std::string &softwareProfile, std::string &application_registrar_ior);
+    void setAdditionalParameters(std::string &softwareProfile, std::string &application_registrar_ior, std::string &nic);
     redhawk::ApplicationContainer* getApplication() {
         return this->_app;
     }
+    redhawk::NetworkContainer* getNetwork() {
+        return this->_net;
+    }
 private:
     redhawk::ApplicationContainer *_app;
+    redhawk::NetworkContainer *_net;
 
 };
 

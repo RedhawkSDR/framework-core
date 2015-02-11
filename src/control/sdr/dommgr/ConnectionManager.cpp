@@ -72,6 +72,9 @@ ossie::Endpoint* ConnectionManager_impl::requestToEndpoint(const CF::ConnectionM
     case CF::ConnectionManager::ENDPOINT_EVENTCHANNEL:
         endpoint = new ossie::EventChannelEndpoint(request.endpoint.channelName());
         break;
+    case CF::ConnectionManager::ENDPOINT_OBJECTREF:
+        endpoint = new ossie::ObjectrefEndpoint(request.endpoint.objectRef());
+        break;
     }
 
     const std::string portName(request.portName);

@@ -25,8 +25,8 @@ from ossie.cf import CF
 
 class FileManagerTest(scatest.CorbaTestCase):
     def setUp(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        domBooter, self._domMgr = self.launchDomainManager()
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml")
 
     def test_BasicOperation(self):
         self.assertNotEqual(self._domMgr, None)

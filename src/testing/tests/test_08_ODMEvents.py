@@ -135,7 +135,7 @@ class ODMEventsTest(scatest.CorbaTestCase):
         # Test DeviceManager related events
 
         # launch DomainManager
-        nodebooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, self._domMgr = self.launchDomainManager()
 
         # connect to the channel
         domainName = scatest.getTestDomainName()
@@ -152,7 +152,7 @@ class ODMEventsTest(scatest.CorbaTestCase):
         _proxy_supplier.connect_push_consumer(_consumer._this())
 
         # start the device manager
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         timeout = 0.0
@@ -171,7 +171,7 @@ class ODMEventsTest(scatest.CorbaTestCase):
             time.sleep(0.2)
 
         # start the second device manager
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicService_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicService_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         timeout = 0.0

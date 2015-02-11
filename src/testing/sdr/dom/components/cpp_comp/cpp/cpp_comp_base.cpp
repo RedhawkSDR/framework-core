@@ -88,6 +88,14 @@ void cpp_comp_base::loadProperties()
                 "external",
                 "configure");
 
+    addProperty(nic_name,
+                "nic_name",
+                "",
+                "readonly",
+                "",
+                "external",
+                "configure");
+
     addProperty(number_components,
                 "number_components",
                 "",

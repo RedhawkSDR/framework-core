@@ -543,7 +543,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      * 
      * @param ApplicationRegistrarIOR IOR to either the Application Registrar or Naming Context
      */
-    public void setAdditionalParameters(final String ApplicationRegistrarIOR) {
+    public void setAdditionalParameters(final String ApplicationRegistrarIOR, String nic) {
         final org.omg.CORBA.Object obj = this.orb.string_to_object(ApplicationRegistrarIOR);
         ApplicationRegistrar appReg = null;
         try {
@@ -1174,7 +1174,11 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 
         final Resource resource_i = clazz.newInstance();
         final CF.Resource resource = resource_i.setup(identifier, nameBinding, profile, orb, rootpoa);
-        resource_i.setAdditionalParameters(execparams.get("NAMING_CONTEXT_IOR"));
+        String nic = "";
+        if (execparams.containsKey("NIC")) {
+            nic = execparams.get("NIC");
+        }
+        resource_i.setAdditionalParameters(execparams.get("NAMING_CONTEXT_IOR"), nic);
         resource_i.initializeProperties(execparams);
 
 	resource_i.saveLoggingContext( logcfg_uri, debugLevel, ctx );

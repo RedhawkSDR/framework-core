@@ -26,12 +26,12 @@ from ossie.cf import CF
 
 class DCDConnectionsTest(scatest.CorbaTestCase):
     def setUp(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
+        domBooter, self._domMgr = self.launchDomainManager()
 
     def test_DCDConnection(self):
         self.assertNotEqual(self._domMgr, None)
 
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_PortTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_PortTestDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         # These UUIDs must be kept in sync with the DCD
@@ -64,7 +64,7 @@ class DCDConnectionsTest(scatest.CorbaTestCase):
 
         # Start the second node first; it should not report any connections yet
         # because the connection is pending.
-        devBooter2, devMgr2 = self.launchDeviceManager("/nodes/test_PortTestDevice2_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        devBooter2, devMgr2 = self.launchDeviceManager("/nodes/test_PortTestDevice2_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr2, None)
         device = devMgr2._get_registeredDevices()[0]
         self.assertEqual(device._get_label(), "PortTestDevice3")
@@ -72,7 +72,7 @@ class DCDConnectionsTest(scatest.CorbaTestCase):
 
         # Start the first node; the pending connection from the second node
         # should be completed now.
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_PortTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_PortTestDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         # Verify that the connection is completed, and points to a device on
@@ -93,7 +93,7 @@ class DCDConnectionsTest(scatest.CorbaTestCase):
 
         # Restart the first node; the pending connection from the second node
         # should be re-established.
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_PortTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_PortTestDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         device = devMgr2._get_registeredDevices()[0]

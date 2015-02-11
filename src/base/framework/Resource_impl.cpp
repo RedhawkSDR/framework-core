@@ -45,7 +45,7 @@ Resource_impl::Resource_impl (const char* _uuid, const char *label) :
 }
 
 
-void Resource_impl::setAdditionalParameters(std::string &softwareProfile, std::string &application_registrar_ior)
+void Resource_impl::setAdditionalParameters(std::string &softwareProfile, std::string &application_registrar_ior, std::string &nic)
 {
     _softwareProfile = softwareProfile;
     CORBA::ORB_ptr orb = ossie::corba::Orb();
@@ -145,6 +145,7 @@ void Resource_impl::start_component(Resource_impl::ctor_type ctor, int argc, cha
     std::string component_identifier;
     std::string name_binding;
     std::string profile = "";
+    std::string nic = "";
     const char* logging_config_uri = 0;
     int debug_level = -1; // use log config uri as log level context
     bool standAlone = false;
@@ -157,6 +158,8 @@ void Resource_impl::start_component(Resource_impl::ctor_type ctor, int argc, cha
     for (int i=0; i < argc; i++) {
         if (strcmp("NAMING_CONTEXT_IOR", argv[i]) == 0) {
             application_registrar_ior = argv[++i];
+        } else if (strcmp("NIC", argv[i]) == 0) {
+            nic = argv[++i];
         } else if (strcmp("PROFILE_NAME", argv[i]) == 0) {
             profile = argv[++i];
         } else if (strcmp("COMPONENT_IDENTIFIER", argv[i]) == 0) {
@@ -218,7 +221,7 @@ void Resource_impl::start_component(Resource_impl::ctor_type ctor, int argc, cha
     LOG_TRACE(Resource_impl, "Creating component with identifier '" << component_identifier << "'");
     Resource_impl* resource = ctor(component_identifier, name_binding);
 
-    resource->setAdditionalParameters(profile, application_registrar_ior);
+    resource->setAdditionalParameters(profile, application_registrar_ior, nic);
 
     if ( !skip_run ) {
         // assign the logging context to the resource to support logging interface

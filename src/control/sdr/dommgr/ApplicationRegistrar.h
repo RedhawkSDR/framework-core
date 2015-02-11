@@ -55,8 +55,6 @@ public:
 private:
     CosNaming::NamingContext_var _context;
     Application_impl *_application;
-    FakeApplication *_fakeApplication;
-
 };
 
 #endif	/* APPLICATIONREGISTRAR_H */

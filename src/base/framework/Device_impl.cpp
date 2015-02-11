@@ -1117,7 +1117,8 @@ void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa,
     
     std::string tmp_devMgr_ior = devMgr_ior;
     std::string tmp_profile = profile;
-    device->setAdditionalParameters(tmp_profile, tmp_devMgr_ior);
+    std::string nic = "";
+    device->setAdditionalParameters(tmp_profile, tmp_devMgr_ior, nic);
     
     if ( !skip_run ) {
         // assign logging context to the resource..to support logging interface

@@ -31,22 +31,30 @@ import CF.DomainManager;
 import org.ossie.component.ThreadedResource;
 import org.ossie.component.ThreadedComponent;
 import org.ossie.redhawk.ApplicationContainer;
+import org.ossie.redhawk.NetworkContainer;
 
 public abstract class Component extends ThreadedResource implements ResourceOperations,ThreadedComponent {
     protected ApplicationContainer _app;
+    protected NetworkContainer _net;
     
     public Component() {
         super();
         this._app = null;
+        this._net = null;
     }
     
     public ApplicationContainer getApplication() {
         return this._app;
     }
     
-    public void setAdditionalParameters(String ApplicationRegistrarIOR) {
-        super.setAdditionalParameters(ApplicationRegistrarIOR);
+    public NetworkContainer getNetwork() {
+        return this._net;
+    }
+    
+    public void setAdditionalParameters(String ApplicationRegistrarIOR, String nic) {
+        super.setAdditionalParameters(ApplicationRegistrarIOR, nic);
         final org.omg.CORBA.Object obj = this.orb.string_to_object(ApplicationRegistrarIOR);
+        this._net = new NetworkContainer(nic);
         ApplicationRegistrar appReg = null;
         try {
             appReg = ApplicationRegistrarHelper.narrow(obj);

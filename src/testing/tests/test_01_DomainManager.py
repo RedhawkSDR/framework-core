@@ -80,7 +80,7 @@ class Consumer_i(CosEventComm__POA.PushConsumer):
 
 class DomainManagerTest(scatest.CorbaTestCase):
     def setUp(self):
-        nodebooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, self._domMgr = self.launchDomainManager()
     def tearDown(self):
         scatest.CorbaTestCase.tearDown(self)
         killChildProcesses(os.getpid())
@@ -93,7 +93,7 @@ class DomainManagerTest(scatest.CorbaTestCase):
         self.assertEqual(len(self._domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(self._domMgr._get_applications()), 0)
 
-        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_PythonNodeNoUpdateUsageState_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_PythonNodeNoUpdateUsageState_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         # NOTE These assert check must be kept in-line with the DeviceManager.dcd.xml
@@ -180,7 +180,7 @@ class DomainManagerTest(scatest.CorbaTestCase):
         self.assertIsDceUUID(expectedId, msg="Violation of SCA D.8.1")
 
     def test_DomainManagerBadSadFile(self):
-        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/SimpleDevMgr/DeviceManager.dcd.xml", debug=self.debuglevel)
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/SimpleDevMgr/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         # NOTE These assert check must be kept in-line with the DeviceManager.dcd.xml
@@ -213,7 +213,7 @@ class DomainManagerTest(scatest.CorbaTestCase):
 
     def test_registerWithEventChannel_creation(self):
         # launch DomainManager
-        nodebooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, self._domMgr = self.launchDomainManager()
         self.assertNotEqual(self._domMgr, None)
         self.gotData = False
         # set up consumer

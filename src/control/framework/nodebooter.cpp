@@ -41,15 +41,7 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/exception.hpp>
-#ifndef BOOST_VERSION
-#include <boost/version.hpp>
-#endif
-
-#if BOOST_VERSION < 103499
-#  include <boost/filesystem/cerrno.hpp>
-#else
-#  include <boost/cerrno.hpp>
-#endif
+#include <boost/cerrno.hpp>
 
 namespace fs = boost::filesystem;
 
@@ -703,6 +695,32 @@ void logDeviceManagerExit(int status)
     }
 }
 
+bool isParentPath(const fs::path& parent, const fs::path& target)
+{
+    // Simple string-based check whether 'target' starts with 'parent'
+    return (target.string().find(parent.string()) == 0);
+}
+
+fs::path relativePath (const fs::path& parent, const fs::path& target)
+{
+    // Assuming that isParentPath(parent, target) is true, simply return the
+    // substring of target that starts after parent
+    const std::string parent_str = parent.string();
+    const std::string target_str = target.string();
+    return target_str.substr(parent_str.size());
+}
+
+fs::path findParentDir (const fs::path& current, const std::string& name)
+{
+    if (current.empty()) {
+        return fs::path();
+    } else if (current.filename() == name) {
+        return current;
+    } else {
+        return findParentDir(current.parent_path(), name);
+    }
+}
+
 int main(int argc, char* argv[])
 {
     // parse command line options
@@ -942,8 +960,6 @@ int main(int argc, char* argv[])
 
     // We have to have a real SDRROOT
     fs::path sdrRootPath;
-    fs::path domRootPath;
-    fs::path devRootPath;
     if (!sdrRoot.empty()) {
         sdrRootPath = sdrRoot;
     } else {
@@ -955,103 +971,76 @@ int main(int argc, char* argv[])
         }
     }
 
-    string SDR_FOLDER = "sdr";
-    string NODE_FOLDER = "nodes";
-    string DOM_FOLDER = "domain";
-    fs::path defaultPathDev = sdrRootPath.string() + "/dev" + dcdFile;
-    fs::path defaultPathDom = sdrRootPath.string() + "/dom" + dmdFile;
-    fs::path path;
-
     // Checks if dom path is available in SDRROOT
     // If not tries to use as a relative path
-    if (startDomainManagerRequested && !fs::exists(defaultPathDom)){
-        string dmdPath;
-        string temp = "";
+    const std::string DOM_FOLDER = "dom";
+    fs::path domRootPath = sdrRootPath / DOM_FOLDER;
+    if (startDomainManagerRequested) {
+        // Assume relative paths are relative to the current directory, and
+        // turn into an absolute path
+        fs::path dmdPath = fs::system_complete(dmdFile);
 
-        // Checks to see if given path is from root or current dir
-        if (dmdFile[0] == '/'){
-            path = dmdFile;
-        } else {
-            path = fs::current_path() / dmdFile;
-        }
-
-        // Loops to find the sdr root from given path
-        for (bool foundSdr = false ; !foundSdr; ){
-            if (fs::exists(path)){
-#if BOOST_FILESYSTEM_VERSION < 3
-                if (path.filename().compare(SDR_FOLDER) == 0){
-#else
-                if (path.filename().string().compare(SDR_FOLDER) == 0){
-#endif
-                    sdrRootPath = path.string();
-                    foundSdr = true;
-#if BOOST_FILESYSTEM_VERSION < 3
-                } else if (path.filename().compare(DOM_FOLDER) == 0){
-#else
-                } else if (path.filename().string().compare(DOM_FOLDER) == 0){
-#endif
-                    dmdPath = "/" + DOM_FOLDER + temp;
-                }
-#if BOOST_FILESYSTEM_VERSION < 3
-                temp = "/" + path.filename() + temp;
-#else 
-                temp = "/" + path.filename().string() + temp;               
-#endif	
-		path = path.parent_path();
-            } else {
-                std::cerr << "[nodeBooter] ERROR: can't find relative dmd.xml path" << std::endl;
+        // First, check if the DMD path is relative to $SDRROOT/dom
+        if (!fs::exists(domRootPath / dmdPath)) {
+            // DMD path is absolute; check that it really exists
+            if (!fs::exists(dmdPath)) {
+                std::cerr << "[nodeBooter] ERROR: .dmd.xml file does not exist" << std::endl;
                 exit(EXIT_FAILURE);
             }
+
+            // Check if the path is within $SDRROOT/dom
+            if (!isParentPath(domRootPath, dmdPath)) {
+                // If it's not in $SDRROOT/dom, try to determine the effective
+                // SDRROOT by backtracking in the path to find a directory
+                // named "dom"
+                domRootPath = findParentDir(dmdPath, DOM_FOLDER);
+                if (domRootPath.empty()) {
+                    std::cerr << "[nodeBooter] ERROR: can't determine domain SDRROOT" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                sdrRootPath = domRootPath.parent_path();
+            }
+
+            // Normalize the DMD path to be relative to $SDRROOT/dom
+            dmdFile = relativePath(domRootPath, dmdPath).string();
         }
-        dmdFile = dmdPath;
     }
+
 
     // Checks if dev path is available in SDRROOT
     // If not tries to use as a relative path
-    if (startDeviceManagerRequested && !fs::exists(defaultPathDev)){
-        string dcdPath;
-        string temp = "";
+    const std::string DEV_FOLDER = "dev";
+    fs::path devRootPath = sdrRootPath / DEV_FOLDER;
+    if (startDeviceManagerRequested) {
+        // Assume relative paths are relative to the current directory, and
+        // turn into an absolute path
+        fs::path dcdPath = fs::system_complete(dcdFile);
 
-        // Checks to see if given path is from root or current dir
-        if (dcdFile[0] == '/'){
-            path = dcdFile;
-        } else {
-            path = fs::current_path() / dcdFile;
-        }
-
-        // Loops to find the sdr root from given path
-        for (bool foundSdr = false; !foundSdr; ){
-            if (fs::exists(path)){
-#if BOOST_FILESYSTEM_VERSION < 3
-                if (path.filename().compare(SDR_FOLDER) == 0){
-#else
-                if (path.filename().string().compare(SDR_FOLDER) == 0){
-#endif                    
-		    sdrRootPath = path.string();
-                    foundSdr = true;
-#if BOOST_FILESYSTEM_VERSION < 3
-                } else if (path.filename().compare(NODE_FOLDER) == 0){
-#else
-                } else if (path.filename().string().compare(NODE_FOLDER) == 0){
-#endif                    
-		    dcdPath = "/" + NODE_FOLDER + temp;
-                }
-#if BOOST_FILESYSTEM_VERSION < 3
-                temp = "/" + path.filename() + temp;
-#else
-                temp = "/" + path.filename().string() + temp;
-#endif
-                path = path.parent_path();
-            } else {
-                std::cerr << "[nodeBooter] ERROR: can't find relative dcd.xml path" << std::endl;
+        // First, check if the DCD path is relative to $SDRROOT/dev
+        if (!fs::exists(devRootPath / dcdPath)) {
+            // DCD path is absolute; check that it really exists
+            if (!fs::exists(dcdPath)) {
+                std::cerr << "[nodeBooter] ERROR: .dcd.xml file does not exist" << std::endl;
                 exit(EXIT_FAILURE);
             }
-        }
-        dcdFile = dcdPath;
-    }
 
-    domRootPath = sdrRootPath / "dom";
-    devRootPath = sdrRootPath / "dev";
+            // Check if the path is in $SDRROOT/dev
+            if (!isParentPath(devRootPath, dcdPath)) {
+                // If it's not in $SDRROOT/dev, try to determine the effective
+                // SDRROOT by backtracking in the path to find a directory
+                // named "dev"
+                devRootPath = findParentDir(dcdPath, DEV_FOLDER);
+                if (devRootPath.empty()) {
+                    std::cerr << "[nodeBooter] ERROR: can't determine device SDRROOT" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                sdrRootPath = devRootPath.parent_path();
+            }
+
+            // Normalize the DCD path to be relative to $SDRROOT/dev
+            dcdFile = relativePath(devRootPath, dcdPath).string();
+        }
+    }
 
     // Verify the path exists
     if (!fs::is_directory(sdrRootPath)) {

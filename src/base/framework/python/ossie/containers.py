@@ -35,4 +35,9 @@ class DomainManagerContainer(Container):
 class DeviceManagerContainer(Container):
     def __init__(self, devMgr=None):
         super(DeviceManagerContainer,self).__init__(devMgr)
-    
+
+class NetworkContainer(object):
+    def __init__(self, nic=None):
+        self._nic = nic
+    def getNic(self):
+        return self._nic

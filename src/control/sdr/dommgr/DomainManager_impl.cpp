@@ -1473,6 +1473,21 @@ bool DomainManager_impl::domainMgrIsRegistered (CF::DomainManager_ptr registered
 }
 
 
+CF::Application_ptr DomainManager_impl::createApplication(const char* profileFileName,
+                                                          const char* name,
+                                                          const CF::Properties& initConfiguration,
+                                                          const CF::DeviceAssignmentSequence& deviceAssignments)
+{
+    TRACE_ENTER(DomainManager_impl);
+
+    ApplicationFactory_impl factory(profileFileName, _domainName, this);
+    CF::Application_var application = factory.create(name, initConfiguration, deviceAssignments);
+
+    TRACE_EXIT(DomainManager_impl);
+    return application._retn();
+}
+
+
 //      METHOD:         installApplication
 //      PURPOSE:        verify that all application file dependencies are available within
 //                              the domain managers file manager

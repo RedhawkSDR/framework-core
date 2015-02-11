@@ -90,9 +90,6 @@ def execute(self, spd, impl, execparams, timeout=None):
 
     # Process softpkg dependencies and modify the child environment.
     environment = dict(os.environ.items())
-    for dependency in implementation.get_dependency():
-        for varname, pathname in self._resolveDependency(implementation, dependency):
-            self._extendEnvironment(environment, varname, pathname)
 
     # Get required execparams based on the component type
     execparams.update(self._getRequiredExecparams())
@@ -216,9 +213,9 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         os.kill(pid, 2)
 
     def test_cppCompBasic(self):
-        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
-        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         domMgr.installApplication("/waveforms/cpp_comp_w/cpp_comp_w.sad.xml")
@@ -239,9 +236,9 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
     def test_pyCompBasic(self):
-        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
-        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         domMgr.installApplication("/waveforms/py_comp_w/py_comp_w.sad.xml")
@@ -262,9 +259,9 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
     def test_javaCompBasic(self):
-        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
-        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         domMgr.installApplication("/waveforms/java_comp_w/java_comp_w.sad.xml")
@@ -285,9 +282,9 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
     def test_cppDevBasic(self):
-        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
-        nodebooter, devMgr = self.launchDeviceManager("/nodes/cpp_dev_n/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/cpp_dev_n/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
         devmgr_id = devMgr._get_registeredDevices()[0].query([CF.DataType(id='devmgr_id',value=any.to_any(None))])[0].value._v
         dom_id = devMgr._get_registeredDevices()[0].query([CF.DataType(id='dom_id',value=any.to_any(None))])[0].value._v
@@ -295,9 +292,9 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(dom_id, domMgr._get_identifier())
 
     def test_pyDevBasic(self):
-        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
-        nodebooter, devMgr = self.launchDeviceManager("/nodes/py_dev_n/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/py_dev_n/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
         devmgr_id = devMgr._get_registeredDevices()[0].query([CF.DataType(id='devmgr_id',value=any.to_any(None))])[0].value._v
         dom_id = devMgr._get_registeredDevices()[0].query([CF.DataType(id='dom_id',value=any.to_any(None))])[0].value._v
@@ -305,9 +302,9 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(dom_id, domMgr._get_identifier())
 
     def test_javaDevBasic(self):
-        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
-        nodebooter, devMgr = self.launchDeviceManager("/nodes/java_dev_n/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/java_dev_n/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
         devmgr_id = devMgr._get_registeredDevices()[0].query([CF.DataType(id='devmgr_id',value=any.to_any(None))])[0].value._v
         dom_id = devMgr._get_registeredDevices()[0].query([CF.DataType(id='dom_id',value=any.to_any(None))])[0].value._v
@@ -333,9 +330,9 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         dev.releaseObject()
 
     def test_cppCompUntrusted(self):
-        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
-        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         domMgr.installApplication("/waveforms/cpp_comp_w/cpp_comp_w.sad.xml")
@@ -359,9 +356,9 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
     def test_pyCompUntrusted(self):
-        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
-        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         domMgr.installApplication("/waveforms/py_comp_w/py_comp_w.sad.xml")
@@ -385,9 +382,9 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
     def test_javaCompUntrusted(self):
-        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
-        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         domMgr.installApplication("/waveforms/java_comp_w/java_comp_w.sad.xml")
@@ -411,9 +408,9 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
     def test_cppCompTrusted(self):
-        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
-        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         domMgr.installApplication("/waveforms/cpp_comp_w/cpp_comp_w.sad.xml")
@@ -435,9 +432,9 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
     def test_pyCompTrusted(self):
-        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
-        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         domMgr.installApplication("/waveforms/py_comp_w/py_comp_w.sad.xml")
@@ -459,9 +456,9 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
     def test_javaCompTrusted(self):
-        nodebooter, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
-        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         domMgr.installApplication("/waveforms/java_comp_w/java_comp_w.sad.xml")

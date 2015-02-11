@@ -173,7 +173,7 @@ void LoadableDevice_impl::update_ld_library_path (CF::FileSystem_ptr fs, const c
 	// Update environment to use newly-loaded library
 	if (loadKind == CF::LoadableDevice::SHARED_LIBRARY)
 	{
-        merge_front_environment_path("LD_LIBRARY_PATH", std::string(get_current_dir_name()) + fileName );
+        merge_front_environment_path("LD_LIBRARY_PATH", ossie::getCurrentDirName() + fileName );
 	}
 }
 
@@ -182,7 +182,7 @@ void LoadableDevice_impl::update_octave_path (CF::FileSystem_ptr fs, const char*
 	// Update environment to use newly-loaded library
 	if (loadKind == CF::LoadableDevice::SHARED_LIBRARY) 
 	{
-        merge_front_environment_path("OCTAVE_PATH", std::string(get_current_dir_name()) + fileName );
+        merge_front_environment_path("OCTAVE_PATH", ossie::getCurrentDirName() + fileName );
 	}
 }
 
@@ -201,9 +201,9 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
        CF::LoadableDevice::InvalidLoadKind, CF::InvalidFileName,
        CF::LoadableDevice::LoadFail)
 {
+    boost::mutex::scoped_lock lock(load_execute_lock);
     try
     {
-        boost::mutex::scoped_lock lock(load_execute_lock);
         do_load(fs, fileName, loadKind);
         update_ld_library_path(fs, fileName, loadKind);
         update_octave_path(fs, fileName, loadKind);
@@ -669,9 +669,9 @@ void
 LoadableDevice_impl::unload (const char* fileName)
 throw (CORBA::SystemException, CF::Device::InvalidState, CF::InvalidFileName)
 {
+    boost::mutex::scoped_lock lock(load_execute_lock);
     try
     {
-        boost::mutex::scoped_lock lock(load_execute_lock);
         do_unload(fileName);
     }
     catch( const boost::thread_resource_error& e )

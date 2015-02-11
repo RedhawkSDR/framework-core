@@ -95,4 +95,8 @@ class py_comp_base(CF__POA.Resource, Component, ThreadedComponent):
                                  action="external",
                                  kinds=("configure",))
         
-
+        nic_name = simple_property(id_="nic_name",
+                                 type_="string",
+                                 mode="readonly",
+                                 action="external",
+                                 kinds=("configure",))

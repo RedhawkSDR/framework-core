@@ -43,6 +43,7 @@ class cpp_comp_base : public Component, protected ThreadedComponent
         // Member variables exposed as properties
         std::string app_id;
         std::string dom_id;
+        std::string nic_name;
         short number_components;
 
     private:

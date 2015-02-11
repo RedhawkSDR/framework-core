@@ -98,6 +98,22 @@ public abstract class java_comp_base extends Component {
             );
     
     /**
+     * The property nic_name
+     * If the meaning of this property isn't clear, a description should be added.
+     *
+     * @generated
+     */
+    public final StringProperty nic_name =
+        new StringProperty(
+            "nic_name", //id
+            null, //name
+            null, //default value
+            Mode.READONLY, //mode
+            Action.EXTERNAL, //action
+            new Kind[] {Kind.CONFIGURE} //kind
+            );
+    
+    /**
      * @generated
      */
     public java_comp_base()
@@ -108,6 +124,7 @@ public abstract class java_comp_base extends Component {
         addProperty(app_id);
         addProperty(number_components);
         addProperty(dom_id);
+        addProperty(nic_name);
     }
 
     public void start() throws CF.ResourcePackage.StartError

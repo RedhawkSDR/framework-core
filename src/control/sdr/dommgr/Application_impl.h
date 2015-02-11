@@ -18,7 +18,6 @@
  * along with this program.  If not, see http://www.gnu.org/licenses/.
  */
 
-
 #ifndef APPLICATION_H
 #define APPLICATION_H
 
@@ -39,6 +38,7 @@
 
 class DomainManager_impl;
 class ApplicationRegistrar_impl;
+class FakeApplication;
 
 class Application_impl : public virtual POA_CF::Application, public Logging_impl
 {
@@ -138,6 +138,9 @@ public:
     void unloadComponents();
 
     bool waitForComponents(std::set<std::string>& identifiers, int timeout);
+
+    CF::Application_ptr getComponentApplication();
+    CF::DomainManager_ptr getComponentDomainManager();
     
 private:
     Application_impl (); // No default constructor
@@ -158,6 +161,7 @@ private:
     const std::string _waveformContextName;
     CosNaming::NamingContext_var _waveformContext;
     const bool _isTrusted;
+    FakeApplication* _fakeProxy;
     
     ApplicationRegistrar_impl* _registrar;
 
@@ -179,119 +183,6 @@ private:
     std::string getExternalPropertyId(std::string compId, std::string propId);
 
     friend class ApplicationRegistrar_impl;
-};
-
-class FakeApplication : public virtual POA_CF::Application, public Logging_impl
-{
-
-public:
-
-    FakeApplication (const std::string& id, const std::string& name, Application_impl *app);
-
-    ~FakeApplication ();
-
-    static PortableServer::ObjectId* Activate(FakeApplication* fakeApplication);
-
-    char* identifier () throw (CORBA::SystemException) {
-        return CORBA::string_dup(_identifier.c_str());
-    }
-    CORBA::Boolean started ()
-        throw (CORBA::SystemException) {
-        return this->_app->started();
-    };
-    void start ()
-        throw (CF::Resource::StartError, CORBA::SystemException) {
-        throw(CF::Resource::StartError());
-    };
-    void stop ()
-        throw (CF::Resource::StopError, CORBA::SystemException) {
-        throw(CF::Resource::StopError());
-    };
-
-    /// The core framework provides an implementation for this method.
-    void configure (const CF::Properties& configProperties)
-        throw (CF::PropertySet::PartialConfiguration,
-           CF::PropertySet::InvalidConfiguration, CORBA::SystemException) {
-        throw(CF::UnknownProperties());
-    };
-
-    /// The core framework provides an implementation for this method.
-    void query (CF::Properties& configProperties)
-        throw (CF::UnknownProperties, CORBA::SystemException) {
-        throw(CF::UnknownProperties());
-    };
-
-    void initialize ()
-        throw (CF::LifeCycle::InitializeError, CORBA::SystemException) {};
-        
-    void releaseObject ()
-        throw (CF::LifeCycle::ReleaseError, CORBA::SystemException) {};
-        
-    CORBA::Object_ptr getPort (const char*)
-        throw (CORBA::SystemException, CF::PortSupplier::UnknownPort) {
-        throw(CF::PortSupplier::UnknownPort());
-    };
-        
-    void runTest (CORBA::ULong, CF::Properties&)
-        throw (CORBA::SystemException, CF::UnknownProperties, CF::TestableObject::UnknownTest) {
-        throw(CF::TestableObject::UnknownTest());
-    };
-    
-    char* profile () throw (CORBA::SystemException) {
-        std::string blank;
-        return CORBA::string_dup(blank.c_str());
-    };
-    
-    char* softwareProfile () throw (CORBA::SystemException) {
-        std::string blank;
-        return CORBA::string_dup(blank.c_str());
-    };
-    
-    char* name () throw (CORBA::SystemException) {
-        return CORBA::string_dup(_appName.c_str());
-    };
-    
-    bool trusted () throw (CORBA::SystemException) {
-        return false;
-    };
-    
-    CF::DeviceAssignmentSequence * componentDevices ()
-        throw (CORBA::SystemException) {
-        CF::DeviceAssignmentSequence_var result = new CF::DeviceAssignmentSequence();
-        return result._retn();
-    };
-        
-    CF::Application::ComponentElementSequence * componentImplementations ()
-        throw (CORBA::SystemException) {
-        CF::Application::ComponentElementSequence_var result = new CF::Application::ComponentElementSequence();
-        return result._retn();
-    };
-        
-    CF::Application::ComponentElementSequence * componentNamingContexts ()
-        throw (CORBA::SystemException) {
-        CF::Application::ComponentElementSequence_var result = new CF::Application::ComponentElementSequence();
-        return result._retn();
-    };
-        
-    CF::Application::ComponentProcessIdSequence * componentProcessIds ()
-        throw (CORBA::SystemException) {
-        CF::Application::ComponentProcessIdSequence_var result = new CF::Application::ComponentProcessIdSequence();
-        return result._retn();
-    };
-    
-    CF::Components * registeredComponents () {
-        CF::Components_var result = new CF::Components();
-        return result._retn();
-    };
-    
-    CF::ApplicationRegistrar_ptr appReg (void) {
-        return CF::ApplicationRegistrar::_nil();
-    };
-    
-protected:
-    std::string _identifier;
-    std::string _appName;
-    Application_impl* _app;
 };
 
 #endif

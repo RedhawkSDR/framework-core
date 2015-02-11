@@ -28,8 +28,8 @@ from ossie.utils import type_helpers
 
 class RedhawkModuleTest(scatest.CorbaTestCase):
     def setUp(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        domBooter, self._domMgr = self.launchDomainManager()
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml")
         self._rhDom = redhawk.attach(scatest.getTestDomainName())
         self.assertEquals(len(self._rhDom._get_applications()), 0)
 
@@ -424,7 +424,7 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         """
         Tests that applications can make connections between their external ports
         """
-        self.launchDeviceManager('/nodes/test_PortTestDevice_node/DeviceManager.dcd.xml', debug=self.debuglevel)
+        self.launchDeviceManager('/nodes/test_PortTestDevice_node/DeviceManager.dcd.xml')
 
         app1 = self._rhDom.createApplication('/waveforms/PortConnectExternalPort/PortConnectExternalPort.sad.xml')
         app2 = self._rhDom.createApplication('/waveforms/PortConnectExternalPort/PortConnectExternalPort.sad.xml')

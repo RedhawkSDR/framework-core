@@ -26,8 +26,8 @@ from ossie import properties
 
 class SADUsesDeviceTest(scatest.CorbaTestCase):
     def setUp(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_SADUsesDevice/DeviceManager.dcd.xml", debug=self.debuglevel)
+        domBooter, self._domMgr = self.launchDomainManager()
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_SADUsesDevice/DeviceManager.dcd.xml")
         self._app = None
 
     def tearDown(self):

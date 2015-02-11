@@ -30,6 +30,7 @@
 #include "AllocationManager_impl.h"
 #include "ApplicationRegistrar.h"
 #include "connectionSupport.h"
+#include "FakeApplication.h"
 
 PREPARE_LOGGING(Application_impl);
 
@@ -121,9 +122,13 @@ Application_impl::Application_impl (const std::string& id, const std::string& na
     _waveformContextName(waveformContextName),
     _waveformContext(CosNaming::NamingContext::_duplicate(waveformContext)),
     _isTrusted(trusted),
+    _fakeProxy(0),
     _releaseAlreadyCalled(false)
 {
     _registrar = new ApplicationRegistrar_impl(waveformContext, this);
+    if (!_isTrusted) {
+        _fakeProxy = new FakeApplication(this);
+    }
 };
 
 void Application_impl::populateApplication(CF::Resource_ptr _controller,
@@ -170,6 +175,13 @@ PortableServer::ObjectId* Application_impl::Activate(Application_impl* applicati
     PortableServer::ObjectId_var reg_oid = ossie::corba::activatePersistentObject(poa,
                                                                                   application->_registrar,
                                                                                   registryId);
+
+    // If the application is not trusted, activate the fake proxy
+    if (!application->trusted()) {
+        const std::string proxyId = application->_identifier + ".fake";
+        reg_oid = ossie::corba::activatePersistentObject(poa, application->_fakeProxy, proxyId);
+    }
+
     return oid._retn();
 }
 
@@ -680,36 +692,6 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
 
     terminateComponents();
     unloadComponents();
-#if 0
-        //  Removes soft package dependencies when applications are released...This can potentially slow
-        // down deployments because we are cleaning up files that could be used again....e.g. the
-        // same waveform with dependencies is started and stopped and started..
-        //
-        ossie::SoftPkgList::iterator pkg = _softpkgList.begin();
-        for ( ;  pkg != _softpkgList.end(); pkg++ ) {
-          try {
-            if ( ossie::corba::objectExists(pkg->first) ) {
-              CF::LoadableDevice_ptr loadDev = CF::LoadableDevice::_narrow(pkg->first);
-              if ( CORBA::is_nil(loadDev) == false ) {
-                LOG_DEBUG(Application_impl, "Unload soft package dependency:" << pkg->second);
-                loadDev->unload(pkg->second.c_str());
-              }
-              else {
-                throw -1;
-              }
-            }
-            else {
-              throw -1;
-            }
-          }
-          catch(...) {
-            // issue warning the unload failed for soft pkg unload
-            LOG_WARN(Application_impl, "Unable to unload soft package dependency:" << pkg->second);
-          }
-          
-
-        }
-#endif
 
     // deallocate capacities
     try {
@@ -844,6 +826,14 @@ void Application_impl::_cleanupActivations()
     app_poa->deactivate_object(oid);
     _registrar->_remove_ref();
     _registrar = 0;
+
+    // If we created a fake application proxy, deactivate and clean it up too
+    if (_fakeProxy) {
+        oid = app_poa->servant_to_id(_fakeProxy);
+        app_poa->deactivate_object(oid);
+        _fakeProxy->_remove_ref();
+        _fakeProxy = 0;
+    }
 
     // Release this application
     oid = app_poa->servant_to_id(this);
@@ -980,6 +970,24 @@ bool Application_impl::waitForComponents (std::set<std::string>& identifiers, in
     return identifiers.empty();
 }
 
+CF::Application_ptr Application_impl::getComponentApplication ()
+{
+    if (_isTrusted) {
+        return _this();
+    } else {
+        return _fakeProxy->_this();
+    }
+}
+
+CF::DomainManager_ptr Application_impl::getComponentDomainManager ()
+{
+    if (_isTrusted) {
+        return _domainManager->_this();
+    } else {
+        return CF::DomainManager::_nil();
+    }
+}
+
 void Application_impl::registerComponent (CF::Resource_ptr resource)
 {
     const std::string componentId = ossie::corba::returnString(resource->identifier());
@@ -1096,21 +1104,4 @@ void Application_impl::addComponentLoadedFile(const std::string& identifier, con
     } else {
         component->loadedFiles.push_back(fileName);
     }
-}
-FakeApplication::FakeApplication (const std::string& id, const std::string& name, Application_impl* app) {
-        this->_identifier = id;
-        this->_appName = name;
-        this->_app = app;
-}
-
-FakeApplication::~FakeApplication () {
-}
-
-PortableServer::ObjectId* FakeApplication::Activate(FakeApplication* fakeApplication) {
-        PortableServer::POA_var dm_poa = ossie::corba::RootPOA()->find_POA("DomainManager", 0);
-        PortableServer::POA_var poa = dm_poa->find_POA("Applications", 1);
-        PortableServer::ObjectId_var oid = ossie::corba::activatePersistentObject(poa, 
-                                                                              fakeApplication, 
-                                                                              fakeApplication->_identifier+"_fake");
-        return oid._retn();
 }

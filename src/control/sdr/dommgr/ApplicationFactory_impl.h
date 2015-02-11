@@ -30,6 +30,7 @@
 #include <ossie/debug.h>
 #include <ossie/prop_utils.h>
 #include <ossie/prop_helpers.h>
+#include <ossie/PropertyMap.h>
 
 #include "PersistenceStore.h"
 #include "applicationSupport.h"
@@ -175,7 +176,6 @@ private:
     DeviceAssignmentList          _appUsedDevs;
     std::vector<CF::Resource_var> _startSeq;
     std::vector<std::string>      _startOrderIds;
-    ossie::SoftPkgList                          _softpkgList;
     
     // waveform instance-specific naming context (unique to the instance of the waveform)
     std::string _waveformContextName; 

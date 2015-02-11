@@ -103,3 +103,23 @@ CORBA::ULongLong Value::toULongLong() const
 {
     return ossie::any::toULongLong(*this);
 }
+
+PropertyMap& Value::toStruct() const
+{
+    CF::Properties* props;
+    *this >>= props;
+    return reinterpret_cast<PropertyMap&>(*props);
+}
+
+std::vector<PropertyMap*> Value::toStructSeq() const
+{
+    CORBA::AnySeq* prop_seq;
+    *this >>= prop_seq;
+    std::vector<PropertyMap*> retval;
+    CF::Properties* props;
+    for (CORBA::ULong ii=0; ii<prop_seq->length(); ii++) {
+        (*prop_seq)[ii] >>= props;
+        retval.push_back(reinterpret_cast<PropertyMap*>(props));
+    }
+    return retval;
+}

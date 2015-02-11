@@ -134,22 +134,16 @@ def kickDomain(domain_name=None, kick_device_managers=True, device_managers=[], 
     
 
 def scan(location=None):
-    input_arguments = _sys.argv
-    if location != None:
-        if len(_sys.argv) == 1:
-            if _sys.argv[0] == '':
-                input_arguments = ['-ORBInitRef','NameService=corbaname::'+location]
-            else:
-                input_arguments.append('-ORBInitRef','NameService=corbaname::'+location)
-        else:
-            input_arguments.append('-ORBInitRef','NameService=corbaname::'+location)
-        
-    orb = _CORBA.ORB_init(input_arguments, _CORBA.ORB_ID)
-    obj = orb.resolve_initial_references("NameService")
+    orb = _CORBA.ORB_init(_sys.argv, _CORBA.ORB_ID)
+
+    if location:
+        obj = orb.string_to_object('corbaname::'+location)
+    else:
+        obj = orb.resolve_initial_references("NameService")
     try:
         rootContext = obj._narrow(_CosNaming.NamingContext)
     except:
-        raise RuntimeError, "NameingService not found"
+        raise RuntimeError('NameService not found')
     
     base_list = rootContext.list(100)
     domainsFound = []

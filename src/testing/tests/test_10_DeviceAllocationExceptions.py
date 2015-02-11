@@ -45,21 +45,21 @@ class DeviceExceptionsTest(object):
 
 class JavaDeviceExceptionsTest(DeviceExceptionsTest, scatest.CorbaTestCase):
     def setUp(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node_java/DeviceManager.dcd.xml", debug=self.debuglevel)
+        domBooter, self._domMgr = self.launchDomainManager()
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node_java/DeviceManager.dcd.xml")
         self.assertEqual(len(self._devMgr._get_registeredDevices()), 1)
         self._device = self._devMgr._get_registeredDevices()[0]
 
 class CppDeviceExceptionsTest(DeviceExceptionsTest, scatest.CorbaTestCase):
     def setUp (self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node_cpp/DeviceManager.dcd.xml", debug=self.debuglevel)
+        domBooter, self._domMgr = self.launchDomainManager()
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node_cpp/DeviceManager.dcd.xml")
         self.assertEqual(len(self._devMgr._get_registeredDevices()), 1)
         self._device = self._devMgr._get_registeredDevices()[0]
 
 class PythonDeviceExceptionsTest(DeviceExceptionsTest, scatest.CorbaTestCase):
     def setUp (self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        domBooter, self._domMgr = self.launchDomainManager()
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node/DeviceManager.dcd.xml")
         self.assertEqual(len(self._devMgr._get_registeredDevices()), 1)
         self._device = self._devMgr._get_registeredDevices()[0]

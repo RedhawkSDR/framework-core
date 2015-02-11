@@ -183,7 +183,7 @@ if __name__ == "__main__":
         "--debuglevel",
         dest="debuglevel",
         help="debug level to be passed to nodebooter",
-        default=9)
+        default=3)
     
     (options, args) = parser.parse_args()
 

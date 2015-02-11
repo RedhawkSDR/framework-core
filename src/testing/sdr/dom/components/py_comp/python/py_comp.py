@@ -42,6 +42,7 @@ class py_comp_i(py_comp_base):
         py_comp_base.initialize(self)
         self.app_id = "foo"
         self.dom_id = "foo"
+        self.nic_name = "foo"
         self.number_components = -1
         # TODO add customization here.
         
@@ -134,6 +135,7 @@ class py_comp_i(py_comp_base):
             self.dom_id = self.getDomainManager().ref._get_identifier()
         except Exception, e:
             self.dom_id = ""
+        self.nic_name = self.getNetwork().getNic()
         return NOOP
         
   

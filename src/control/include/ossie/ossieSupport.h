@@ -34,11 +34,7 @@ namespace ossie
 {
 
 // Miscellaneous helper functions
-
-    void createProfileFromFileName(std::string fileName, std::string& profile);
-    std::string getFileNameFromProfile(std::string profile);
-    bool isValidFileName(const char* fileName);
-    const char* spd_rel_file(const char* spdfile, const char* name, std::string& fileName);
+    bool isValidFileName(const std::string& fileName);
 
     void configureLogging(const char* logcfgUri, int defaultLevel);
 

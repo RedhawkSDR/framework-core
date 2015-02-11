@@ -36,6 +36,7 @@ SUBDIRS = sdr/dev/devices/ExecutableDevice \
           sdr/dev/devices/PersonaDevice/cpp \
           sdr/dev/devices/ProgrammableDevice/cpp \
           sdr/dev/devices/cpp_dev/cpp \
+          sdr/dev/devices/GPP/cpp \
           sdr/dev/devices/java_dev/java \
           sdr/dom/components/TestCppProps \
           sdr/dom/components/linkedLibraryTest \

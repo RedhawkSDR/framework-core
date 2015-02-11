@@ -581,7 +581,8 @@ module CF {
             ENDPOINT_APPLICATION,
             ENDPOINT_DEVICE,
             ENDPOINT_SERVICE,
-            ENDPOINT_EVENTCHANNEL
+            ENDPOINT_EVENTCHANNEL,
+            ENDPOINT_OBJECTREF
         };
 
         union EndpointResolutionType switch(EndpointKind) {
@@ -593,6 +594,8 @@ module CF {
             string serviceName;
         case ENDPOINT_EVENTCHANNEL:
             string channelName;
+        case ENDPOINT_OBJECTREF:
+            Object objectRef;
         };
 
         struct EndpointRequest {
@@ -627,6 +630,44 @@ module CF {
         boolean next_one(out ConnectionManager::ConnectionStatusType connection);
         boolean next_n(in unsigned long count, out ConnectionManager::ConnectionStatusSequence connections);
         void destroy();
+    };
+
+    /* The ApplicationFactory interface class provides an interface to request the creation of a specific type of Application in the domain.The Software Profile determines the type of Application that is created by the ApplicationFactory. */
+    interface ApplicationFactory {
+        /* This exception is raised when the parameter DeviceAssignmentSequence contains one or more invalid Application component-to-device assignment(s). */
+        exception CreateApplicationRequestError {
+        CF::DeviceAssignmentSequence invalidAssignments;
+        };
+        /* This exception is raised when a create request is valid but the Application is unsuccessfully instantiated due to internal processing errors. The message provides additional information describing the reason for the error. */
+        exception CreateApplicationError {
+            CF::ErrorNumberType errorNumber;
+            string msg;
+        };
+        /* This exception is raised when the input initConfiguration parameter is invalid. */
+        exception CreateApplicationInsufficientCapacityError {
+            CF::FailedCapacities devicesAttempted;
+            string msg;
+        };
+        /* This exception is raised when the input initConfiguration parameter is invalid. */
+        exception InvalidInitConfiguration {
+            CF::Properties invalidProperties;
+        };
+        /* The name attribute contains the name of the type of Application that can be instantiated by the ApplicationFactory. */
+        readonly attribute string name;
+        /* The readonly identifier attribute contains the unique identifier for an ApplicationFactory instance. The identifier is identical to the softwareassembly element id attribute of the ApplicationFactory's Software Assembly Descriptor file. */
+        readonly attribute string identifier;
+        /* This attribute contains the application software profile that the factory uses when creating an application. The string value contains a profile element with a file reference to the SAD */
+        readonly attribute string softwareProfile;
+        /* The create operation is used to create an Application within the system domain. */
+        CF::Application create (
+            in string name,
+            in CF::Properties initConfiguration,
+            in CF::DeviceAssignmentSequence deviceAssignments
+            )
+            raises (CF::ApplicationFactory::CreateApplicationError,
+                CF::ApplicationFactory::CreateApplicationRequestError,
+                CF::ApplicationFactory::CreateApplicationInsufficientCapacityError,
+                CF::ApplicationFactory::InvalidInitConfiguration);
     };
 
     /* The DomainManager interface is for the control and configuration of the radio domain. */
@@ -723,6 +764,18 @@ module CF {
             )
             raises (CF::InvalidObjectReference,
                 CF::DomainManager::UnregisterError);
+        /* The createApplication operation is used to create an Application within the system domain. */
+        CF::Application createApplication (
+            in string profileFileName,
+            in string name,
+            in CF::Properties initConfiguration,
+            in CF::DeviceAssignmentSequence deviceAssignments
+            )
+            raises (CF::InvalidProfile,CF::InvalidFileName,
+                CF::ApplicationFactory::CreateApplicationError,
+                CF::ApplicationFactory::CreateApplicationRequestError,
+                CF::ApplicationFactory::CreateApplicationInsufficientCapacityError,
+                CF::ApplicationFactory::InvalidInitConfiguration);
         /* The installApplication operation is used to register new application software in the DomainManager's Domain Profile. */
         void installApplication (
             in string profileFileName
@@ -780,43 +833,6 @@ module CF {
             )
             raises (CF::InvalidObjectReference,
                 CF::DomainManager::UnregisterError);
-    };
-    /* The ApplicationFactory interface class provides an interface to request the creation of a specific type of Application in the domain.The Software Profile determines the type of Application that is created by the ApplicationFactory. */
-    interface ApplicationFactory {
-        /* This exception is raised when the parameter DeviceAssignmentSequence contains one or more invalid Application component-to-device assignment(s). */
-        exception CreateApplicationRequestError {
-        CF::DeviceAssignmentSequence invalidAssignments;
-        };
-        /* This exception is raised when a create request is valid but the Application is unsuccessfully instantiated due to internal processing errors. The message provides additional information describing the reason for the error. */
-        exception CreateApplicationError {
-            CF::ErrorNumberType errorNumber;
-            string msg;
-        };
-        /* This exception is raised when the input initConfiguration parameter is invalid. */
-        exception CreateApplicationInsufficientCapacityError {
-            CF::FailedCapacities devicesAttempted;
-            string msg;
-        };
-        /* This exception is raised when the input initConfiguration parameter is invalid. */
-        exception InvalidInitConfiguration {
-            CF::Properties invalidProperties;
-        };
-        /* The name attribute contains the name of the type of Application that can be instantiated by the ApplicationFactory. */
-        readonly attribute string name;
-        /* The readonly identifier attribute contains the unique identifier for an ApplicationFactory instance. The identifier is identical to the softwareassembly element id attribute of the ApplicationFactory's Software Assembly Descriptor file. */
-        readonly attribute string identifier;
-        /* This attribute contains the application software profile that the factory uses when creating an application. The string value contains a profile element with a file reference to the SAD */
-        readonly attribute string softwareProfile;
-        /* The create operation is used to create an Application within the system domain. */
-        CF::Application create (
-            in string name,
-            in CF::Properties initConfiguration,
-            in CF::DeviceAssignmentSequence deviceAssignments
-            )
-            raises (CF::ApplicationFactory::CreateApplicationError,
-                CF::ApplicationFactory::CreateApplicationRequestError,
-                CF::ApplicationFactory::CreateApplicationInsufficientCapacityError,
-                CF::ApplicationFactory::InvalidInitConfiguration);
     };
     /* The PortSupplier interface provides the getPort operation for those objects that provide ports. */
     interface PortSupplier {

@@ -71,6 +71,7 @@ public class java_comp extends java_comp_base {
         this.app_id.setValue("foo");
         this.number_components.setValue(-1);
         this.dom_id.setValue("foo");
+        this.nic_name.setValue("foo");
     }
 
     /**
@@ -197,6 +198,8 @@ public class java_comp extends java_comp_base {
         } catch (Exception e) {
             this.dom_id.setValue("");
         }
+        this.nic_name.setValue(this.getNetwork().getNic());
+        
 
         return NOOP;
     }

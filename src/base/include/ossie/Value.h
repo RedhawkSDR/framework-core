@@ -26,6 +26,8 @@
 
 namespace redhawk {
 
+    class PropertyMap;
+
     class Value : public CORBA::Any {
     public:
 
@@ -70,6 +72,9 @@ namespace redhawk {
         CORBA::ULong toULong() const;
         CORBA::LongLong toLongLong() const;
         CORBA::ULongLong toULongLong() const;
+        
+        redhawk::PropertyMap& toStruct() const;
+        std::vector<redhawk::PropertyMap*> toStructSeq() const;
 
         template <typename T>
         bool getValue(T& value) const

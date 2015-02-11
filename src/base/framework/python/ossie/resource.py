@@ -167,7 +167,7 @@ class Resource(object):
 
         logging.trace("Initial property storage %s", self._props)
 
-    def setAdditionalParameters(self, softwareProfile, application_registrar_ior):
+    def setAdditionalParameters(self, softwareProfile, application_registrar_ior, nic):
         self._softwareProfile = softwareProfile
         orb = createOrb()
         try:
@@ -763,8 +763,11 @@ def start_component(componentclass, interactive_callback=None, thread_policy=Non
             component_Obj = componentclass(execparams["COMPONENT_IDENTIFIER"], execparams)
             componentPOA.activate_object(component_Obj)
             component_Var = component_Obj._this()
+            nic = ''
+            if execparams.has_key('NIC'):
+                nic = execparams['NIC']
 
-            component_Obj.setAdditionalParameters(execparams["PROFILE_NAME"],execparams['NAMING_CONTEXT_IOR'])
+            component_Obj.setAdditionalParameters(execparams["PROFILE_NAME"],execparams['NAMING_CONTEXT_IOR'], nic)
 
             ## sets up logging context for resource to support CF::Logging
             component_Obj.saveLoggingContext( log_config_uri, debug_level, ctx )

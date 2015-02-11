@@ -78,7 +78,7 @@ public:
     virtual void setCurrentWorkingDirectory(std::string& cwd);
     virtual std::string& getCurrentWorkingDirectory();
     
-    virtual void setAdditionalParameters(std::string &softwareProfile, std::string &application_registrar_ior);
+    virtual void setAdditionalParameters(std::string &softwareProfile, std::string &application_registrar_ior, std::string &nic);
     redhawk::DomainManagerContainer* getDomainManager() {
         return this->_domMgr;
     }

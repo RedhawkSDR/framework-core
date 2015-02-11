@@ -28,8 +28,8 @@ from ossie import properties
 class ConnectionManagerTest(scatest.CorbaTestCase):
     def setUp(self):
         super(ConnectionManagerTest,self).setUp()
-        nb, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        nb, self._devMgr = self.launchDeviceManager('/nodes/test_PortTestDevice_node/DeviceManager.dcd.xml', debug=self.debuglevel)
+        nb, self._domMgr = self.launchDomainManager()
+        nb, self._devMgr = self.launchDeviceManager('/nodes/test_PortTestDevice_node/DeviceManager.dcd.xml')
         self._connMgr = self._domMgr._get_connectionMgr()
 
         # Device IDs taken from the DCD
@@ -149,7 +149,7 @@ class ConnectionManagerTest(scatest.CorbaTestCase):
 
         # Launch the second node, which should cause the connection to be
         # resolved now
-        nb, devMgr2 = self.launchDeviceManager('/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml', debug=self.debuglevel)
+        nb, devMgr2 = self.launchDeviceManager('/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml')
 
         # Verify that the connection was really made
         connection = self._findConnection('test_connection')

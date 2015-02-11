@@ -224,6 +224,7 @@ namespace ossie
         void setUsageName(const char* usageName);
         void setIsAssemblyController(bool isAssemblyController);
         void setIsScaCompliant(bool isScaCompliant);
+        void setNicAssignment(std::string nic);
 
         void addFactoryParameter(CF::DataType dt);
         void addExecParameter(CF::DataType dt);
@@ -247,6 +248,7 @@ namespace ossie
         const bool  isConfigurable();
         const bool  isAssemblyController();
         const bool  isScaCompliant();
+        const std::string getNicAssignment();
 
         bool isAssignedToDevice() const;
 
@@ -276,6 +278,7 @@ namespace ossie
         std::string identifier;
         std::string instantiationId;
         std::string namingServiceName;
+        std::string nicAssignment;
 
         CF::Properties configureProperties;
         CF::Properties options;
@@ -326,11 +329,5 @@ namespace ossie
         CF::Properties acProps;
         std::vector<ComponentInfo*> components;
     };
-
-
-
-    typedef std::pair< CF::Device_ptr, std::string >   SoftPkgLoad;
-    typedef std::vector< SoftPkgLoad >                 SoftPkgList;
-
 }
 #endif

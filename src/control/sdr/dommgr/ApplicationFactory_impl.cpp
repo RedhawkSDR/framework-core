@@ -409,7 +409,6 @@ void createHelper::assignRemainingComponentsToDevices()
     }
 }
 
-
 void createHelper::_assignComponentsUsingDAS(const DeviceAssignmentMap& deviceAssignments)
 {
     LOG_TRACE(ApplicationFactory_impl, "Assigning " << deviceAssignments.size() 
@@ -1608,7 +1607,39 @@ ossie::AllocationResult createHelper::allocateComponentToDevice( ossie::Componen
     CF::Properties allocationProperties;
     this->_castRequestProperties(allocationProperties, prop_refs);
     this->_evaluateMATHinRequest(allocationProperties, component->getConfigureProperties());
+    
+    const redhawk::PropertyMap& tmp_alloc = redhawk::PropertyMap::cast(allocationProperties);
+    const redhawk::PropertyType* nic_alloc = tmp_alloc.find("nic_allocation");
+    std::string alloc_id;
+    if (nic_alloc != tmp_alloc.end()) {
+        redhawk::PropertyMap& substr = nic_alloc->getValue().toStruct();
+        alloc_id = substr["nic_allocation::identifier"].toString();
+        if (alloc_id.empty()) {
+            substr["nic_allocation::identifier"] = ossie::generateUUID();
+        }
+    }
+    
     ossie::AllocationResult response = this->_allocationMgr->allocateDeployment(requestid, allocationProperties, devices, implementation->getProcessorDeps(), implementation->getOsDeps());
+    if (tmp_alloc.find("nic_allocation") != tmp_alloc.end()) {
+        if (!response.first.empty()) {
+            redhawk::PropertyMap query_props;
+            redhawk::PropertyType query_prop;
+            query_prop.id = "nic_allocation_status";
+            query_props.push_back(query_prop);
+            response.second->device->query(query_props);
+            std::vector<redhawk::PropertyMap*> retstruct = query_props["nic_allocation_status"].toStructSeq();
+            for (std::vector<redhawk::PropertyMap*>::iterator it = retstruct.begin(); it!=retstruct.end(); it++) {
+                std::string identifier = (**it)["nic_allocation_status::identifier"].toString();
+                if (identifier == alloc_id) {
+                    component->setNicAssignment((**it)["nic_allocation_status::interface"].toString());
+                    redhawk::PropertyType nic_execparam;
+                    nic_execparam.id = "NIC";
+                    nic_execparam.setValue((**it)["nic_allocation_status::interface"].toString());
+                    component->addExecParameter(nic_execparam);
+                }
+            }
+        }
+    }
     TRACE_EXIT(ApplicationFactory_impl);
     return response;
 }
@@ -1926,7 +1957,6 @@ void createHelper::loadDependencies(const std::string& componentId,
         const std::string fileName = codeLocalFile.string();
         LOG_DEBUG(ApplicationFactory_impl, "Loading dependency local file " << fileName);
         try {
-            _softpkgList.push_back( SoftPkgLoad( device, fileName ) );
              device->load(_appFact._fileMgr, fileName.c_str(), codeType);
         } catch (...) {
             LOG_ERROR(ApplicationFactory_impl, "Failure loading file " << fileName);
@@ -2613,32 +2643,6 @@ void createHelper::_cleanupFailedCreate()
         _application->terminateComponents();
         _application->unloadComponents();
         _application->_cleanupActivations();
-    }
-
-    // clean up soft package dependencies that were loaded...
-    ossie::SoftPkgList::iterator pkg = _softpkgList.begin();
-    for ( ; pkg != _softpkgList.end(); pkg++ ) {
-      try {
-        if ( ossie::corba::objectExists(pkg->first) ) {
-          CF::LoadableDevice_ptr loadDev = CF::LoadableDevice::_narrow(pkg->first);
-          if ( CORBA::is_nil(loadDev) == false ) {
-            LOG_DEBUG(ApplicationFactory_impl, "Unload soft package dependency:" << pkg->second);
-            loadDev->unload(pkg->second.c_str());
-          }
-          else {
-            throw -1;
-          }
-        }
-        else {
-          throw -1;
-        }
-      }
-      catch(...) {
-        // issue warning the unload failed for soft pkg unload
-        LOG_WARN(ApplicationFactory_impl, "Unable to unload soft package dependency:" << pkg->second);
-      }
-          
-
     }
 
     LOG_TRACE(ApplicationFactory_impl, "Removing all bindings from naming context");

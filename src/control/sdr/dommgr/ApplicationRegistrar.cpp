@@ -21,37 +21,26 @@
 #include "ApplicationRegistrar.h"
 #include "Application_impl.h"
 #include "DomainManager_impl.h"
+#include "FakeApplication.h"
 
 ApplicationRegistrar_impl::ApplicationRegistrar_impl(CosNaming::NamingContext_ptr context, Application_impl *app) :
     _context(CosNaming::NamingContext::_duplicate(context)),
     _application(app)
 {
-    this->_fakeApplication = new FakeApplication(app->_identifier, app->_appName, app);
 }
 
-ApplicationRegistrar_impl::~ApplicationRegistrar_impl() {
-    PortableServer::POA_var dm_poa = ossie::corba::RootPOA()->find_POA("DomainManager", 0);
-    PortableServer::POA_var app_poa = dm_poa->find_POA("Applications", 0);
-
-    // Deactivate the application registry, release our reference and reset the
-    // local pointer
-    PortableServer::ObjectId_var oid = app_poa->servant_to_id(this->_fakeApplication);
-    app_poa->deactivate_object(oid);
-    delete this->_fakeApplication;
+ApplicationRegistrar_impl::~ApplicationRegistrar_impl()
+{
 }
 
-CF::Application_ptr ApplicationRegistrar_impl::app() {
-    if (!_application->trusted()) {
-        return _fakeApplication->_this();
-    }
-    return _application->_this();
+CF::Application_ptr ApplicationRegistrar_impl::app()
+{
+    return _application->getComponentApplication();
 }
 
-CF::DomainManager_ptr ApplicationRegistrar_impl::domMgr() {
-    if (!_application->trusted()) {
-        return CF::DomainManager::_nil();
-    }
-    return _application->_domainManager->_this();
+CF::DomainManager_ptr ApplicationRegistrar_impl::domMgr()
+{
+    return _application->getComponentDomainManager();
 }
 
 void ApplicationRegistrar_impl::registerComponent(const char * Name, CF::Resource_ptr obj) throw (CF::InvalidObjectReference, CF::DuplicateName, CORBA::SystemException) {

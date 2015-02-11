@@ -8,6 +8,7 @@ sdr/dev/devices/BasicTestDevice_cpp/BasicTestDevice_cpp_impl1/BasicTestDevice_cp
 sdr/dev/devices/cpp_dev/cpp/cpp_dev
 sdr/dev/devices/CppTestDevice/cpp/CppTestDevice
 sdr/dev/devices/ExecutableDevice/ExecutableDevice
+sdr/dev/devices/GPP/cpp/GPP
 sdr/dev/devices/SimpleDevice/SimpleDevice_cpp_impl1/SimpleDevice_cpp_impl1
 sdr/dev/devices/issue_111_cpp/cpp/issue_111_cpp
 sdr/dev/devices/props_test_device/props_test_device_cpp_impl1/props_test_device_cpp_impl1

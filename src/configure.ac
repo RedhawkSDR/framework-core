@@ -204,6 +204,7 @@ AC_LANG_POP
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(time.h)
 AC_HEADER_DIRENT
+AX_CXX_GCC_ABI_DEMANGLE
 
 if test "x$cross_compiling" == "xyes"; then
 # Cross our fingers and hope
@@ -306,6 +307,7 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dev/devices/PersonaDevice/cpp/Makefile \
                 testing/sdr/dev/devices/ProgrammableDevice/cpp/Makefile \
                 testing/sdr/dev/devices/cpp_dev/cpp/Makefile \
+                testing/sdr/dev/devices/GPP/cpp/Makefile \
                 testing/sdr/dev/devices/java_dev/java/Makefile \
                 testing/sdr/dev/services/BasicService_java/java/Makefile \
                 testing/sdr/dom/components/CppCallbacks/cpp/Makefile \

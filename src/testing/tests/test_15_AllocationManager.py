@@ -28,7 +28,7 @@ from ossie import properties
 class AllocationManagerTest(scatest.CorbaTestCase):
     def setUp(self):
         super(AllocationManagerTest,self).setUp()
-        nb, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
+        nb, self._domMgr = self.launchDomainManager()
         self._allocMgr = self._domMgr._get_allocationMgr()
 
     def _tryAllocation(self, props):
@@ -39,7 +39,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         return len(response) == len(request)
 
     def test_MatchingProperties(self):
-        nb, devMgr = self.launchDeviceManager('/nodes/test_Matching_node/DeviceManager.dcd.xml', debug=self.debuglevel)
+        nb, devMgr = self.launchDeviceManager('/nodes/test_Matching_node/DeviceManager.dcd.xml')
         self.assertNotEqual(devMgr, None)
         self.assertTrue(len(devMgr._get_registeredDevices()) > 0)
         dev = devMgr._get_registeredDevices()[0]
@@ -74,7 +74,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         self.assertTrue(self._tryAllocation({'impl_defined': 'python'}))
 
     def test_MatchingPropertiesDCDOverride(self):
-        nb, devMgr = self.launchDeviceManager('/nodes/test_MatchingDCDOverride_node/DeviceManager.dcd.xml', debug=self.debuglevel)
+        nb, devMgr = self.launchDeviceManager('/nodes/test_MatchingDCDOverride_node/DeviceManager.dcd.xml')
         self.assertNotEqual(devMgr, None)
         self.assertTrue(len(devMgr._get_registeredDevices()) > 0)
         dev = devMgr._get_registeredDevices()[0]
@@ -105,7 +105,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         self.assertTrue(self._tryAllocation({ExtendedCF.WKP.OS_NAME: 'Linux'}))
 
     def test_ExternalProperties(self):
-        nb, devMgr = self.launchDeviceManager('/nodes/test_collocation_good_node/DeviceManager.dcd.xml', debug=self.debuglevel)
+        nb, devMgr = self.launchDeviceManager('/nodes/test_collocation_good_node/DeviceManager.dcd.xml')
 
         #self._tryAllocation({ExtendedCF.WKP.OS_VERSION:'1'})
         #self._tryAllocation({'os_name':'Linux'})
@@ -121,7 +121,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         return len(response) == len(request)
 
     def test_MultipleRequests(self):
-        nb, devMgr = self.launchDeviceManager('/nodes/test_SADUsesDevice/DeviceManager.dcd.xml', debug=self.debuglevel)
+        nb, devMgr = self.launchDeviceManager('/nodes/test_SADUsesDevice/DeviceManager.dcd.xml')
 
         # Try two requests that should succeed
         props = properties.props_from_dict({'simple_alloc': 1})
@@ -162,7 +162,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         self._allocMgr.deallocate([r.allocationID for r in response.values()])
 
     def test_allocationsMethod(self):
-        nb, devMgr = self.launchDeviceManager('/nodes/test_SADUsesDevice/DeviceManager.dcd.xml', debug=self.debuglevel)
+        nb, devMgr = self.launchDeviceManager('/nodes/test_SADUsesDevice/DeviceManager.dcd.xml')
 
         # Check that there are no allocations reported
         allocs = self._allocMgr.allocations([])
@@ -228,7 +228,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         # state is up-to-date
         devCount = 0
         for node in ('test_collocation_good_node', 'test_SADUsesDevice', 'test_MultipleExecutableDevice_node'):
-            nb, devMgr = self.launchDeviceManager('/nodes/'+node+'/DeviceManager.dcd.xml', debug=self.debuglevel)
+            nb, devMgr = self.launchDeviceManager('/nodes/'+node+'/DeviceManager.dcd.xml')
 
             # Collect the complete set of device IDs, making sure new devices
             # are added every time through the loop
@@ -254,7 +254,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         """
         Tests the operation of the device list iterators.
         """
-        nb, devMgr = self.launchDeviceManager('/nodes/test_MultipleExecutableDevice_node/DeviceManager.dcd.xml', debug=self.debuglevel)
+        nb, devMgr = self.launchDeviceManager('/nodes/test_MultipleExecutableDevice_node/DeviceManager.dcd.xml')
         devices = allocMgrHelpers.parseDomainDevices(self._domMgr)
 
         # First, try to list more devices than there are in the system, to make
@@ -311,7 +311,7 @@ class AllocationManagerTest(scatest.CorbaTestCase):
         self.assertEqual(allocMgrHelpers.parseDeviceLocations(devlist), devices)
 
     def test_AllocationIterators(self):
-        nb, devMgr = self.launchDeviceManager('/nodes/test_SADUsesDevice/DeviceManager.dcd.xml', debug=self.debuglevel)
+        nb, devMgr = self.launchDeviceManager('/nodes/test_SADUsesDevice/DeviceManager.dcd.xml')
         # Set initial state to 4 allocations
         request = [('test1', {'simple_alloc': 1}),
                    ('test2', {'simple_alloc': 1}),

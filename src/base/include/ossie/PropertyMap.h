@@ -46,6 +46,8 @@ namespace redhawk {
         PropertyMap();
         explicit PropertyMap(const CF::Properties& properties);
 
+        PropertyMap& operator=(const CF::Properties& properties);
+
         bool contains (const std::string& id) const;
 
         bool empty () const;

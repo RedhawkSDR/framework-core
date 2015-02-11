@@ -92,7 +92,7 @@ private:
 
     void incrementFileIORCount(std::string &fileName, std::string &fileIOR);
     void decrementFileIORCount(std::string &fileName, std::string &fileIOR);
-    IORList getFileIOR(std::string &fileName);
+    IORList getFileIOR(const std::string& fileName);
 
     IORTable fileOpenIOR;
 

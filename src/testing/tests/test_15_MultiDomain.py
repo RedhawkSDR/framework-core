@@ -70,7 +70,7 @@ class MultiDomainTest(scatest.CorbaTestCase):
         self.assertEqual(len(self._domainManager_1._get_applicationFactories()), 0)
         self.assertEqual(len(self._domainManager_2._get_applicationFactories()), 0)
         
-        nb1, execDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_exec/DeviceManager.dcd.xml", domainManager=self._domainManager_1, debug=self.debuglevel)
+        nb1, execDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_exec/DeviceManager.dcd.xml", domainManager=self._domainManager_1)
         self.assertNotEqual(execDevNode1, None)
 
         self._domainManager_1.installApplication("/waveforms/CommandWrapperUsesDevice/CommandWrapper.sad.xml")
@@ -78,7 +78,7 @@ class MultiDomainTest(scatest.CorbaTestCase):
         
         self.assertRaises(CF.ApplicationFactory.CreateApplicationError, appFact.create, appFact._get_name(), [], [])
 
-        nb2, basicDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_uses/DeviceManager.dcd.xml", domainManager=self._domainManager_2, debug=self.debuglevel)
+        nb2, basicDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_uses/DeviceManager.dcd.xml", domainManager=self._domainManager_2)
         self.assertNotEqual(basicDevNode1, None)
         
         self.assertEqual(len(self._domainManager_1._get_deviceManagers()),1)
@@ -109,10 +109,10 @@ class MultiDomainTest(scatest.CorbaTestCase):
         Test to verify that AllocationManagers report the correct devices for
         both localDevices() and allDevices().
         """
-        nb1, execDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_exec/DeviceManager.dcd.xml", domainManager=self._domainManager_1, debug=self.debuglevel)
+        nb1, execDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_exec/DeviceManager.dcd.xml", domainManager=self._domainManager_1)
         self.assertNotEqual(execDevNode1, None)
 
-        nb2, basicDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_uses/DeviceManager.dcd.xml", domainManager=self._domainManager_2, debug=self.debuglevel)
+        nb2, basicDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_uses/DeviceManager.dcd.xml", domainManager=self._domainManager_2)
         self.assertNotEqual(basicDevNode1, None)
 
         # Retrieve the full list of devices in each domain
@@ -154,10 +154,10 @@ class MultiDomainTest(scatest.CorbaTestCase):
         Verifiers that the AllocationManager's allocation iterators return the
         same sets of allocations as the corresponding attributes.
         """
-        nb1, execDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_exec/DeviceManager.dcd.xml", domainManager=self._domainManager_1, debug=self.debuglevel)
+        nb1, execDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_exec/DeviceManager.dcd.xml", domainManager=self._domainManager_1)
         self.assertNotEqual(execDevNode1, None)
 
-        nb2, basicDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_uses/DeviceManager.dcd.xml", domainManager=self._domainManager_2, debug=self.debuglevel)
+        nb2, basicDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_uses/DeviceManager.dcd.xml", domainManager=self._domainManager_2)
         self.assertNotEqual(basicDevNode1, None)
 
         # Connect the domains to each other
@@ -189,10 +189,10 @@ class MultiDomainTest(scatest.CorbaTestCase):
         Verifiers that the AllocationManager's device list iterators return the
         same sets of devices as the corresponding attributes.
         """
-        nb1, execDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_exec/DeviceManager.dcd.xml", domainManager=self._domainManager_1, debug=self.debuglevel)
+        nb1, execDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_exec/DeviceManager.dcd.xml", domainManager=self._domainManager_1)
         self.assertNotEqual(execDevNode1, None)
 
-        nb2, basicDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_uses/DeviceManager.dcd.xml", domainManager=self._domainManager_2, debug=self.debuglevel)
+        nb2, basicDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_uses/DeviceManager.dcd.xml", domainManager=self._domainManager_2)
         self.assertNotEqual(basicDevNode1, None)
 
         # Connect the domains to each other
@@ -215,8 +215,8 @@ class MultiDomainTest(scatest.CorbaTestCase):
         self.assertEqual(allocMgrHelpers.parseDeviceLocations(auth_iter), allocMgrHelpers.parseDeviceLocations(auth_attr))
 
     def test_RemoteAllocations(self):
-        nb1, execDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_exec/DeviceManager.dcd.xml", domainManager=self._domainManager_1, debug=self.debuglevel)
-        nb2, basicDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_uses/DeviceManager.dcd.xml", domainManager=self._domainManager_2, debug=self.debuglevel)
+        nb1, execDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_exec/DeviceManager.dcd.xml", domainManager=self._domainManager_1)
+        nb2, basicDevNode1 = self.launchDeviceManager("/nodes/test_multiDomain_uses/DeviceManager.dcd.xml", domainManager=self._domainManager_2)
 
         # Register second domain with first (no need to do both directions)
         self._domainManager_1.registerRemoteDomainManager(self._domainManager_2)
@@ -319,8 +319,8 @@ class MultiDomainPersistenceTest(scatest.CorbaTestCase):
             pass
 
     def test_AllocationPersistence(self):
-        self.launchDeviceManager("/nodes/test_multiDomain_exec/DeviceManager.dcd.xml", domainManager=self._domainManager_1, debug=self.debuglevel)
-        self.launchDeviceManager("/nodes/test_multiDomain_uses/DeviceManager.dcd.xml", domainManager=self._domainManager_2, debug=self.debuglevel)
+        self.launchDeviceManager("/nodes/test_multiDomain_exec/DeviceManager.dcd.xml", domainManager=self._domainManager_1)
+        self.launchDeviceManager("/nodes/test_multiDomain_uses/DeviceManager.dcd.xml", domainManager=self._domainManager_2)
         self._domainManager_1.registerRemoteDomainManager(self._domainManager_2)
 
         allocMgr_1 = self._domainManager_1._get_allocationMgr()
@@ -346,7 +346,7 @@ class MultiDomainPersistenceTest(scatest.CorbaTestCase):
             self.fail("Domain Manager Failed to Die")
 
         # Re-launch and check that the allocation state remains the same
-        self.launchDomainManager(endpoint='giop:tcp::5679', dbURI=self._dbfile, debug=self.debuglevel)
+        self.launchDomainManager(endpoint='giop:tcp::5679', dbURI=self._dbfile)
         post = dict((al.allocationID, al) for al in allocMgr_1.allocations([]))
         self.assertEqual(len(pre), len(post))
         self.assertEqual(pre.keys(), post.keys())

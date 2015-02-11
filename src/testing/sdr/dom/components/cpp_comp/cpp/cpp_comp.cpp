@@ -35,6 +35,7 @@ cpp_comp_i::cpp_comp_i(const char *uuid, const char *label) :
 {
     this->app_id = "foo";
     this->dom_id = "foo";
+    this->nic_name = "foo";
     this->number_components = -1;
 }
 
@@ -194,6 +195,7 @@ int cpp_comp_i::serviceFunction()
     } else {
         this->dom_id = "";
     }
+    this->nic_name = this->getNetwork()->getNic();
 
     return NOOP;
 }

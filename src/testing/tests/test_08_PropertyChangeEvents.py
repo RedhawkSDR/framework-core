@@ -95,8 +95,8 @@ class PropertyChangeEventsTest(scatest.CorbaTestCase):
         # Test DeviceManager related events
 
         # launch DomainManager
-        nodebooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, self._domMgr = self.launchDomainManager()
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         self._domMgr.installApplication("/waveforms/PropertyChangeEvents/PropertyChangeEvents.sad.xml")
@@ -149,8 +149,8 @@ class PropertyChangeEventsTest(scatest.CorbaTestCase):
         # Test DeviceManager related events
 
         # launch DomainManager
-        nodebooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, self._domMgr = self.launchDomainManager()
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         self._domMgr.installApplication("/waveforms/PropertyChangeEventsCpp/PropertyChangeEventsCpp.sad.xml")
@@ -194,8 +194,8 @@ class PropertyChangeEventsTest(scatest.CorbaTestCase):
         # Test DeviceManager related events
 
         # launch DomainManager
-        nodebooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        nodebooter, self._domMgr = self.launchDomainManager()
+        devBooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
 
         self._domMgr.installApplication("/waveforms/PropertyChangeEventsJava/PropertyChangeEventsJava.sad.xml")

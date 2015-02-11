@@ -148,7 +148,8 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
     //process options and throw InvalidOptions errors if they are not ULong
     for (CORBA::ULong i = 0; i < options.length(); ++i) {
         if (options[i].id == CF::ExecutableDevice::PRIORITY_ID) {
-            if ((options[i].value.type()->kind() != CORBA::tk_ulong)) {
+            CORBA::TypeCode_var atype = options[i].value.type();
+            if (atype->kind() != CORBA::tk_ulong) {
                 invalidOptions.length(invalidOptions.length() + 1);
                 invalidOptions[invalidOptions.length() - 1].id = options[i].id;
                 invalidOptions[invalidOptions.length() - 1].value
@@ -157,7 +158,8 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
                 LOG_WARN(ExecutableDevice_impl, "Received a PRIORITY_ID execute option...ignoring.")
             }
         if (options[i].id == CF::ExecutableDevice::STACK_SIZE_ID) {
-            if ((options[i].value.type()->kind() != CORBA::tk_ulong)) {
+            CORBA::TypeCode_var atype = options[i].value.type();
+            if (atype->kind() != CORBA::tk_ulong) {
                 invalidOptions.length(invalidOptions.length() + 1);
                 invalidOptions[invalidOptions.length() - 1].id = options[i].id;
                 invalidOptions[invalidOptions.length() - 1].value
@@ -222,7 +224,8 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
     LOG_DEBUG(ExecutableDevice_impl, "Building param list for process " << path);
     for (CORBA::ULong i = 0; i < parameters.length(); ++i) {
         LOG_DEBUG(ExecutableDevice_impl, "id=" << ossie::corba::returnString(parameters[i].id) << " value=" << ossie::any_to_string(parameters[i].value));
-        if (parameters[i].value.type()->kind() != CORBA::tk_string) {
+        CORBA::TypeCode_var atype = parameters[i].value.type();
+        if (atype->kind() != CORBA::tk_string) {
             LOG_WARN(ExecutableDevice_impl, "Received a non string exec param for " << parameters[i].id);
         }
 

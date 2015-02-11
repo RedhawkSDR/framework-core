@@ -141,6 +141,7 @@ ossie_jar_SOURCE = src/org/ossie/component/AllocCapacity.java \
 		   src/org/ossie/properties/UnsignedUtils.java \
                    src/org/ossie/redhawk/ApplicationContainer.java \
                    src/org/ossie/redhawk/DomainManagerContainer.java \
+                   src/org/ossie/redhawk/NetworkContainer.java \
                    src/org/ossie/redhawk/DeviceManagerContainer.java
 
 # Deprecated generic property classes, replaced by strongly-typed classes but

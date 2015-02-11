@@ -28,8 +28,8 @@ from ossie.utils import sb
 
 class CppPropertiesTest(scatest.CorbaTestCase):
     def setUp(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        domBooter, self._domMgr = self.launchDomainManager()
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml")
         self._app = None
         if self._domMgr:
             try:
@@ -97,7 +97,7 @@ class CppPropertiesTest(scatest.CorbaTestCase):
         self.assertNotEqual(propVal.value.value(), None)
 
     def test_fullQuery(self):
-        devBooter_2, self._devMgr_2 = self.launchDeviceManager("/nodes/props_test_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        devBooter_2, self._devMgr_2 = self.launchDeviceManager("/nodes/props_test_node/DeviceManager.dcd.xml")
         dev = self._devMgr_2._get_registeredDevices()[0]
         results = dev.query([])
         ids = []
@@ -111,7 +111,7 @@ class CppPropertiesTest(scatest.CorbaTestCase):
         self.assertEqual(len(results), 5)
 
     def test_NilRead(self):
-        #nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        #nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
         #self.assertNotEqual(devMgr, None)
 
         self.assertEqual(len(self._domMgr._get_applicationFactories()), 1)
@@ -164,8 +164,8 @@ class CppPropertiesTest(scatest.CorbaTestCase):
 
 class CppPropertiesRangeTest(scatest.CorbaTestCase):
     def setUp(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        domBooter, self._domMgr = self.launchDomainManager()
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
         self._app = None
         if self._domMgr:
             try:

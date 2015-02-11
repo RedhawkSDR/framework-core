@@ -172,8 +172,8 @@ class LegacyJavaPropertiesTest(scatest.CorbaTestCase):
 class JavaPropertiesRangeTest(scatest.CorbaTestCase):
 
     def setUp(self):
-        domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", debug=self.debuglevel)
+        domBooter, self._domMgr = self.launchDomainManager()
+        devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
         self._app = None
         if self._domMgr:
             try:

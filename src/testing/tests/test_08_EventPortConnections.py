@@ -60,7 +60,7 @@ class ConsumerDevice_i(CosEventComm__POA.PushConsumer):
 
 class EventPortConnectionsTest(scatest.CorbaTestCase):
     def setUp(self):
-        self._domBooter, self._domMgr = self.launchDomainManager(debug=self.debuglevel)
+        self._domBooter, self._domMgr = self.launchDomainManager()
 
     def tearDown(self):
         try:
@@ -92,7 +92,7 @@ class EventPortConnectionsTest(scatest.CorbaTestCase):
         self.localEvent = threading.Event()
         self.eventFlag = False
         
-        self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_EventPortTestDevice_node/DeviceManager.dcd.xml", self._domMgr, debug=self.debuglevel)
+        self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_EventPortTestDevice_node/DeviceManager.dcd.xml", self._domMgr)
         time.sleep(1)   # this sleep is here for the connections to be established to the event service
 
         domainName = scatest.getTestDomainName()
@@ -125,7 +125,7 @@ class EventPortConnectionsTest(scatest.CorbaTestCase):
         self.localEvent = threading.Event()
         self.eventFlag = False
         
-        self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_EventPortTestDevice_node/DeviceManager.dcd.xml", self._domMgr, debug=self.debuglevel)
+        self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_EventPortTestDevice_node/DeviceManager.dcd.xml", self._domMgr)
         domainName = scatest.getTestDomainName()
         self._domMgr.installApplication("/waveforms/PortConnectFindByDomainFinderEvent/PortConnectFindByDomainFinderEvent.sad.xml")
         appFact = self._domMgr._get_applicationFactories()[0]

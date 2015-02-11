@@ -103,6 +103,8 @@ public:
     void unregisterDevice (CF::Device_ptr unregisteringDevice)
         throw (CF::DomainManager::UnregisterError, CF::InvalidObjectReference, CORBA::SystemException);
         
+    CF::Application_ptr createApplication(const char* profileFileName, const char* name, const CF::Properties& initConfiguration, const CF::DeviceAssignmentSequence& deviceAssignments);
+
     void installApplication (const char* profileFileName)
         throw (CF::DomainManager::ApplicationInstallationError, CF::InvalidFileName, CF::InvalidProfile, CORBA::SystemException, CF::DomainManager::ApplicationAlreadyInstalled);
     void _local_installApplication (const char* profileFileName);

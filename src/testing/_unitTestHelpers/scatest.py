@@ -307,7 +307,7 @@ class CorbaTestCase(OssieTestCase):
     def __init__(self, methodName='runTest', orbArgs=[]):
         unittest.TestCase.__init__(self, methodName)
         args = sys.argv
-        self.debuglevel = 9
+        self.debuglevel = 3
         for arg in args:
             if '--debuglevel' in arg:
                 self.debuglevel = arg.split('=')[-1]
@@ -409,6 +409,9 @@ class CorbaTestCase(OssieTestCase):
         if self._domainBooter and self._domainBooter.poll() == None:
             return (self._domainBooter, self._domainManager)
 
+        # If debug level is not given, default to configured level
+        kwargs.setdefault('debug', self.debuglevel)
+
         # Launch the nodebooter.
         self._domainBooter = spawnNodeBooter(dmdFile=dmdFile, execparams=self._execparams, *args, **kwargs)
         while self._domainBooter.poll() == None:
@@ -428,6 +431,9 @@ class CorbaTestCase(OssieTestCase):
         except IOError:
             print "ERROR: Invalid DCD path provided to launchDeviceManager", dcdFile
             return (None, None)
+
+        # If debug level is not given, default to configured level
+        kwargs.setdefault('debug', self.debuglevel)
 
         # Launch the nodebooter.
         if domainManager == None:
