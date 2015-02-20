@@ -238,7 +238,6 @@ protected:
     ossie::PersistenceStore db;
 
     boost::recursive_mutex stateAccess;
-    boost::recursive_mutex appAccess;
 
     // The PersistenceStore is used to persist the state of the following members
     ossie::DeviceManagerList _registeredDeviceManagers;

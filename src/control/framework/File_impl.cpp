@@ -338,7 +338,7 @@ throw (CORBA::SystemException, CF::FileException)
 
     if (!fsOpSuccess) {
         LOG_ERROR(File_impl, "Error closing file, " << fName);
-        throw (CF::File::IOException (CF::CF_EIO, "[File_impl::close] Error closing file"));
+        throw (CF::FileException (CF::CF_EIO, "[File_impl::close] Error closing file"));
     }
 
     TRACE_EXIT(File_impl)
@@ -381,7 +381,7 @@ throw (CORBA::SystemException, CF::File::InvalidFilePointer,
     }
     if (!fsOpSuccess) {
         LOG_ERROR(File_impl, "Error setting file pointer for file, " << fName);
-        throw (CF::File::IOException (CF::CF_EIO, "[File_impl::setFilePointer] Error setting file pointer for file"));
+        throw (CF::FileException (CF::CF_EIO, "[File_impl::setFilePointer] Error setting file pointer for file"));
     }
 
     TRACE_EXIT(File_impl)

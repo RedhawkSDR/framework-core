@@ -639,7 +639,7 @@ DomainManager_impl::identifier (void)
 throw (CORBA::SystemException)
 {
     TRACE_ENTER(DomainManager_impl)
-
+      boost::recursive_mutex::scoped_lock lock(stateAccess);
     TRACE_EXIT(DomainManager_impl)
     return CORBA::string_dup(_configuration.getID());
 }
@@ -650,7 +650,7 @@ DomainManager_impl::domainManagerProfile (void)
 throw (CORBA::SystemException)
 {
     TRACE_ENTER(DomainManager_impl)
-
+     boost::recursive_mutex::scoped_lock lock(stateAccess);
     TRACE_EXIT(DomainManager_impl)
     return CORBA::string_dup(_domainManagerProfile.c_str());
 }
@@ -660,7 +660,7 @@ CF::FileManager_ptr DomainManager_impl::fileMgr (void) throw (CORBA::
                                                               SystemException)
 {
     TRACE_ENTER(DomainManager_impl)
-
+      boost::recursive_mutex::scoped_lock lock(stateAccess);
     TRACE_EXIT(DomainManager_impl)
     return CF::FileManager::_duplicate(_fileMgr);
 }
@@ -1706,7 +1706,7 @@ void
 DomainManager_impl::addApplication(Application_impl* new_app)
 {
     TRACE_ENTER(DomainManager_impl)
-    boost::recursive_mutex::scoped_lock lock(appAccess);
+    boost::recursive_mutex::scoped_lock lock(stateAccess);
 
     LOG_TRACE(DomainManager_impl, "Attempting to add application to AppSeq with id: " << ossie::corba::returnString(new_app->identifier()));
 
@@ -1762,7 +1762,7 @@ void
 DomainManager_impl::removeApplication(std::string app_id)
 {
     TRACE_ENTER(DomainManager_impl)
-    boost::recursive_mutex::scoped_lock lock(appAccess);
+    boost::recursive_mutex::scoped_lock lock(stateAccess);
 
     LOG_TRACE(DomainManager_impl, "Attempting to remove application from AppSeq with id: " << app_id)
 

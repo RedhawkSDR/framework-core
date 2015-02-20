@@ -301,7 +301,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
         bool PythonPackage = false;
         bool JavaJar = false;
         // Check to see if it's a C library
-        std::string command = "nm ";
+        std::string command = "readelf -h ";
         command += relativeFileName;
         command += std::string(" 2>&1"); // redirect stdout to /dev/null
         FILE *fileCheck = popen(command.c_str(), "r");
