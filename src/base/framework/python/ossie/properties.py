@@ -118,6 +118,16 @@ def to_tc_value(data, type_):
     # If the typecode is known, use that
     if __TYPE_MAP.has_key(type_):
         pytype, tc = __TYPE_MAP[type_]
+
+        # If the value is already an Any, check its type; if it's already the
+        # right type, nothing needs to happen, otherwise extract the value and
+        # convert
+        if isinstance(data, CORBA.Any):
+            if data.typecode().equal(tc):
+                return data
+            else:
+                data = data.value()
+
         # Convert to the correct Python type, if necessary
         if not isinstance(data, pytype):
             data = to_pyvalue(data, type_)
