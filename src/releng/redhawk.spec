@@ -26,7 +26,7 @@
 
 Name:		redhawk
 Version:	1.8.9
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:	REDHAWK is a Software Defined Radio framework
 
 Group:		Applications/Engineering
