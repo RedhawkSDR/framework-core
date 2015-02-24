@@ -239,42 +239,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
         if (workingFileName[0] == '/') {
             relativeFileName = workingFileName.substr(1);
         }
-        fileStream.open(relativeFileName.c_str(), mode);
-        if (!fileStream.is_open()) {
-            LOG_ERROR(LoadableDevice_impl, "Could not create file " << relativeFileName.c_str());
-        }
-
-        // copy the file
-        LOG_DEBUG(LoadableDevice_impl, "Copying " << workingFileName << " to the device's cache")
-        CF::File_var srcFile = fs->open (workingFileName.c_str(), true);
-        CF::OctetSequence_var data;
-        unsigned int srcSize = srcFile->sizeOf();
-        if (srcSize > ossie::corba::giopMaxMsgSize()) {
-            bool doneReading = false;
-            unsigned int maxReadSize = ossie::corba::giopMaxMsgSize() * 0.95;
-            LOG_DEBUG(LoadableDevice_impl, "File is longer than giopMaxMsgSize (" << ossie::corba::giopMaxMsgSize() << "), partitioning the copy into pieces of length " << maxReadSize)
-            unsigned int readSize = maxReadSize;
-            unsigned int leftoverSrcSize = srcSize;
-            while (not doneReading) {
-                CF::OctetSequence_var data;
-                if (readSize > leftoverSrcSize) {
-                    readSize = leftoverSrcSize;
-                }
-                srcFile->read(data, readSize);
-                fileStream.write((const char*)data->get_buffer(), data->length());
-                leftoverSrcSize -= readSize;
-                if (leftoverSrcSize == 0) {
-                    doneReading = true;
-                }
-            }
-            fileStream.close();
-        } else {
-            CF::OctetSequence_var data;
-            srcFile->read(data, srcSize);
-            fileStream.write((const char*)data->get_buffer(), data->length());
-            fileStream.close();
-        }
-        srcFile->close();
+        _copyFile( fs, workingFileName, relativeFileName, workingFileName );
         chmod(relativeFileName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         fileTypeTable[workingFileName] = CF::FileSystem::PLAIN;
     } else {
@@ -550,7 +515,12 @@ void LoadableDevice_impl::_copyFile(CF::FileSystem_ptr fs, const std::string &re
 {
 
     CF::File_var fileToLoad = fs->open(remotePath.c_str(), true);
-    size_t blockTransferSize = 1024;
+    if ( CORBA::is_nil(fileToLoad) ) {
+      LOG_ERROR(LoadableDevice_impl, "Unable to open remote file: " << remotePath );
+      throw(CF::FileException());
+    }
+
+    size_t blockTransferSize = ossie::corba::giopMaxMsgSize() * 0.95;
     size_t toRead;
     CF::OctetSequence_var data;
 
@@ -566,19 +536,80 @@ void LoadableDevice_impl::_copyFile(CF::FileSystem_ptr fs, const std::string &re
 
     copiedFiles.insert(copiedFiles_type::value_type(fileKey, localPath));
     size_t fileSize = fileToLoad->sizeOf();
-    while (fileSize > 0) {
-        if (blockTransferSize < fileSize)
-            { toRead = blockTransferSize; }
-        else
-            { toRead = fileSize; }
-        fileToLoad->read(data, toRead);
-        fileStream.write((const char*)data->get_buffer(), data->length());
+    bool fe = false;
+    std::ostringstream eout;
+    try {
+      while (fileSize > 0) {
+        toRead    = std::min(fileSize, blockTransferSize);
         fileSize -= toRead;
-    }
-    fileStream.close();
-    fileToLoad->close();
-}
+        try {
+          fileToLoad->read(data, toRead);
+        } catch ( std::exception& ex ) {
+          eout << "The following standard exception occurred: "<<ex.what()<<" While \"srcFile->read\"";
+          throw(CF::FileException());
+        } catch ( CF::File::IOException &ex ) {
+          eout << "File Exception occured,  While \"srcFile->read\"";
+          throw;
+        } catch ( CF::FileException &ex ) {
+          eout << "File Exception occured,  While \"srcFile->read\"";
+          throw;
+        } catch ( CORBA::Exception& ex ) {
+          eout << "The following CORBA exception occurred: "<<ex._name()<<" While \"srcFile->read\"";
+            throw(CF::FileException());
+        } catch( ... ) {
+          eout << "[FileManager::copy] \"srcFile->read\" failed with Unknown Exception\n";
+          throw(CF::FileException());
+        }
 
+        // write the data
+        try {
+          fileStream.write((const char*)data->get_buffer(), data->length());
+        } catch ( std::exception& ex ) {
+          eout << "The following standard exception occurred: "<<ex.what()<<" While \"dstFile->write\"";
+          throw(CF::FileException());
+        } catch( ... ) {
+          eout << "[FileManager::copy] \"dstFile->write\" failed with Unknown Exception\n";
+          throw(CF::FileException());
+        }
+      }
+    }
+    catch(...) {
+      LOG_ERROR(LoadableDevice_impl, eout.str())
+      fe = true;
+    }
+
+    // close the files
+    try {
+      try {
+        fileToLoad->close();
+      } catch ( std::exception& ex ) {
+        eout << "The following standard exception occurred: "<<ex.what()<<" While \"srcFile->close\"";
+        throw(CF::FileException());
+      } catch ( CF::File::IOException &ex ) {
+        eout << "File Exception occured, \"srcFile->close\"";
+        throw;
+      } catch ( CF::FileException &ex ) {
+        eout << "File Exception occured, \"srcFile->close\"";
+        throw;
+      } catch ( CORBA::Exception& ex ) {
+        eout << "The following CORBA exception occurred: "<<ex._name()<<" While \"srcFile->close\"";
+        throw(CF::FileException());
+      } catch( ... ) {
+        eout << "[FileManager::copy] \"srcFile->close\" failed with Unknown Exception\n";
+        throw(CF::FileException());
+      }
+    }
+    catch(...) {
+      LOG_ERROR(LoadableDevice_impl, eout.str())
+      fe = true;
+    }
+      fileStream.close();
+
+    if ( fe ) {
+      throw(CF::FileException());
+    }
+}
+      
 
 void
 LoadableDevice_impl::incrementFile (std::string fileName)

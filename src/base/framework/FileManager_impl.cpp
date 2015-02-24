@@ -449,7 +449,10 @@ throw (CORBA::SystemException, CF::InvalidFileName, CF::FileException)
     // read the data
     CF::OctetSequence_var data;
     CORBA::ULong bytes = srcFile->sizeOf();
-    while (bytes > 0) {
+    bool  fe = false;
+    std::ostringstream eout;
+    try {
+      while (bytes > 0) {
         // Read the file data in 1MB chunks. If omniORB uses the GIOP protocol to talk to the source filesystem
         // (i.e. it is in a different ORB), reads of more than about 2MB will exceed the maximum GIOP packet
         // size and raise a MARSHAL exception.
@@ -459,20 +462,20 @@ throw (CORBA::SystemException, CF::InvalidFileName, CF::FileException)
         try {
             srcFile->read(data, chunkSize);
         } catch ( std::exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following standard exception occurred: "<<ex.what()<<" While \"srcFile->read\"";
-            LOG_ERROR(FileManager_impl, eout.str())
-            throw(CF::FileException());
-        } catch ( CF::FileException& ex ) {
-            throw;
+          eout << "The following standard exception occurred: "<<ex.what()<<" While \"srcFile->read\"";
+          throw(CF::FileException());
+        } catch ( CF::File::IOException &ex ) {
+          eout << "File Exception occured,  While \"srcFile->read\"";
+          throw;
+        } catch ( CF::FileException &ex ) {
+          eout << "File Exception occured,  While \"srcFile->read\"";
+          throw;
         } catch ( CORBA::Exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following CORBA exception occurred: "<<ex._name()<<" While \"srcFile->read\"";
-            LOG_ERROR(FileManager_impl, eout.str())
-            throw(CF::FileException());
+          eout << "The following CORBA exception occurred: "<<ex._name()<<" While \"srcFile->read\"";
+          throw(CF::FileException());
         } catch( ... ) {
-            LOG_ERROR(FileManager_impl, "[FileManager::copy] \"srcFile->read\" failed with Unknown Exception\n");
-            throw(CF::FileException());
+          eout << "[FileManager::copy] \"srcFile->read\" failed with Unknown Exception\n";
+          throw(CF::FileException());
         }
 
 
@@ -480,61 +483,73 @@ throw (CORBA::SystemException, CF::InvalidFileName, CF::FileException)
         try {
             dstFile->write(data);
         } catch ( std::exception& ex ) {
-            std::ostringstream eout;
             eout << "The following standard exception occurred: "<<ex.what()<<" While \"dstFile->write\"";
-            LOG_ERROR(FileManager_impl, eout.str())
             throw(CF::FileException());
-        } catch ( CF::FileException& ex ) {
-            throw;
+        } catch ( CF::File::IOException &ex ) {
+          eout << "File Exception occured,  While \"dstFile->write\"";
+          throw;
+        } catch ( CF::FileException &ex ) {
+          eout << "File Exception occured,  While \"dstFile->write\"";
+          throw;
         } catch ( CORBA::Exception& ex ) {
-            std::ostringstream eout;
             eout << "The following CORBA exception occurred: "<<ex._name()<<" While \"dstFile->write\"";
-            LOG_ERROR(FileManager_impl, eout.str())
             throw(CF::FileException());
         } catch( ... ) {
-            LOG_ERROR(FileManager_impl, "[FileManager::copy] \"dstFile->write\" failed with Unknown Exception\n");
-            throw(CF::FileException());
+          eout << "[FileManager::copy] \"dstFile->write\" failed with Unknown Exception\n";
+          throw(CF::FileException());
         }
+      }
+    } catch(...) {
+      LOG_ERROR(FileManager_impl, eout.str());
+      fe = true;
     }
 
-    // close the files
+    
     try {
+      // close the files
+      try {
         srcFile->close();
-        } catch ( std::exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following standard exception occurred: "<<ex.what()<<" While \"srcFile->close\"";
-            LOG_ERROR(FileManager_impl, eout.str())
-            throw(CF::FileException());
-        } catch ( CF::FileException& ex ) {
-            throw;
-        } catch ( CORBA::Exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following CORBA exception occurred: "<<ex._name()<<" While \"srcFile->close\"";
-            LOG_ERROR(FileManager_impl, eout.str())
-            throw(CF::FileException());
-    } catch( ... ) {
-        LOG_ERROR(FileManager_impl, "[FileManager::copy] \"srcFile->close\" failed with Unknown Exception\n");
+      } catch ( std::exception& ex ) {
+        eout << "The following standard exception occurred: "<<ex.what()<<" While \"srcFile->close\"";
         throw(CF::FileException());
+      } catch ( CF::FileException& ex ) {
+        throw;
+      } catch ( CORBA::Exception& ex ) {
+        eout << "The following CORBA exception occurred: "<<ex._name()<<" While \"srcFile->close\"";
+        throw(CF::FileException());
+      } catch( ... ) {
+        eout << "[FileManager::copy] \"srcFile->close\" failed with Unknown Exception\n";
+        throw(CF::FileException());
+      }
+    }catch(...) {
+      LOG_ERROR(FileManager_impl, eout.str());
+      fe = true;
     }
+    
 
     try {
+      try {
         dstFile->close();
-    } catch ( std::exception& ex ) {
-        std::ostringstream eout;
+      } catch ( std::exception& ex ) {
         eout << "The following standard exception occurred: "<<ex.what()<<" While \"dstFile->close\"";
-        LOG_ERROR(FileManager_impl, eout.str())
-        throw(CF::FileException());
-    } catch ( CF::FileException& ex ) {
+      } catch ( CF::FileException& ex ) {
         throw;
-    } catch ( CORBA::Exception& ex ) {
-        std::ostringstream eout;
+      } catch ( CORBA::Exception& ex ) {
         eout << "The following CORBA exception occurred: "<<ex._name()<<" While \"dstFile->close\"";
-        LOG_ERROR(FileManager_impl, eout.str())
         throw(CF::FileException());
-    } catch( ... ) {
-        LOG_ERROR(FileManager_impl, "[FileManager::copy] \"dstFile->close\" failed with Unknown Exception\n");
+      } catch( ... ) {
+        eout << "[FileManager::copy] \"dstFile->close\" failed with Unknown Exception\n";
         throw(CF::FileException());
+      }
+    } catch(...) {
+      LOG_ERROR(FileManager_impl, eout.str());
+      fe = true;
     }
+
+    if ( fe ) {
+      throw(CF::FileException());
+    }
+    
 }
 
 
