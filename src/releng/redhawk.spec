@@ -26,7 +26,7 @@ Prefix:         %{_sdrroot}
 Prefix:         %{_sysconfdir}
 
 Name:           redhawk
-Version:        1.10.2
+Version:        1.10.3
 Release:        1%{?dist}
 Summary:        REDHAWK is a Software Defined Radio framework
 
