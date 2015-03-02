@@ -2078,9 +2078,9 @@ class Domain(_CF__POA.DomainManager, object):
         self.__setattr__('_deviceManagersUpdated', True)
 
         for devMgr in devmgr_seq:
-            dcdPath = devMgr._get_deviceConfigurationProfile()
-            devMgrFileSys = devMgr._get_fileSys()
             try:
+                dcdPath = devMgr._get_deviceConfigurationProfile()
+                devMgrFileSys = devMgr._get_fileSys()
                 dcdFile = devMgrFileSys.open(dcdPath, True)
             except:
                 print "Unable to open $SDRROOT/dev"+dcdPath+". Unable to add Device Manager '"+devMgr._get_label()+"'"
