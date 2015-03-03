@@ -1469,6 +1469,9 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
         throw (CF::InvalidObjectReference("[DeviceManager::registerDevice] Cannot register Device. registeringDevice is a nil reference."));
     }
 
+    if (*_internalShutdown) // do not service a registration request if the Device Manager is shutting down
+        return;
+    
     LOG_INFO(DeviceManager_impl, "Registering device " << ossie::corba::returnString(registeringDevice->label()) << " on Device Manager " << _label)
 
     CORBA::String_var deviceLabel = registeringDevice->label();
