@@ -59,7 +59,6 @@ void DeviceManager_impl::killPendingDevices() {
         // Try an orderly shutdown.
         // NOTE: If the DeviceManager was terminated with a ^C, sending this signal may cause the
         //       original SIGINT to be forwarded to all other children (which is harmless, but be aware).
-        LOG_TRACE(DeviceManager_impl, "Sending SIGTERM to device process " << devicePid);
         kill(devicePid, SIGTERM);
     }
 
@@ -80,7 +79,6 @@ void DeviceManager_impl::sigkillPendingDevices() {
          ++deviceIter) {
 
         pid_t devicePid = (*deviceIter)->pid;
-        LOG_TRACE(DeviceManager_impl, "Sending SIGKILL to device process " << devicePid);
         kill(devicePid, SIGKILL);
     }
 }
@@ -1764,27 +1762,22 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
 
 void DeviceManager_impl::deleteFileSystems()
 {
-    LOG_TRACE(DeviceManager_impl, "Deleting file systems");
     PortableServer::POA_var poa = ossie::corba::RootPOA()->find_POA("DeviceManager", 0);
     PortableServer::ObjectId_var oid = poa->reference_to_id(_fileSys);
     poa->deactivate_object(oid);
     _fileSys = CF::FileSystem::_nil();
-    LOG_TRACE(DeviceManager_impl, "Deleted file systems");
 }
 
 void
 DeviceManager_impl::shutdown ()
 throw (CORBA::SystemException)
 {
-    TRACE_ENTER(DeviceManager_impl)
     *_internalShutdown = true;
 
     if ((_adminState == DEVMGR_SHUTTING_DOWN) || (_adminState == DEVMGR_SHUTDOWN)) {
-        LOG_INFO(DeviceManager_impl, "ignoring shutdown request.")
         return;
     }
 
-    LOG_INFO(DeviceManager_impl, "shutting down DeviceManager")
     _adminState = DEVMGR_SHUTTING_DOWN;
 
     // SR:501
@@ -1792,19 +1785,9 @@ throw (CORBA::SystemException)
     // Although unclear, a failure here should NOT prevent us from trying to clean up
     // everything per SR::503
     try {
-        LOG_TRACE(DeviceManager_impl, "unregistering DeviceManager");
         CF::DeviceManager_var self = _this();
         _dmnMgr->unregisterDeviceManager(self);
-    } catch( CF::InvalidObjectReference& ior ) {
-        LOG_ERROR(DeviceManager_impl, "\"dmnMgr->unregisterDeviceManager\" failed with CF::InvalidObjectReference\n")
-    } catch( CORBA::SystemException& se ) {
-        LOG_ERROR(DeviceManager_impl, "\"dmnMgr->unregisterDeviceManager\" failed with CORBA::" << se._name());
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while \"dmnMgr->unregisterDeviceManager\"")
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while \"dmnMgr->unregisterDeviceManager\"")
     } catch( ... ) {
-        LOG_ERROR(DeviceManager_impl, "\"dmnMgr->unregisterDeviceManager\" failed with Unknown Exception\n")
     }
 
     // SR:502
@@ -1816,7 +1799,6 @@ throw (CORBA::SystemException)
     clean_externalServices();
     clean_registeredDevices();
 
-    LOG_TRACE(DeviceManager_impl, "Unbinding device manager context")
     try {
         CosNaming::Name devMgrContextName;
         devMgrContextName.length(1);
@@ -1824,46 +1806,23 @@ throw (CORBA::SystemException)
         if (!CORBA::is_nil(rootContext)) {
             rootContext->unbind(devMgrContextName);
         }
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" unregistering the file system")
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" unregistering the file system")
     } catch ( ... ) {
-        LOG_ERROR(DeviceManager_impl, "Failed to unbind the device manager context")
     }
 
-    LOG_TRACE(DeviceManager_impl, "Unregistering file systems")
     try {
         deleteFileSystems();
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while deleting the file system")
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while deleting the file system")
     } catch ( ... ) {
-        LOG_ERROR(DeviceManager_impl, "Failed to delete the file system")
     }
 
     try {
-        LOG_INFO(DeviceManager_impl, "done shutting down DeviceManager")
         _adminState = DEVMGR_SHUTDOWN;
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while changing the state of the Device Manager")
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while changing the state of the Device Manager")
     } catch ( ... ) {
-        LOG_ERROR(DeviceManager_impl, "Failed to change the state of the Device Manager")
     }
 
     // Only attempt to shut down the ORB if it is not shared with a DomainManager.
-    LOG_TRACE(DeviceManager_impl, "shutting down ORB")
     try {
         ossie::corba::OrbShutdown(false);
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while shutting down the ORB")
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while shutting down the ORB")
     } catch ( ... ) {
-        LOG_ERROR(DeviceManager_impl, "Failed to shutdown the ORB")
     }
 }
 
@@ -2120,15 +2079,12 @@ bool DeviceManager_impl::decrement_registeredServices(CORBA::Object_ptr register
     boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
 
     for (ServiceList::iterator serviceIter = _registeredServices.begin(); serviceIter != _registeredServices.end(); ++serviceIter){
-        LOG_TRACE(DeviceManager_impl, "Comparing tmpServiceName to serviceName " << (*serviceIter)->label << " " << name);
         ServiceNode* serviceNode = *serviceIter;
         if (strcmp((*serviceIter)->label.c_str(), name) == 0){
-            LOG_TRACE(DeviceManager_impl, "Matched service name");
             serviceFound = true;
 
             // Unbind service from the naming service
             std::string temp_name((*serviceIter)->label);
-            LOG_INFO(DeviceManager_impl, "Unbinding service name " << temp_name);
             // Per the specification, service usagenames are not optional and *MUST* be
             // unique per each service type.  Therefore, a domain cannot have two
             // services of the same usagename.
@@ -2136,26 +2092,15 @@ bool DeviceManager_impl::decrement_registeredServices(CORBA::Object_ptr register
             try {
                 rootContext->unbind(tmpServiceName);
             } catch ( ... ){
-                LOG_INFO(DeviceManager_impl, "Service " << temp_name << " was not able to unbind");
             }
 
             // Ddon't unregisterService from the domain manager if we are SHUTTING_DOWN
             if (_adminState == DEVMGR_REGISTERED){
                 try {
-                    LOG_INFO(DeviceManager_impl, "Unregistering service " << name << " from domain manager");
                     _dmnMgr->unregisterService(registeredService, name);
-                    LOG_TRACE(DeviceManager_impl, "Done unregistering service " << name << " from domain manager");
-                } CATCH_LOG_ERROR(DeviceManager_impl, "Failure unregistering service from domain manager")
-            } else {
-                LOG_TRACE(DeviceManager_impl, "Not unregistering service " << name << " from domain manager because we are shutting down");
+                } catch ( ... ) {}
             }
-
-            if (!registeredService->_is_equivalent((*serviceIter)->service)) {
-                LOG_WARN(DeviceManager_impl, "Cowardly refusing to unregister service because"
-                                             << " the unregistering object does not match the"
-                                             << " registered object")
-            }
-
+            
             // Remove the service from the list of registered services
             _registeredServices.erase(serviceIter);
 
@@ -2175,8 +2120,6 @@ bool DeviceManager_impl::decrement_registeredServices(CORBA::Object_ptr register
 
 bool DeviceManager_impl::decrement_registeredDevices(CF::Device_ptr registeredDevice)
 {
-    TRACE_ENTER(DeviceManager_impl);
-
     bool deviceFound = false;
     const std::string deviceIOR = ossie::corba::objectToString(registeredDevice);
 
@@ -2186,9 +2129,7 @@ bool DeviceManager_impl::decrement_registeredDevices(CF::Device_ptr registeredDe
          deviceIter != _registeredDevices.end(); 
          ++deviceIter) {
         DeviceNode* deviceNode = *deviceIter;
-        LOG_TRACE(DeviceManager_impl, "Comparing tmpDeviceIOR to deviceIOR " << deviceNode->IOR << " " << deviceIOR);
         if (deviceNode->IOR == deviceIOR) {
-            LOG_TRACE(DeviceManager_impl, "Matched device IOR");
             deviceFound = true;
             
             // Remove device from the list of registered devices.
@@ -2211,30 +2152,16 @@ bool DeviceManager_impl::decrement_registeredDevices(CF::Device_ptr registeredDe
 
             // Per SR:490, don't unregisterDevice from the domain manager if we are SHUTTING_DOWN
             if (_adminState == DEVMGR_REGISTERED) {
-                LOG_INFO(DeviceManager_impl, "Unregistering device " << label << " from domain manager");
                 try {
                     _dmnMgr->unregisterDevice(registeredDevice);
-                    LOG_TRACE(DeviceManager_impl, "Done unregistering device " << label << " from domain manager");
-                } catch( CORBA::SystemException& se ) {
-                    LOG_ERROR(DeviceManager_impl, "[DeviceManager::unregisterDevice] \"dmnMgr->unregisterDevice\" failed with CORBA::SystemException\n");
-                } catch( CF::InvalidObjectReference ) {
-                    LOG_ERROR(DeviceManager_impl, "[DeviceManager::unregisterDevice] \"dmnMgr->unregisterDevice\" failed with InvalidObjectReference\n");
-                } catch ( std::exception& ex ) {
-                    LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<"while unregistering device " << label << " from domain manager")
-                } catch ( const CORBA::Exception& ex ) {
-                    LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<"while unregistering device " << label << " from domain manager")
                 } catch( ... ) {
-                    LOG_ERROR(DeviceManager_impl, "[DeviceManager::unregisterDevice] \"dmnMgr->unregisterDevice\" failed with Unknown Exception\n");
                 }
-            } else {
-                LOG_TRACE(DeviceManager_impl, "Not unregistering device " << label << " from domain manager because we are shutting down");
             }
 
             break;
         }
     }
     
-    TRACE_EXIT(DeviceManager_impl);
     return deviceFound;
 }
 
@@ -2400,7 +2327,6 @@ void DeviceManager_impl::clean_registeredServices(){
         // Try an orderly shutdown.
         // NOTE: If the DeviceManager was terminated with a ^C, sending this signal may cause the
         //       original SIGINT to be forwarded to all other children (which is harmless, but be aware).
-        LOG_TRACE(DeviceManager_impl, "Sending SIGTERM to service process " << servicePid);
         kill(servicePid, SIGTERM);
     }
 
@@ -2409,7 +2335,6 @@ void DeviceManager_impl::clean_registeredServices(){
         pid_t servicePid = (*serviceIter)->pid;
         // Only kill services that were launched by this device manager
         if (servicePid != 0){
-            LOG_TRACE(DeviceManager_impl, "Sending SIGTERM to a registered service process " << servicePid);
             kill(servicePid, SIGTERM);
         }
     }
@@ -2449,7 +2374,6 @@ void DeviceManager_impl::clean_registeredServices(){
     // Send a SIGKILL to any remaining services.
     for (ServiceList::iterator serviceIter = _pendingServices.begin(); serviceIter != _pendingServices.end(); ++serviceIter) {
         pid_t servicePid = (*serviceIter)->pid;
-        LOG_TRACE(DeviceManager_impl, "Sending SIGKILL to service process " << servicePid);
         kill(servicePid, SIGKILL);
     }
 
@@ -2458,7 +2382,6 @@ void DeviceManager_impl::clean_registeredServices(){
         pid_t servicePid = (*serviceIter)->pid;
         // Only kill services that were launched by this device manager
         if (servicePid != 0){
-            LOG_TRACE(DeviceManager_impl, "Sending SIGKILL to a registered service process " << servicePid);
             kill(servicePid, SIGKILL);
         }
     }
@@ -2471,7 +2394,6 @@ void DeviceManager_impl::clean_registeredDevices()
         DeviceNode* deviceNode = _registeredDevices[0];
         std::string label = deviceNode->label;
 
-        LOG_TRACE(DeviceManager_impl, "Releasing device " << label);
         try {
             lock.unlock();
             unsigned long timeout = 3; // seconds
@@ -2479,7 +2401,6 @@ void DeviceManager_impl::clean_registeredDevices()
             deviceNode->device->releaseObject();
             lock.lock();
         } catch (const CORBA::Exception& ex) {
-            LOG_ERROR(DeviceManager_impl, "CORBA " << ex._name() << " exception calling releaseObject on " << label);
             lock.lock();
             if (_registeredDevices[0] == deviceNode) {
                 if (_registeredDevices.size() != 0) { // this check is here just in case the error happens after the base class releaseObject finishes
@@ -2496,7 +2417,6 @@ void DeviceManager_impl::clean_registeredDevices()
                     _pendingDevices.push_back(deviceNode);
             }
         } catch ( std::exception& ex ) {
-            LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what())
             lock.lock();
             if (_registeredDevices[0] == deviceNode) {
                 if (_registeredDevices.size() != 0) { // this check is here just in case the error happens after the base class releaseObject finishes
@@ -2522,7 +2442,6 @@ void DeviceManager_impl::clean_registeredDevices()
         // Try an orderly shutdown.
         // NOTE: If the DeviceManager was terminated with a ^C, sending this signal may cause the
         //       original SIGINT to be forwarded to all other children (which is harmless, but be aware).
-        LOG_TRACE(DeviceManager_impl, "Sending SIGTERM to device process " << devicePid);
         kill(devicePid, SIGTERM);
     }
 
@@ -2621,7 +2540,6 @@ void DeviceManager_impl::childExited (pid_t pid, int status)
 
     // The pid should always be found; if it is not, it must be a logic error.
     if (!deviceNode && !serviceNode) {
-        LOG_ERROR(DeviceManager_impl, "Process " << pid << " is not associated with a registered device");
         return;
     }
 
@@ -2630,16 +2548,6 @@ void DeviceManager_impl::childExited (pid_t pid, int status)
         label = deviceNode->label;
     } else {
         label = serviceNode->label;
-    }
-
-    if (WIFSIGNALED(status)) {
-        if (deviceNode) {
-            LOG_WARN(DeviceManager_impl, "Child process " << label << " (pid " << pid << ") has terminated with signal " << WTERMSIG(status));
-        } else { // it's a service, so no termination through signal is the correct behavior
-            LOG_INFO(DeviceManager_impl, "Child process " << label << " (pid " << pid << ") has terminated with signal " << WTERMSIG(status));
-        }
-    } else {
-        LOG_INFO(DeviceManager_impl, "Child process " << label << " (pid " << pid << ") has exited with status " << WEXITSTATUS(status));
     }
 
     // If the device terminated unexpectedly, unregister it.
