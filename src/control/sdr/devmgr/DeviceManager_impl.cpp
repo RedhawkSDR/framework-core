@@ -1489,37 +1489,24 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
     // this).
     boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
  
-
-    // Register the device with the Device manager, unless it is already
-    // registered
-    if (!deviceIsRegistered (registeringDevice)) {
-        // if the device is not registered, then add it to the naming context
-        LOG_TRACE(DeviceManager_impl, "Binding device to name " << deviceLabel)
-        CosNaming::Name_var device_name = ossie::corba::stringToName(static_cast<char*>(deviceLabel));
-        try {
-            devMgrContext->bind(device_name, registeringDevice);
-        } catch ( ... ) {
-            // there is already something bound to that name
-            // from the perspective of this framework implementation, the multiple names are not acceptable
-            // consider this a registered device
-            LOG_WARN(DeviceManager_impl, "Device is already registered")
-            return;
-        }
-        increment_registeredDevices(registeringDevice);
-    } else {
-        LOG_WARN(DeviceManager_impl, "Device is already registered")
-        return;
-    }
-
     LOG_INFO(DeviceManager_impl, "Initializing device " << deviceLabel << " on Device Manager " << _label)
     try {
         registeringDevice->initialize();
     } catch (CF::LifeCycle::InitializeError& ex) {
-        LOG_WARN(DeviceManager_impl, "Device "<< deviceLabel << " threw a CF::LifeCycle::InitializeError exception")
+        std::ostringstream eout;
+        eout << "Device "<< deviceLabel << " threw a CF::LifeCycle::InitializeError exception"<<". Device registration with Device Manager failed";
+        LOG_ERROR(DeviceManager_impl, eout.str())
+        throw(CF::InvalidObjectReference(eout.str().c_str()));
     } catch ( std::exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while attempting to initialize Device " << deviceLabel)
+        std::ostringstream eout;
+        eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to initialize Device " << deviceLabel<<". Device registration with Device Manager failed";
+        LOG_ERROR(DeviceManager_impl, eout.str())
+        throw(CF::InvalidObjectReference(eout.str().c_str()));
     } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while attempting to initialize Device " << deviceLabel)
+        std::ostringstream eout;
+        eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to initialize Device " << deviceLabel<<". Device registration with Device Manager failed";
+        LOG_ERROR(DeviceManager_impl, eout.str())
+        throw(CF::InvalidObjectReference(eout.str().c_str()));
     }
     
     //Get properties from SPD
@@ -1534,17 +1521,25 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
         SPDParser.load(_spd, spdFile.c_str());
         _spd.close();
     } catch ( ossie::parser_error& e ) {
-        LOG_ERROR(DeviceManager_impl, "[DeviceManager::registerDevice] Failed to parse SPD; " << e.what())
-        throw(CF::InvalidObjectReference());
+        std::ostringstream eout;
+        eout << "[DeviceManager::registerDevice] Failed to parse SPD; " << e.what();
+        LOG_ERROR(DeviceManager_impl, eout.str())
+        throw(CF::InvalidObjectReference(eout.str().c_str()));
     } catch ( std::exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while attempting to parse "<<spdFile)
-        throw(CF::InvalidObjectReference());
+        std::ostringstream eout;
+        eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to parse "<<spdFile;
+        LOG_ERROR(DeviceManager_impl, eout.str())
+        throw(CF::InvalidObjectReference(eout.str().c_str()));
     } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while attempting to parse "<<spdFile)
-        throw(CF::InvalidObjectReference());
+        std::ostringstream eout;
+        eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to parse "<<spdFile;
+        LOG_ERROR(DeviceManager_impl, eout.str())
+        throw(CF::InvalidObjectReference(eout.str().c_str()));
     } catch ( ... ) {
-        LOG_ERROR(DeviceManager_impl, "[DeviceManager::registerDevice] Failed to parse SPD")
-        throw(CF::InvalidObjectReference());
+        std::ostringstream eout;
+        eout << "[DeviceManager::registerDevice] Failed to parse SPD";
+        LOG_ERROR(DeviceManager_impl, eout.str())
+        throw(CF::InvalidObjectReference(eout.str().c_str()));
     }
 
     if ( SPDParser.getPRFFile() ) {
@@ -1558,23 +1553,35 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
             PRFparser.load(prfStream);
             prfStream.close();
         } catch ( ossie::parser_error& ex ) {
-            LOG_ERROR(DeviceManager_impl, "[DeviceManager::registerDevice] Failed to parse PRF" << ex.what())
-            throw(CF::InvalidObjectReference());
+            std::ostringstream eout;
+            eout << "[DeviceManager::registerDevice] Failed to parse PRF" << ex.what();
+            LOG_ERROR(DeviceManager_impl, eout.str())
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         } catch( CF::InvalidFileName& ex ) {
-            LOG_ERROR(DeviceManager_impl, "[DeviceManager::registerDevice] While opening PRF " << ex.msg)
-            throw(CF::InvalidObjectReference());
+            std::ostringstream eout;
+            eout << "[DeviceManager::registerDevice] While opening PRF " << ex.msg;
+            LOG_ERROR(DeviceManager_impl, eout.str())
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         } catch( CF::FileException& ex ) {
-            LOG_ERROR(DeviceManager_impl, "[DeviceManager::registerDevice] While opening PRF " << ex.msg)
-            throw(CF::InvalidObjectReference());
+            std::ostringstream eout;
+            eout << "[DeviceManager::registerDevice] While opening PRF " << ex.msg;
+            LOG_ERROR(DeviceManager_impl, eout.str())
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         } catch ( std::exception& ex ) {
-            LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while attempting to open "<<SPDParser.getPRFFile())
-            throw(CF::InvalidObjectReference());
+            std::ostringstream eout;
+            eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to open "<<SPDParser.getPRFFile();
+            LOG_ERROR(DeviceManager_impl, eout.str())
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         } catch ( const CORBA::Exception& ex ) {
-            LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while attempting to open "<<SPDParser.getPRFFile())
-            throw(CF::InvalidObjectReference());
+            std::ostringstream eout;
+            eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to open "<<SPDParser.getPRFFile();
+            LOG_ERROR(DeviceManager_impl, eout.str())
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         } catch( ... ) {
-            LOG_ERROR(DeviceManager_impl, "[DeviceManager::registerDevice] Unknown Exception While opening SPD")
-            throw(CF::InvalidObjectReference());
+            std::ostringstream eout;
+            eout << "[DeviceManager::registerDevice] Unknown Exception While opening SPD";
+            LOG_ERROR(DeviceManager_impl, eout.str())
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         }
 
         // TODO fix this mess
@@ -1585,14 +1592,20 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
             DCDParser.load(_dcd);
             _dcd.close();
         } catch ( std::exception& ex ) {
-            LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while attempting to parse "<<_deviceConfigurationProfile)
-            throw(CF::InvalidObjectReference());
+            std::ostringstream eout;
+            eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to parse "<<_deviceConfigurationProfile;
+            LOG_ERROR(DeviceManager_impl, eout.str())
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         } catch ( const CORBA::Exception& ex ) {
-            LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while attempting to parse "<<_deviceConfigurationProfile)
-            throw(CF::InvalidObjectReference());
+            std::ostringstream eout;
+            eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to parse "<<_deviceConfigurationProfile;
+            LOG_ERROR(DeviceManager_impl, eout.str())
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         } catch ( ... ) {
-            LOG_ERROR(DeviceManager_impl, "[DeviceManager::registerDevice] Failed to parse DCD")
-            throw(CF::InvalidObjectReference());
+            std::ostringstream eout;
+            eout << "[DeviceManager::registerDevice] Failed to parse DCD";
+            LOG_ERROR(DeviceManager_impl, eout.str())
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         }
 
         // get properties from device PRF that matches the registering device
@@ -1602,14 +1615,20 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
             if (instantiation.getUsageName() != NULL)
                 std::string tmp_name = instantiation.getUsageName(); // this is here to get rid of a warning
         } catch (std::out_of_range& e) {
-            LOG_ERROR(DeviceManager_impl, "[DeviceManager::registerDevice] Failed to parse DCD")
-            throw(CF::InvalidObjectReference());
+            std::ostringstream eout;
+            eout << "[DeviceManager::registerDevice] Failed to parse DCD";
+            LOG_ERROR(DeviceManager_impl, eout.str())
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         } catch ( std::exception& ex ) {
-            LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while attempting to parse "<<_deviceConfigurationProfile)
-            throw(CF::InvalidObjectReference());
+            std::ostringstream eout;
+            eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to parse "<<_deviceConfigurationProfile;
+            LOG_ERROR(DeviceManager_impl, eout.str())
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         } catch ( const CORBA::Exception& ex ) {
-            LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while attempting to parse "<<_deviceConfigurationProfile)
-            throw(CF::InvalidObjectReference());
+            std::ostringstream eout;
+            eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to parse "<<_deviceConfigurationProfile;
+            LOG_ERROR(DeviceManager_impl, eout.str())
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         }
 
         // now see if any of those properties have been overridden in the componentinstantiation
@@ -1666,16 +1685,49 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
             CF::Properties configureProperties = ossie::getNonNilConfigureProperties(componentProperties);
             registeringDevice->configure (configureProperties);
         } catch (CF::PropertySet::PartialConfiguration& ex) {
-            LOG_WARN(DeviceManager_impl, "Device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "' may not have been configured correctly; "
-                                      << "Call to configure() resulted in PartialConfiguration exception")
+            std::ostringstream eout;
+            eout << "Device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "' may not have been configured correctly; "
+                                      << "Call to configure() resulted in PartialConfiguration exception. Device registration with Device Manager failed";
+            LOG_ERROR(DeviceManager_impl, eout.str())
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         } catch (CF::PropertySet::InvalidConfiguration& ex) {
-            LOG_ERROR(DeviceManager_impl, "Device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "' may not have been configured correctly; "
-                                      << "Call to configure() resulted in InvalidConfiguration exception")
+            std::ostringstream eout;
+            eout << "Device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "' may not have been configured correctly; "
+                                      << "Call to configure() resulted in InvalidConfiguration exception. Device registration with Device Manager failed";
+            LOG_ERROR(DeviceManager_impl, eout.str());
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         } catch ( std::exception& ex ) {
-            LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while attempting to configure "<<SPDParser.getSoftPkgName())
+            std::ostringstream eout;
+            eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to configure "<<SPDParser.getSoftPkgName()<<". Device registration with Device Manager failed";
+            LOG_ERROR(DeviceManager_impl, eout.str());
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         } catch ( const CORBA::Exception& ex ) {
-            LOG_ERROR(DeviceManager_impl, "The following CORBA exception occurred: "<<ex._name()<<" while attempting to configure "<<SPDParser.getSoftPkgName())
+            std::ostringstream eout;
+            eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to configure "<<SPDParser.getSoftPkgName()<<". Device registration with Device Manager failed";
+            LOG_ERROR(DeviceManager_impl, eout.str());
+            throw(CF::InvalidObjectReference(eout.str().c_str()));
         }
+    }
+
+    // Register the device with the Device manager, unless it is already
+    // registered
+    if (!deviceIsRegistered (registeringDevice)) {
+        // if the device is not registered, then add it to the naming context
+        LOG_TRACE(DeviceManager_impl, "Binding device to name " << deviceLabel)
+        CosNaming::Name_var device_name = ossie::corba::stringToName(static_cast<char*>(deviceLabel));
+        try {
+            devMgrContext->bind(device_name, registeringDevice);
+        } catch ( ... ) {
+            // there is already something bound to that name
+            // from the perspective of this framework implementation, the multiple names are not acceptable
+            // consider this a registered device
+            LOG_WARN(DeviceManager_impl, "Device is already registered")
+            return;
+        }
+        increment_registeredDevices(registeringDevice);
+    } else {
+        LOG_WARN(DeviceManager_impl, "Device is already registered")
+        return;
     }
 
     // If this Device Manager is registered with a Domain Manager, register

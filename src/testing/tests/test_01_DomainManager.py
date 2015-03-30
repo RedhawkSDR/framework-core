@@ -105,7 +105,7 @@ class DomainManagerTest(scatest.CorbaTestCase):
         self.assertNotEqual(devMgr, None)
 
         # NOTE These assert check must be kept in-line with the DeviceManager.dcd.xml
-        self.assertEqual(len(devMgr._get_registeredDevices()), 1)
+        self.assertEqual(len(devMgr._get_registeredDevices()), 0)
 
         # Test that the DCD file componentproperties get pushed to configure()
         # as per DeviceManager requirement SR:482

@@ -64,7 +64,6 @@ def _parsePropertiesFile(f):
     value = None
     for i, char in enumerate(line):
       if char in ('\\'):
-        # TODO properly deal with escape characters and line continuations
         continue
 
       # The key contains all of the characters in the line starting with the
@@ -78,6 +77,41 @@ def _parsePropertiesFile(f):
         break
   return result
 
+
+def _parsePropertiesStream( cfg ):
+  """Parse a Java Properties file into a python dictionary.
+
+  NOTE: CURRENTLY THIS DOES NOT SUPPORT ESCAPE CHARACTERS
+  NOR LINE CONTINUATIONS.
+  """
+  
+  result = {}
+  for line in cfg.split('\n'):
+    line = line.lstrip()
+    # A natural line that contains only white space characters is considered
+    # blank and is ignored. A comment line has an ASCII '#' or '!' as its first
+    # non-white space character; comment lines are also ignored
+    if len(line) == 0 or line[0] in ('#', '!'):
+      continue
+
+    key = None
+    value = None
+    for i, char in enumerate(line):
+      if char in ('\\'):
+        continue
+
+      # The key contains all of the characters in the line starting with the
+      # first non-white space character and up to, but not including, the first
+      # unescaped '=', ':', or white space character other than a line
+      # terminator.
+      if char in ('=', ':', ' ', '\t', '\f'):
+        key = line[0:i]
+        value = line[i+1:].lstrip()
+        result[key] = value
+        break
+  return result
+
+
 def _import_handler(name):
   if name.startswith("org.apache.log4j."):
     name = name[len("org.apache.log4j."):]
@@ -88,13 +122,20 @@ def _import_layout(name):
     name = name[len("org.apache.log4j."):]
   return eval(name)
 
+def strConfig(cfg, category=None):
+  props=_parsePropertiesStream(cfg)
+  return _config(props,category)
+
 def fileConfig(f, category=None):
+  props=_parsePropertiesFile(f)
+  return _config(props,category)
+
+
+def _config(props, category=None):
   logging.shutdown()
   logging.root = logging.RootLogger(logging.WARNING)
   logging.Logger.root = logging.root
   logging.Logger.manager = logging.Manager(logging.Logger.root)
-
-  props = _parsePropertiesFile(f)
   try:
     repoWideThresh = props["log4j.threshold"].strip()
     logging.getLogger().setLevel(_LEVEL_TRANS[repoWideThresh.strip().upper()])
@@ -136,6 +177,7 @@ def fileConfig(f, category=None):
           klass = _import_handler(appenderClass)
           handler = klass()
           setattr(handler, "threshold", _LEVEL_TRANS[categoryCfg[0].strip()])
+          logging.getLogger(str(pyname)).setLevel( _LEVEL_TRANS[categoryCfg[0].strip()] ) 
           # Deal with appender options
           appenderOptions = filter(lambda x: x.startswith(appenderKey+"."), props.keys())
           for appenderOption in appenderOptions:
@@ -163,15 +205,15 @@ def fileConfig(f, category=None):
           if layout:
             handler.setFormatter(layout)
 
-    # check additive tags to avoid additive logging to the root loggers
-    additivities = filter(lambda x: x.startswith("log4j.additivity."), props.keys())
-  
-    for additive in additivities:
-      pyname = additive[len("log4j.additivity."):]  
-      if (pyname == category):
-        if ( (str(props[additive]).strip().upper()) == "FALSE" ):
-          return
-  
+  # check additive tags to avoid additive logging to the root loggers
+  additivities = filter(lambda x: x.startswith("log4j.additivity."), props.keys())
+  for additive in additivities:
+    pyname = additive[len("log4j.additivity."):]  
+    if ( (str(props[additive]).strip().upper()) == "FALSE" ):
+      logging.getLogger(str(pyname)).propagate = False
+    if ( (str(props[additive]).strip().upper()) == "TRUE" ):
+      logging.getLogger(str(pyname)).propagate = True
+
   # Now deal with root logging appenders
   for logger, appenders in loggers.items():
     for appender in appenders:
