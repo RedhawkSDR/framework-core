@@ -43,6 +43,8 @@ EXTRA_DIST = setup.py
 
 BUILT_SOURCES = \
  ossie/cf/cf_idl.py \
+ ossie/cf/DataType_idl.py \
+ ossie/cf/Port_idl.py \
  ossie/cf/PortTypes_idl.py \
  ossie/cf/StandardEvent_idl.py \
  ossie/cf/ExtendedEvent_idl.py \
@@ -50,7 +52,8 @@ BUILT_SOURCES = \
  ossie/cf/QueryablePort_idl.py \
  ossie/cf/WellKnownProperties_idl.py \
  ossie/cf/sandbox_idl.py \
- ossie/cf/LogInterfaces_idl.py
+ ossie/cf/LogInterfaces_idl.py \
+ ossie/cf/EventChannelManager_idl.py
 
 CLEANFILES = $(BUILT_SOURCES)
 

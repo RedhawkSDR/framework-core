@@ -49,6 +49,12 @@ public:
                                                           CF::ExecutableDevice::InvalidParameters,
                                                           CF::ExecutableDevice::InvalidFunction, CF::Device::InvalidState,
                                                           CORBA::SystemException);
+    CF::ExecutableDevice::ProcessID_Type executeLinked (const char* name, const CF::Properties& options,
+                                                  const CF::Properties& parameters, const CF::StringSequence& deps) throw (CF::ExecutableDevice::ExecuteFail,
+                                                          CF::InvalidFileName, CF::ExecutableDevice::InvalidOptions,
+                                                          CF::ExecutableDevice::InvalidParameters,
+                                                          CF::ExecutableDevice::InvalidFunction, CF::Device::InvalidState,
+                                                          CORBA::SystemException);
     CF::ExecutableDevice::ProcessID_Type do_execute (const char* name, const CF::Properties& options,
                                                   const CF::Properties& parameters, const std::vector<std::string> prepend_args) throw (CF::ExecutableDevice::ExecuteFail,
                                                           CF::InvalidFileName, CF::ExecutableDevice::InvalidOptions,

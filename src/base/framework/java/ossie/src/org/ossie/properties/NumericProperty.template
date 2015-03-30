@@ -31,6 +31,11 @@ public class @name@Property extends NumericProperty<@box@> {
         super(id, name, "@scaname@", value, mode, action, kinds);
     }
 
+    public @name@Property(String id, String name, @box@ value, Mode mode,
+                           Action action, Kind[] kinds, boolean optional) {
+        super(id, name, "@scaname@", value, mode, action, kinds, optional);
+    }
+
     protected @box@ fromNumber(Number val) {
         if (val != null){
             return val.@primitive@Value();

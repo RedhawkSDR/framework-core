@@ -329,7 +329,7 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(dev.dom_id, "")
         dev.releaseObject()
 
-    def test_cppCompUntrusted(self):
+    def test_cppCompUnaware(self):
         nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
@@ -339,7 +339,7 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         appFact = domMgr._get_applicationFactories()[0]
         
-        initconfig = [CF.DataType(id=ExtendedCF.WKP.TRUSTED_APPLICATION, value=any.to_any(False))]
+        initconfig = [CF.DataType(id=ExtendedCF.WKP.AWARE_APPLICATION, value=any.to_any(False))]
 
         app = appFact.create(appFact._get_name(), initconfig, [])
         self.assertEqual(len(domMgr._get_applications()), 1)
@@ -351,11 +351,11 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(app_id, app._get_identifier())
         self.assertEqual(number_components, 0)
         self.assertEqual(dom_id, "")
-        self.assertEqual(app._get_trusted(), False)
+        self.assertEqual(app._get_aware(), False)
         app.releaseObject()
         self.assertEqual(len(domMgr._get_applications()), 0)
 
-    def test_pyCompUntrusted(self):
+    def test_pyCompUnaware(self):
         nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
@@ -365,7 +365,7 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         appFact = domMgr._get_applicationFactories()[0]
         
-        initconfig = [CF.DataType(id=ExtendedCF.WKP.TRUSTED_APPLICATION, value=any.to_any(False))]
+        initconfig = [CF.DataType(id=ExtendedCF.WKP.AWARE_APPLICATION, value=any.to_any(False))]
 
         app = appFact.create(appFact._get_name(), initconfig, [])
         self.assertEqual(len(domMgr._get_applications()), 1)
@@ -377,11 +377,11 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(app_id, app._get_identifier())
         self.assertEqual(number_components, 0)
         self.assertEqual(dom_id, "")
-        self.assertEqual(app._get_trusted(), False)
+        self.assertEqual(app._get_aware(), False)
         app.releaseObject()
         self.assertEqual(len(domMgr._get_applications()), 0)
 
-    def test_javaCompUntrusted(self):
+    def test_javaCompUnaware(self):
         nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
@@ -391,7 +391,7 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         appFact = domMgr._get_applicationFactories()[0]
         
-        initconfig = [CF.DataType(id=ExtendedCF.WKP.TRUSTED_APPLICATION, value=any.to_any(False))]
+        initconfig = [CF.DataType(id=ExtendedCF.WKP.AWARE_APPLICATION, value=any.to_any(False))]
 
         app = appFact.create(appFact._get_name(), initconfig, [])
         self.assertEqual(len(domMgr._get_applications()), 1)
@@ -403,11 +403,11 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(app_id, app._get_identifier())
         self.assertEqual(number_components, 0)
         self.assertEqual(dom_id, "")
-        self.assertEqual(app._get_trusted(), False)
+        self.assertEqual(app._get_aware(), False)
         app.releaseObject()
         self.assertEqual(len(domMgr._get_applications()), 0)
 
-    def test_cppCompTrusted(self):
+    def test_cppCompaware(self):
         nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
@@ -417,7 +417,7 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         appFact = domMgr._get_applicationFactories()[0]
         
-        initconfig = [CF.DataType(id=ExtendedCF.WKP.TRUSTED_APPLICATION, value=any.to_any(True))]
+        initconfig = [CF.DataType(id=ExtendedCF.WKP.AWARE_APPLICATION, value=any.to_any(True))]
 
         app = appFact.create(appFact._get_name(), initconfig, [])
         self.assertEqual(len(domMgr._get_applications()), 1)
@@ -427,11 +427,11 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         dom_id = app._get_registeredComponents()[0].componentObject.query([CF.DataType(id='dom_id',value=any.to_any(None))])[0].value._v
         self.assertEqual(app_id, app._get_identifier())
         self.assertEqual(dom_id, domMgr._get_identifier())
-        self.assertEqual(app._get_trusted(), True)
+        self.assertEqual(app._get_aware(), True)
         app.releaseObject()
         self.assertEqual(len(domMgr._get_applications()), 0)
 
-    def test_pyCompTrusted(self):
+    def test_pyCompAware(self):
         nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
@@ -441,7 +441,7 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         appFact = domMgr._get_applicationFactories()[0]
         
-        initconfig = [CF.DataType(id=ExtendedCF.WKP.TRUSTED_APPLICATION, value=any.to_any(True))]
+        initconfig = [CF.DataType(id=ExtendedCF.WKP.AWARE_APPLICATION, value=any.to_any(True))]
 
         app = appFact.create(appFact._get_name(), initconfig, [])
         self.assertEqual(len(domMgr._get_applications()), 1)
@@ -451,11 +451,11 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         dom_id = app._get_registeredComponents()[0].componentObject.query([CF.DataType(id='dom_id',value=any.to_any(None))])[0].value._v
         self.assertEqual(app_id, app._get_identifier())
         self.assertEqual(dom_id, domMgr._get_identifier())
-        self.assertEqual(app._get_trusted(), True)
+        self.assertEqual(app._get_aware(), True)
         app.releaseObject()
         self.assertEqual(len(domMgr._get_applications()), 0)
 
-    def test_javaCompTrusted(self):
+    def test_javaCompAware(self):
         nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
@@ -465,7 +465,7 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
         appFact = domMgr._get_applicationFactories()[0]
         
-        initconfig = [CF.DataType(id=ExtendedCF.WKP.TRUSTED_APPLICATION, value=any.to_any(True))]
+        initconfig = [CF.DataType(id=ExtendedCF.WKP.AWARE_APPLICATION, value=any.to_any(True))]
 
         app = appFact.create(appFact._get_name(), initconfig, [])
         self.assertEqual(len(domMgr._get_applications()), 1)
@@ -475,6 +475,6 @@ class ApplicationRegistrarTest(scatest.CorbaTestCase):
         dom_id = app._get_registeredComponents()[0].componentObject.query([CF.DataType(id='dom_id',value=any.to_any(None))])[0].value._v
         self.assertEqual(app_id, app._get_identifier())
         self.assertEqual(dom_id, domMgr._get_identifier())
-        self.assertEqual(app._get_trusted(), True)
+        self.assertEqual(app._get_aware(), True)
         app.releaseObject()
         self.assertEqual(len(domMgr._get_applications()), 0)

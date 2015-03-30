@@ -70,6 +70,10 @@ namespace redhawk {
 
         iterator find(const std::string& id);
         const_iterator find(const std::string& id) const;
+
+        void erase(const std::string& id);
+        void erase(iterator pos);
+        void erase(iterator first, iterator last);
     };
 
 }

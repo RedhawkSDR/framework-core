@@ -114,19 +114,20 @@ namespace {
 
 Application_impl::Application_impl (const std::string& id, const std::string& name, const std::string& profile,
                                     DomainManager_impl* domainManager, const std::string& waveformContextName,
-                                    CosNaming::NamingContext_ptr waveformContext, bool trusted) :
+                                    CosNaming::NamingContext_ptr waveformContext, bool aware) :
     _identifier(id),
     _sadProfile(profile),
     _appName(name),
     _domainManager(domainManager),
     _waveformContextName(waveformContextName),
     _waveformContext(CosNaming::NamingContext::_duplicate(waveformContext)),
-    _isTrusted(trusted),
+    _started(false),
+    _isAware(aware),
     _fakeProxy(0),
     _releaseAlreadyCalled(false)
 {
     _registrar = new ApplicationRegistrar_impl(waveformContext, this);
-    if (!_isTrusted) {
+    if (!_isAware) {
         _fakeProxy = new FakeApplication(this);
     }
 };
@@ -176,8 +177,8 @@ PortableServer::ObjectId* Application_impl::Activate(Application_impl* applicati
                                                                                   application->_registrar,
                                                                                   registryId);
 
-    // If the application is not trusted, activate the fake proxy
-    if (!application->trusted()) {
+    // If the application is not aware, activate the fake proxy
+    if (!application->aware()) {
         const std::string proxyId = application->_identifier + ".fake";
         reg_oid = ossie::corba::activatePersistentObject(poa, application->_fakeProxy, proxyId);
     }
@@ -192,14 +193,16 @@ char* Application_impl::identifier () throw (CORBA::SystemException)
 
 CORBA::Boolean Application_impl::started () throw (CORBA::SystemException)
 {
-    if (CORBA::is_nil(assemblyController)) { return false; }
-    return assemblyController->started();
+    return this->_started;
 }
 
 void Application_impl::start ()
 throw (CORBA::SystemException, CF::Resource::StartError)
 {
-    if (CORBA::is_nil(assemblyController)) { return; }
+    if (CORBA::is_nil(assemblyController)) {
+        throw(CF::Resource::StartError(CF::CF_ENOTSUP, "No assembly controller"));
+        return;
+    }
 
     try {
         LOG_TRACE(Application_impl, "Calling start on assembly controller")
@@ -217,13 +220,25 @@ throw (CORBA::SystemException, CF::Resource::StartError)
         LOG_ERROR(Application_impl, "Start failed with CF:Resource::StartError")
         throw;
     } CATCH_THROW_LOG_ERROR(Application_impl, "Start failed", CF::Resource::StartError())
+    if (!this->_started) {
+        this->_started = true;
+        if (_domainManager ) {
+            _domainManager->sendResourceStateChange( _identifier, 
+                    this->_appName,
+                    ExtendedEvent::STOPPED,
+                    ExtendedEvent::STARTED);
+        }
+    }
 }
 
 
 void Application_impl::stop ()
 throw (CORBA::SystemException, CF::Resource::StopError)
 {
-    if (CORBA::is_nil(assemblyController)) { return; }
+    if (CORBA::is_nil(assemblyController)) {
+        throw(CF::Resource::StopError(CF::CF_ENOTSUP, "No assembly controller"));
+        return;
+    }
 
     unsigned long timeout = 3; // seconds
     try {
@@ -245,6 +260,15 @@ throw (CORBA::SystemException, CF::Resource::StopError)
         LOG_ERROR(Application_impl, "Stop failed with CF::Resource::StopError")
         throw;
     } CATCH_THROW_LOG_ERROR(Application_impl, "Stop failed", CF::Resource::StopError(CF::CF_ESRCH, "Object might not exist"))
+    if (this->_started) {
+        this->_started = false;
+        if (_domainManager ) {
+            _domainManager->sendResourceStateChange( _identifier, 
+                    this->_appName,
+                    ExtendedEvent::STARTED,
+                    ExtendedEvent::STOPPED);
+        }
+    }
 }
 
 void Application_impl::configure (const CF::Properties& configProperties)
@@ -570,6 +594,16 @@ throw (CF::UnknownProperties, CORBA::SystemException)
 }
 
 
+char *Application_impl::registerPropertyListener( CORBA::Object_ptr listener, const CF::StringSequence &prop_ids, const CORBA::Float interval)
+  throw(CF::UnknownProperties, CF::InvalidObjectReference)
+{
+  return (char *)NULL;
+}
+void Application_impl::unregisterPropertyListener( const char *reg_id )  
+      throw(CF::InvalidIdentifier)
+{
+}
+
 void Application_impl::initialize ()
 throw (CORBA::SystemException, CF::LifeCycle::InitializeError)
 {
@@ -737,10 +771,14 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
     }
     _waveformContext = CosNaming::NamingContext::_nil();
 
-
-    // Send an event with the Application releaseObject
-    ossie::sendObjectRemovedEvent(Application_impl::__logger, _identifier.c_str(), _identifier.c_str(), _appName.c_str(), 
-        StandardEvent::APPLICATION, _domainManager->proxy_consumer);
+    // send application removed event notification
+    if (_domainManager ) {
+        // Send an event with the Application releaseObject
+      _domainManager->sendRemoveEvent( _identifier.c_str(), 
+                                       _identifier.c_str(), 
+                                       _appName.c_str(),
+                                       StandardEvent::APPLICATION);
+    }
 
     // Deactivate this servant from the POA.
     this->_cleanupActivations();
@@ -846,10 +884,10 @@ throw (CORBA::SystemException)
     return CORBA::string_dup(_appName.c_str());
 }
 
-bool Application_impl::trusted ()
+bool Application_impl::aware ()
 throw (CORBA::SystemException)
 {
-    return _isTrusted;
+    return _isAware;
 }
 
 
@@ -972,7 +1010,7 @@ bool Application_impl::waitForComponents (std::set<std::string>& identifiers, in
 
 CF::Application_ptr Application_impl::getComponentApplication ()
 {
-    if (_isTrusted) {
+    if (_isAware) {
         return _this();
     } else {
         return _fakeProxy->_this();
@@ -981,7 +1019,7 @@ CF::Application_ptr Application_impl::getComponentApplication ()
 
 CF::DomainManager_ptr Application_impl::getComponentDomainManager ()
 {
-    if (_isTrusted) {
+    if (_isAware) {
         return _domainManager->_this();
     } else {
         return CF::DomainManager::_nil();

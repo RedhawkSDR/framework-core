@@ -56,10 +56,7 @@ public:
 
     Resource_impl (const char* _uuid);
     Resource_impl (const char* _uuid, const char *label);
-    ~Resource_impl () {
-        if (this->_domMgr != NULL)
-            delete this->_domMgr;
-    };
+    virtual ~Resource_impl ();
 
 
     void setParentId( const std::string &parentid ) { _parent_id = parentid; };
@@ -67,6 +64,7 @@ public:
 
     void start () throw (CF::Resource::StartError, CORBA::SystemException);
     void stop () throw (CF::Resource::StopError, CORBA::SystemException);
+    void initialize () throw (CF::LifeCycle::InitializeError, CORBA::SystemException);
     void releaseObject() throw (CORBA::SystemException, CF::LifeCycle::ReleaseError);
     char* identifier () throw (CORBA::SystemException);
     CORBA::Boolean started() throw (CORBA::SystemException);
@@ -88,6 +86,7 @@ public:
     std::string _parent_id;
 
 protected:
+
     bool _started;
     std::string _softwareProfile;
     

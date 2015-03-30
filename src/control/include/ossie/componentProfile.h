@@ -29,6 +29,7 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <memory>
 
 namespace ossie {
     /**
@@ -102,9 +103,9 @@ namespace ossie {
      */
     class StructPropertyRef : public ComponentProperty {
     public:
-        std::map<std::string, std::string> _values;
+	std::map<std::string, ComponentProperty*> _values;
         virtual ComponentProperty* clone() const;
-        const std::map<std::string, std::string>& getValue() const;
+        const std::map<std::string, ComponentProperty*>& getValue() const;
         virtual const std::string asString() const;
     };
 
@@ -113,9 +114,9 @@ namespace ossie {
      */
     class StructSequencePropertyRef : public ComponentProperty {
         public:
-            std::vector<std::map<std::string, std::string> > _values;
+            std::vector<std::map<std::string, ComponentProperty*> > _values;
             virtual ComponentProperty* clone() const;
-            const std::vector<std::map<std::string, std::string> >& getValues() const;
+            const std::vector<std::map<std::string, ComponentProperty*> >& getValues() const;
             virtual const std::string asString() const;
     };
 

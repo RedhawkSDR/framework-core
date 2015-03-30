@@ -54,7 +54,11 @@ SUBDIRS = sdr/dev/devices/ExecutableDevice \
           sdr/dom/components/CppCallbacks/cpp \
           sdr/dom/components/cpp_comp/cpp \
           sdr/dom/components/java_comp/java \
-          sdr/dom/components/TestLoggingAPI/cpp
+          sdr/dom/components/TestLoggingAPI/cpp \
+          sdr/dom/components/ECM_CPP/cpp \
+          sdr/dom/components/PropertyChange_C1/cpp \
+          sdr/dom/components/foo/bar/comp/cpp \
+          sdr/dom/components/TestCppOptionalProps/cpp
 
 if HAVE_JAVASUPPORT
 SUBDIRS += sdr/dev/devices/BasicTestDevice_java/java \
@@ -73,7 +77,11 @@ SUBDIRS += sdr/dev/devices/BasicTestDevice_java/java \
            sdr/dom/components/TestJavaPropsRange/java \
            sdr/dom/components/TestComplexProps/java \
            sdr/dom/components/TestAllPropTypes/java \
-           sdr/dom/components/TestLoggingAPI/java
+           sdr/dom/components/TestLoggingAPI/java \
+           sdr/dom/components/ECM_JAVA/java \
+           sdr/dom/components/PropertyChange_J1/java \
+           sdr/dom/components/foo/bar/jv/java \
+           sdr/dom/components/TestJavaOptionalProps/java
 endif
 
 all-local:

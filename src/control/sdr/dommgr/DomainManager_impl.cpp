@@ -38,12 +38,14 @@
 #include <ossie/DeviceManagerConfiguration.h>
 #include <ossie/DomainManagerConfiguration.h>
 #include <ossie/GCThread.h>
+#include <ossie/EventTypes.h>
 
 #include "Application_impl.h"
 #include "ApplicationFactory_impl.h"
 #include "DomainManager_impl.h"
 #include "connectionSupport.h"
 #include "AllocationManager_impl.h"
+#include "EventChannelManager.h"
 #include "ConnectionManager.h"
 
 using namespace ossie;
@@ -66,10 +68,12 @@ static const ComponentInstantiation* findComponentInstantiation (const std::vect
 PREPARE_LOGGING(DomainManager_impl)
 
 // If _overrideDomainName == NULL read the domain name from the DMD file
-DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpath, const char* domainName, const char* _logconfig_uri) :
-    _domainName(domainName),
-    _domainManagerProfile(dmdFile),
-    _connectionManager(this, this, domainName)
+DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpath, const char* domainName, const char* _logconfig_uri, bool useLogCfgResolver) :
+  _eventChannelMgr(NULL),
+  _domainName(domainName),
+  _domainManagerProfile(dmdFile),
+  _connectionManager(this, this, domainName),
+  _useLogConfigUriResolver(useLogCfgResolver)
 {
     TRACE_ENTER(DomainManager_impl)
 
@@ -136,20 +140,28 @@ DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpa
         exit(EXIT_FAILURE);
     }
 
-    // Create Outgoing Domain Management (ODM) event channel
-    LOG_TRACE(DomainManager_impl, "Creating event channels");
-    CosEventChannelAdmin::EventChannel_var odm_channel = createEventChannel("ODM_Channel");
-    if (!CORBA::is_nil(odm_channel)) {
-        connectToOutgoingEventChannel();
-    } else {
-        LOG_WARN(DomainManager_impl, "Disabling outgoing events");
+    //
+    // Setup EventChannelManager to support domain wide event channel registrations and use
+    //
+    try {
+      // Create event channel  manager and register with the parent POA
+      // RESOLVE -- need to add command line args to DomainManager to support EventChannel resolution
+      _eventChannelMgr = new EventChannelManager(this, true, true, true);
+      std::string id = _domainName + "/EventChannelManager";
+      oid = ossie::corba::activatePersistentObject(poa, _eventChannelMgr, id );
+      _eventChannelMgr->_remove_ref();
+      LOG_DEBUG(DomainManager_impl, "Started EventChannelManager for the domain.");
+      // setup IDM and ODM Channels for this domain
+      establishDomainManagementChannels();
+
+    } catch ( ... ) {
+        LOG_FATAL(DomainManager_impl, "Stopping domain manager; EventChannelManager - EventChannelFactory unavailable" )
+        exit(EXIT_FAILURE);
     }
 
-    // Create Incoming Domain Management (IDM) event channel
-    CosEventChannelAdmin::EventChannel_var idm_channel = createEventChannel("IDM_Channel");
-    if (CORBA::is_nil(idm_channel)) {
-        LOG_WARN(DomainManager_impl, "Disabling incoming events");
-    }
+
+
+/// \todo lookup and install any services specified in the DMD
 
     LOG_TRACE(DomainManager_impl, "Looking for ApplicationFactories POA");
     appFact_poa = poa->find_POA("ApplicationFactories", 1);
@@ -220,13 +232,33 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
         try {
             if (ossie::corba::objectExists(i->channel)) {
                 LOG_INFO(DomainManager_impl, "Recovered connection to Event Channel: " << i->boundName);
+                
+                // try to restore channel with event channel manager..
+                try {
+                  if ( _eventChannelMgr ) _eventChannelMgr->restore( i->channel, i->name, i->boundName);
+                }
+                catch( CF::EventChannelManager::ChannelAlreadyExists){
+                  LOG_INFO(DomainManager_impl, "EventChannelManager::restore, Channel already exists: " << i->boundName);
+                }
+                catch( CF::EventChannelManager::InvalidChannelName){
+                  LOG_WARN(DomainManager_impl, "EventChannelManager::restore, Invalid Channel Name, " << i->boundName);
+                }
+                catch( CF::EventChannelManager::ServiceUnavailable){
+                  LOG_WARN(DomainManager_impl, "EventChannelManager::restore, Event Service seems to be down. ");
+                }
+                catch( CF::EventChannelManager::OperationFailed){
+                  LOG_WARN(DomainManager_impl, "EventChannelManager::restore, Failed to recover Event Channel: " << i->boundName);
+                }
+                catch( ... ){
+                  LOG_WARN(DomainManager_impl, "EventChannelManager, Failed to recover Event Channel: " << i->boundName);
+                }
                 CosEventChannelAdmin::EventChannel_var channel = i->channel;
                 CosNaming::Name_var cosName = ossie::corba::stringToName(i->boundName);
                 try {
                     // Use rebind to force the naming service to replace any existing object with the same name.
                     rootContext->rebind(cosName, channel);
                 } catch ( ... ) {
-                    channel = ossie::event::connectToEventChannel(rootContext, i->boundName);
+                    channel = ossie::events::connectToEventChannel(rootContext, i->boundName);
                 }
                 bool foundEventChannel = false;
                 for (std::vector<EventChannelNode>::iterator j=_eventChannels.begin(); j!=_eventChannels.end(); j++) {
@@ -378,7 +410,7 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
         try {
             if (ossie::corba::objectExists(i->context)) {
                 LOG_TRACE(DomainManager_impl, "Creating application " << i->identifier << " " << _domainName << " " << i->contextName);
-                Application_impl* _application = new Application_impl (i->identifier.c_str(), i->name.c_str(), i->profile.c_str(), this, i->contextName, i->context, i->trusted_application);
+                Application_impl* _application = new Application_impl (i->identifier.c_str(), i->name.c_str(), i->profile.c_str(), this, i->contextName, i->context, i->aware_application);
                 LOG_TRACE(DomainManager_impl, "Restored " << i->connections.size() << " connections");
 
                 _application->populateApplication(i->assemblyController,
@@ -566,16 +598,22 @@ void DomainManager_impl::shutdown (int signal)
 {
     TRACE_ENTER(DomainManager_impl)
 
-    if (!ossie::corba::isPersistenceEnabled() || (signal == SIGINT)) {
+      RH_NL_DEBUG("DomainManager", "Shutdown: signal=" << signal);
+
+    if (!ossie::corba::isPersistenceEnabled() || (ossie::corba::isPersistenceEnabled()and (signal == SIGINT)) ) {
         releaseAllApplications();
         shutdownAllDeviceManagers();
         destroyEventChannels();
+    }
+    else {
+      disconnectDomainManagementChannels();      
     }
 
     ossie::GCThread::shutdown();
 
     boost::recursive_mutex::scoped_lock lock(stateAccess);
     db.close();
+
 
     PortableServer::ObjectId_var oid;
 
@@ -592,6 +630,12 @@ void DomainManager_impl::shutdown (int signal)
     poa->deactivate_object(oid);
     _connectionMgr->_remove_ref();
 
+    // Deactivate and destroy the EventChannelManager
+    if ( _eventChannelMgr ) {
+      oid = poa->servant_to_id(_eventChannelMgr);
+      poa->deactivate_object(oid);
+    }
+
     // Deactivate and destroy the AllocationManager
     oid = poa->servant_to_id(_allocationMgr);
     poa->deactivate_object(oid);
@@ -601,7 +645,8 @@ void DomainManager_impl::shutdown (int signal)
 
     // The domain manager does not eliminate the naming context that it was using unless it's empty. The assumption
     //  is that it can be re-started and anything that was running before re-associated
-    try {
+    if ( signal != -1 ) {
+      try {
         CosNaming::Name_var DomainName = ossie::corba::stringToName(_domainName);
         rootContext->unbind(DomainName);
         unsigned int number_items = ossie::corba::numberBoundObjectsToContext(rootContext);
@@ -610,7 +655,8 @@ void DomainManager_impl::shutdown (int signal)
           CosNaming::NamingContext_ptr inc = ossie::corba::InitialNamingContext();
           inc->unbind(base_context);
         }
-    } catch ( ... ) {
+      } catch ( ... ) {
+      }
     }
 }
 
@@ -670,6 +716,16 @@ CF::AllocationManager_ptr DomainManager_impl::allocationMgr (void) throw (CORBA:
 
     TRACE_EXIT(DomainManager_impl)
     return _allocationMgr->_this();
+}
+
+
+CF::EventChannelManager_ptr DomainManager_impl::eventChannelMgr (void) throw (CORBA::
+                                                              SystemException)
+{
+    TRACE_ENTER(DomainManager_impl)
+
+    TRACE_EXIT(DomainManager_impl)
+      return _eventChannelMgr->_this();
 }
 
 namespace {
@@ -884,10 +940,9 @@ throw (CORBA::SystemException, CF::InvalidObjectReference, CF::InvalidProfile,
     boost::mutex::scoped_lock lock(interfaceAccess);
     _local_registerDeviceManager(deviceMgr);
 
-    CORBA::String_var identifier = deviceMgr->identifier();
-    CORBA::String_var label = deviceMgr->label();
-    ossie::sendObjectAddedEvent(DomainManager_impl::__logger, _identifier.c_str(), identifier, label,
-            deviceMgr, StandardEvent::DEVICE_MANAGER, proxy_consumer);
+    std::string identifier = ossie::corba::returnString(deviceMgr->identifier());
+    std::string label = ossie::corba::returnString(deviceMgr->label());
+    sendAddEvent( _identifier.c_str(), identifier, label, deviceMgr, StandardEvent::DEVICE_MANAGER );
 }
 
 void DomainManager_impl::_local_registerDeviceManager (CF::DeviceManager_ptr deviceMgr)
@@ -1072,8 +1127,7 @@ throw (CORBA::SystemException, CF::InvalidObjectReference,
         _local_unregisterDeviceManager(devMgrIter);
     } CATCH_LOG_ERROR(DomainManager_impl, "Exception unregistering device manager");
 
-    ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _identifier.c_str(), identifier.c_str(), label.c_str(),
-                                  StandardEvent::DEVICE_MANAGER, proxy_consumer);
+    sendRemoveEvent( _identifier.c_str(), identifier.c_str(), label.c_str(), StandardEvent::DEVICE_MANAGER );
 }
 
 ossie::DeviceManagerList::iterator DomainManager_impl::_local_unregisterDeviceManager (ossie::DeviceManagerList::iterator deviceManager)
@@ -1187,10 +1241,9 @@ throw (CORBA::SystemException, CF::InvalidObjectReference, CF::InvalidProfile,
     boost::mutex::scoped_lock lock(interfaceAccess);
     _local_registerDevice(registeringDevice, registeredDeviceMgr);
 
-    CORBA::String_var identifier = registeringDevice->identifier();
-    CORBA::String_var label = registeringDevice->label();
-    ossie::sendObjectAddedEvent(DomainManager_impl::__logger, _identifier.c_str(), identifier, label,
-            registeringDevice, StandardEvent::DEVICE, proxy_consumer);
+    std::string identifier = ossie::corba::returnString(registeringDevice->identifier());
+    std::string label = ossie::corba::returnString(registeringDevice->label());
+    sendAddEvent( _identifier.c_str(), identifier, label, registeringDevice, StandardEvent::DEVICE );
 }
 
 void DomainManager_impl::_local_registerDevice (CF::Device_ptr registeringDevice,
@@ -1406,8 +1459,8 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
 
     // Sent event here (as opposed to unregisterDevice), so we see the event on regular
     // unregisterDevice calls, and on cleanup (deviceManager shutdown, catastropic cleanup, etc.)
-    ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _identifier.c_str(), (*deviceNode)->identifier.c_str(), (*deviceNode)->label.c_str(),
-                                  StandardEvent::DEVICE, proxy_consumer);
+    sendRemoveEvent( _identifier.c_str(), (*deviceNode)->identifier.c_str(), (*deviceNode)->label.c_str(),
+                     StandardEvent::DEVICE );
 
     // Remove the device from the internal list.
     deviceNode = _registeredDevices.erase(deviceNode);
@@ -1496,22 +1549,23 @@ CF::Application_ptr DomainManager_impl::createApplication(const char* profileFil
 //              --              InvalidFileName
 //              --              ApplicationInstallationError
 
-void
-DomainManager_impl::installApplication (const char* profileFileName)
-throw (CORBA::SystemException, CF::InvalidProfile, CF::InvalidFileName,
-       CF::DomainManager::ApplicationInstallationError, CF::DomainManager::ApplicationAlreadyInstalled)
+void DomainManager_impl::installApplication (const char* profileFileName)
+throw (CORBA::SystemException, 
+       CF::InvalidProfile, 
+       CF::InvalidFileName,
+       CF::DomainManager::ApplicationInstallationError, 
+       CF::DomainManager::ApplicationAlreadyInstalled)
 {
-    boost::mutex::scoped_lock lock(interfaceAccess);
-    _local_installApplication(profileFileName);
+  boost::mutex::scoped_lock lock(interfaceAccess);
+  _local_installApplication(profileFileName);
 
-    ApplicationFactoryTable::iterator appFact = _applicationFactories.find(profileFileName);
-    if (appFact != _applicationFactories.end()) {
-        CORBA::String_var identifier = appFact->first.c_str();
-        CORBA::String_var name = appFact->second->name();
-        CF::ApplicationFactory_var appFactRef = appFact->second->_this();
-        ossie::sendObjectAddedEvent(DomainManager_impl::__logger, _identifier.c_str(), identifier, name, appFactRef,
-                                    StandardEvent::APPLICATION_FACTORY, proxy_consumer);
-    }
+  ApplicationFactoryTable::iterator appFact = _applicationFactories.find(profileFileName);
+  if (appFact != _applicationFactories.end()) {
+    std::string identifier = ossie::corba::returnString(appFact->first.c_str());
+    std::string name = ossie::corba::returnString(appFact->second->name());
+    CF::ApplicationFactory_var appFactRef = appFact->second->_this();
+    sendAddEvent( _identifier.c_str(), identifier, name, appFactRef, StandardEvent::APPLICATION_FACTORY );
+  }
 }
 
 void DomainManager_impl::_local_installApplication (const char* profileFileName)
@@ -1637,8 +1691,7 @@ throw (CORBA::SystemException, CF::DomainManager::InvalidIdentifier,
         // sourceCategory = APPLICATION_FACTORY
         // StandardEvent enumeration
 
-        ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _identifier.c_str(), appFactory_id.c_str(), appFactory_name.c_str(),
-        StandardEvent::APPLICATION_FACTORY, proxy_consumer);
+    sendRemoveEvent(_identifier.c_str(), appFactory_id.c_str(), appFactory_name.c_str(),StandardEvent::APPLICATION_FACTORY);
 }
 
 void DomainManager_impl::_local_uninstallApplication (const char* applicationId)
@@ -1723,7 +1776,7 @@ DomainManager_impl::addApplication(Application_impl* new_app)
         }
         appNode.allocationIDs = new_app->_allocationIDs;
         appNode.connections = new_app->_connections;
-        appNode.trusted_application = new_app->_isTrusted;
+        appNode.aware_application = new_app->_isAware;
         appNode.ports = new_app->_ports;
         // Adds external properties
         for (std::map<std::string, std::pair<std::string, CF::Resource_ptr> >::const_iterator it = new_app->_properties.begin();
@@ -1798,6 +1851,9 @@ DomainManager_impl::removeApplication(std::string app_id)
     TRACE_EXIT(DomainManager_impl)
 }
 
+
+
+
 void
 DomainManager_impl::registerWithEventChannel (CORBA::
                                               Object_ptr registeringObject,
@@ -1808,12 +1864,14 @@ throw (CORBA::SystemException, CF::InvalidObjectReference,
        CF::DomainManager::AlreadyConnected)
 {
     boost::mutex::scoped_lock lock(interfaceAccess);
-    _local_registerWithEventChannel(registeringObject, registeringId, eventChannelName);
+    std::string tmp_id = ossie::corba::returnString(registeringId);
+    std::string eventchannel_name = ossie::corba::returnString(eventChannelName);
+    _local_registerWithEventChannel(registeringObject, tmp_id, eventchannel_name);
 }
 
 void DomainManager_impl::_local_registerWithEventChannel (CORBA::Object_ptr registeringObject,
-                                                          const char* registeringId,
-                                                          const char* eventChannelName)
+                                                          std::string &registeringId,
+                                                          std::string &eventChannelName)
 {
     TRACE_ENTER(DomainManager_impl)
     
@@ -1854,11 +1912,13 @@ throw (CORBA::SystemException, CF::DomainManager::InvalidEventChannelName,
        CF::DomainManager::NotConnected)
 {
     boost::mutex::scoped_lock lock(interfaceAccess);
-    _local_unregisterFromEventChannel(unregisteringId, eventChannelName);
+    std::string tmp_id = ossie::corba::returnString(unregisteringId);
+    std::string eventchannel_name = ossie::corba::returnString(eventChannelName);
+    _local_unregisterFromEventChannel(tmp_id, eventchannel_name);
 }
 
-void DomainManager_impl::_local_unregisterFromEventChannel (const char* unregisteringId,
-                                                            const char* eventChannelName)
+void DomainManager_impl::_local_unregisterFromEventChannel (std::string &unregisteringId,
+                                                            std::string &eventChannelName)
 {
     TRACE_ENTER(DomainManager_impl)
     
@@ -1978,8 +2038,7 @@ void DomainManager_impl::_local_registerService (CORBA::Object_ptr registeringSe
 //3. The sourceName shall be the input name parameter for the registering service.
 //4. The sourceIOR shall be the registered service object reference.
 //5. The sourceCategory shall be SERVICE.
-    ossie::sendObjectAddedEvent(DomainManager_impl::__logger, _identifier.c_str(), serviceId.c_str(), name,
-            registeringService, StandardEvent::SERVICE, proxy_consumer);
+    sendAddEvent( _identifier.c_str(), serviceId.c_str(), name, registeringService, StandardEvent::SERVICE );
 
 //The registerService operation shall raise the RegisterError exception when an internal error
 //exists which causes an unsuccessful registration.
@@ -2067,8 +2126,7 @@ ossie::ServiceList::iterator DomainManager_impl::_local_unregisterService(ossie:
     //4. The sourceCategory shall be SERVICE.
     // Sent event here (as opposed to unregisterDevice), so we see the event on regular
     // unregisterDevice calls, and on cleanup (deviceManager shutdown, catastropic cleanup, etc.)
-    ossie::sendObjectRemovedEvent(DomainManager_impl::__logger, _identifier.c_str(), serviceId.c_str(), serviceName.c_str(),
-                                  StandardEvent::SERVICE, proxy_consumer);
+    sendRemoveEvent( _identifier.c_str(), serviceId.c_str(), serviceName.c_str(), StandardEvent::SERVICE );
 
     return service;
 }
@@ -2215,96 +2273,8 @@ DomainManager_impl::validateSPD (const char* _spdProfile, int _cnt) throw (CF::D
     }
 }
 
-CosEventChannelAdmin::EventChannel_ptr DomainManager_impl::getEventChannel(const std::string &name) {
 
-    vector < ossie::EventChannelNode >::iterator _iter = _eventChannels.begin();
 
-    while (_iter != _eventChannels.end()) {
-        if ((*_iter).name == name) {
-            return CosEventChannelAdmin::EventChannel::_duplicate((*_iter).channel);
-        }
-        _iter++;
-    }
-
-    _iter = _eventChannels.begin();
-    while (_iter != _eventChannels.end()) {
-        std::string::size_type pos = (*_iter).name.find(".",0);
-        if (pos == std::string::npos) {
-            _iter++;
-            continue;
-        }
-        pos++;
-        if (!(*_iter).name.compare(pos,(*_iter).name.size()-pos,name)) {
-            return CosEventChannelAdmin::EventChannel::_duplicate((*_iter).channel);
-        }
-        _iter++;
-    }
-
-    return CosEventChannelAdmin::EventChannel::_nil();
-
-}
-
-bool DomainManager_impl::eventChannelExists(const std::string &name) {
-
-    vector < ossie::EventChannelNode >::iterator _iter = _eventChannels.begin();
-
-    while (_iter != _eventChannels.end()) {
-        if ((*_iter).name == name) {
-            return true;
-        }
-        _iter++;
-    }
-    _iter = _eventChannels.begin();
-    while (_iter != _eventChannels.end()) {
-        std::string::size_type pos = (*_iter).name.find(".",0);
-        if (pos == std::string::npos) {
-            _iter++;
-            continue;
-        }
-        pos++;
-        if (!(*_iter).name.compare(pos,(*_iter).name.size()-pos,name)) {
-            return true;
-        }
-        _iter++;
-    }
-
-    return false;
-
-}
-
-unsigned int DomainManager_impl::incrementEventChannelConnections(const std::string &EventChannelName) {
-    LOG_TRACE(DomainManager_impl, "Incrementing Event Channel " << EventChannelName);
-    vector < ossie::EventChannelNode >::iterator _iter = _eventChannels.begin();
-
-    while (_iter != _eventChannels.end()) {
-        if ((*_iter).name == EventChannelName) {
-            (*_iter).connectionCount++;
-            LOG_TRACE(DomainManager_impl, "Event Channel " << EventChannelName<<" count: "<<(*_iter).connectionCount);
-            return (*_iter).connectionCount;
-        }
-        _iter++;
-    }
-
-    LOG_TRACE(DomainManager_impl, "Event Channel " << EventChannelName<<" does not exist");
-    return 0;
-}
-
-unsigned int DomainManager_impl::decrementEventChannelConnections(const std::string &EventChannelName) {
-    LOG_TRACE(DomainManager_impl, "Decrementing Event Channel " << EventChannelName);
-    vector < ossie::EventChannelNode >::iterator _iter = _eventChannels.begin();
-
-    while (_iter != _eventChannels.end()) {
-        if ((*_iter).name == EventChannelName) {
-            (*_iter).connectionCount--;
-            LOG_TRACE(DomainManager_impl, "Event Channel " << EventChannelName<<" count: "<<(*_iter).connectionCount);
-            return (*_iter).connectionCount;
-        }
-        _iter++;
-    }
-    LOG_TRACE(DomainManager_impl, "Event Channel " << EventChannelName<<" does not exist");
-    return 0;
-
-}
 
 CF::Resource_ptr DomainManager_impl::lookupComponentByInstantiationId(const std::string& identifier)
 {

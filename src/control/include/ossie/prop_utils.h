@@ -37,6 +37,7 @@
 namespace ossie
 {
     CF::DataType convertPropertyToDataType(const Property* prop);
+    CF::DataType convertPropertyRefToDataType(const ComponentProperty* prop);
     CF::DataType convertPropertyToDataType(const SimpleProperty* prop);
     CF::DataType convertPropertyToDataType(const SimpleSequenceProperty* prop);
     CF::DataType convertPropertyToDataType(const StructProperty* prop);

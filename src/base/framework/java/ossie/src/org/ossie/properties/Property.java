@@ -44,10 +44,12 @@ abstract class Property<T extends Object> implements IProperty {
     protected Mode mode;
     protected Action action;
     protected Set<Kind> kinds;
+    protected boolean optional;
 
     protected T value;
 
     protected List<PropertyListener<T>> changeListeners = new LinkedList<PropertyListener<T>>();
+    protected List<PropertyListener< Object >> voidListeners = new LinkedList<PropertyListener<Object >>();
     protected Allocator<T> allocator = null;
     
     protected Property(String id, String name, T value, Mode mode, Action action, Kind[] kinds) {
@@ -55,6 +57,36 @@ abstract class Property<T extends Object> implements IProperty {
         this.id = id;
         this.name = name;
         this.value = value;
+        this.optional = false;
+            
+        if (action == null) {
+            this.action = Action.EXTERNAL;
+        } else {
+            this.action = action;
+        }
+              
+        if (mode == null) {
+            this.mode = Mode.READWRITE;
+        } else {
+            this.mode = mode;
+        }
+
+        this.kinds = new HashSet<Kind>();
+        if (kinds == null) {
+            this.kinds.add(Kind.CONFIGURE);
+        } else {
+            for (Kind kind : kinds) {
+                this.kinds.add(kind);
+            }
+        }
+    }
+
+    protected Property(String id, String name, T value, Mode mode, Action action, Kind[] kinds, boolean optional) {
+        super();
+        this.id = id;
+        this.name = name;
+        this.value = value;
+        this.optional = optional;
             
         if (action == null) {
             this.action = Action.EXTERNAL;
@@ -87,6 +119,10 @@ abstract class Property<T extends Object> implements IProperty {
         for (PropertyListener<T> listener : changeListeners) {
             listener.valueChanged(oldValue, this.value);
         }
+
+        for (PropertyListener<Object> listener : voidListeners) {
+            listener.valueChanged(oldValue, this.value);
+        }
     }
 
     /**
@@ -116,6 +152,21 @@ abstract class Property<T extends Object> implements IProperty {
     public void removeChangeListener(PropertyListener<T> listener) {
         changeListeners.remove(listener);
     }
+
+    /**
+     * Registers a listener for changes to this property's value.
+     */
+    public void addObjectListener(PropertyListener<Object> listener) {
+        voidListeners.add(listener);
+    }
+    
+    /**
+     * Unregisters a listener for changes to this property's value.
+     */
+    public void removeObjectListener(PropertyListener<Object> listener) {
+        voidListeners.remove(listener);
+    }
+
 
     /**
      * Attempts to allocate capacity from this property. If an allocator is
@@ -233,5 +284,23 @@ abstract class Property<T extends Object> implements IProperty {
 
     public boolean isEventable() {
         return this.kinds.contains(Kind.EVENT);
-    }        
+    }
+
+    public boolean isSet() {
+        boolean retval = false;
+        if (this.optional == true) {
+            if (this.getValue() instanceof List) {
+		if (!((List)this.getValue()).isEmpty()) {
+		    retval = true;
+		}
+	    } else {
+		if (this.getValue() != null) {
+                    retval = true;
+		}
+            }
+	} else {
+	    retval = true;
+	}
+        return retval;
+    }         
 }

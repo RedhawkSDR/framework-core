@@ -126,12 +126,14 @@ namespace ossie {
                 values_p.parsers (string_p);
 
                 structref_p.parsers (simpleref_p,
+                                     simplesequenceref_p,
                                     string_p);
 
                 structsequenceref_p.parsers (structvalue_p,
                                     string_p);
 
-                structvalue_p.parsers (simpleref_p);
+                structvalue_p.parsers (simpleref_p,
+                                       simplesequenceref_p);
 
                 domainmanager_p.parsers (namingservice_p,
                                         string_p);

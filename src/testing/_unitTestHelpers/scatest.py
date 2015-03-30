@@ -501,15 +501,22 @@ class CorbaTestCase(OssieTestCase):
 
     def terminateChild(self, child, signals=(signal.SIGINT, signal.SIGTERM)):
         if child.poll() != None:
-            return
+           return
         try:
+            #self.waitTermination(child)
+            
             for sig in signals:
+                #print "sending signal " + str(sig) + " to pid:" + str(child.pid)
                 os.kill(child.pid, sig)
                 if self.waitTermination(child):
                     break
             child.wait()
-        except OSError:
+        except OSError, e:
+            #print "terminateChild: pid:" + str(child.pid) + " OS ERROR:" + str(e)
             pass
+        finally:
+            pass
+
 
     def terminateChildrenPidOnly(self, pid, signals=(signal.SIGINT, signal.SIGTERM)):
         ls = commands.getoutput('ls /proc')

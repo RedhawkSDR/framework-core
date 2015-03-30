@@ -83,6 +83,23 @@ public class BasicService_java extends Service implements PropertySetOperations
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    public String registerPropertyListener(final org.omg.CORBA.Object listener, String[] prop_ids, float interval)
+        throws CF.UnknownProperties, CF.InvalidObjectReference
+    {
+        throw new CF.UnknownProperties();
+    }
+
+
+    public void unregisterPropertyListener(final String reg_id)
+        throws CF.InvalidIdentifier
+    {
+        throw new CF.InvalidIdentifier();
+    }
+
+
     protected Servant newServant(final POA poa)
     {
         return new PropertySetPOATie(this, poa);

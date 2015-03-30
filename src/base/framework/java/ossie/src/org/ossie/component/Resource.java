@@ -33,6 +33,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.io.FileOutputStream;
 import java.io.File;
+import java.util.UUID;
+
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
@@ -45,6 +47,7 @@ import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Appender;
 import org.apache.log4j.Level;
 import org.omg.CORBA.ORB;
+import org.omg.CORBA.Any;
 import org.omg.CORBA.UserException;
 import org.omg.CORBA.ORBPackage.InvalidName;
 import org.omg.CosNaming.NameComponent;
@@ -64,9 +67,13 @@ import org.omg.PortableServer.POAPackage.ServantNotActive;
 import org.omg.PortableServer.POAPackage.WrongPolicy;
 import org.ossie.events.PropertyEventSupplier;
 import org.ossie.properties.IProperty;
+import org.ossie.properties.PropertyListener;
 import org.ossie.properties.AnyUtils;
+import org.ossie.properties.StructProperty;
+import org.ossie.properties.StructDef;
 import org.ossie.logging.logging;
 import org.ossie.redhawk.DomainManagerContainer;
+import org.ossie.corba.utils.*;
 
 import CF.AggregateDevice;
 import CF.AggregateDeviceHelper;
@@ -81,12 +88,14 @@ import CF.InvalidObjectReference;
 import CF.LogLevels;
 import CF.PortPOA;
 import CF.PropertiesHolder;
+import CF.PropertiesHelper;
 import CF.ResourceHelper;
 import CF.ResourceOperations;
 import CF.ResourcePOA;
 import CF.ResourcePOATie;
 import CF.UnknownProperties;
 import CF.UnknownIdentifier;
+import CF.InvalidIdentifier;
 import CF.LifeCyclePackage.InitializeError;
 import CF.LifeCyclePackage.ReleaseError;
 import CF.PortSupplierPackage.UnknownPort;
@@ -96,7 +105,7 @@ import CF.ResourcePackage.StartError;
 import CF.ResourcePackage.StopError;
 import CF.TestableObjectPackage.UnknownTest;
 
-public abstract class Resource implements ResourceOperations, Runnable { // SUPPRESS CHECKSTYLE Name
+public abstract class Resource extends Logging implements ResourceOperations, Runnable { // SUPPRESS CHECKSTYLE Name
 
     /**
      *  LoggingListener 
@@ -106,40 +115,59 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      *  Developers can provide an interface to the Resource through the 
      *  setNewLoggingListener method.
      */
-    public interface LoggingListener {
+    public interface LoggingListener extends Logging.ConfigurationChangeListener {
+    };
 
-	/**
-	 * logLevelChanged 
-	 *
-	 * This method is called when a logging level request is made for this resource. The name of the
-	 * the logger to affect and the new level are provided.  Logging level values are defined by the 
-         * CF::LogLevels constants.
-	 *
-	 * @param logId name of the logger to change the level,  logId=="" is the root logger 
-	 * @param newLevel the new logging level to apply
-	 *
-	 */
-	public void logLevelChanged( String logId, int newLevel );
 
-	/**
-	 * logConfigChanged
-	 *
-	 * This method is called when the logging configuration change is requested.  The configuration
-	 * data follows the log4j configuration format (java props or xml).
-	 *
-	 * @param config_data  the log4j formatted configuration data, either java properties or xml.
-	 */
-	public void logConfigChanged( String config_data );
+    class PropertyChangeProcessor implements ThreadedComponent, Runnable { 
+
+        private Resource rsc = null;
+        private ProcessThread _processThread=null;
+
+        public PropertyChangeProcessor( Resource inRsc ) {
+            rsc = inRsc;
+            this._processThread = new ProcessThread(this);
+        }
+
+        public void run () {
+            this._processThread.run();
+        }
+
+        public void start () {
+            this._processThread.start();
+        }
+        public void stop () {
+            this._processThread.stop();
+        }
+
+        public int process () {
+            if ( rsc != null ) {
+                return rsc._propertyChangeServiceFunction();
+            }
+            else {
+                return NOOP;
+            }
+        }
+        
+        public float getThreadDelay (){
+            return this._processThread.getDelay();
+        }
+
+        public void setThreadDelay (float delay) {
+            this._processThread.setDelay(delay);
+        }
     }
 
 
-    public final static Logger logger = Logger.getLogger(Resource.class.getName());
+    public  static Logger logger = Logger.getLogger(Resource.class.getName());
 
     public  static logging.ResourceCtx loggerCtx = null;
     
     protected CF.Resource resource;
     
     protected DomainManagerContainer _domMgr = null;
+
+    protected org.ossie.events.Manager _ecm = null;
     /**
      * The CORBA ORB to use for servicing requests
      */
@@ -172,31 +200,18 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
     protected PropertyEventSupplier propertyChangePort;
     protected String softwareProfile;
 
-    /** log identifier, by default uses root logger or "" **/
-    protected String               logName;
-
-    /** current log level assigned to the resource **/
-    protected int                  logLevel;
-    
-    /** current string used configure the log **/
-    protected String               logConfig;
-    
-    /** callback listener **/
-    protected LoggingListener      logListener;
-
-    /** logging macro definitions maintained by resource */
-    protected logging.MacroTable   loggingMacros;
-
-    /** logging context assigned  to resource */
-    protected logging.ResourceCtx  loggingCtx=null;
-
-    /** holds the url for the logging configuration */
-    protected String               loggingURL;
+    protected Hashtable< String, PropertyChangeRec >   _propChangeRegistry;
+    protected PropertyChangeProcessor                  _propChangeProcessor;
+    protected Thread                                   _propChangeThread;
 
     /**
      * Constructor intended to be used by start_component.
      */
     public Resource() {
+
+        // configure Logging resource context
+        super( logger, Resource.class.getName() );
+
         this.compId = "";
         this.compName = "";
         this._started = false;
@@ -207,16 +222,8 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         this.nativePorts = new Hashtable<String, omnijni.Servant>();
         this.propSet = new Hashtable<String, IProperty>();
 
-	// support for logging idl
-	this.logName=Resource.class.getName();
-	this.logLevel=CF.LogLevels.INFO;
-	this.logConfig ="";
-	this.logListener=null;
-	this.loggingCtx = null;
-	this.loggingURL = null;
-	this.loggingMacros=logging.GetDefaultMacros();
-	logging.ResolveHostInfo( this.loggingMacros );
-	
+        this._propChangeRegistry = new Hashtable< String, PropertyChangeRec >();
+        this._propChangeProcessor = new PropertyChangeProcessor(this);
     }
     
     public void addProperty(IProperty prop) {
@@ -344,6 +351,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
     public void releaseObject() throws ReleaseError {
         logger.trace("releaseObject()");
         try {
+            this.stopPropertyChangeMonitor();
             this.stop();
         } catch (StopError e1) {
             logger.error("Failed to stop during release", e1);
@@ -465,7 +473,20 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
             for (final IProperty prop : this.propSet.values()) {
                 logger.trace("Querying property: " + prop);
                 if (prop.isQueryable()) {
-                    props.add(new DataType(prop.getId(), prop.toAny()));
+                    if (prop instanceof StructProperty) {
+                        Any structAny = ORB.init().create_any();
+                        final ArrayList<DataType> structProps = new ArrayList<DataType>();
+                        StructDef def = (StructDef)((StructProperty)prop).getValue();
+                        for (final IProperty p : def.getElements()) {
+			    if (p.isSet()) {
+			        structProps.add(new DataType(p.getId(), p.toAny()));
+			    }
+                        }
+			PropertiesHelper.insert(structAny, structProps.toArray(new DataType[structProps.size()]));
+			props.add(new DataType(prop.getId(), structAny));
+                    } else {
+                        props.add(new DataType(prop.getId(), prop.toAny()));
+                    }
                 }
             }
 
@@ -482,7 +503,20 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
             // Look up the property and ensure it is queryable
             final IProperty prop = this.propSet.get(dt.id);
             if ((prop != null) && prop.isQueryable()) {
-                validProperties.add(new DataType(prop.getId(), prop.toAny()));
+                if (prop instanceof StructProperty) {
+		    Any structAny = ORB.init().create_any();
+                    final ArrayList<DataType> structProps = new ArrayList<DataType>();
+                    StructDef def = (StructDef)((StructProperty)prop).getValue();
+                    for (final IProperty p : def.getElements()) {
+			if (p.isSet()) {
+			    structProps.add(new DataType(p.getId(), p.toAny()));
+			}
+                    }
+		    PropertiesHelper.insert(structAny, structProps.toArray(new DataType[structProps.size()]));
+		    validProperties.add(new DataType(prop.getId(), structAny));
+                } else {
+                    validProperties.add(new DataType(prop.getId(), prop.toAny()));
+                }
             } else {
                 invalidProperties.add(dt);
             }
@@ -495,6 +529,206 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
             throw new UnknownProperties(invalidProperties.toArray(new DataType[invalidProperties.size()]));
         }
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    public String registerPropertyListener(final org.omg.CORBA.Object listener, String[] prop_ids, float interval)
+        throws CF.UnknownProperties, CF.InvalidObjectReference
+    {
+        logger.trace("registerPropertyListener - start ");
+        ArrayList<String> pids = new ArrayList<String>();
+        final ArrayList<DataType> invalidProperties = new ArrayList<DataType>();
+	String reg_id;
+        synchronized(this) {
+            // For queries of zero length, return all id/value pairs in propertySet
+            if (prop_ids.length == 0) {
+                logger.trace("registering all properties...");
+                for (final IProperty prop : this.propSet.values()) {
+                    if (prop.isQueryable()) {
+                        logger.debug("..... property:" + prop.getId());
+                        pids.add(prop.getId());
+                    }
+                }
+            }
+            else {
+                // For queries of length > 0, return all requested pairs in propertySet
+                logger.trace("registering fixed property: N:" + prop_ids.length);
+                // Return values for valid queries in the same order as requested
+                for (final String id : prop_ids) {
+                    // Look up the property and ensure it is queryable
+                    final IProperty prop = this.propSet.get(id);
+                    if ((prop != null) && prop.isQueryable()) {
+                        logger.debug("..... property:" + id);
+                        pids.add(prop.getId());
+                    } else {
+                        DataType dt = new DataType(id, null);
+                        invalidProperties.add(dt);
+                    }
+                }
+            }
+
+            if (invalidProperties.size() > 0) {
+                throw new UnknownProperties(invalidProperties.toArray(new DataType[invalidProperties.size()]));
+            }
+
+            logger.trace("PropertyChangeListener: register N properties: " + pids.size());
+            PropertyChangeRec prec = new PropertyChangeRec( listener, 
+                                                            interval,
+                                                            pids,
+                                                            this.propSet );
+            // check if our listener is valid
+            if ( prec.pcl == null ) {
+                logger.error("PropertyChangeListener: caller provided invalid listener interface ");
+                prec = null;
+                throw new CF.InvalidObjectReference();
+            }
+
+            // Add the registry record to our map
+            logger.debug("registerPropertyListener REGISTERING id-s/regid: " + pids.size() + "/" + prec.regId );
+            this._propChangeRegistry.put( prec.regId, prec );
+	    reg_id = prec.regId;
+        
+            // start monitoring thread if not started
+            if ( this._propChangeThread == null )  {
+                logger.debug("registerPropertyListener - First registration ... starting monitoring thread ");
+                this._propChangeProcessor.start();
+                this._propChangeThread = new Thread( this._propChangeProcessor );
+                this._propChangeThread.start();
+            }
+        }
+        logger.trace("registerPropertyListener - end");
+        return reg_id;
+    }
+
+
+    public void unregisterPropertyListener(final String reg_id)
+        throws CF.InvalidIdentifier
+    {
+        logger.trace("unregisterPropertyListener - start ");
+        synchronized(this) {
+            PropertyChangeRec prec = this._propChangeRegistry.get(reg_id);
+            if ( prec != null ) {
+                logger.trace("unregisterPropertyListener - Remove registration " +reg_id );
+                for ( String id : prec.props.keySet() ) {
+                    final IProperty prop = this.propSet.get(id);
+                    if ( prop != null ) {
+                        @SuppressWarnings("unchecked")
+                        final PropertyListener<Object> pcl = prec.props.get(id);
+                        if ( pcl != null )  {
+                            prop.removeObjectListener( pcl );
+                        }
+                    }
+                }
+
+                this._propChangeRegistry.remove(reg_id);
+                logger.debug("unregisterPropertyListener - UNREGISTER  REG-ID:" + reg_id );
+                if ( this._propChangeRegistry.size() == 0 ) {
+                    logger.debug("unregisterPropertyListener - No more registrants... stopping thread ");
+                    this.stopPropertyChangeMonitor();
+                    this._propChangeThread=null;
+                }
+            }
+            else {
+                throw new  CF.InvalidIdentifier();       
+           }
+        }
+        return;
+    }
+
+    public void stopPropertyChangeMonitor() {
+
+        if ( _propChangeProcessor != null )  {
+            _propChangeProcessor.stop();
+            try {
+                if ( _propChangeThread != null ) {
+                    _propChangeThread.join();
+                }
+            }
+            catch( InterruptedException ex ) {
+            }
+         }
+    }
+
+    /**
+     * Perform reporting portion of PropertyChangeListeners that are registered with this resource.
+     * After the requested interval has expired report and changes since the last reporting cycle.
+     * Notifications are sent out via EventChannel or implementors of PropertyChangeListern interface
+     * is not told to release.
+     * 
+     * @return NOOP informs calling thread controller to delay before next cycle
+     */
+    protected int  _propertyChangeServiceFunction() {
+
+        logger.trace("_propertyChangeServiceFunction ... start ");
+        long  delay=0;
+        synchronized(this) {
+            // for each registration record
+            for ( PropertyChangeRec prec : _propChangeRegistry.values() ) {
+
+                // get current time stamp.... and duration since last check
+                long now = System.currentTimeMillis();
+                long dur = prec.expiration - now;
+
+                logger.debug( "Resource::_propertyChangeServiceFunction ... reg_id/interval :" + prec.regId + "/" + prec.reportInterval + "  expiration=" + dur );
+                // determine if time has expired
+		if ( dur <= 0 ) {
+
+		    // For queries of length > 0, return all requested pairs in propertySet
+		    final ArrayList<DataType> rpt_props = new ArrayList<DataType>();
+                    // check all registered properties for changes
+		    for (Map.Entry<String, PCL_Callback> iter : prec.props.entrySet() ) {
+
+			String pid = iter.getKey();
+		        PCL_Callback pcb = iter.getValue();
+                        logger.trace("   Check Property/Set " + pid + "/" + pcb.isSet() );
+                        // check if property changed
+			if ( pcb.isSet() == true ) {
+			    final IProperty prop = this.propSet.get(pid);
+			    if (prop != null) {
+				rpt_props.add(new DataType(pid, prop.toAny()));
+			    } 
+			}
+
+                        // reset change indicator for next reporting cycle
+                        pcb.reset();
+		    }
+
+                    // publish changes to listener
+                    if ( rpt_props.size() > 0 && prec.pcl != null )  {
+                        logger.debug("   Notify PropertyChangeListener ...size/reg :" + rpt_props.size() + "/" + prec.regId );
+                        DataType [] rprops = rpt_props.toArray( new DataType[ rpt_props.size() ] );
+                        if ( prec.pcl.notify( prec, rprops ) != 0 ) {
+                            logger.error("Publishing changes to PropertyChangeListener FAILED, reg_id:" +  prec.regId );
+                            // probably should mark for removal... if last one then stop the thread...
+                        }
+                    }
+                        
+                    // reset time indicator 
+                    prec.expiration =  System.currentTimeMillis() + prec.reportInterval;
+                    dur = prec.reportInterval;
+                }
+
+		
+                // find smallest increment of time to wait
+		if ( delay == 0 ) { delay=dur; }
+		logger.trace( "  Test for delay/duration (millisecs) ... :"  + delay + "/" + dur );
+		if ( dur > 0 )  { delay = Math.min( delay, dur ); }
+		logger.trace( "   Minimum  delay (millisecs) ... :" + delay ); 
+
+	    }  // end synchronized
+
+            if ( delay > 0 ) {
+		logger.debug( "....Set monitoring thread delay (millisecs) ... :"  + delay );
+		_propChangeProcessor.setThreadDelay( delay/1000.0f );
+	    }
+        }
+
+        logger.trace("_propertyChangeServiceFunction ... end ");
+        return ThreadedComponent.NOOP;
+    }
+
+
 
     /**
      * This returns true if the component constructor has run and the component
@@ -524,7 +758,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      * 
      * @return the ORB in use
      */
-    protected org.omg.CORBA.ORB getOrb() {
+    public org.omg.CORBA.ORB getOrb() {
         return this.orb;
     }
 
@@ -533,7 +767,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
      * 
      * @return the POA manager
      */
-    protected POA getPoa() {
+    public POA getPoa() {
         return this.poa;
     }
     
@@ -549,16 +783,43 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         try {
             appReg = ApplicationRegistrarHelper.narrow(obj);
         } catch (Exception e) {}
-        if (appReg!=null) {
-            this._domMgr = new DomainManagerContainer(appReg.domMgr());
-            return;
+        if (appReg != null) {
+            if (appReg.domMgr()!=null) {
+                this._domMgr = new DomainManagerContainer(appReg.domMgr());
+                this.logger.info("setAdditionalParameters domain: " + this._domMgr.getRef().name() );
+            }
+
+            if ( this._domMgr != null ) {
+                try {
+                    this._ecm = org.ossie.events.Manager.GetManager(this);
+                }catch( org.ossie.events.Manager.OperationFailed e){
+                    logger.warn("Unable to resolve EventChannelManager");
+                }
+            }
         }
     }
     
     public DomainManagerContainer getDomainManager() {
         return this._domMgr;
     }
+
+
+    public org.ossie.events.Manager getEventChannelManager() {
+        return this._ecm;
+    }
     
+
+   public void saveLoggingContext( String logcfg_url, 
+                                    int oldstyle_loglevel, 
+                                   logging.ResourceCtx ctx ) {
+       super.saveLoggingContext( logcfg_url, oldstyle_loglevel, ctx, this.getEventChannelManager () );
+   }
+
+
+    public void setNewLoggingListener( LoggingListener newListener ) {
+        super.setNewLoggingListener( newListener );
+    }
+
     /**
      * This function explicitly activates the given Servant.
      * 
@@ -631,389 +892,6 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         return result;
     }
 
-
-    ///////////////////////////////////////////////////////////////////////
-    //
-    //        Logging Configuration Section
-    //
-    ///////////////////////////////////////////////////////////////////////
-
-    /**
-     * setNewLoggingListener
-     *
-     * Assign callback listeners for log level changes and log configuration
-     * changes
-     *
-     * @param Resource.LoggingListener  callback interface definition
-     *
-     */
-    public void setNewLoggingListener( Resource.LoggingListener newListener ) {
-	this.logListener = newListener;
-    }
-
-    /**
-     *  getLogger
-     *  
-     *  @returns Logger return the logger assigned to this resource
-     */
-    public Logger     getLogger() {
-	return logger;
-    }
-
-    /**
-     *  getLogger
-     * 
-     *  return the logger assigned to this resource
-     *  @param String name of logger to retrieve
-     *  @param boolan true, will reassign new logger to the resource, false do not assign
-     *  @returns Logger return the named logger 
-     */
-    public Logger     getLogger( String logid,  boolean assignToResource ) {
-
-	Logger log =null;
-	if ( logid != null )  {
-	    log = Logger.getLogger( logid );
-	}
-	if ( assignToResource && logger != null ) {
-	    //RESOLVE logger = log;
-	}
-	return log;
-    }
-
-
-    /**
-     *  setLoggingMacros
-     * 
-     *  Use the logging resource context class to set any logging macro definitions.
-     *
-     * @param logging.Resource  a content class from the logging.ResourceCtx tree
-     */
-    public void setLoggingMacros( logging.MacroTable newTbl, boolean applyCtx ) {
-	if ( newTbl != null  ) {
-	    this.loggingMacros = newTbl;
-	    this.loggingCtx.apply( this.loggingMacros );
-	}
-    }
-
-    /**
-     *  setResourceContext
-     * 
-     *  Use the logging resource context class to set any logging macro definitions.
-     *
-     * @param logging.Resource  a content class from the logging.ResourceCtx tree
-     */
-    public void setResourceContext( logging.ResourceCtx ctx ) {
-	if ( ctx !=  null ) {
-	    ctx.apply( this.loggingMacros );
-	    this.loggingCtx = ctx;
-	}
-    }
-
-    /**
-     *  setLoggingContext
-     * 
-     *  Set the logging configuration and logging level for this resource
-     *
-     * @param logging.Resource  a content class from the logging.ResourceCtx tree
-     */
-    public void setLoggingContext( logging.ResourceCtx ctx ) {
-
-	// apply any context data
-	if ( ctx !=  null ) {
-	    ctx.apply( this.loggingMacros );
-	    this.loggingCtx = ctx;
-	}
-	else if ( this.loggingCtx != null ) {
-	    this.loggingCtx.apply( this.loggingMacros );
-	}
-
-	// call setLogConfigURL to load configuration and set log4j
-	if ( this.loggingURL != null  ) {
-	    setLogConfigURL( this.loggingURL );
-	}
-
-	try {
-	    // set log level for this logger 
-	    setLogLevel( this.logName,  this.logLevel );
-	}
-	catch( Exception e ){
-	}
-    }
-
-
-
-    /**
-     *  setLoggingContext
-     * 
-     *  Set the logging configuration and logging level for this resource.
-     *
-     * @param String  URL of the logging configuration file to load
-     * @param int  oldstyle_loglevel used from command line startup of a resource
-     * @param logging.Resource  a content class from the logging.ResourceCtx tree
-     */
-    public void saveLoggingContext( String logcfg_url, int oldstyle_loglevel, logging.ResourceCtx ctx ) {
-
-	// apply any context data
-	if ( ctx !=  null ) {
-	    ctx.apply( this.loggingMacros );
-	    this.loggingCtx = ctx;
-	}
-
-	// save off configuration that we are given
-	try{
-	    this.loggingURL = logcfg_url;	    
-	    if ( logcfg_url == null || logcfg_url == "" ) {
-		this.logConfig= logging.GetDefaultConfig();
-	    }
-	    else {
-		String cfg_data="";
-		cfg_data = logging.GetConfigFileContents(logcfg_url);
-	    
-		if ( cfg_data.length() > 0  ){
-		    // process file with macro expansion....
-		    this.logConfig = logging.ExpandMacros(cfg_data, loggingMacros );
-		}
-		else {
-		    logger.warn( "URL contents could not be resolved, url: " + logcfg_url );
-		}
-	    }
-	}
-	catch( Exception e ){
-	    logger.warn( "Exception caught during logging configuration using URL, url: "+ logcfg_url );
-	}
-
-	if  ( oldstyle_loglevel > -1  ) {
-	    logLevel = logging.ConvertLogLevel(oldstyle_loglevel);
-	}
-	else {
-	    // grab root logger's level
-	    logLevel = logging.ConvertLog4ToCFLevel( Logger.getRootLogger().getLevel() );
-	}
-    }
-
-
-    /**
-     *  setLoggingContext
-     * 
-     *  Set the logging configuration and logging level for this resource.
-     *
-     * @param String  URL of the logging configuration file to load
-     * @param int  oldstyle_loglevel used from command line startup of a resource
-     * @param logging.Resource  a content class from the logging.ResourceCtx tree
-     */
-    public void setLoggingContext( String logcfg_url, int oldstyle_loglevel, logging.ResourceCtx ctx ) {
-
-	// test we have a logging URI
-	if ( logcfg_url == null || logcfg_url == "" ) {
-	    logging.ConfigureDefault();
-	}
-	else {
-	    // apply any context data
-	    if ( ctx !=  null ) {
-		ctx.apply( this.loggingMacros );
-		this.loggingCtx = ctx;
-	    }
-
-	    // call setLogConfigURL to load configuration and set log4j
-	    if ( logcfg_url != null ) {
-		setLogConfigURL( logcfg_url );
-	    }
-	}
-
-	try {
-	    if  ( oldstyle_loglevel > -1  ) {
-		// set log level for this logger 
-		setLogLevel( logName, logging.ConvertLogLevel(oldstyle_loglevel) );
-	    }
-	    else {
-		// grab root logger's level
-		logLevel = logging.ConvertLog4ToCFLevel( Logger.getRootLogger().getLevel() );
-	    }
-	}
-	catch( Exception e ){
-	}
-    }
-
-    //////////////////////////////////////////////////////////////////////////////
-    //
-    // LogConfiguration IDL Support
-    //
-    //////////////////////////////////////////////////////////////////////////////
-
-    /**
-     *  log_level
-     * 
-     *  Return the current logging level as defined by the Logging Interface  IDL
-     *
-     * @return int value of a CF::LogLevels enumeration
-     */
-    public int log_level() {
-	return logLevel;
-    }
-
-    /**
-     *  log_level
-     * 
-     *  Set the logging level for the logger assigned to the resource. If a callback listener 
-     *  is assigned to the resource then invoke the listener to handle the assignment
-     *
-     * @param int value of a CF::LogLevels enumeration
-     */
-    public void log_level( int newLogLevel ) {
-	if ( this.logListener != null  ) {
-	    logLevel = newLogLevel;
-	    this.logListener.logLevelChanged( logName, newLogLevel );
-	}
-	else {
-	    logLevel = newLogLevel;
-	    Level tlevel= logging.ConvertToLog4Level(newLogLevel);
-	    if ( logger != null ) {
-		logger.setLevel(tlevel);
-	    }
-	    else {
-		Logger.getRootLogger().setLevel(tlevel);
-	    }
-	}
-	
-    }
-
-
-    /**
-     *  setLogLevel
-     * 
-     *  Set the logging level for a named logger associated with this resource. If a callback listener 
-     *  is assigned to the resource then invoke the listener to handle the assignment
-     *
-     * @param int value of a CF::LogLevels enumeration
-     */
-    public void setLogLevel( String logger_id, int newLogLevel ) throws UnknownIdentifier {
-
-	if ( this.logListener != null ) {
-	    if ( logger_id == logName ){
-		this.logLevel = newLogLevel;
-	    }
-
-	    this.logListener.logLevelChanged( logger_id, newLogLevel );
-	}
-	else {
-	    logLevel = newLogLevel;
-	    Level tlevel=Level.INFO;
-	    tlevel = logging.ConvertToLog4Level(newLogLevel);	       
-	    
-	    if ( logger_id != null ){
-		Logger logger = Logger.getLogger( logger_id );
-		if ( logger != null ) {
-		    logger.setLevel( tlevel );
-		}
-	    }
-	    else {
-		Logger.getRootLogger().setLevel(tlevel);
-	    }
-
-	}
-    }
-
-    /**
-     *  getLogConfig
-     * 
-     *  return the logging configration information used to configure the log4j library
-     *
-     * @returns String contents of the configuration file 
-     */
-    public  String getLogConfig() {
-	return logConfig;
-    }
-
-
-    /**
-     *  setLogConfig
-     * 
-     * Process the config_contents param as the contents for the log4j configuration
-     * information. 
-     * 
-     * First, run the configuration information against the current macro defintion
-     * list and then assigned that data to the log4j library.  If this operation
-     * completed sucessfully, the new configuration is saved.
-     *
-     *
-     * @param String contents of the configuration file 
-     */
-    public void setLogConfig( String config_contents ) {
-	if ( this.logListener != null ) {
-	    this.logConfig = config_contents;
-	    this.logListener.logConfigChanged( config_contents );
-	}
-	else {
-	    try {
-		String newcfg="";
-		newcfg = logging.Configure( config_contents, loggingMacros );
-		this.logConfig = newcfg;
-	    }
-	    catch( Exception e ) {
-		logger.warn("setLogConfig failed, reason:" + e.getMessage() );
-	    }
-	}
-    }
-
-    /**
-     *  setLogConfig
-     * 
-     *  Use the config_url value to read in the contents of the file as the new log4j
-     *  configuration context. If the file is sucessfully loaded then setLogConfig
-     *  is called to finish the processing.
-     *
-     * @param String URL of file to load
-     */
-    public void setLogConfigURL( String config_url ) {
-
-	//
-	// Get File contents....
-	//
-	try{
-	    String config_contents="";
-	    
-	    config_contents = logging.GetConfigFileContents(config_url);
-	    
-	    if ( config_contents.length() > 0  ){
-		this.loggingURL = config_url;
-		//  apply contents of file to configuration
-		this.setLogConfig( config_contents );
-	    }
-	    else {
-		logger.warn( "URL contents could not be resolved, url: " + config_url );
-	    }
-
-	}
-	catch( Exception e ){
-	    logger.warn( "Exception caught during logging configuration using URL, url: "+ config_url );
-	}
-    }
-
-
-    //////////////////////////////////////////////////////////////////////////////
-    //
-    // LogEventConsumer IDL Support
-    //
-    //////////////////////////////////////////////////////////////////////////////
-
-    public CF.LogEvent[] retrieve_records( org.omg.CORBA.IntHolder howMany, int startingPoint ) {
-        howMany=new org.omg.CORBA.IntHolder(0);
-        CF.LogEvent[] seq = new CF.LogEvent[0]; 
-	return seq;
-    }
-
-    public CF.LogEvent[] retrieve_records_by_date( org.omg.CORBA.IntHolder howMany, long to_timeStamp ) {
-        howMany=new org.omg.CORBA.IntHolder(0);
-        CF.LogEvent[] seq = new CF.LogEvent[0]; 
-	return seq;
-    }
-
-    public CF.LogEvent[] retrieve_records_from_date( org.omg.CORBA.IntHolder howMany, long from_timeStamp ) {
-        howMany=new org.omg.CORBA.IntHolder(0);
-        CF.LogEvent[] seq = new CF.LogEvent[0]; 
-	return seq;
-    }
-
     /**
      * Parse the set of SCA execparam arguments into a Map
      * 
@@ -1084,19 +962,10 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
     public static void start_component(final Class<? extends Resource> clazz,  final String[] args, final Properties props) 
 	throws InstantiationException, IllegalAccessException, InvalidObjectReference, NotFound, CannotProceed, org.omg.CosNaming.NamingContextPackage.InvalidName, ServantNotActive, WrongPolicy 
     {
-        final org.omg.CORBA.ORB orb = ORB.init((String[]) null, props);
+        // initialize library's ORB reference 
+        final org.omg.CORBA.ORB orb = org.ossie.corba.utils.Init( args, props );
 
-        // get reference to RootPOA & activate the POAManager
-        POA rootpoa = null;
-        try {
-            final org.omg.CORBA.Object poa = orb.resolve_initial_references("RootPOA");
-            rootpoa = POAHelper.narrow(poa);
-            rootpoa.the_POAManager().activate();
-        } catch (final AdapterInactive e) {
-            // PASS
-        } catch (final InvalidName e) {
-            // PASS
-        }
+        final POA rootpoa  = org.ossie.corba.utils.RootPOA();
 
         Map<String, String> execparams = parseArgs(args);
 
@@ -1104,6 +973,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         // TOBERM Resource.configureLogging(execparams, orb);
 
         NamingContext nameContext = null;
+        NamingContextExt nameContextExt = null;
         ApplicationRegistrar applicationRegistrar = null;
         if (execparams.containsKey("NAMING_CONTEXT_IOR")) {
             try {
@@ -1112,6 +982,10 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
                     applicationRegistrar = ApplicationRegistrarHelper.narrow(tmp_obj);
                 } catch (Exception e) {}
                 nameContext = NamingContextHelper.narrow(tmp_obj);
+                try {
+                    nameContextExt = NamingContextExtHelper.narrow(tmp_obj);
+                } catch (Exception e) { // the application registrar inherits from naming context, not naming context ext
+                }
             } catch (Exception e) {
                 System.out.println(e);
             }
@@ -1181,6 +1055,7 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
         resource_i.setAdditionalParameters(execparams.get("NAMING_CONTEXT_IOR"), nic);
         resource_i.initializeProperties(execparams);
 
+        // save logging context used by the resource... 
 	resource_i.saveLoggingContext( logcfg_uri, debugLevel, ctx );
 
         if ((nameContext != null) && (nameBinding != null)) {

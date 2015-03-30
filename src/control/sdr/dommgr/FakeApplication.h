@@ -42,6 +42,10 @@ public:
 
     void configure (const CF::Properties& configProperties);
     void query (CF::Properties& configProperties);
+    char *registerPropertyListener( CORBA::Object_ptr listener, const CF::StringSequence &prop_ids, const CORBA::Float interval)
+      throw(CF::UnknownProperties, CF::InvalidObjectReference);
+    void unregisterPropertyListener( const char *reg_id )  
+      throw(CF::InvalidIdentifier);
 
     void initialize ();
         
@@ -57,7 +61,7 @@ public:
     
     char* name ();
     
-    bool trusted ();
+    bool aware ();
     
     CF::DeviceAssignmentSequence * componentDevices ();
     CF::Application::ComponentElementSequence * componentImplementations ();

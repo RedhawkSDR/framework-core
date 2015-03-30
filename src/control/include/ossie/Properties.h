@@ -121,7 +121,8 @@ namespace ossie {
                const std::string& action, 
                const std::vector<std::string>& kinds,
                const optional_value<std::string>& value,
-               const std::string& complex_);
+               const std::string& complex_,
+	       const std::string& optional);
 
         SimpleProperty(const std::string& id, 
                const std::string& name, 
@@ -142,6 +143,7 @@ namespace ossie {
         virtual const Property* clone() const;
         const char* getType() const;
         const char* getComplex() const;
+	const char* getOptional() const;
 
     protected:
         virtual void override(const Property* otherProp);
@@ -151,6 +153,7 @@ namespace ossie {
         std::string type;
         optional_value<std::string> value;
         std::string _complex;
+	std::string optional;
     };
 
     /**
@@ -171,7 +174,8 @@ namespace ossie {
                                const std::string&              action, 
                                const std::vector<std::string>& kinds,
                                const std::vector<std::string>& values,
-                               const std::string&              complex_);
+                               const std::string&              complex_,
+			       const std::string& 	       optional);
 
         SimpleSequenceProperty(const std::string&              id, 
                                const std::string&              name, 
@@ -190,6 +194,7 @@ namespace ossie {
         virtual const Property* clone() const;
         const char* getType() const;
         const char* getComplex() const;
+	const char* getOptional() const;
 
     protected:
         virtual void override(const Property* otherProp);
@@ -199,6 +204,7 @@ namespace ossie {
         std::string type;
         std::vector<std::string> values;
         std::string _complex;
+	std::string optional;
     };
 
     /**
@@ -216,26 +222,39 @@ namespace ossie {
                    const std::string& name, 
                    const std::string& mode, 
                    const std::vector<std::string>& configurationkinds,
-                   const std::vector<SimpleProperty>& value) :
-            Property(id, name, mode, "external", configurationkinds),
-            value(value)
-        {}
+                   const std::vector<Property*>& value) :
+            Property(id, name, mode, "external", configurationkinds) 
+        {
+	    std::vector<Property*>::const_iterator it;
+	    for(it=value.begin(); it != value.end(); ++it) {
+                this->value.push_back(const_cast<Property*>((*it)->clone()));
+	    }
+	}
+
+	StructProperty(const StructProperty& other) :
+          Property(other.id, other.name, other.mode, other.action, other.kinds)
+        {
+	    std::vector<Property*>::const_iterator it;
+	    for(it=other.value.begin(); it != other.value.end(); ++it) {
+	        this->value.push_back(const_cast<Property*>((*it)->clone()));
+	    }
+        }
 
         virtual ~StructProperty();
         virtual bool isNone() const;
         virtual const std::string asString() const;
         virtual const Property* clone() const;
 
-        const std::vector<SimpleProperty>& getValue() const ;
+        const std::vector<Property*>& getValue() const ;
 
-        const SimpleProperty* getField(const std::string& id) const;
+        const Property* getField(const std::string& id) const;
 
     protected:
         virtual void override(const Property* otherProp);
         virtual void override(const ComponentProperty* newValue);
 
     private:
-        std::vector<SimpleProperty> value;
+        std::vector<Property*> value;
     };
 
     /**
@@ -258,7 +277,8 @@ namespace ossie {
             Property(id, name, mode, "external", configurationkinds),
             structdef(structdef),
             values(values)
-        {}
+        {
+        }
 
         virtual ~StructSequenceProperty();
         virtual bool isNone() const;

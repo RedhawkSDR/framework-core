@@ -139,11 +139,20 @@ class ODMEventsTest(scatest.CorbaTestCase):
 
         # connect to the channel
         domainName = scatest.getTestDomainName()
-        channelManager = ChannelManager(self._orb)
-        odmChannel = channelManager.getEventChannel('ODM_Channel', domainName)
+        odmChannel=None
+        req = CF.EventChannelManager.EventRegistration( 'ODM_Channel', '')
+        try:
+            ecm = self._domMgr._get_eventChannelMgr()
+            creg = ecm.registerResource( req ) 
+            odmChannel = creg.channel
+        except:
+            pass
+
         if odmChannel == None:
             self.fail("Could not connect to the ODM_Channel")
 
+        #channelManager = ChannelManager(self._orb)
+        #odmChannel = channelManager.getEventChannel('ODM_Channel', domainName)
 
         # set up consumer
         consumer_admin = odmChannel.for_consumers()

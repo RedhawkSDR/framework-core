@@ -843,7 +843,16 @@ void structref_pimpl::
 simpleref (ossie::SimplePropertyRef* simpleref)
 {
     assert(structref != 0);
-    structref->_values[simpleref->_id] = simpleref->_value;
+    structref->_values[simpleref->_id] = simpleref->clone();
+    delete simpleref;
+}
+
+void structref_pimpl::
+simplesequenceref (ossie::SimpleSequencePropertyRef* simplesequenceref)
+{
+    assert(structref != 0);
+    structref->_values[simplesequenceref->_id] = simplesequenceref->clone();
+    delete simplesequenceref;
 }
 
 void structref_pimpl::
@@ -870,7 +879,7 @@ pre ()
 }
 
 void structsequenceref_pimpl::
-structvalue (const std::map<std::string, std::string>& value)
+structvalue (const std::map<std::string, ossie::ComponentProperty*>& value)
 {
     assert(structsequenceref != 0);
     structsequenceref->_values.push_back(value);
@@ -902,13 +911,32 @@ pre ()
 void structvalue_pimpl::
 simpleref (ossie::SimplePropertyRef* simpleref)
 {
-    values[simpleref->_id] = simpleref->_value;
+    values[simpleref->_id] = simpleref->clone();
+    delete simpleref;
 }
 
-std::map<std::string, std::string> structvalue_pimpl::
+void structvalue_pimpl::
+simplesequenceref (ossie::SimpleSequencePropertyRef* simplesequenceref)
+{
+    values[simplesequenceref->_id] = simplesequenceref->clone();
+    delete simplesequenceref;
+}
+
+std::map<std::string, ossie::ComponentProperty*> structvalue_pimpl::
 post_structvalue ()
 {
-    return values;
+    std::map<std::string, ossie::ComponentProperty*> retval;
+    std::map<std::string, ossie::ComponentProperty*>::iterator it;
+    for (it=values.begin(); it!=values.end(); ++it) {
+        if (dynamic_cast<ossie::SimplePropertyRef*>(it->second) != NULL) {
+            retval[it->first] = static_cast<ossie::SimplePropertyRef*>(it->second)->clone();
+            delete it->second;
+        } else if (dynamic_cast<ossie::SimpleSequencePropertyRef*>(it->second) != NULL) {
+            retval[it->first] = static_cast<ossie::SimpleSequencePropertyRef*>(it->second)->clone();
+            delete it->second;
+        }
+    }
+    return retval;
 }
 
 // values_pimpl

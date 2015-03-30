@@ -52,7 +52,7 @@ public:
 
     Application_impl (const std::string& id, const std::string& name, const std::string& profile,
                       DomainManager_impl* domainManager, const std::string& waveformContextName,
-                      CosNaming::NamingContext_ptr waveformContext, bool trusted);
+                      CosNaming::NamingContext_ptr waveformContext, bool aware);
     
     void populateApplication (CF::Resource_ptr _assemblyController,
                               std::vector<ossie::DeviceAssignmentInfo>& _devSequence,
@@ -81,6 +81,12 @@ public:
     void query (CF::Properties& configProperties)
         throw (CF::UnknownProperties, CORBA::SystemException);
 
+    char *registerPropertyListener( CORBA::Object_ptr listener, const CF::StringSequence &prop_ids, const CORBA::Float interval)
+      throw(CF::UnknownProperties, CF::InvalidObjectReference);
+
+    void unregisterPropertyListener( const char *reg_id )  
+      throw(CF::InvalidIdentifier);
+
     void initialize ()
         throw (CF::LifeCycle::InitializeError, CORBA::SystemException);
         
@@ -99,7 +105,7 @@ public:
     
     char* name () throw (CORBA::SystemException);
     
-    bool trusted () throw (CORBA::SystemException);
+    bool aware () throw (CORBA::SystemException);
     
     CF::DeviceAssignmentSequence * componentDevices ()
         throw (CORBA::SystemException);
@@ -160,7 +166,8 @@ private:
     DomainManager_impl* _domainManager;
     const std::string _waveformContextName;
     CosNaming::NamingContext_var _waveformContext;
-    const bool _isTrusted;
+    bool _started;
+    const bool _isAware;
     FakeApplication* _fakeProxy;
     
     ApplicationRegistrar_impl* _registrar;

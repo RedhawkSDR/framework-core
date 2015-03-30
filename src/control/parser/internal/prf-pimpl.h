@@ -63,6 +63,17 @@ namespace prf
       virtual ::std::string
       post_IsComplex ();
     };
+   
+    class IsOptional_pimpl: public virtual IsOptional_pskel,
+      public ::xml_schema::string_pimpl
+    {
+      public:
+      virtual void
+      pre ();
+
+      virtual ::std::string
+      post_IsOptional ();
+    };
 
     class action_pimpl: public virtual action_pskel
     {
@@ -302,6 +313,9 @@ namespace prf
       virtual void
       complex (const ::std::string&);
 
+      virtual void
+      optional (const ::std::string&);
+
       virtual ossie::SimpleProperty*
       post_simple ();
 
@@ -312,6 +326,7 @@ namespace prf
       std::string _complex;
       std::string _mode;
       std::string _action;
+      std::string _optional;
       std::vector<std::string> _kinds;
       std::auto_ptr<std::string> _value;
     };
@@ -328,12 +343,30 @@ namespace prf
       virtual void
       value (const ::std::string&);
 
-      virtual ::std::map<std::string, std::string>::value_type
+      virtual ossie::SimplePropertyRef*
       post_simpleRef ();
 
       private:
-      std::string _refid;
-      std::string _value;
+      ossie::SimplePropertyRef* simple;
+    };
+
+    class simpleSequenceRef_pimpl: public virtual simpleSequenceRef_pskel
+    {
+      public:
+      virtual void
+      pre ();
+
+      virtual void
+      values (const ::std::vector<std::string>&);
+
+      virtual void
+      refid (const ::std::string&);
+
+      virtual ossie::SimpleSequencePropertyRef*
+      post_simpleSequenceRef ();
+    
+      private:
+      ossie::SimpleSequencePropertyRef* simplesequence;
     };
 
     class simpleSequence_pimpl: public virtual simpleSequence_pskel
@@ -375,6 +408,9 @@ namespace prf
       virtual void
       complex (const ::std::string&);
 
+      virtual void
+      optional (const ::std::string&);
+
       virtual ossie::SimpleSequenceProperty*
       post_simpleSequence ();
 
@@ -385,6 +421,7 @@ namespace prf
       std::string _complex;
       std::string _mode;
       std::string _action;
+      std::string _optional;
       std::vector<std::string> _kinds;
       std::vector<std::string> _values;
     };
@@ -400,6 +437,9 @@ namespace prf
 
       virtual void
       simple (ossie::SimpleProperty*);
+
+      virtual void
+      simplesequence (ossie::SimpleSequenceProperty*);
 
       virtual void
       configurationkind (const ::std::string&);
@@ -422,7 +462,7 @@ namespace prf
       std::string _type;
       std::string _mode;
       std::vector<std::string> _kinds;
-      std::vector<ossie::SimpleProperty> _value;
+      std::vector<ossie::Property*> _value;
     };
 
     class structSequence_pimpl: public virtual structSequence_pskel
@@ -438,7 +478,7 @@ namespace prf
       description (const ::std::string&);
 
       virtual void
-      structvalue (const ::std::map<std::string, std::string>&);
+      structvalue (const ::std::map<std::string, ossie::ComponentProperty*>&);
 
       virtual void
       configurationkind (const ::std::string&);
@@ -472,13 +512,16 @@ namespace prf
       pre ();
 
       virtual void
-      simpleref (const ::std::map<std::string, std::string>::value_type&);
+      simpleref (ossie::SimplePropertyRef*);
 
-      virtual ::std::map<std::string, std::string>
+      virtual void
+      simplesequenceref (ossie::SimpleSequencePropertyRef*);
+
+      virtual ::std::map<std::string, ossie::ComponentProperty*>
       post_structValue ();
 
       private:
-      std::map<std::string, std::string> _values;
+      std::map<std::string, ossie::ComponentProperty*> _values;
     };
 
     class test_pimpl: public virtual test_pskel

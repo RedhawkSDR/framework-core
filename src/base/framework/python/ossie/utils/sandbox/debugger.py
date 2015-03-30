@@ -41,13 +41,13 @@ class GDB(Debugger):
         if status:
             raise RuntimeError, 'gdb cannot be found'
         super(GDB,self).__init__(gdb)
-        self.attach = attach
+        self._attach = attach
 
     def modifiesCommand(self):
-        return not self.attach
+        return not self._attach
 
     def canAttach(self):
-        return self.attach
+        return self._attach
 
     def attach(self, process):
         return self.command, [process.command(), str(process.pid())]

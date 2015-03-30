@@ -166,10 +166,11 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 	id		ID	#REQUIRED
 	type		CDATA	#REQUIRED>
 
-<!ELEMENT simpleref EMPTY>
+<!ELEMENT simpleref 
+        (values
+        )>
 <!ATTLIST simpleref
-	refid		CDATA	#REQUIRED
-	value		CDATA	#REQUIRED>
+	refid		CDATA	#REQUIRED>
 
 <!-- REDHAWK extension: support any property type dependency -->		
 <!ELEMENT simplesequenceref
@@ -179,7 +180,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 	refid		CDATA	#REQUIRED>
 
 <!ELEMENT structref
-	(simpleref+        
+	( (simpleref | simplesequenceref)+        
 	)>
 <!ATTLIST structref
 	refid		CDATA	#REQUIRED>
@@ -191,7 +192,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 	refid		CDATA	#REQUIRED>
 
 <!ELEMENT structvalue
-	(simpleref+
+	( (simpleref | simplesequenceref)+
 	)>
 		
 <!ELEMENT values

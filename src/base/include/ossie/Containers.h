@@ -72,6 +72,7 @@ namespace redhawk {
     private:
         CF::Application_var ref;
     };
+
     class NetworkContainer {
     public:
         NetworkContainer() {
@@ -86,6 +87,7 @@ namespace redhawk {
     private:
         std::string nic;
     };
+
 }
 
 #endif	/* CONTAINERS_H */

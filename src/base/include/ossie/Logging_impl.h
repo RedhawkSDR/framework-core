@@ -299,7 +299,7 @@ class Logging_impl: public virtual POA_CF::Logging
   ossie::logging::ResourceCtxPtr _loggingCtx;
 
   /// Event channel to listen for configuration and log level changes
-  boost::shared_ptr< ossie::event::PushEventConsumer > logConfigChannel;
+  boost::shared_ptr< ossie::events::PushEventConsumer > logConfigChannel;
 
   /// callback to notify when logging configuration change is requested
   LogConfigListenerPtr              logConfigCallback;

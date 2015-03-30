@@ -107,7 +107,7 @@ namespace ossie {
         std::map<std::string, CORBA::Object_var> ports;
         // Ext Props map :  extid -> (propid, compid)
         std::map<std::string, std::pair<std::string, std::string> > properties;
-        bool trusted_application;
+        bool aware_application;
     };
     
     class ServiceNode {
@@ -120,9 +120,10 @@ namespace ossie {
 
     typedef std::list<ServiceNode> ServiceList;
     
+
     class EventChannelNode {
         public:
-            CosEventChannelAdmin::EventChannel_var channel;
+            CosEventChannelAdmin::EventChannel_var   channel;
             unsigned int connectionCount;
             std::string boundName;
             std::string name;

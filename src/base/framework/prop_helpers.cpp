@@ -551,6 +551,7 @@ std::string ossie::complexAnyToString(const CORBA::Any& value)
     }
     return result;
 }
+
 std::string ossie::simpleAnyToString(const CORBA::Any& value)
 {
     std::ostringstream result;
@@ -664,6 +665,13 @@ std::string ossie::any_to_string(const CORBA::Any& value)
         result = simpleAnyToString(value);
     }
     return result;
+}
+
+std::vector<std::string> ossie::any_to_strings(const CORBA::Any& value)
+{
+    std::vector<std::string> retval;
+    value >>= retval;
+    return retval;
 }
 
 

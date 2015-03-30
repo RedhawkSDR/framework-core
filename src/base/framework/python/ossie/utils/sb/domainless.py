@@ -920,15 +920,15 @@ def api(descriptor, objType=None):
             kinds = []
             mode = struct.get_mode()
             table.append(_id, 'struct')
-            for simple in struct.get_simple():
-                table.append('  '+simple.get_id(),simple.get_type())
+            for prop in struct.get_props():
+                table.append('  '+prop.get_id(),prop.get_type())
         for struct in prf.structsequence:
             _id = struct.get_id()
             kinds = []
             mode = struct.get_mode()
             table.append(_id, 'struct sequence')
-            for simple in struct.get_struct().get_simple():
-                table.append('  '+simple.get_id(),simple.get_type())
+            for prop in struct.get_struct().get_props():
+                table.append('  '+prop.get_id(),prop.get_type())
         table.write()
 
 

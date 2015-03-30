@@ -581,7 +581,7 @@ void createHelper::_consolidateAllocations(const ossie::ImplementationInfo::List
                 ossie::corba::push_back(allocs, convertPropertyToDataType(dependency));
             } else if (dynamic_cast<const ossie::StructPropertyRef*>((*dep).property) != NULL) {
                 const ossie::StructPropertyRef* dependency = dynamic_cast<const ossie::StructPropertyRef*>((*dep).property);
-                const std::map<std::string, std::string> structval = dependency->getValue();
+                const std::map<std::string, ossie::ComponentProperty*> structval = dependency->getValue();
                 ossie::corba::push_back(allocs, convertPropertyToDataType(dependency));
             } else if (dynamic_cast<const ossie::StructSequencePropertyRef*>((*dep).property) != NULL) {
                 const ossie::StructSequencePropertyRef* dependency = dynamic_cast<const ossie::StructSequencePropertyRef*>((*dep).property);
@@ -964,7 +964,6 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
     // now actually perform the create operation
     LOG_TRACE(ApplicationFactory_impl, "Performing 'create' function.");
     CF::Application_ptr new_app = new_createhelper.create(name, initConfiguration, deviceAssignmentMap);
-
     // return the new Application
     TRACE_EXIT(ApplicationFactory_impl);
     return new_app;
@@ -981,16 +980,16 @@ throw (CORBA::SystemException,
 {
     TRACE_ENTER(ApplicationFactory_impl);
     
-    bool trusted_application = true;
+    bool aware_application = true;
     CF::Properties modifiedInitConfiguration;
 
     try {
         ////////////////////////////////////////////////
-        // Check to see if this is a trusted application
-        const std::string trusted_app_property_id(ExtendedCF::WKP::TRUSTED_APPLICATION);
+        // Check to see if this is an aware application
+        const std::string aware_app_property_id(ExtendedCF::WKP::AWARE_APPLICATION);
         for (unsigned int initCount = 0; initCount < initConfiguration.length(); initCount++) {
-            if (std::string(initConfiguration[initCount].id) == trusted_app_property_id) {
-                initConfiguration[initCount].value >>= trusted_application;
+            if (std::string(initConfiguration[initCount].id) == aware_app_property_id) {
+                initConfiguration[initCount].value >>= aware_application;
                 modifiedInitConfiguration.length(initConfiguration.length()-1);
                 for (unsigned int rem_idx=0; rem_idx<initConfiguration.length()-1; rem_idx++) {
                     unsigned int idx_mod = 0;
@@ -1103,7 +1102,7 @@ throw (CORBA::SystemException,
                                             _appFact._domainManager, 
                                             _waveformContextName, 
                                             _waveformContext,
-                                            trusted_application);
+                                            aware_application);
 
         // Activate the new Application servant
         PortableServer::ObjectId_var oid = Application_impl::Activate(_application);
@@ -1147,6 +1146,7 @@ throw (CORBA::SystemException,
 
         // Add a reference to the new application to the 
         // ApplicationSequence in DomainManager
+        CF::Application_var appObj = _application->_this();
         try {
             _appFact._domainManager->addApplication(_application);
         } catch (CF::DomainManager::ApplicationInstallationError& ex) {
@@ -1160,9 +1160,13 @@ throw (CORBA::SystemException,
         // so update the domain manager
         _appFact._domainManager->setLastDeviceUsedForDeployment(_executableDevices.front()->identifier);
 
-        CF::Application_var appObj = _application->_this();
-        ossie::sendObjectAddedEvent(ApplicationFactory_impl::__logger, _appFact._identifier.c_str(), appIdentifier.c_str(), name,
-                                    appObj, StandardEvent::APPLICATION, _appFact._domainManager->proxy_consumer);
+        if ( _appFact._domainManager ) {
+          _appFact._domainManager->sendAddEvent( _appFact._identifier.c_str(), 
+                                                 appIdentifier.c_str(), 
+                                                 name,
+                                                 appObj,
+                                                 StandardEvent::APPLICATION);
+        }
 
         LOG_INFO(ApplicationFactory_impl, "Done creating application " << appIdentifier << " " << name);
         _isComplete = true;
@@ -1262,7 +1266,7 @@ CF::AllocationManager::AllocationResponseSequence* createHelper::allocateUsesDev
 {
     CF::AllocationManager::AllocationRequestSequence request;
     request.length(usesDevices.size());
-
+    
     for (unsigned int usesdev_idx=0; usesdev_idx< usesDevices.size(); usesdev_idx++) {
         const std::string requestid = usesDevices[usesdev_idx]->getId();
         request[usesdev_idx].requestID = requestid.c_str();
@@ -1271,15 +1275,15 @@ CF::AllocationManager::AllocationResponseSequence* createHelper::allocateUsesDev
         CF::Properties& allocationProperties = request[usesdev_idx].allocationProperties;
         const std::vector<SPD::PropertyRef>&prop_refs = usesDevices[usesdev_idx]->getProperties();
         this->_castRequestProperties(allocationProperties, prop_refs);
-
+        
         // ...then from the SAD; in practice, these are mutually exclusive, but
         // there is no harm in doing both, as one set will always be empty
         const std::vector<SoftwareAssembly::PropertyRef>& sad_refs = usesDevices[usesdev_idx]->getSadDeps();
         this->_castRequestProperties(allocationProperties, sad_refs, allocationProperties.length());
-
+        
         this->_evaluateMATHinRequest(allocationProperties, configureProperties);
     }
-
+    
     return this->_allocationMgr->allocate(request);
 }
                                                           
@@ -1307,7 +1311,7 @@ void createHelper::allocateComponent(ossie::ComponentInfo*  component,
     component->getImplementations(implementations);
 
     const CF::Properties& configureProperties = component->getConfigureProperties();
-
+    
     // Find the devices that allocate the SPD's minimum required usesdevices properties
     const UsesDeviceInfo::List &usesDevVec = component->getUsesDevices();
     if (!allocateUsesDevices(component->getIdentifier(), usesDevVec, configureProperties, appAssignedDevs, this->_allocations)) {
@@ -1338,37 +1342,38 @@ void createHelper::allocateComponent(ossie::ComponentInfo*  component,
         DeviceAssignmentList implAllocatedDevices;
         ScopedAllocations implAllocations(*this->_allocationMgr);
         const UsesDeviceInfo::List &implUsesDevVec = impl->getUsesDevices();
+        
         if (!allocateUsesDevices(component->getIdentifier(), implUsesDevVec, configureProperties, implAllocatedDevices, implAllocations)) {
             LOG_TRACE(ApplicationFactory_impl, "Unable to satisfy 'usesdevice' dependencies for component "
                       << component->getIdentifier() << " implementation " << impl->getId());
             continue;
         }
-
+        
         // Found an implementation which has its 'usesdevice' dependencies
         // satisfied, now perform assignment/allocation of component to device
         LOG_DEBUG(ApplicationFactory_impl, "Trying to find the device");
         ossie::AllocationResult response = allocateComponentToDevice(component, impl, assignedDeviceId);
-
+        
         if (response.first.empty()) {
             LOG_TRACE(ApplicationFactory_impl, "Unable to allocate device for component "
                       << component->getIdentifier() << " implementation " << impl->getId());
             continue;
         }
-
+        
         // Track successful deployment allocation
         implAllocations.push_back(response.first);
-
+        
         // Convert from response back into a device node
         DeviceNode& node = *(response.second);
         const std::string& deviceId = node.identifier;
-
+        
         if (!resolveSoftpkgDependencies(impl, node)) {
             component->clearSelectedImplementation();
             LOG_TRACE(ApplicationFactory_impl, "Unable to resolve softpackage dependencies for component "
                       << component->getIdentifier() << " implementation " << impl->getId());
             continue;
         }
-
+        
         // Allocation to a device succeeded
         LOG_DEBUG(ApplicationFactory_impl, "Assigned component " << component->getInstantiationIdentifier()
                   << " implementation " << impl->getId() << " to device " << deviceId);
@@ -1376,21 +1381,22 @@ void createHelper::allocateComponent(ossie::ComponentInfo*  component,
 
         // Move the device to the front of the list
         rotateDeviceList(_executableDevices, deviceId);
-
+        
         ossie::DeviceAssignmentInfo dai;
         dai.deviceAssignment.componentId = CORBA::string_dup(component->getIdentifier());
         dai.deviceAssignment.assignedDeviceId = deviceId.c_str();
         dai.device = CF::Device::_duplicate(node.device);
         appAssignedDevs.push_back(dai);
-
+        
         // Store the implementation-specific usesdevice allocations and
         // device assignments
         implAllocations.transfer(this->_allocations);
         std::copy(implAllocatedDevices.begin(), implAllocatedDevices.end(), std::back_inserter(appAssignedDevs));
-
+        
         component->setSelectedImplementation(impl);
         return;
     }
+
     ossie::DeviceList::iterator device;
     ossie::DeviceList devices = _registeredDevices;
     bool allBusy = true;
@@ -1442,18 +1448,18 @@ bool createHelper::allocateUsesDevices(const std::string& componentIdentifier,
         (*iter)->clearAssignedDeviceId();
         usesDeviceMap[(*iter)->getId()] = *iter;
     }
-
+    
     // Track allocations made internally, either to clean up on failure or to
     // pass to the caller
     ScopedAllocations localAllocations(*_allocationMgr);
-
+    
     CF::AllocationManager::AllocationResponseSequence_var response = allocateUsesDeviceProperties(usesDevices, configureProperties);
     for (unsigned int resp = 0; resp < response->length(); resp++) {
         // Ensure that this allocation is recorded so that it can be cleaned up
         const std::string allocationId(response[resp].allocationID);
         LOG_TRACE(ApplicationFactory_impl, "Allocated " << allocationId);
         localAllocations.push_back(allocationId);
-
+        
         // Find the usesdevice that matches the request and update it, removing
         // the key from the map
         const std::string requestID(response[resp].requestID);
@@ -1474,7 +1480,7 @@ bool createHelper::allocateUsesDevices(const std::string& componentIdentifier,
         assignment.device = CF::Device::_duplicate(response[resp].allocatedDevice);
         deviceAssignments.push_back(assignment);
     }
-
+    
     if (usesDeviceMap.empty()) {
         // All usesdevices were satisfied; give the caller ownership of all the
         // allocations
@@ -1604,15 +1610,14 @@ ossie::AllocationResult createHelper::allocateComponentToDevice( ossie::Componen
 
     const std::string requestid = ossie::generateUUID();
     std::vector<SPD::PropertyRef> prop_refs = implementation->getDependencyProperties();
-    CF::Properties allocationProperties;
+    redhawk::PropertyMap allocationProperties;
     this->_castRequestProperties(allocationProperties, prop_refs);
     this->_evaluateMATHinRequest(allocationProperties, component->getConfigureProperties());
     
-    const redhawk::PropertyMap& tmp_alloc = redhawk::PropertyMap::cast(allocationProperties);
-    const redhawk::PropertyType* nic_alloc = tmp_alloc.find("nic_allocation");
+    redhawk::PropertyMap::iterator nic_alloc = allocationProperties.find("nic_allocation");
     std::string alloc_id;
-    if (nic_alloc != tmp_alloc.end()) {
-        redhawk::PropertyMap& substr = nic_alloc->getValue().toStruct();
+    if (nic_alloc != allocationProperties.end()) {
+        redhawk::PropertyMap& substr = nic_alloc->getValue().asProperties();
         alloc_id = substr["nic_allocation::identifier"].toString();
         if (alloc_id.empty()) {
             substr["nic_allocation::identifier"] = ossie::generateUUID();
@@ -1620,21 +1625,21 @@ ossie::AllocationResult createHelper::allocateComponentToDevice( ossie::Componen
     }
     
     ossie::AllocationResult response = this->_allocationMgr->allocateDeployment(requestid, allocationProperties, devices, implementation->getProcessorDeps(), implementation->getOsDeps());
-    if (tmp_alloc.find("nic_allocation") != tmp_alloc.end()) {
+    if (allocationProperties.contains("nic_allocation")) {
         if (!response.first.empty()) {
             redhawk::PropertyMap query_props;
-            redhawk::PropertyType query_prop;
-            query_prop.id = "nic_allocation_status";
-            query_props.push_back(query_prop);
+            query_props["nic_allocation_status"] = redhawk::Value();
             response.second->device->query(query_props);
-            std::vector<redhawk::PropertyMap*> retstruct = query_props["nic_allocation_status"].toStructSeq();
-            for (std::vector<redhawk::PropertyMap*>::iterator it = retstruct.begin(); it!=retstruct.end(); it++) {
-                std::string identifier = (**it)["nic_allocation_status::identifier"].toString();
+            redhawk::ValueSequence& retstruct = query_props["nic_allocation_status"].asSequence();
+            for (redhawk::ValueSequence::iterator it = retstruct.begin(); it!=retstruct.end(); it++) {
+                redhawk::PropertyMap& struct_prop = it->asProperties();
+                std::string identifier = struct_prop["nic_allocation_status::identifier"].toString();
                 if (identifier == alloc_id) {
-                    component->setNicAssignment((**it)["nic_allocation_status::interface"].toString());
+                    const std::string interface = struct_prop["nic_allocation_status::interface"].toString();
+                    component->setNicAssignment(interface);
                     redhawk::PropertyType nic_execparam;
                     nic_execparam.id = "NIC";
-                    nic_execparam.setValue((**it)["nic_allocation_status::interface"].toString());
+                    nic_execparam.setValue(interface);
                     component->addExecParameter(nic_execparam);
                 }
             }
@@ -1670,7 +1675,7 @@ CF::DataType createHelper::castProperty(const ossie::ComponentProperty* property
         return convertPropertyToDataType(dependency);
     } else if (dynamic_cast<const ossie::StructPropertyRef*>(property) != NULL) {
         const ossie::StructPropertyRef* dependency = dynamic_cast<const ossie::StructPropertyRef*>(property);
-        const std::map<std::string, std::string> structval = dependency->getValue();
+        const std::map<std::string, ossie::ComponentProperty*> structval = dependency->getValue();
         return convertPropertyToDataType(dependency);
     } else if (dynamic_cast<const ossie::StructSequencePropertyRef*>(property) != NULL) {
         const ossie::StructSequencePropertyRef* dependency = dynamic_cast<const ossie::StructSequencePropertyRef*>(property);
@@ -1926,7 +1931,7 @@ string ApplicationFactory_impl::getBaseWaveformContext(string waveform_context)
     return base_naming_context;
 }
 
-void createHelper::loadDependencies(const std::string& componentId,
+void createHelper::loadDependencies(ossie::ComponentInfo& component,
                                     CF::LoadableDevice_ptr device,
                                     const std::vector<SoftpkgInfo*>& dependencies)
 {
@@ -1939,7 +1944,7 @@ void createHelper::loadDependencies(const std::string& componentId,
 
         // Recursively load dependencies
         LOG_TRACE(ApplicationFactory_impl, "Loading dependencies for soft package " << (*dep)->getName());
-        loadDependencies(componentId, device, implementation->getSoftPkgDependency());
+        loadDependencies(component, device, implementation->getSoftPkgDependency());
 
         // Determine absolute path of dependency's local file
         CF::LoadableDevice::LoadType codeType = implementation->getCodeType();
@@ -1962,7 +1967,8 @@ void createHelper::loadDependencies(const std::string& componentId,
             LOG_ERROR(ApplicationFactory_impl, "Failure loading file " << fileName);
             throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL, "Failed to load file");
         }
-        _application->addComponentLoadedFile(componentId, fileName);
+        component.addResolvedSoftPkgDependency(fileName);
+        _application->addComponentLoadedFile(component.getIdentifier(), fileName);
     }
 }
 
@@ -2030,7 +2036,7 @@ void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg
             throw std::logic_error(message.str());
         }
 
-        loadDependencies(component->getIdentifier(), loadabledev, implementation->getSoftPkgDependency());
+        loadDependencies(*component, loadabledev, implementation->getSoftPkgDependency());
 
         // load the file(s)
         ostringstream load_eout; // used for any error messages dealing with load
@@ -2109,56 +2115,65 @@ void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg
             // See if the LOGGING_CONFIG_URI has already been set
             // via <componentproperties> or initParams
             bool alreadyHasLoggingConfigURI = false;
+	    std::string logging_uri("");
+            CF::DataType* logcfg_prop = NULL;
             CF::Properties execParameters = component->getExecParameters();
             for (unsigned int i = 0; i < execParameters.length(); ++i) {
                 std::string propid = static_cast<const char*>(execParameters[i].id);
                 if (propid == "LOGGING_CONFIG_URI") {
-                    alreadyHasLoggingConfigURI = true;
-                    break;
+		  logcfg_prop = &execParameters[i];
+		  const char* tmpstr;
+		  logcfg_prop->value >>= tmpstr;
+		  LOG_TRACE(ApplicationFactory_impl, "Resource logging configuration provided, logcfg:" << tmpstr);
+		  logging_uri = string(tmpstr);
+		  alreadyHasLoggingConfigURI = true;
+		  break;
                 }
             }
 
-            if (!alreadyHasLoggingConfigURI) {
+	    ossie::logging::LogConfigUriResolverPtr logcfg_resolver = ossie::logging::GetLogConfigUriResolver();
+	    std::string logcfg_path = ossie::logging::GetComponentPath( _appFact._domainName,
+									_waveformContextName,
+									component->getNamingServiceName() );
+	    if ( _appFact._domainManager->getUseLogConfigResolver() && logcfg_resolver ) {
+              std::string t_uri = logcfg_resolver->get_uri( logcfg_path );
+              LOG_DEBUG(ApplicationFactory_impl, "Using LogConfigResolver plugin: path " << logcfg_path << " logcfg:" << t_uri );
+              if ( !t_uri.empty() ) logging_uri = t_uri;
+	    }
+            
+	    if (!alreadyHasLoggingConfigURI && logging_uri.empty() ) {
                 // Query the DomainManager for the logging configuration
                 LOG_TRACE(ApplicationFactory_impl, "Checking DomainManager for LOGGING_CONFIG_URI");
-                PropertyInterface* logProperty = _appFact._domainManager->getPropertyFromId("LOGGING_CONFIG_URI");
+                PropertyInterface *log_prop = _appFact._domainManager->getPropertyFromId("LOGGING_CONFIG_URI");
+		StringProperty *logProperty = (StringProperty *)log_prop;
                 if (!logProperty->isNil()) {
-                    CF::DataType prop;
-                    prop.id = logProperty->id.c_str();
-                    logProperty->getValue(prop.value);
-                    component->addExecParameter(prop);
+		  logging_uri = logProperty->getValue();
                 } else {
                     LOG_TRACE(ApplicationFactory_impl, "DomainManager LOGGING_CONFIG_URI is not set");
                 }
-            }
+	    }
 
-            // prepare LOGGING_CONFIG_URI execparam
-            CF::DataType* lc = NULL;
-            execParameters = component->getExecParameters();
-            for (unsigned int i = 0; i < execParameters.length(); ++i) {
-                std::string propid = static_cast<const char*>(execParameters[i].id);
-                if (propid == "LOGGING_CONFIG_URI") {
-                    lc = &execParameters[i];
-                    break;
-                }
-            }
+	    // if we have a uri but no property, add property to component's exec param list
+	    if ( logcfg_prop == NULL && !logging_uri.empty() ) {
+	      CF::DataType prop;
+	      prop.id = "LOGGING_CONFIG_URI";
+	      prop.value <<= logging_uri.c_str();
+	      component->addExecParameter(prop);
+	    }
 
-            if (lc != NULL) {
-                const char* tmpstr;
-                lc->value >>= tmpstr;
-                LOG_TRACE(ApplicationFactory_impl, "Logging configuration provided " << tmpstr);
-                string logging_uri = string(tmpstr);
-
+            if (!logging_uri.empty()) {
                 if (logging_uri.substr(0, 4) == "sca:") {
                     string fileSysIOR = ossie::corba::objectToString(_appFact._domainManager->_fileMgr);
                     logging_uri += ("?fs=" + fileSysIOR);
                     LOG_TRACE(ApplicationFactory_impl, "Adding file system IOR " << logging_uri);
                 }
-                lc->value <<= logging_uri.c_str();
-                component->overrideProperty("LOGGING_CONFIG_URI", lc->value);
-            } else {
-                LOG_TRACE(ApplicationFactory_impl, "No logging configuration provided");
-            }
+
+                LOG_DEBUG(ApplicationFactory_impl, " LOGGING_CONFIG_URI :" << logging_uri);
+                CORBA::Any loguri;
+                loguri <<= logging_uri.c_str();
+                // this overrides all instances of the property called LOGGING_CONFIG_URI
+                component->overrideProperty("LOGGING_CONFIG_URI", loguri);
+	    }
 
             fs::path executeName;
             if ((implementation->getCodeType() == CF::LoadableDevice::EXECUTABLE) && (implementation->getEntryPoint().size() == 0)) {
@@ -2197,7 +2212,13 @@ void createHelper::attemptComponentExecution (
             LOG_TRACE(ApplicationFactory_impl, " exec param " << execParameters[i].id << " " << ossie::any_to_string(execParameters[i].value))
         }
         // call 'execute' on the ExecutableDevice to execute the component
-        tempPid = execdev->execute (executeName.string().c_str(), component->getOptions(), component->getExecParameters());
+        CF::StringSequence dep_seq;
+        std::vector<std::string> resolved_softpkg_deps = component->getResolvedSoftPkgDependencies();
+        dep_seq.length(resolved_softpkg_deps.size());
+        for (unsigned int p=0;p!=dep_seq.length();p++) {
+            dep_seq[p]=CORBA::string_dup(resolved_softpkg_deps[p].c_str());
+        }
+        tempPid = execdev->executeLinked(executeName.string().c_str(), component->getOptions(), component->getExecParameters(), dep_seq);
     } catch( CF::InvalidFileName& _ex ) {
         ostringstream eout;
         eout << "InvalidFileName when calling 'execute' on device with device id: '" << component->getAssignedDeviceId() << "' for component: '";

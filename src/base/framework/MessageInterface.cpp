@@ -21,6 +21,8 @@
 #include "ossie/MessageInterface.h"
 #include <iostream>
 
+PREPARE_LOGGING(MessageConsumerPort)
+
 Consumer_i::Consumer_i(MessageConsumerPort *_parent) {
     parent = _parent;
 }
@@ -146,6 +148,22 @@ void MessageConsumerPort::fireCallback (const std::string& id, const CORBA::Any&
     CallbackTable::iterator callback = callbacks_.find(id);
     if (callback != callbacks_.end()) {
         (*callback->second)(id, data);
+    } else {
+        if (generic_callbacks_.empty()) {
+            std::string warning = "no callbacks registered for messages with id: "+id+".";
+        
+            if (callbacks_.size() == 0) {
+                warning += " No callbacks are registered";
+            } else if (callbacks_.size() == 1) {
+                warning += " The only registered callback is for message with id: "+callbacks_.begin()->first;
+            } else { 
+                warning += " The available message callbacks are for messages with any of the following id: ";
+                for (callback = callbacks_.begin();callback != callbacks_.end(); callback++) {
+                    warning += callback->first+" ";
+                }
+            }
+            LOG_WARN(MessageConsumerPort,warning);
+        }
     }
 
     // Invoke the callback for those messages that are generic

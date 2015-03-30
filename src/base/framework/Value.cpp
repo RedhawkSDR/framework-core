@@ -19,6 +19,7 @@
  */
 
 #include <ossie/Value.h>
+#include <ossie/PropertyMap.h>
 #include <ossie/prop_helpers.h>
 
 using namespace redhawk;
@@ -104,22 +105,96 @@ CORBA::ULongLong Value::toULongLong() const
     return ossie::any::toULongLong(*this);
 }
 
-PropertyMap& Value::toStruct() const
+PropertyMap& Value::asProperties()
 {
-    CF::Properties* props;
-    *this >>= props;
-    return reinterpret_cast<PropertyMap&>(*props);
+    CF::Properties* props = 0;
+    (*this) >>= props;
+    return PropertyMap::cast(*props);
 }
 
-std::vector<PropertyMap*> Value::toStructSeq() const
+const PropertyMap& Value::asProperties() const
+{
+    const CF::Properties* props = 0;
+    (*this) >>= props;
+    return PropertyMap::cast(*props);
+}
+
+ValueSequence& Value::asSequence()
 {
     CORBA::AnySeq* prop_seq;
-    *this >>= prop_seq;
-    std::vector<PropertyMap*> retval;
-    CF::Properties* props;
-    for (CORBA::ULong ii=0; ii<prop_seq->length(); ii++) {
-        (*prop_seq)[ii] >>= props;
-        retval.push_back(reinterpret_cast<PropertyMap*>(props));
-    }
-    return retval;
+    (*this) >>= prop_seq;
+    return ValueSequence::cast(*prop_seq);
+}
+
+const ValueSequence& Value::asSequence() const
+{
+    CORBA::AnySeq* prop_seq;
+    (*this) >>= prop_seq;
+    return ValueSequence::cast(*prop_seq);
+}
+
+
+ValueSequence::ValueSequence() :
+    CORBA::AnySeq()
+{
+}
+
+ValueSequence::ValueSequence(const CORBA::AnySeq& sequence) :
+    CORBA::AnySeq(sequence)
+{
+}
+
+ValueSequence::ValueSequence(const ValueSequence& sequence) :
+    CORBA::AnySeq(sequence)
+{
+}
+
+bool ValueSequence::empty() const
+{
+    return length() == 0;
+}
+
+size_t ValueSequence::size() const
+{
+    return length();
+}
+
+Value& ValueSequence::operator[] (size_t index)
+{
+    return *(begin() + index);
+}
+
+const Value& ValueSequence::operator[] (size_t index) const
+{
+    return *(begin() + index);
+}
+
+void ValueSequence::push_back(const Value& value)
+{
+    ossie::corba::push_back(this, value);
+}
+
+void ValueSequence::push_back(const CORBA::Any& value)
+{
+    ossie::corba::push_back(this, value);
+}
+
+ValueSequence::iterator ValueSequence::begin()
+{
+    return static_cast<iterator>(this->get_buffer());
+}
+
+ValueSequence::iterator ValueSequence::end()
+{
+    return begin() + size();
+}
+
+ValueSequence::const_iterator ValueSequence::begin() const
+{
+    return static_cast<const_iterator>(this->get_buffer());
+}
+
+ValueSequence::const_iterator ValueSequence::end() const
+{
+    return begin() + size();
 }

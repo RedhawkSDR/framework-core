@@ -48,12 +48,13 @@ libossiecf_la_SOURCES = AggregateDevice_impl.cpp \
                         logging/StringInputStream.cpp \
                         logging/RH_LogEventAppender.cpp \
                         EventChannelSupport.cpp \
-                        Component.cpp \
-                        Value.cpp \
-                        PropertyType.cpp \
-                        PropertyMap.cpp
+	                Events.cpp \
+			Component.cpp \
+			Value.cpp \
+			PropertyType.cpp \
+			PropertyMap.cpp
 
 libossiecf_la_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(OMNICOS_CFLAGS) $(OMNIORB_CFLAGS) $(LOG4CXX_FLAGS)
-libossiecf_la_LIBADD = $(BOOST_LDFLAGS) $(BOOST_FILESYSTEM_LIB) $(BOOST_SERIALIZATION_LIB) $(BOOST_THREAD_LIB) $(BOOST_SYSTEM_LIB) $(OMNICOS_LIBS) $(OMNIORB_LIBS) $(LOG4CXX_LIBS)
+libossiecf_la_LIBADD = $(BOOST_LDFLAGS) $(BOOST_FILESYSTEM_LIB) $(BOOST_SERIALIZATION_LIB) $(BOOST_THREAD_LIB) $(BOOST_SYSTEM_LIB) $(OMNICOS_LIBS) $(OMNIORB_LIBS) $(LOG4CXX_LIBS) -ldl
 libossiecf_la_LDFLAGS = -Wall -version-info $(LIBOSSIECF_VERSION_INFO)
 

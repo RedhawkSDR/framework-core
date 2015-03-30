@@ -393,6 +393,9 @@ namespace sad
     simpleref (ossie::SimplePropertyRef*);
 
     virtual void
+    simplesequenceref (ossie::SimpleSequencePropertyRef*);
+
+    virtual void
     refid (const ::std::string&);
 
     virtual ossie::StructPropertyRef*
@@ -409,7 +412,7 @@ namespace sad
     pre ();
 
     virtual void
-    structvalue (const ::std::map<std::string, std::string>&);
+    structvalue (const ::std::map<std::string, ossie::ComponentProperty*>&);
 
     virtual void
     refid (const ::std::string&);
@@ -429,12 +432,15 @@ namespace sad
 
     virtual void
     simpleref (ossie::SimplePropertyRef*);
+ 
+    virtual void
+    simplesequenceref (ossie::SimpleSequencePropertyRef*);
 
-    virtual ::std::map<std::string, std::string>
+    virtual ::std::map<std::string, ossie::ComponentProperty*>
     post_structvalue ();
 
     private:
-    std::map<std::string, std::string> values;
+    std::map<std::string, ossie::ComponentProperty*> values;
   };
 
   class values_pimpl: public virtual values_pskel

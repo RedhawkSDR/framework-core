@@ -22,33 +22,19 @@
 #ifndef DEVICE_IMPL_H
 #define DEVICE_IMPL_H
 
+#include <signal.h>
 #include <string>
 #include <iostream>
 #include <fstream>
 #include <map>
 
-#include <COS/CosEventComm.hh>
-#include <COS/CosEventChannelAdmin.hh>
-
 #include "Resource_impl.h"
 #include "CF/cf.h"
 #include "ossie/debug.h"
+#include "ossie/Events.h"
 #include "ossie/CorbaUtils.h"
-#include <signal.h>
 
 class Device_impl;
-
-class IDM_Channel_Supplier_i : virtual public POA_CosEventComm::PushSupplier
-{
-
-public:
-    IDM_Channel_Supplier_i (Device_impl *_dev);
-    void disconnect_push_supplier ();
-
-private:
-    Device_impl *_device;
-    
-};
 
 
 class Device_impl: public virtual POA_CF::Device, public Resource_impl
@@ -87,12 +73,13 @@ public:
     bool isBusy ();
     bool isIdle ();
     void configure (const CF::Properties& configProperties) throw (CF::PropertySet::PartialConfiguration, CF::PropertySet::InvalidConfiguration, CORBA::SystemException);
+    const CF::DeviceManager_ptr getDeviceManager() const ;
+
+    // resolve domain awareness
+    void setAdditionalParameters(std::string &softwareProfile, std::string &application_registrar_ior, const std::string &nic);
 
     virtual void run ();
     virtual void halt ();
-
-    Device_impl(); // Code that tries to use this constructor will not work
-    Device_impl(Device_impl&); // No copying
 
 protected:
     enum AnyComparisonType {
@@ -111,11 +98,34 @@ protected:
     CF::AggregateDevice_ptr _aggregateDevice;
     std::string _label;
     std::string _compositeDev_ior;
+    redhawk::events::PublisherPtr  idm_publisher;
+    int                            sig_fd;
 
-    void connectSupplierToIncomingEventChannel (CosEventChannelAdmin::EventChannel_ptr idmChannel);;
+    //
+    // call after device has been created and assigned exec params
+    //
+    virtual void  postConstruction( std::string &softwareProfile,
+                                    std::string &registrar_ior,
+                                    const std::string &idm_channel_ior="",
+                                    const std::string &nic="",
+                                    const int  sigfd=-1 );
 
-    CosEventChannelAdmin::EventChannel_var IDM_channel;
-    CosEventChannelAdmin::ProxyPushConsumer_var proxy_consumer;
+    // resolve domain context for this device, what domain and device manager am I associated with
+    void  resolveDomainContext();
+
+    //
+    // Support for publishing state changes
+    //
+    void sendStateChange( StandardEvent::StateChangeType &fromState, 
+                          StandardEvent::StateChangeType &toState,
+                          StandardEvent::StateChangeCategoryType category );
+
+    //
+    //
+    //
+    void connectIDMChannel( const std::string &idm_ior="" );
+
+    
 
     //AggregateDevice _compositeDevice;
     bool initialConfiguration;
@@ -209,7 +219,6 @@ protected:
     }
 
 private:
-    friend class IDM_Channel_Supplier_i;
 
     // Adapter template function for device constructors. This is the only part of
     // device creation that requires type-specific knowledge.
@@ -248,6 +257,13 @@ private:
     void deallocateCapacityLegacy (const CF::Properties& capacities);
     
     redhawk::DeviceManagerContainer *_devMgr;
+
+
+ private:
+    Device_impl(); // Code that tries to use this constructor will not work
+    Device_impl(Device_impl&); // No copying
+
+
 };
 
 

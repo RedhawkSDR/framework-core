@@ -27,6 +27,7 @@
 namespace redhawk {
 
     class PropertyMap;
+    class ValueSequence;
 
     class Value : public CORBA::Any {
     public:
@@ -73,8 +74,11 @@ namespace redhawk {
         CORBA::LongLong toLongLong() const;
         CORBA::ULongLong toULongLong() const;
         
-        redhawk::PropertyMap& toStruct() const;
-        std::vector<redhawk::PropertyMap*> toStructSeq() const;
+        redhawk::PropertyMap& asProperties();
+        const redhawk::PropertyMap& asProperties() const;
+
+        redhawk::ValueSequence& asSequence();
+        const redhawk::ValueSequence& asSequence() const;
 
         template <typename T>
         bool getValue(T& value) const
@@ -89,6 +93,48 @@ namespace redhawk {
         }
     };
 
+
+    class ValueSequence : public CORBA::AnySeq {
+    public:
+        typedef Value* iterator;
+        typedef const Value* const_iterator;
+
+        static inline ValueSequence& cast(CORBA::AnySeq& properties)
+        {
+            return static_cast<ValueSequence&>(properties);
+        }
+
+        static inline const ValueSequence& cast(const CORBA::AnySeq& properties)
+        {
+            return static_cast<const ValueSequence&>(properties);
+        }
+
+        ValueSequence();
+        ValueSequence(const CORBA::AnySeq& sequence);
+        ValueSequence(const ValueSequence& sequence);
+
+        bool empty() const;
+
+        size_t size() const;
+
+        Value& operator[] (size_t index);
+        const Value& operator[] (size_t index) const;
+
+        void push_back(const CORBA::Any& value);
+        void push_back(const Value& value);
+
+        template <class T>
+        void push_back(const T& value)
+        {
+            push_back(Value(value));
+        }
+
+        iterator begin();
+        iterator end();
+
+        const_iterator begin() const;
+        const_iterator end() const;
+    };
 }
 
 #endif // REDHAWK_VALUE_H

@@ -1315,6 +1315,12 @@ class HeaderVisitor (idlvisitor.AstVisitor):
     def visitTypedef (self, node):
         aliasType = node.aliasType()
         if isSequence(aliasType):
+            # Ensure that the item type's dependency is checked; because they
+            # call a templatized function, the sequence conversion methods
+            # implicitly depend on the item conversion methods
+            seqType = aliasType.unalias().seqType()
+            self.checkDependency(seqType)
+
             seqName = '::'.join(node.declarators()[0].scopedName())
             self.generateFromJObjectWrapper(self.__global, seqName+'&', 'omnijni')
             self.generateToJObjectWrapper(self.__global, seqName+'&', 'omnijni')

@@ -283,14 +283,19 @@ class ScaComponentTestCase(unittest.TestCase):
         # Structures
         for prop in self.prf.get_struct():
             if self.isMatch(prop, modes, kinds, (action,)): 
-                if prop.get_simple() is not None:
+                if prop.get_props() is not None:
                     fields = []
                     hasValue = False
-                    for s in prop.get_simple():
-                        if s.get_value() is not None:
-                            hasValue = True
-                        dt = properties.to_tc_value(s.get_value(), s.get_type())
-                        fields.append(CF.DataType(id=str(s.get_id()), value=dt))
+                    for p in prop.get_props():
+                        if isinstance(p, PRFParser.simple):
+                            if p.get_value() is not None:
+                                hasValue = True
+                            dt = properties.to_tc_value(p.get_value(), p.get_type())
+                        elif isinstance(p, PRFParser.simpleSequence):
+                            if p.get_values() is not None:
+                                hasValue = True
+                            dt = properties.to_tc_value(p.get_values(), p.get_type())
+                        fields.append(CF.DataType(id=str(p.get_id()), value=dt))
                     if not hasValue and not includeNil:
                         continue
                     dt = any.to_any(fields)
@@ -299,24 +304,26 @@ class ScaComponentTestCase(unittest.TestCase):
                 p = CF.DataType(id=str(prop.get_id()), value=dt)
                 propertySet.append(p)
         # Structures
-
         for prop in self.prf.get_structsequence():
             if self.isMatch(prop, modes, kinds, (action,)):
               baseProp = []
               if prop.get_struct() != None:
                 fields = []
-                for internal_prop in prop.get_struct().get_simple():
+                for internal_prop in prop.get_struct().get_props():
                     fields.append(CF.DataType(id=str(internal_prop.get_id()), value=any.to_any(None)))
               for val in prop.get_structvalue():
                 baseProp.append(copy.deepcopy(fields))
-                for entry in val.get_simpleref():
+                for entry in val.get_propsref():
                   val_type = None
-                  for internal_prop in prop.get_struct().get_simple():
+                  for internal_prop in prop.get_struct().get_props():
                       if str(internal_prop.get_id()) == entry.refid:
                           val_type = internal_prop.get_type()
                   for subfield in baseProp[-1]:
                       if subfield.id == entry.refid:
-                        subfield.value = properties.to_tc_value(entry.get_value(), val_type)
+                        if isinstance(entry, PRFParser.simpleRef):
+                            subfield.value = properties.to_tc_value(entry.get_value(), val_type)
+                        elif isinstance(entry, PRFParser.simpleSequenceRef):
+                            subfield.value = properties.to_tc_value(entry.get_values(), val_type)
               anybp = []
               for bp in baseProp:
                   anybp.append(properties.props_to_any(bp))

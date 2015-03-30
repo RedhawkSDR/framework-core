@@ -45,27 +45,44 @@ Resource_impl::Resource_impl (const char* _uuid, const char *label) :
 }
 
 
+Resource_impl::~Resource_impl () {
+  if (this->_domMgr != NULL)
+    delete this->_domMgr;
+
+
+};
+
+
+
 void Resource_impl::setAdditionalParameters(std::string &softwareProfile, std::string &application_registrar_ior, std::string &nic)
 {
     _softwareProfile = softwareProfile;
     CORBA::ORB_ptr orb = ossie::corba::Orb();
     CORBA::Object_var applicationRegistrarObject = CORBA::Object::_nil();
     try {
-        applicationRegistrarObject = orb->string_to_object(application_registrar_ior.c_str());
+      RH_NL_DEBUG("Resource", "narrow to Registrar object:" << application_registrar_ior );
+      applicationRegistrarObject = orb->string_to_object(application_registrar_ior.c_str());
     } catch ( ... ) {
-        this->_domMgr = new redhawk::DomainManagerContainer();
-        return;
+      RH_NL_WARN("Resource", "No  Registrar... create empty container");
+      this->_domMgr = new redhawk::DomainManagerContainer();
+      return;
     }
     CF::ApplicationRegistrar_ptr applicationRegistrar = ossie::corba::_narrowSafe<CF::ApplicationRegistrar>(applicationRegistrarObject);
     if (!CORBA::is_nil(applicationRegistrar)) {
-        this->_domMgr = new redhawk::DomainManagerContainer(applicationRegistrar->domMgr());
-        return;
+      RH_NL_DEBUG("Resource", "Get DomainManager from Registrar object:" << application_registrar_ior );
+      this->_domMgr = new redhawk::DomainManagerContainer(applicationRegistrar->domMgr());
+      return;
     }
+
+    RH_NL_DEBUG("Resource", "Resolve DeviceManager...");
     CF::DeviceManager_ptr devMgr = ossie::corba::_narrowSafe<CF::DeviceManager>(applicationRegistrarObject);
     if (!CORBA::is_nil(devMgr)) {
+      RH_NL_DEBUG("Resource", "Resolving DomainManager from DeviceManager...");
         this->_domMgr = new redhawk::DomainManagerContainer(devMgr->domMgr());
         return;
     }
+
+    RH_NL_DEBUG("Resource", "All else failed.... use empty container");
     this->_domMgr = new redhawk::DomainManagerContainer();
 }
 
@@ -99,10 +116,17 @@ CORBA::Boolean Resource_impl::started () throw (CORBA::SystemException)
     return _started;
 }
 
+
+
+void Resource_impl::initialize () throw (CF::LifeCycle::InitializeError, CORBA::SystemException)
+{
+  startPropertyChangeMonitor();
+}
+
 void Resource_impl::releaseObject() throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
 {
     releasePorts();
-    
+    stopPropertyChangeMonitor();
     PortableServer::POA_ptr root_poa = ossie::corba::RootPOA();
     PortableServer::ObjectId_var oid = root_poa->servant_to_id(this);
     root_poa->deactivate_object(oid);

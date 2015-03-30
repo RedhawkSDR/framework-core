@@ -260,7 +260,14 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                                 CF.DataType(id='struct_long', value=CORBA.Any(CORBA.TC_longlong, 2147483647)),
                                 CF.DataType(id='struct_ulong', value=CORBA.Any(CORBA.TC_longlong, 4294967295)),
                                 CF.DataType(id='struct_longlong', value=CORBA.Any(CORBA.TC_longlong, 9223372036854775807L)),
-                                CF.DataType(id='struct_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 18446744073709551615L))
+                                CF.DataType(id='struct_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 18446744073709551615L)),
+                                CF.DataType(id='struct_seq_octet', value=any.to_any([CORBA.Any(CORBA.TC_long, 0), CORBA.Any(CORBA.TC_long, 255)])),
+                                CF.DataType(id='struct_seq_short', value=any.to_any([0, 32767])),
+                                CF.DataType(id='struct_seq_ushort', value=any.to_any([0, 65535])),
+                                CF.DataType(id='struct_seq_long', value=any.to_any([0, 2147483647])),
+                                CF.DataType(id='struct_seq_ulong', value=any.to_any([0, 4294967295])),
+                                CF.DataType(id='struct_seq_longlong', value=any.to_any([0, 9223372036854775807L])),
+                                CF.DataType(id='struct_seq_ulonglong', value=any.to_any([0, 9223372036854775807L]))
                                 ]))
         self._app.configure([my_struct])
         res = self._app.query([])
@@ -282,7 +289,24 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                         self.assertEquals(v.value.value(), 9223372036854775807L)
                     elif v.id == 'struct_ulonglong':
                         self.assertEquals(v.value.value(), 18446744073709551615L)
-
+                    elif v.id == 'struct_seq_octet':
+			# Octet sequences are treated like strings, so numbers need to be extracted
+                	vals = v.value.value().lstrip('[').rstrip(']').split(',')
+                	self.assertEquals(int(vals[0].strip()), 0)
+                	self.assertEquals(int(vals[1].strip()), 255)
+		    elif v.id == 'struct_seq_short':
+			self.assertEquals(v.value.value(), [0, 32767])
+		    elif v.id == 'struct_seq_ushort':
+			self.assertEquals(v.value.value(), [0, 65535])
+		    elif v.id == 'struct_seq_long':
+			self.assertEquals(v.value.value(), [0, 2147483647])
+		    elif v.id == 'struct_seq_ulong':
+			self.assertEquals(v.value.value(), [0, 4294967295])
+		    elif v.id == 'struct_seq_longlong':
+			self.assertEquals(v.value.value(), [0, 9223372036854775807L])
+		    elif v.id == 'struct_seq_ulonglong':
+			self.assertEquals(v.value.value(), [0, 9223372036854775807L])
+        
         # Test lower bounds
         my_struct = CF.DataType(id='my_struct', value=any.to_any([
                                 CF.DataType(id='struct_octet', value=CORBA.Any(CORBA.TC_long, 0)),
@@ -291,7 +315,14 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                                 CF.DataType(id='struct_long', value=CORBA.Any(CORBA.TC_longlong, -2147483648)),
                                 CF.DataType(id='struct_ulong', value=CORBA.Any(CORBA.TC_longlong, 0)),
                                 CF.DataType(id='struct_longlong', value=CORBA.Any(CORBA.TC_longlong, -9223372036854775808L)),
-                                CF.DataType(id='struct_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 0))
+                                CF.DataType(id='struct_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 0)),
+				CF.DataType(id='struct_seq_octet', value=any.to_any([CORBA.Any(CORBA.TC_long, 0), CORBA.Any(CORBA.TC_long, 255)])),
+                                CF.DataType(id='struct_seq_short', value=any.to_any([-32768, 32767])),
+                                CF.DataType(id='struct_seq_ushort', value=any.to_any([0, 65535])),
+                                CF.DataType(id='struct_seq_long', value=any.to_any([-2147483648, 2147483647])),
+                                CF.DataType(id='struct_seq_ulong', value=any.to_any([0, 4294967295])),
+                                CF.DataType(id='struct_seq_longlong', value=any.to_any([-9223372036854775808L, 9223372036854775807L])),
+                                CF.DataType(id='struct_seq_ulonglong', value=any.to_any([0, 9223372036854775807]))
                                 ]))
         self._app.configure([my_struct])
         res = self._app.query([])
@@ -313,8 +344,24 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                         self.assertEquals(v.value.value(), -9223372036854775808L)
                     elif v.id == 'struct_ulonglong':
                         self.assertEquals(v.value.value(), 0)
-
-
+		    elif v.id == 'struct_seq_octet':
+			# Octet sequences are treated like strings, so numbers need to be extracted
+                	vals = v.value.value().lstrip('[').rstrip(']').split(',')
+                	self.assertEquals(int(vals[0].strip()), 0)
+                	self.assertEquals(int(vals[1].strip()), 255)
+		    elif v.id == 'struct_seq_short':
+			self.assertEquals(v.value.value(), [-32768, 32767])
+		    elif v.id == 'struct_seq_ushort':
+			self.assertEquals(v.value.value(), [0, 65535])
+		    elif v.id == 'struct_seq_long':
+			self.assertEquals(v.value.value(), [-2147483648, 2147483647])
+		    elif v.id == 'struct_seq_ulong':
+			self.assertEquals(v.value.value(), [0, 4294967295])
+		    elif v.id == 'struct_seq_longlong':
+			self.assertEquals(v.value.value(), [-9223372036854775808L, 9223372036854775807L])
+		    elif v.id == 'struct_seq_ulonglong':
+			self.assertEquals(v.value.value(), [0, 9223372036854775807L])
+        
         # Loop through each member of the struct to test one beyond the upper bound
         for r in res:
             if r.id == 'my_struct':
@@ -328,6 +375,13 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                     ulong_val = 0
                     longlong_val = 0
                     ulonglong_val = 0
+      		    seq_octet_val = [0, 0]
+		    seq_short_val = [0, 0]
+		    seq_ushort_val = [0, 0]
+		    seq_long_val = [0L, 0L]
+		    seq_ulong_val = [0L, 0L]
+		    seq_longlong_val = [0L, 0L]
+		    seq_ulonglong_val = [0L, 0L]
                     # Creates struct with only 1 invalid member, which will still cause invalid configuration
                     if v.id == 'struct_octet':
                         octet_val = 256
@@ -344,6 +398,21 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                     elif v.id == 'struct_ulonglong':
                         # No value large enough to test outside range of ulonglong
                         continue
+                    elif v.id == 'struct_seq_octet':
+			seq_octet_val = [0, 256]
+		    elif v.id == 'struct_seq_short':
+			seq_short_val = [0, 32768]
+		    elif v.id == 'struct_seq_ushort':
+			seq_ushort_val = [0, 65536]
+		    elif v.id == 'struct_seq_long':
+			seq_long_val = [0, 2147483648L]
+		    elif v.id == 'struct_seq_ulong':
+			seq_ulong_val = [0, 4294967296L]
+		    elif v.id == 'struct_seq_longlong':
+			seq_longlong_val = [0, CORBA.Any(CORBA.TC_ulonglong, 9223372036854775808L)]
+		    elif v.id == 'struct_seq_ulonglong':
+			# No value large enough to test outside range of ulonglong
+                        continue
                     my_struct = CF.DataType(id='my_struct', value=any.to_any([
                                 CF.DataType(id='struct_octet', value=CORBA.Any(CORBA.TC_long, octet_val)),
                                 CF.DataType(id='struct_short', value=CORBA.Any(CORBA.TC_long, short_val)),
@@ -351,7 +420,14 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                                 CF.DataType(id='struct_long', value=CORBA.Any(CORBA.TC_longlong, long_val)),
                                 CF.DataType(id='struct_ulong', value=CORBA.Any(CORBA.TC_longlong, ulong_val)),
                                 CF.DataType(id='struct_longlong', value=CORBA.Any(CORBA.TC_ulonglong, longlong_val)),
-                                CF.DataType(id='struct_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, ulonglong_val))
+                                CF.DataType(id='struct_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, ulonglong_val)),
+				CF.DataType(id='struct_seq_octet', value=any.to_any(seq_octet_val)),
+				CF.DataType(id='struct_seq_short', value=any.to_any(seq_short_val)),
+				CF.DataType(id='struct_seq_ushort', value=any.to_any(seq_ushort_val)),
+				CF.DataType(id='struct_seq_long', value=any.to_any(seq_long_val)),
+				CF.DataType(id='struct_seq_ulong', value=any.to_any(seq_ulong_val)),
+				CF.DataType(id='struct_seq_longlong', value=any.to_any(seq_longlong_val)),
+				CF.DataType(id='struct_seq_ulonglong', value=any.to_any(seq_ulonglong_val))
                                 ]))
                     self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [my_struct])
 
@@ -369,6 +445,13 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                     ulong_val = 0
                     longlong_val = 0
                     ulonglong_val = 0
+		    seq_octet_val = [0, 0]
+		    seq_short_val = [0, 0]
+		    seq_ushort_val = [0, 0]
+		    seq_long_val = [0L, 0L]
+		    seq_ulong_val = [0L, 0L]
+		    seq_longlong_val = [0L, 0L]
+		    seq_ulonglong_val = [0L, 0L]
                     # Creates struct with only 1 invalid member, which will still cause invalid configuration
                     if v.id == 'struct_octet':
                         octet_val = -1
@@ -385,6 +468,21 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                         continue
                     elif v.id == 'struct_ulonglong':
                         ulonglong_val = -1
+                    elif v.id == 'struct_seq_octet':
+			seq_octet_val = [-1, 255]
+		    elif v.id == 'struct_seq_short':
+			seq_short_val = [-32769, 32767]
+		    elif v.id == 'struct_seq_ushort':
+			seq_ushort_val = [-1, 65535]
+		    elif v.id == 'struct_seq_long':
+			seq_long_val = [-2147483649L, 2147483648]
+		    elif v.id == 'struct_seq_ulong':
+			seq_ulong_val = [-1, 4294967295L]
+		    elif v.id == 'struct_seq_longlong':
+			# No value to test below range of longlong
+                        continue
+		    elif v.id == 'struct_seq_ulonglong':
+			seq_ulonglong_val = [-1, 9223372036854775807L]
                     my_struct = CF.DataType(id='my_struct', value=any.to_any([
                                 CF.DataType(id='struct_octet', value=CORBA.Any(CORBA.TC_long, octet_val)),
                                 CF.DataType(id='struct_short', value=CORBA.Any(CORBA.TC_long, short_val)),
@@ -392,7 +490,14 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                                 CF.DataType(id='struct_long', value=CORBA.Any(CORBA.TC_longlong, long_val)),
                                 CF.DataType(id='struct_ulong', value=CORBA.Any(CORBA.TC_longlong, ulong_val)),
                                 CF.DataType(id='struct_longlong', value=CORBA.Any(CORBA.TC_ulonglong, longlong_val)),
-                                CF.DataType(id='struct_ulonglong', value=CORBA.Any(CORBA.TC_longlong, ulonglong_val))
+                                CF.DataType(id='struct_ulonglong', value=CORBA.Any(CORBA.TC_longlong, ulonglong_val)),
+				CF.DataType(id='struct_seq_octet', value=any.to_any(seq_octet_val)),
+				CF.DataType(id='struct_seq_short', value=any.to_any(seq_short_val)),
+				CF.DataType(id='struct_seq_ushort', value=any.to_any(seq_ushort_val)),
+				CF.DataType(id='struct_seq_long', value=any.to_any(seq_long_val)),
+				CF.DataType(id='struct_seq_ulong', value=any.to_any(seq_ulong_val)),
+				CF.DataType(id='struct_seq_longlong', value=any.to_any(seq_longlong_val)),
+				CF.DataType(id='struct_seq_ulonglong', value=any.to_any(seq_ulonglong_val))
                                 ]))
                     self.assertRaises(CF.PropertySet.InvalidConfiguration, self._app.configure, [my_struct])
 
@@ -400,10 +505,7 @@ class PyPropertiesTest(scatest.CorbaTestCase):
         self._app = self._launchApp('TestPythonPropsRange')
 
         # Test upper and lower bounds
-        seq_octet = CF.DataType(id='seq_octet', value=any.to_any([
-                                                            CORBA.Any(CORBA.TC_long, 0),
-                                                            CORBA.Any(CORBA.TC_long, 255)
-                                                            ]))
+        seq_octet = CF.DataType(id='seq_octet', value=any.to_any([CORBA.Any(CORBA.TC_long, 0), CORBA.Any(CORBA.TC_long, 255)]))
         seq_short = CF.DataType(id='seq_short', value=any.to_any([-32768, 32767]))
         seq_ushort = CF.DataType(id='seq_ushort', value=any.to_any([0, 65535]))
         seq_long = CF.DataType(id='seq_long', value=any.to_any([-2147483648, 2147483647]))
@@ -470,7 +572,15 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                             CF.DataType(id='ss_long', value=CORBA.Any(CORBA.TC_longlong, 2147483647)),
                             CF.DataType(id='ss_ulong', value=CORBA.Any(CORBA.TC_longlong, 4294967295)),
                             CF.DataType(id='ss_longlong', value=CORBA.Any(CORBA.TC_ulonglong, 9223372036854775807L)),
-                            CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 18446744073709551615L))])
+                            CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 18446744073709551615L)),
+			    CF.DataType(id='ss_seq_octet', value=any.to_any([CORBA.Any(CORBA.TC_long, 0), CORBA.Any(CORBA.TC_long, 255)])),
+                            CF.DataType(id='ss_seq_short', value=any.to_any([0, 32767])),
+                            CF.DataType(id='ss_seq_ushort', value=any.to_any([0, 65535])),
+                            CF.DataType(id='ss_seq_long', value=any.to_any([0, 2147483647])),
+                            CF.DataType(id='ss_seq_ulong', value=any.to_any([0, 4294967295])),
+                            CF.DataType(id='ss_seq_longlong', value=any.to_any([0, 9223372036854775807L])),
+                            CF.DataType(id='ss_seq_ulonglong', value=any.to_any([0, 9223372036854775807L]))
+			])
         # Struct with lower bound
         lower = CORBA.Any(CORBA.TypeCode("IDL:CF/Properties:1.0"), [
                             CF.DataType(id='ss_octet', value=CORBA.Any(CORBA.TC_long, 0)),
@@ -479,7 +589,15 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                             CF.DataType(id='ss_long', value=CORBA.Any(CORBA.TC_longlong, -2147483648)),
                             CF.DataType(id='ss_ulong', value=CORBA.Any(CORBA.TC_longlong, 0)),
                             CF.DataType(id='ss_longlong', value=CORBA.Any(CORBA.TC_longlong, -9223372036854775808L)),
-                            CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_longlong, 0))])
+                            CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_longlong, 0)),
+			    CF.DataType(id='ss_seq_octet', value=any.to_any([CORBA.Any(CORBA.TC_long, 0), CORBA.Any(CORBA.TC_long, 255)])),
+                            CF.DataType(id='ss_seq_short', value=any.to_any([-32768, 32767])),
+                            CF.DataType(id='ss_seq_ushort', value=any.to_any([0, 65535])),
+                            CF.DataType(id='ss_seq_long', value=any.to_any([-2147483648, 2147483647])),
+                            CF.DataType(id='ss_seq_ulong', value=any.to_any([0, 4294967295])),
+                            CF.DataType(id='ss_seq_longlong', value=any.to_any([-9223372036854775808L, 9223372036854775807L])),
+                            CF.DataType(id='ss_seq_ulonglong', value=any.to_any([0, 9223372036854775807L]))
+			])
 
         my_structseq = CF.DataType(id='my_structseq',
                 value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"),
@@ -508,6 +626,23 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                         self.assertEquals(v.value.value(), 9223372036854775807L)
                     elif v.id == 'ss_ulonglong':
                         self.assertEquals(v.value.value(), 18446744073709551615L)
+		    elif v.id == 'ss_seq_octet':
+			# Octet sequences are treated like strings, so numbers need to be extracted
+                	vals = v.value.value().lstrip('[').rstrip(']').split(',')
+                	self.assertEquals(int(vals[0].strip()), 0)
+                	self.assertEquals(int(vals[1].strip()), 255)
+		    elif v.id == 'ss_seq_short':
+			self.assertEquals(v.value.value(), [0, 32767])
+		    elif v.id == 'ss_seq_ushort':
+			self.assertEquals(v.value.value(), [0, 65535])
+		    elif v.id == 'ss_seq_long':
+			self.assertEquals(v.value.value(), [0, 2147483647])
+		    elif v.id == 'ss_seq_ulong':
+			self.assertEquals(v.value.value(), [0, 4294967295])
+		    elif v.id == 'ss_seq_longlong':
+			self.assertEquals(v.value.value(), [0, 9223372036854775807L])
+		    elif v.id == 'ss_seq_ulonglong':
+			self.assertEquals(v.value.value(), [0, 9223372036854775807L])
                 for v in lower.value():
                     if v.id == 'ss_octet':
                         self.assertEquals(v.value.value(), 0)
@@ -523,6 +658,23 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                         self.assertEquals(v.value.value(), -9223372036854775808L)
                     elif v.id == 'ss_ulonglong':
                         self.assertEquals(v.value.value(), 0)
+		    elif v.id == 'ss_seq_octet':
+			# Octet sequences are treated like strings, so numbers need to be extracted
+                	vals = v.value.value().lstrip('[').rstrip(']').split(',')
+                	self.assertEquals(int(vals[0].strip()), 0)
+                	self.assertEquals(int(vals[1].strip()), 255)
+		    elif v.id == 'ss_seq_short':
+			self.assertEquals(v.value.value(), [-32768, 32767])
+		    elif v.id == 'ss_seq_ushort':
+			self.assertEquals(v.value.value(), [0, 65535])
+		    elif v.id == 'ss_seq_long':
+			self.assertEquals(v.value.value(), [-2147483648, 2147483647])
+		    elif v.id == 'ss_seq_ulong':
+			self.assertEquals(v.value.value(), [0, 4294967295])
+		    elif v.id == 'ss_seq_longlong':
+			self.assertEquals(v.value.value(), [-9223372036854775808L, 9223372036854775807L])
+		    elif v.id == 'ss_seq_ulonglong':
+			self.assertEquals(v.value.value(), [0, 9223372036854775807L])
 
         # Loop through each member of the struct to test one beyond the upper bound
         for r in res:
@@ -537,6 +689,13 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                     ulong_val = 0
                     longlong_val = 0
                     ulonglong_val = 0
+		    seq_octet_val = [0, 0]
+		    seq_short_val = [0, 0]
+		    seq_ushort_val = [0, 0]
+		    seq_long_val = [0L, 0L]
+		    seq_ulong_val = [0L, 0L]
+		    seq_longlong_val = [0L, 0L]
+		    seq_ulonglong_val = [0L, 0L]
                     # Creates struct with only 1 invalid member, which will still cause invalid configuration
                     if v.id == 'ss_octet':
                         octet_val = 256
@@ -553,6 +712,21 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                     elif v.id == 'ss_ulonglong':
                         # No value large enough to test outside range of ulonglong
                         continue
+		    elif v.id == 'ss_seq_octet':
+			seq_octet_val = [0, 256]
+		    elif v.id == 'ss_seq_short':
+			seq_short_val = [0, 32768]
+		    elif v.id == 'ss_seq_ushort':
+			seq_ushort_val = [0, 65536]
+		    elif v.id == 'ss_seq_long':
+			seq_long_val = [0, 2147483648L]
+		    elif v.id == 'ss_seq_ulong':
+			seq_ulong_val = [0, 4294967296L]
+		    elif v.id == 'ss_seq_longlong':
+			seq_longlong_val = [0, CORBA.Any(CORBA.TC_ulonglong, 9223372036854775808L)]
+		    elif v.id == 'ss_seq_ulonglong':
+			# No value large enough to test outside range of ulonglong
+                        continue
                     bad_struct = CORBA.Any(CORBA.TypeCode("IDL:CF/Properties:1.0"), [
                             CF.DataType(id='ss_octet', value=CORBA.Any(CORBA.TC_long, octet_val)),
                             CF.DataType(id='ss_short', value=CORBA.Any(CORBA.TC_long, short_val)),
@@ -560,7 +734,15 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                             CF.DataType(id='ss_long', value=CORBA.Any(CORBA.TC_longlong, long_val)),
                             CF.DataType(id='ss_ulong', value=CORBA.Any(CORBA.TC_longlong, ulong_val)),
                             CF.DataType(id='ss_longlong', value=CORBA.Any(CORBA.TC_ulonglong, longlong_val)),
-                            CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, ulonglong_val))])
+                            CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, ulonglong_val)),
+			    CF.DataType(id='ss_seq_octet', value=any.to_any(seq_octet_val)),
+			    CF.DataType(id='ss_seq_short', value=any.to_any(seq_short_val)),
+			    CF.DataType(id='ss_seq_ushort', value=any.to_any(seq_ushort_val)),
+			    CF.DataType(id='ss_seq_long', value=any.to_any(seq_long_val)),
+			    CF.DataType(id='ss_seq_ulong', value=any.to_any(seq_ulong_val)),
+			    CF.DataType(id='ss_seq_longlong', value=any.to_any(seq_longlong_val)),
+			    CF.DataType(id='ss_seq_ulonglong', value=any.to_any(seq_ulonglong_val))
+			])
                     my_structseq = CF.DataType(id='my_structseq',
                                                value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"),
                                                                [ upper , bad_struct ]
@@ -580,6 +762,13 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                     ulong_val = 0
                     longlong_val = 0
                     ulonglong_val = 0
+		    seq_octet_val = [0, 0]
+		    seq_short_val = [0, 0]
+		    seq_ushort_val = [0, 0]
+		    seq_long_val = [0L, 0L]
+		    seq_ulong_val = [0L, 0L]
+		    seq_longlong_val = [0L, 0L]
+		    seq_ulonglong_val = [0L, 0L]
                     # Creates struct with only 1 invalid member, which will still cause invalid configuration
                     if v.id == 'ss_octet':
                         octet_val = -1
@@ -596,6 +785,21 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                         continue
                     elif v.id == 'ss_ulonglong':
                        ulonglong_val = -1
+		    elif v.id == 'ss_seq_octet':
+			seq_octet_val = [-1, 255]
+		    elif v.id == 'ss_seq_short':
+			seq_short_val = [-32769, 32767]
+		    elif v.id == 'ss_seq_ushort':
+			seq_ushort_val = [-1, 65535]
+		    elif v.id == 'ss_seq_long':
+			seq_long_val = [-2147483649L, 2147483648]
+		    elif v.id == 'ss_seq_ulong':
+			seq_ulong_val = [-1, 4294967295L]
+		    elif v.id == 'ss_seq_longlong':
+			# No value to test below range of longlong
+                        continue
+		    elif v.id == 'ss_seq_ulonglong':
+			seq_ulonglong_val = [-1, 9223372036854775807L]
                     bad_struct = CORBA.Any(CORBA.TypeCode("IDL:CF/Properties:1.0"), [
                             CF.DataType(id='ss_octet', value=CORBA.Any(CORBA.TC_long, octet_val)),
                             CF.DataType(id='ss_short', value=CORBA.Any(CORBA.TC_long, short_val)),
@@ -603,7 +807,15 @@ class PyPropertiesTest(scatest.CorbaTestCase):
                             CF.DataType(id='ss_long', value=CORBA.Any(CORBA.TC_longlong, long_val)),
                             CF.DataType(id='ss_ulong', value=CORBA.Any(CORBA.TC_longlong, ulong_val)),
                             CF.DataType(id='ss_longlong', value=CORBA.Any(CORBA.TC_longlong, longlong_val)),
-                            CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_longlong, ulonglong_val))])
+                            CF.DataType(id='ss_ulonglong', value=CORBA.Any(CORBA.TC_longlong, ulonglong_val)),
+			    CF.DataType(id='ss_seq_octet', value=any.to_any(seq_octet_val)),
+			    CF.DataType(id='ss_seq_short', value=any.to_any(seq_short_val)),
+			    CF.DataType(id='ss_seq_ushort', value=any.to_any(seq_ushort_val)),
+			    CF.DataType(id='ss_seq_long', value=any.to_any(seq_long_val)),
+			    CF.DataType(id='ss_seq_ulong', value=any.to_any(seq_ulong_val)),
+			    CF.DataType(id='ss_seq_longlong', value=any.to_any(seq_longlong_val)),
+			    CF.DataType(id='ss_seq_ulonglong', value=any.to_any(seq_ulonglong_val))
+			])
                     my_structseq = CF.DataType(id='my_structseq',
                                                value=CORBA.Any(CORBA.TypeCode("IDL:omg.org/CORBA/AnySeq:1.0"),
                                                                [ bad_struct, lower ]
@@ -635,6 +847,128 @@ class PyPropertiesTest(scatest.CorbaTestCase):
         # derail the entire query
         post_props = self._app.query([])
         self.assertEqual(len(pre_props), len(post_props))
+
+    def test_OptionalPropertiesInStruct(self):
+        comp = sb.launch('TestPythonOptionalProps')
+        my_struct = CF.DataType(id='my_struct', value=any.to_any([
+                                CF.DataType(id='struct_octet', value=CORBA.Any(CORBA.TC_long, 255)),
+                                CF.DataType(id='struct_short', value=CORBA.Any(CORBA.TC_long, 32767)),
+                                CF.DataType(id='struct_ushort', value=CORBA.Any(CORBA.TC_long, 65535)),
+                                CF.DataType(id='struct_long', value=CORBA.Any(CORBA.TC_longlong, 2147483647)),
+                                CF.DataType(id='struct_ulong', value=CORBA.Any(CORBA.TC_longlong, 4294967295)),
+                                CF.DataType(id='struct_longlong', value=CORBA.Any(CORBA.TC_longlong, 9223372036854775807L)),
+                                CF.DataType(id='struct_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 18446744073709551615L)),
+				CF.DataType(id='struct_string', value=CORBA.Any(CORBA.TC_string, "new string")),
+                                CF.DataType(id='struct_seq_octet', value=any.to_any([CORBA.Any(CORBA.TC_long, 0), CORBA.Any(CORBA.TC_long, 255)])),
+                                CF.DataType(id='struct_seq_short', value=any.to_any([0, 32767])),
+                                CF.DataType(id='struct_seq_ushort', value=any.to_any([0, 65535])),
+                                CF.DataType(id='struct_seq_long', value=any.to_any([0, 2147483647])),
+                                CF.DataType(id='struct_seq_ulong', value=any.to_any([0, 4294967295])),
+                                CF.DataType(id='struct_seq_longlong', value=any.to_any([0, 9223372036854775807L])),
+                                CF.DataType(id='struct_seq_ulonglong', value=any.to_any([0, 9223372036854775807L]))
+                                ]))
+        comp.configure([my_struct])
+        res = comp.query([])
+        for r in res:
+            if r.id == 'my_struct':
+                val = r.value.value()
+                for v in val:
+                    if v.id == 'struct_octet':
+                        self.assertEquals(v.value.value(), 255)
+                    elif v.id == 'struct_short':
+                        self.assertEquals(v.value.value(), 32767)
+                    elif v.id == 'struct_ushort':
+                        self.assertEquals(v.value.value(), 65535)
+                    elif v.id == 'struct_long':
+                        self.assertEquals(v.value.value(), 2147483647)
+                    elif v.id == 'struct_ulong':
+                        self.assertEquals(v.value.value(), 4294967295)
+                    elif v.id == 'struct_longlong':
+                        self.assertEquals(v.value.value(), 9223372036854775807L)
+                    elif v.id == 'struct_ulonglong':
+                        self.assertEquals(v.value.value(), 18446744073709551615L)
+                    elif v.id == 'struct_string':
+                        self.assertEquals(v.value.value(), "new string")
+                    elif v.id == 'struct_seq_octet':
+			# Octet sequences are treated like strings, so numbers need to be extracted
+                	vals = v.value.value().lstrip('[').rstrip(']').split(',')
+                	self.assertEquals(int(vals[0].strip()), 0)
+                	self.assertEquals(int(vals[1].strip()), 255)
+		    elif v.id == 'struct_seq_short':
+			self.assertEquals(v.value.value(), [0, 32767])
+		    elif v.id == 'struct_seq_ushort':
+			self.assertEquals(v.value.value(), [0, 65535])
+		    elif v.id == 'struct_seq_long':
+			self.assertEquals(v.value.value(), [0, 2147483647])
+		    elif v.id == 'struct_seq_ulong':
+			self.assertEquals(v.value.value(), [0, 4294967295])
+		    elif v.id == 'struct_seq_longlong':
+			self.assertEquals(v.value.value(), [0, 9223372036854775807L])
+		    elif v.id == 'struct_seq_ulonglong':
+			self.assertEquals(v.value.value(), [0, 9223372036854775807L])
+        
+        # Configure leaving out a few elements
+        my_struct = CF.DataType(id='my_struct', value=any.to_any([
+                                #CF.DataType(id='struct_octet', value=CORBA.Any(CORBA.TC_long, 255)),
+                                CF.DataType(id='struct_short', value=CORBA.Any(CORBA.TC_long, 32767)),
+                                CF.DataType(id='struct_ushort', value=CORBA.Any(CORBA.TC_long, 65535)),
+                                CF.DataType(id='struct_long', value=CORBA.Any(CORBA.TC_longlong, 2147483647)),
+                                CF.DataType(id='struct_ulong', value=CORBA.Any(CORBA.TC_longlong, 4294967295)),
+                                #CF.DataType(id='struct_longlong', value=CORBA.Any(CORBA.TC_longlong, 9223372036854775807L)),
+                                CF.DataType(id='struct_ulonglong', value=CORBA.Any(CORBA.TC_ulonglong, 18446744073709551615L)),
+				CF.DataType(id='struct_string', value=CORBA.Any(CORBA.TC_string, "new string")),
+                                CF.DataType(id='struct_seq_octet', value=any.to_any([CORBA.Any(CORBA.TC_long, 0), CORBA.Any(CORBA.TC_long, 255)])),
+                                CF.DataType(id='struct_seq_short', value=any.to_any([0, 32767])),
+                                CF.DataType(id='struct_seq_ushort', value=any.to_any([0, 65535])),
+                                #CF.DataType(id='struct_seq_long', value=any.to_any([0, 2147483647])),
+                                CF.DataType(id='struct_seq_ulong', value=any.to_any([0, 4294967295])),
+                                CF.DataType(id='struct_seq_longlong', value=any.to_any([0, 9223372036854775807L])),
+                                CF.DataType(id='struct_seq_ulonglong', value=any.to_any([0, 9223372036854775807L]))
+                                ]))
+        comp.configure([my_struct])
+        res = comp.runTest(0, comp.query([]))
+        for r in res:
+            if r.id == 'my_struct':
+                val = r.value.value()
+                valIds = [v.id for v in val]
+                self.assertTrue('struct_octet' not in valIds)
+                self.assertTrue('struct_longlong' not in valIds)
+                self.assertTrue('struct_seq_long' not in valIds)
+                for v in val:
+                    #if v.id == 'struct_octet':
+                    #    self.assertEquals(v.value.value(), 255)
+                    if v.id == 'struct_short':
+                        self.assertEquals(v.value.value(), 32767)
+                    elif v.id == 'struct_ushort':
+                        self.assertEquals(v.value.value(), 65535)
+                    elif v.id == 'struct_long':
+                        self.assertEquals(v.value.value(), 2147483647)
+                    elif v.id == 'struct_ulong':
+                        self.assertEquals(v.value.value(), 4294967295)
+                    #elif v.id == 'struct_longlong':
+                    #    self.assertEquals(v.value.value(), 9223372036854775807L)
+                    elif v.id == 'struct_ulonglong':
+                        self.assertEquals(v.value.value(), 18446744073709551615L)
+                    elif v.id == 'struct_string':
+                        self.assertEquals(v.value.value(), "new string")
+                    elif v.id == 'struct_seq_octet':
+			# Octet sequences are treated like strings, so numbers need to be extracted
+                	vals = v.value.value().lstrip('[').rstrip(']').split(',')
+                	self.assertEquals(int(vals[0].strip()), 0)
+                	self.assertEquals(int(vals[1].strip()), 255)
+		    elif v.id == 'struct_seq_short':
+			self.assertEquals(v.value.value(), [0, 32767])
+		    elif v.id == 'struct_seq_ushort':
+			self.assertEquals(v.value.value(), [0, 65535])
+		    #elif v.id == 'struct_seq_long':
+		    #    self.assertEquals(v.value.value(), [0, 2147483647])
+		    elif v.id == 'struct_seq_ulong':
+			self.assertEquals(v.value.value(), [0, 4294967295])
+		    elif v.id == 'struct_seq_longlong':
+			self.assertEquals(v.value.value(), [0, 9223372036854775807L])
+		    elif v.id == 'struct_seq_ulonglong':
+			self.assertEquals(v.value.value(), [0, 9223372036854775807L])
+         
 
 class PyCallbacksTest(scatest.CorbaTestCase):
     def test_Callbacks(self):

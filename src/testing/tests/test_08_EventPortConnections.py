@@ -97,9 +97,11 @@ class EventPortConnectionsTest(scatest.CorbaTestCase):
 
         domainName = scatest.getTestDomainName()
 
-        channelName = URI.stringToName("%s/%s" % (domainName, 'deviceEvent'))
+        req = CF.EventChannelManager.EventRegistration( 'deviceEvent', '')
         try:
-            devChannel = self._root.resolve(channelName)._narrow(CosEventChannelAdmin__POA.EventChannel)
+            ecm = self._domMgr._get_eventChannelMgr()
+            creg = ecm.registerResource( req ) 
+            devChannel = creg.channel
         except:
             self.assertEqual(False, True)
         else:
@@ -131,9 +133,13 @@ class EventPortConnectionsTest(scatest.CorbaTestCase):
         appFact = self._domMgr._get_applicationFactories()[0]
         app = appFact.create(appFact._get_name(), [], [])
         app.start()
-        channelName = URI.stringToName("%s/%s" % (domainName, 'anotherChannel'))
+
+        # rh 1.11 and forward event channels belong to the Domain...
+        req = CF.EventChannelManager.EventRegistration( 'anotherChannel', '')
         try:
-            appChannel = self._root.resolve(channelName)._narrow(CosEventChannelAdmin__POA.EventChannel)
+            ecm = self._domMgr._get_eventChannelMgr()
+            creg = ecm.registerResource( req ) 
+            appChannel = creg.channel
         except:
             self.assertEqual(False, True)
         else:

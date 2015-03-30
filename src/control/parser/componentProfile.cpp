@@ -80,7 +80,7 @@ ComponentProperty* StructPropertyRef::clone() const {
     return new StructPropertyRef(*this);
 }
 
-const std::map<std::string, std::string>& StructPropertyRef::getValue() const {
+const std::map<std::string, ComponentProperty*>& StructPropertyRef::getValue() const {
     return _values;
 }
 
@@ -95,7 +95,7 @@ ComponentProperty* StructSequencePropertyRef::clone() const {
     return new StructSequencePropertyRef(*this);
 }
 
-const std::vector<std::map<std::string, std::string> >& StructSequencePropertyRef::getValues() const {
+const std::vector<std::map<std::string, ComponentProperty*> >& StructSequencePropertyRef::getValues() const {
     return _values;
 }
 

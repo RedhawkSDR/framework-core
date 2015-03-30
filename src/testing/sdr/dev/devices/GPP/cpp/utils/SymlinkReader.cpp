@@ -5,6 +5,7 @@
 
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
 std::string
 SymlinkReader::ReadLink(const std::string& filename)

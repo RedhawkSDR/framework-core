@@ -22,7 +22,9 @@ import socket
 import os
 from   ossie.cf import CF
 import urlparse
+import urllib
 import ossie.utils.log4py.config
+from   ossie.utils.log4py import RedhawkLogger
 from  omniORB import CORBA
 
 def GetDefaultMacros():
@@ -259,6 +261,11 @@ def SetLogLevel( logid, newLevel ):
         logger.setLevel( level )
 
 
+def SetEventChannelManager( ECM ):
+    #print "ossie.logger.SetEvenChannelManager " + str(ECM)
+    RedhawkLogger.SetEventChannelManager(ECM)
+
+
 def GetDefaultConfig():
     cfg = "log4j.rootLogger=INFO,STDOUT\n" + \
            "# Direct log messages to STDOUT\n" + \
@@ -274,7 +281,6 @@ def GetSCAFileContents( url ):
     if scheme=="sca" :
        queryAsDict = dict([x.split("=") for x in query.split("&")])
        try:
-           ## RESOLVE ORB
            orb=CORBA.ORB_init()
            fileSys = orb.string_to_object(queryAsDict["fs"])
        except KeyError:
@@ -294,6 +300,15 @@ def GetSCAFileContents( url ):
                     pass
     return fileContents
 
+def GetHTTPFileContents( url ):
+    fileContents = None
+    try:
+       filehandle = urllib.urlopen( url )
+       return filehandle.read()
+    except:
+        logging.warning("connection cannot be made to" + url)
+        return
+
 def GetConfigFileContents( url ):
     fc=None
     scheme, netloc, path, params, query, fragment = urlparse.urlparse(url)
@@ -310,9 +325,8 @@ def GetConfigFileContents( url ):
         fc=GetSCAFileContents(url)
 
     elif scheme == "http":
-        ## RESOLVE
-        ##fc=GetSCAFileContents(url)
-        pass
+        fc=GetHTTPFileContents(url)
+    
     elif scheme == "str":
         ## RESOLVE
         if path.startswith("/"):
@@ -337,7 +351,7 @@ def ConfigureDefault():
     logging.getLogger().setLevel( logging.INFO )
 
 
-def ConfigureWithContext( cfg_data, tbl ):
+def ConfigureWithContext( cfg_data, tbl, category=None ):
     cfg=None
     try:
         fileContents=""
@@ -347,16 +361,16 @@ def ConfigureWithContext( cfg_data, tbl ):
 
         fileContents=ExpandMacros( fc_raw, tbl)
 
-        ossie.utils.log4py.config.strConfig(fileContents)
+        ossie.utils.log4py.config.strConfig(fileContents, category)
 
         cfg=fileContents
 
     except Exception, e:
-        print e
+        print "Error: log4py configuration file error", e
         pass
     return cfg
 
-def Configure( logcfgUri, logLevel=None, ctx=None ):
+def Configure( logcfgUri, logLevel=None, ctx=None, category=None ):
 
     # test we have a logging URI
     if logcfgUri==None or logcfgUri=="" :
@@ -366,16 +380,16 @@ def Configure( logcfgUri, logLevel=None, ctx=None ):
             fileContents = GetConfigFileContents(logcfgUri);
 
             ## get default macro defintions
-            tbl=GetDefaultMacros();
-            ResolveHostInfo( tbl ) ;
+            tbl=GetDefaultMacros()
+            ResolveHostInfo( tbl )
             if ctx :
                 # Apply the context to the default macros
                 ctx.apply(tbl)
 
             if fileContents and len(fileContents) != 0:
-                fc=ConfigureWithContext( fileContents, tbl)
+                fc=ConfigureWithContext( fileContents, tbl, category )
         except Exception,e:
-            print e
+            print "Error: log4py configuration file error", e
             pass
 
     # If a log level was explicitly stated, set it here, potentially

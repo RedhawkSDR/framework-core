@@ -24,7 +24,7 @@
 #define FILE_IMPL_H
 
 #include <string>
-
+#include <vector>
 #include <omniORB4/CORBA.h>
 
 #include <boost/thread/mutex.hpp>
@@ -64,7 +64,7 @@ private:
     int fd;
     FileSystem_impl *ptrFs;
     boost::mutex interfaceAccess;
+    std::vector<uint8_t>     _buf;
     std::string  fileIOR;
-
 };                                                /* END CLASS DEFINITION File */
 #endif                                            /* __FILE_IMPL__ */

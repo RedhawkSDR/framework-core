@@ -41,7 +41,6 @@
 
 #include "CF/ExtendedEvent.h"
 #include <COS/CosEventChannelAdmin.hh>
-
 /**
  *
  */
@@ -96,8 +95,24 @@ public:
     std::string action;
     std::vector<std::string> kinds;
 
+
+
 protected:
     PropertyInterface(CORBA::TypeCode_ptr _type);
+
+    // change listener registration for internal notification support classes
+    template <class Target, class Base >
+    void addChangeListener (Target target, void (Base::*func)())
+    {
+        voidListeners_.add(target, func);
+    }
+
+    template <class Target, class Base >
+    void removeChangeListener (Target target, void (Base::*func)())
+    {
+        voidListeners_.remove(target, func);
+    }
+
 
     virtual bool matchesAddress(const void* address) = 0;
 
@@ -105,6 +120,10 @@ protected:
     
     bool isNil_;
     bool enableNil_;
+
+    // change listener registration for internal notification support classes
+    ossie::notification<void (void)>                            voidListeners_;
+
 };
 
 /**
@@ -284,6 +303,7 @@ public:
         pointerListeners_.add(func);
     }
 
+
     template <class Target, class Base, class R, class A1, class A2>
     void addChangeListener (Target target, R (Base::*func)(A1*, A2*))
     {
@@ -375,6 +395,7 @@ protected:
     {
         pointerListeners_(oldValue, newValue);
         valueListeners_(*oldValue, *newValue);
+        voidListeners_();
     }
 
     bool equals (const value_type* oldValue, const value_type* newValue)

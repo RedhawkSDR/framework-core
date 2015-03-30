@@ -45,6 +45,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 		| string	| ulong	| ushort )		#REQUIRED
 	name	CDATA							#IMPLIED
 	complex ( false | true ) "false"
+	optional ( false | true ) "false"
 	mode	( readonly	| readwrite | writeonly)	"readwrite">
 
 <!ELEMENT description (#PCDATA)>
@@ -91,6 +92,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 	      | string | ulong  | ushort )		#REQUIRED
 	name	CDATA						#IMPLIED
 	complex ( false | true ) "false"
+	optional ( false | true ) "false"
 	mode	(readonly | readwrite | writeonly)	"readwrite">
 
 <!ELEMENT values
@@ -115,7 +117,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 
 <!ELEMENT struct 
 	( description?
-	, simple+
+	, (simple | simplesequence)+
 	, configurationkind*
 	)>
 <!ATTLIST struct
@@ -140,10 +142,16 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 	mode		(readonly | readwrite | writeonly)  "readwrite">
 		
 <!ELEMENT structvalue
-	(simpleref+	        
+	( (simpleref | simplesequenceref)+	        
 	)>
 		
 <!ELEMENT simpleref EMPTY>
 <!ATTLIST simpleref
 	refid 	CDATA	#REQUIRED
 	value 	CDATA	#REQUIRED>
+
+<!ELEMENT simplesequenceref
+        ( values
+        )>
+<!ATTLIST simplesequenceref
+        refid   CDATA   #REQUIRED>

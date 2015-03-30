@@ -17,6 +17,7 @@ sdr/dev/mgr/DeviceManager*
 sdr/dev/nodes/test_Concurrent_nodes/
 sdr/dom/components/BasicAC/BasicAC_cpp_impl1/BasicAC_cpp_impl1
 sdr/dom/components/cpp_comp/cpp/cpp_comp
+sdr/dom/components/ECM_CPP/cpp/ECM_CPP
 sdr/dom/components/HardLimit/HardLimit_java_impl1/fileList.txt
 sdr/dom/components/MessageReceiverCpp/MessageReceiverCpp
 sdr/dom/components/MessageSenderCpp/MessageSenderCpp
@@ -29,6 +30,8 @@ sdr/dom/components/TestCppPropsRange/cpp/TestCppPropsRange
 sdr/dom/components/TestCppsoftpkgDeps/TestCppsoftpkgDeps
 sdr/dom/components/TestLoggingAPI/cpp/TestLoggingAPI
 sdr/dom/components/ticket2093/cpp/ticket2093
+sdr/dom/components/PropertyChange_C1/cpp/PropertyChange_C1
+sdr/dom/components/TestCppOptionalProps/cpp/TestCppOptionalProps
 sdr/dom/domain/
 sdr/dom/mgr/DomainManager*
 sdr/runtests.log

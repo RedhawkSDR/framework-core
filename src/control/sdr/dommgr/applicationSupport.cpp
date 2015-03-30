@@ -593,10 +593,19 @@ ComponentInfo::ComponentInfo(const std::string& spdFileName) :
     assignedDevice()
 {
     nicAssignment = "";
+    resolved_softpkg_dependencies.resize(0);
 }
 
 ComponentInfo::~ComponentInfo ()
 {
+}
+
+void ComponentInfo::addResolvedSoftPkgDependency(const std::string &dep) {
+    this->resolved_softpkg_dependencies.push_back(dep);
+}
+
+std::vector<std::string> ComponentInfo::getResolvedSoftPkgDependencies() {
+    return this->resolved_softpkg_dependencies;
 }
 
 void ComponentInfo::setIdentifier(const char* _identifier, std::string instance_id)

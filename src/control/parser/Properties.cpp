@@ -399,7 +399,7 @@ std::string Property::mapPrimitiveToComplex(const std::string& type) const
         newType = "complexULong";
     } else if (type.compare("ulonglong") == 0) {
         newType = "complexULongLong";
-    } 
+    }
     /*
      * else do nothing.  Either the primitive to complex
      * conversion has already been completed, or there
@@ -420,8 +420,9 @@ SimpleProperty::SimpleProperty(const std::string& id,
                                const std::string& action, 
                                const std::vector<std::string>& kinds,
                                const optional_value<std::string>& value, 
-                               const std::string& complex_) :
-Property(id, name, mode, action, kinds), value(value), _complex(complex_)
+                               const std::string& complex_,
+			       const std::string& optional) :
+Property(id, name, mode, action, kinds), value(value), _complex(complex_), optional(optional)
 {
     if (_complex.compare("true") == 0) {
         /* 
@@ -429,7 +430,11 @@ Property(id, name, mode, action, kinds), value(value), _complex(complex_)
          * (e.g., complexLong) rather than primitive 
          * types (e.g., long).
          */
-        this->type = mapPrimitiveToComplex(type);
+        if (type.find("complex") != std::string::npos) {
+	    this->type = type;
+	} else {
+            this->type = mapPrimitiveToComplex(type);
+	}
     } else {
         this->type = type;
     }
@@ -448,7 +453,7 @@ SimpleProperty::SimpleProperty(const std::string& id,
                                const std::vector<std::string>& kinds,
                                const optional_value<std::string>& value)
 {
-    SimpleProperty(id, name, type, mode, action, kinds, value, "false");
+    SimpleProperty(id, name, type, mode, action, kinds, value, "false", "false");
 }
 
 SimpleProperty::~SimpleProperty()
@@ -488,6 +493,10 @@ const char* SimpleProperty::getComplex() const
     return _complex.c_str();
 }
 
+const char* SimpleProperty::getOptional() const
+{
+    return optional.c_str();
+}
 
 const char* SimpleProperty::getValue() const
 {
@@ -513,7 +522,7 @@ const std::string SimpleProperty::asString() const {
 }
 
 const Property* SimpleProperty::clone() const {
-    return new SimpleProperty(id, name, type, mode, action, kinds, value, _complex);
+    return new SimpleProperty(id, name, type, mode, action, kinds, value, _complex, optional);
 }
 
 
@@ -528,11 +537,13 @@ SimpleSequenceProperty::SimpleSequenceProperty(
     const std::string&              action, 
     const std::vector<std::string>& kinds,
     const std::vector<std::string>& values,
-    const std::string&              complex_) :
+    const std::string&              complex_,
+    const std::string&		    optional) :
         Property(id, name, mode, action, kinds), 
         type(type), 
         values(values), 
-        _complex(complex_)
+        _complex(complex_),
+	optional(optional)
 {
     if (_complex.compare("true") == 0) {
         /* 
@@ -540,7 +551,7 @@ SimpleSequenceProperty::SimpleSequenceProperty(
          * (e.g., complexLong) rather than primitive 
          * types (e.g., long).
          */
-        this->type = mapPrimitiveToComplex(type);
+         this->type = mapPrimitiveToComplex(type);
     } else {
         this->type = type;
     }
@@ -567,7 +578,8 @@ SimpleSequenceProperty::SimpleSequenceProperty(
                            action, 
                            kinds, 
                            values, 
-                           "false");
+                           "false",
+			   "false");
 }
 
 SimpleSequenceProperty::~SimpleSequenceProperty()
@@ -607,6 +619,11 @@ const char* SimpleSequenceProperty::getComplex() const
     return _complex.c_str();
 }
 
+const char* SimpleSequenceProperty::getOptional() const
+{
+    return optional.c_str();
+}
+
 const std::vector<std::string>& SimpleSequenceProperty::getValues() const
 {
     return values;
@@ -614,7 +631,7 @@ const std::vector<std::string>& SimpleSequenceProperty::getValues() const
 
 const std::string SimpleSequenceProperty::asString() const {
     std::ostringstream out;
-    out << "'" << this->id << "' '" << this->name;
+    out << "Simple Sequence Property: '" << this->id << "' '" << this->name << "'";
     std::vector<std::string>::const_iterator i;
     for (i = values.begin(); i != values.end(); ++i) {
         out << " '" << *i << "' ";
@@ -623,7 +640,7 @@ const std::string SimpleSequenceProperty::asString() const {
 }
 
 const Property* SimpleSequenceProperty::clone() const {
-    return new SimpleSequenceProperty(id, name, type, mode, action, kinds, values);
+    return new SimpleSequenceProperty(id, name, type, mode, action, kinds, values, _complex, optional);
 }
 
 /**
@@ -636,7 +653,7 @@ StructProperty::~StructProperty()
 bool StructProperty::isNone() const {
     // it is not possible to set only one of the structure values
     if (value.size() > 0)
-        return (value[0].isNone());
+        return (value[0]->isNone());
     else
         return true;
 }
@@ -662,9 +679,9 @@ void StructProperty::override(const ComponentProperty* newValue) {
 const std::string StructProperty::asString() const {
     std::ostringstream out;
     out << "'" << this->id << "' '" << this->name;
-    std::vector<ossie::SimpleProperty>::const_iterator i;
+    std::vector<ossie::Property*>::const_iterator i;
     for (i = value.begin(); i != value.end(); ++i) {
-        out << "   " << *i << std::endl;
+        out << "   " << **i << std::endl;
     }
     return out.str();
 }
@@ -673,14 +690,14 @@ const Property* StructProperty::clone() const {
     return new StructProperty(id, name, mode, kinds, value);
 };
 
-const std::vector<SimpleProperty>& StructProperty::getValue() const {
+const std::vector<Property*>& StructProperty::getValue() const {
     return value;
 }
 
-const SimpleProperty* StructProperty::getField(const std::string& fieldId) const {
-    for (std::vector<SimpleProperty>::const_iterator field = value.begin(); field !=value.end(); ++field) {
-        if (fieldId == field->getID()) {
-            return &(*field);
+const Property* StructProperty::getField(const std::string& fieldId) const {
+    for (std::vector<Property*>::const_iterator field = value.begin(); field !=value.end(); ++field) {
+        if (fieldId == (*field)->getID()) {
+            return *field;
         }
     }
     return 0;

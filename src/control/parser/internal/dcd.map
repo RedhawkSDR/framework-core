@@ -45,7 +45,7 @@ namespace urn:mil:jpeojtrs:sca:dcd {
     simplesequenceref "ossie::SimpleSequencePropertyRef*";
     structref "ossie::StructPropertyRef*";
     structsequenceref "ossie::StructSequencePropertyRef*";
-    structvalue "::std::map<std::string, std::string>";
+    structvalue "::std::map<std::string, ossie::ComponentProperty*>";
     values "::std::vector<std::string>";
     componentfileref "::std::string";
     deployondevice "::std::string";

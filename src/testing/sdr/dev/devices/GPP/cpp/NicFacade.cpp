@@ -67,7 +67,7 @@ NicFacade::poll_nic_interfaces() const
     {
 		if(boost::filesystem::is_directory(iter->status())) 
         {
-			boost::filesystem::path test_file( iter->string() + "/statistics/rx_bytes" );
+			boost::filesystem::path test_file( iter->path().string() + "/statistics/rx_bytes" );
 
 			if(boost::filesystem::is_regular_file(test_file)) 
             {

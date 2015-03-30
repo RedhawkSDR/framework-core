@@ -63,25 +63,85 @@ private:
     std::vector<std::string> paths;
 };
 
+class sharedLibraryStorage {
+public:
+    void setFilename(std::string _filename) {
+        filename = _filename;
+    }
+    void addModification(const std::string _path_to_modify, const std::string &_path_modification) {
+        modifications.push_back(std::make_pair(_path_to_modify, _path_modification));
+    };
+    std::string filename;
+    std::vector<std::pair<std::string,std::string> > modifications;
+};
+
+class envStateContainer {
+public:
+    envStateContainer() {
+        if (getenv("LD_LIBRARY_PATH"))
+            ld_lib_path = getenv("LD_LIBRARY_PATH");
+        else
+            ld_lib_path.clear();
+        if (getenv("PYTHONPATH"))
+            pythonpath = getenv("PYTHONPATH");
+        else
+            pythonpath.clear();
+        if (getenv("CLASSPATH"))
+            classpath = getenv("CLASSPATH");
+        else
+            classpath.clear();
+        if (getenv("OCTAVE_PATH"))
+            octave_path = getenv("OCTAVE_PATH");
+        else
+            octave_path.clear();
+    };
+    
+    void set() {
+        setenv("LD_LIBRARY_PATH", ld_lib_path.c_str(), 1);
+        setenv("PYTHONPATH", pythonpath.c_str(), 1);
+        setenv("CLASSPATH", classpath.c_str(), 1);
+        setenv("OCTAVE_PATH", octave_path.c_str(), 1);
+    };
+
+    std::string ld_lib_path, pythonpath, classpath, octave_path;
+};
+
+class envState {
+public:
+    envState() {
+        if (getenv("LD_LIBRARY_PATH"))
+            ld_lib_path = getenv("LD_LIBRARY_PATH");
+        else
+            ld_lib_path.clear();
+        if (getenv("PYTHONPATH"))
+            pythonpath = getenv("PYTHONPATH");
+        else
+            pythonpath.clear();
+        if (getenv("CLASSPATH"))
+            classpath = getenv("CLASSPATH");
+        else
+            classpath.clear();
+        if (getenv("OCTAVE_PATH"))
+            octave_path = getenv("OCTAVE_PATH");
+        else
+            octave_path.clear();
+    };
+    ~envState() {
+        setenv("LD_LIBRARY_PATH", ld_lib_path.c_str(), 1);
+        setenv("PYTHONPATH", pythonpath.c_str(), 1);
+        setenv("CLASSPATH", classpath.c_str(), 1);
+        setenv("OCTAVE_PATH", octave_path.c_str(), 1);
+    };
+private:
+    std::string ld_lib_path, pythonpath, classpath, octave_path;
+};
+
 /* CLASS DEFINITION *******************************************************************************
  ************************************************************************************************ */
-class LoadableDevice_impl: public virtual
-    POA_CF::LoadableDevice,
-    public
-    Device_impl
+class LoadableDevice_impl: public virtual POA_CF::LoadableDevice,
+    public  Device_impl
 {
     ENABLE_LOGGING
-
-protected:
-    void incrementFile (std::string);
-    void decrementFile (std::string);
-    std::map<std::string, int> loadedFiles;
-    std::map<std::string, CF::FileSystem::FileType> fileTypeTable;
-    copiedFiles_type copiedFiles;
-    boost::mutex load_execute_lock;
-    void update_ld_library_path (CF::FileSystem_ptr fs, const char* fileName, CF::LoadableDevice::LoadType loadKind) throw (CORBA::SystemException, CF::Device::InvalidState, CF::LoadableDevice::InvalidLoadKind, CF::InvalidFileName, CF::LoadableDevice::LoadFail);
-    void update_octave_path (CF::FileSystem_ptr fs, const char* fileName, CF::LoadableDevice::LoadType loadKind) throw (CORBA::SystemException, CF::Device::InvalidState, CF::LoadableDevice::InvalidLoadKind, CF::InvalidFileName, CF::LoadableDevice::LoadFail);
-    void merge_front_environment_path( const char* environment_variable, const std::string& path ) const;
 
 public:
     LoadableDevice_impl (char*, char*, char*, char*);
@@ -89,8 +149,8 @@ public:
     LoadableDevice_impl (char*, char*, char*, char*, char*);
     LoadableDevice_impl (char*, char*, char*, char*, CF::Properties capacities, char*);
     virtual ~LoadableDevice_impl ();
-    void
-    load (CF::FileSystem_ptr fs, const char* fileName,
+
+    void  load (CF::FileSystem_ptr fs, const char* fileName,
           CF::LoadableDevice::LoadType loadKind)
     throw (CF::LoadableDevice::LoadFail, CF::InvalidFileName,
            CF::LoadableDevice::InvalidLoadKind, CF::Device::InvalidState,
@@ -99,28 +159,53 @@ public:
     throw (CF::LoadableDevice::LoadFail, CF::InvalidFileName,
            CF::LoadableDevice::InvalidLoadKind, CF::Device::InvalidState,
            CORBA::SystemException);
-    void
-    unload (const char* fileName)
+
+    void  unload (const char* fileName)
     throw (CF::InvalidFileName, CF::Device::InvalidState,
            CORBA::SystemException);
     void do_unload (const char* fileName) 
     throw (CF::InvalidFileName, CF::Device::InvalidState,
            CORBA::SystemException);
-    bool
-    isFileLoaded (const char* fileName);
 
- protected:
-    void _loadTree(CF::FileSystem_ptr fs, std::string remotePath, boost::filesystem::path& localPath, std::string fileKey);
-    void _deleteTree(const std::string &fileKey);
-    void _copyFile(CF::FileSystem_ptr fs, const std::string &remotePath, const std::string &localPath, const std::string &fileKey);
+    bool isFileLoaded (const char* fileName);
 
     void configure (const CF::Properties& configProperties)
     throw (CF::PropertySet::PartialConfiguration,
            CF::PropertySet::InvalidConfiguration, CORBA::SystemException);
+
+    void setTransferSize( uint64_t  xfersize ){
+      if ( xfersize > 0 ) transferSize=xfersize;
+    }
+
+
+protected:
+
+    void incrementFile (std::string);
+    void decrementFile (std::string);
+    std::map<std::string, int> loadedFiles;
+    std::map<std::string, CF::FileSystem::FileType> fileTypeTable;
+    copiedFiles_type copiedFiles;
+    boost::recursive_mutex load_execute_lock;
+    void update_ld_library_path (CF::FileSystem_ptr fs, const char* fileName, CF::LoadableDevice::LoadType loadKind) throw (CORBA::SystemException, CF::Device::InvalidState, CF::LoadableDevice::InvalidLoadKind, CF::InvalidFileName, CF::LoadableDevice::LoadFail);
+    void update_octave_path (CF::FileSystem_ptr fs, const char* fileName, CF::LoadableDevice::LoadType loadKind) throw (CORBA::SystemException, CF::Device::InvalidState, CF::LoadableDevice::InvalidLoadKind, CF::InvalidFileName, CF::LoadableDevice::LoadFail);
+    void merge_front_environment_path( const char* environment_variable, const std::string& path ) const;
+    std::map<std::string, sharedLibraryStorage> sharedPkgs;
+    envStateContainer initialState;
+    void update_path(sharedLibraryStorage &packageDescription);
+    void update_selected_paths(std::vector<sharedLibraryStorage> &paths);
+
+    CORBA::LongLong           transferSize;          // block transfer size when loading files
+
+ private:
     LoadableDevice_impl(); // No default constructor
     LoadableDevice_impl(LoadableDevice_impl&); // No copying
 
-private:
+    void _loadTree(CF::FileSystem_ptr fs, std::string remotePath, boost::filesystem::path& localPath, std::string fileKey);
+    void _deleteTree(const std::string &fileKey);
+    void _copyFile(CF::FileSystem_ptr fs, const std::string &remotePath, const std::string &localPath, const std::string &fileKey);
+
+    void _init();
+
 
 };
 

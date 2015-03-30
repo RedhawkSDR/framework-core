@@ -59,6 +59,18 @@ void FakeApplication::query (CF::Properties& configProperties)
     throw CF::UnknownProperties();
 }
 
+char * FakeApplication::registerPropertyListener( CORBA::Object_ptr listener, const CF::StringSequence &prop_ids, const CORBA::Float interval) 
+  throw(CF::UnknownProperties, CF::InvalidObjectReference)
+{
+  throw CF::UnknownProperties();
+}
+
+void  FakeApplication::unregisterPropertyListener( const char *reg_id )   
+  throw(CF::InvalidIdentifier)
+{
+  throw CF::InvalidIdentifier();
+}
+
 void FakeApplication::initialize ()
 {
     throw CF::LifeCycle::InitializeError();
@@ -94,7 +106,7 @@ char* FakeApplication::name ()
     return _app->name();
 }
 
-bool FakeApplication::trusted ()
+bool FakeApplication::aware ()
 {
     return false;
 }

@@ -80,11 +80,27 @@ struct OrbContext {
 
 
 
+
+namespace log4cxx {
+  // 
+  // Allows for same naming reference to LogEvent Appender class
+  //
+    class ClassRH_LogEventAppender : public Class 
+    {
+    public:
+        ClassRH_LogEventAppender() : helpers::Class() {}
+        virtual LogString getName() const {
+            return LOG4CXX_STR("org.ossie.logging.RH_LogEventAppender");
+        }
+        virtual ObjectPtr newInstance() const {
+          return new RH_LogEventAppender();
+        }
+    };
+}
+
+
 // Register this class with log4cxx
-IMPLEMENT_LOG4CXX_OBJECT(RH_LogEventAppender)
-
-
-
+IMPLEMENT_LOG4CXX_OBJECT_WITH_CUSTOM_CLASS(RH_LogEventAppender, ClassRH_LogEventAppender)
 
 
 RH_LogEventAppender::RH_LogEventAppender():
@@ -107,7 +123,7 @@ RH_LogEventAppender::~RH_LogEventAppender() {
 
   if ( _event_channel &&  _cleanup_event_channel ) {
       _event_channel.reset();
-      ossie::event::DeleteEventChannel( _channelName, _nameContext );
+      ossie::events::DeleteEventChannel( _channelName, _nameContext );
   }
 
 }
@@ -118,26 +134,32 @@ void RH_LogEventAppender::setOption(const LogString& option, const LogString& va
     if(StringHelper::equalsIgnoreCase(option, LOG4CXX_STR("EVENT_CHANNEL"), LOG4CXX_STR("event_channel"))) {
       synchronized sync(mutex);
       channelName = value;
+      std::cout << "event_channel: " << value << std::endl;
     }
     else if(StringHelper::equalsIgnoreCase(option, LOG4CXX_STR("NAME_CONTEXT"), LOG4CXX_STR("name_context"))) {
       synchronized sync(mutex);
       nameContext = value;
+      std::cout << "name_context: " << value << std::endl;
     }
     else if(StringHelper::equalsIgnoreCase(option, LOG4CXX_STR("PRODUCER_ID"), LOG4CXX_STR("producer_id"))) {
       synchronized sync(mutex);
       prodId = value;
+      std::cout << "producer_id: " << value << std::endl;
     }
     else if(StringHelper::equalsIgnoreCase(option, LOG4CXX_STR("PRODUCER_NAME"), LOG4CXX_STR("producer_name"))) {
       synchronized sync(mutex);
       prodName = value;
+      std::cout << "producer_name: " << value << std::endl;
     }
     else if(StringHelper::equalsIgnoreCase(option, LOG4CXX_STR("PRODUCER_FQN"), LOG4CXX_STR("producer_fqn"))) {
       synchronized sync(mutex);
       prodFQN = value;
+      std::cout << "producer_fqn: " << value << std::endl;
     }
     else if(StringHelper::equalsIgnoreCase(option, LOG4CXX_STR("ARGV"), LOG4CXX_STR("argv"))) {
       synchronized sync(mutex);
       _args = value;
+      std::cout << "argv: " << value << std::endl;
     }
     else if(StringHelper::equalsIgnoreCase(option, LOG4CXX_STR("REMOVE_ON_DESTROY"), LOG4CXX_STR("remove_on_destroy"))) {
       synchronized sync(mutex);
@@ -149,6 +171,7 @@ void RH_LogEventAppender::setOption(const LogString& option, const LogString& va
     else if(StringHelper::equalsIgnoreCase(option, LOG4CXX_STR("RETRIES"), LOG4CXX_STR("retries"))) {
       synchronized sync(mutex);
       int newRetry = StringHelper::toInt(value);
+      std::cout << "retries: " << value << std::endl;
       if ( newRetry > 0 ) {
 	_reconnect_retries = newRetry;
       }
@@ -156,11 +179,13 @@ void RH_LogEventAppender::setOption(const LogString& option, const LogString& va
     else if(StringHelper::equalsIgnoreCase(option, LOG4CXX_STR("RETRY_DELAY"), LOG4CXX_STR("retry_delay"))) {
       synchronized sync(mutex);
       int newDelay = StringHelper::toInt(value);
+      std::cout << "retry_delay: " << value << std::endl;
       if ( newDelay > 0 ) {
 	_reconnect_delay = newDelay;
       }
     }
     else {
+      std::cout << "other: " << value << std::endl;
       AppenderSkeleton::setOption(option, value);
     }
 }
@@ -257,36 +282,11 @@ void RH_LogEventAppender::close()
 int RH_LogEventAppender::connect_() {
 
   int retval = 0;
-  /** Need to resolve using ossie corba methods to pass in command line args
-  if ( _orb == NULL ) {
-    // RESOLVE need to parse args to list of strings..
-    LOG4CXX_ENCODE_CHAR(t,_args);
-    int largc=args.size();
-
-    char *largv[args.size()];
-    char **pp;
-    ArgList::iterator ii;
-    int jj;
-
-    for( pp=largv,  ii=args.begin(); ii != args.end();  ii++, pp++ ) {
-      *pp = &((*ii)[0]);
-    }
-    int largc=0;
-    char **largv=NULL;
-    try {
-      _orb = corba::OrbContext::Init(largc, largv );
-    }
-    catch(...) {
-      retval=1;
-    }
-
-  }
-**/
 
   _event_channel.reset();
   std::ostringstream os;
   _LLS_DEBUG( os, "RH_LogEventAppender::connect Create PushEventSupplier" << _channelName );
-  ossie::event::PushEventSupplier *pes=new ossie::event::PushEventSupplier( _channelName, 
+  ossie::events::PushEventSupplier *pes=new ossie::events::PushEventSupplier( _channelName, 
 							      _nameContext, 
 							      _reconnect_retries, 
 							      _reconnect_delay );

@@ -42,10 +42,11 @@ File_impl* File_impl::Open (const char* fileName, FileSystem_impl *ptrFs, bool r
 }
 
 File_impl::File_impl (const char* fileName, FileSystem_impl *_ptrFs, bool readOnly, bool create):
-    fName(fileName),
-    fullFileName(_ptrFs->getLocalPath(fileName)),
-    ptrFs(_ptrFs),
-    fileIOR("")
+  fName(fileName),
+  fullFileName(_ptrFs->getLocalPath(fileName)),
+  fd(-1),
+  ptrFs(_ptrFs),
+  fileIOR("")
 {
     TRACE_ENTER(File_impl)
 
@@ -173,16 +174,20 @@ void File_impl::close ()
     TRACE_ENTER(File_impl)
     boost::mutex::scoped_lock lock(interfaceAccess);
 
-    if ( ptrFs) {
-      std::string ior;
-      if ( fileIOR != "" ) {
-        ior = fileIOR;
+    try {
+      if ( ptrFs) {
+        std::string ior;
+        if ( fileIOR != "" ) {
+          ior = fileIOR;
+        }
+        else {
+          CF::File_var fileObj = _this();
+          ior = ossie::corba::objectToString(fileObj);
+        }
+        ptrFs->decrementFileIORCount(fullFileName, ior);
       }
-      else {
-        CF::File_var fileObj = _this();
-        ior = ossie::corba::objectToString(fileObj);
-      }
-      ptrFs->decrementFileIORCount(fullFileName, ior);
+    } catch ( ... ) {
+
     }
 
     // clean up reference and clean up memory
@@ -197,10 +202,12 @@ void File_impl::close ()
     int status;
     do {
         status = ::close(fd);
+        fd = -1;
     } while (status && (errno == EINTR));
+    fd = -1;
 
     if (status) {
-        throw CF::File::IOException(CF::CF_EIO, "Error closing file");
+        throw CF::FileException(CF::CF_EIO, "Error closing file");
     }
 
     TRACE_EXIT(File_impl)

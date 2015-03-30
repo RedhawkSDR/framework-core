@@ -122,6 +122,8 @@ PREPARE_LOGGING(LoadableDevice_impl)
 LoadableDevice_impl::LoadableDevice_impl (char* devMgr_ior, char* id, char* lbl, char* sftwrPrfl):
     Device_impl (devMgr_ior, id, lbl, sftwrPrfl)
 {
+  _init();
+
 }
 
 
@@ -132,6 +134,8 @@ LoadableDevice_impl::LoadableDevice_impl (char* devMgr_ior, char* id, char* lbl,
                                           CF::Properties capacities):
     Device_impl (devMgr_ior, id, lbl, sftwrPrfl, capacities)
 {
+
+  _init();
 }
 
 /* LoadableDevice_impl ****************************************************************************
@@ -141,6 +145,7 @@ LoadableDevice_impl::LoadableDevice_impl (char* devMgr_ior, char* id, char* lbl,
                                           char* composite_ior):
     Device_impl (devMgr_ior, id, lbl, sftwrPrfl, composite_ior)
 {
+  _init();
 }
 
 
@@ -151,7 +156,26 @@ LoadableDevice_impl::LoadableDevice_impl (char* devMgr_ior, char* id, char* lbl,
                                           CF::Properties capacities, char* composite_ior):
     Device_impl (devMgr_ior, id, lbl, sftwrPrfl, capacities, composite_ior)
 {
+  _init();
 }
+
+
+
+void LoadableDevice_impl::_init () {
+
+  sharedPkgs.clear();
+
+  transferSize=-1;
+  addProperty(transferSize,
+              -1,
+              "LoadableDevice::transfer_size",
+              "LoadableDevice::transfer_size",
+              "readwrite",
+              "bytes",
+              "external",
+              "configure");
+}
+
 
 
 /* LoadableDevice_impl ****************************************************************************
@@ -201,12 +225,24 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
        CF::LoadableDevice::InvalidLoadKind, CF::InvalidFileName,
        CF::LoadableDevice::LoadFail)
 {
-    boost::mutex::scoped_lock lock(load_execute_lock);
+    boost::recursive_mutex::scoped_lock lock(load_execute_lock);
     try
     {
         do_load(fs, fileName, loadKind);
         update_ld_library_path(fs, fileName, loadKind);
         update_octave_path(fs, fileName, loadKind);
+    }
+    catch( CF::File::IOException & e ) {
+        std::stringstream errstr;
+        errstr << "IO Exception occurred, file: " << fileName;
+        LOG_ERROR(LoadableDevice_impl, __FUNCTION__ << ": " << errstr.str() );
+        throw CF::LoadableDevice::LoadFail();
+    }
+    catch( CF::FileException & e ) {
+        std::stringstream errstr;
+        errstr << "File Exception occurred, file: " << fileName;
+        LOG_ERROR(LoadableDevice_impl, __FUNCTION__ << ": " << errstr.str() );
+        throw CF::LoadableDevice::LoadFail();
     }
     catch( const boost::thread_resource_error& e )
     {
@@ -333,40 +369,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
         if (workingFileName[0] == '/') {
             relativeFileName = workingFileName.substr(1);
         }
-        fileStream.open(relativeFileName.c_str(), mode);
-        if (!fileStream.is_open()) {
-            LOG_ERROR(LoadableDevice_impl, "Could not create file " << relativeFileName.c_str());
-            throw CF::LoadableDevice::LoadFail(CF::CF_NOTSET, "Device SDR cache write error");
-        }
-        
-        CF::File_var srcFile = fs->open (workingFileName.c_str(), true);
-        unsigned int srcSize = srcFile->sizeOf();
-        if (srcSize > ossie::corba::giopMaxMsgSize()) {
-            bool doneReading = false;
-            unsigned int maxReadSize = ossie::corba::giopMaxMsgSize() * 0.95;
-            LOG_DEBUG(LoadableDevice_impl, "File is longer than giopMaxMsgSize (" << ossie::corba::giopMaxMsgSize() << "), partitioning the copy into pieces of length " << maxReadSize)
-            unsigned int readSize = maxReadSize;
-            unsigned int leftoverSrcSize = srcSize;
-            while (not doneReading) {
-                CF::OctetSequence_var data;
-                if (readSize > leftoverSrcSize) {
-                    readSize = leftoverSrcSize;
-                }
-                srcFile->read(data, readSize);
-                fileStream.write((const char*)data->get_buffer(), data->length());
-                leftoverSrcSize -= readSize;
-                if (leftoverSrcSize == 0) {
-                    doneReading = true;
-                }
-            }
-            fileStream.close();
-        } else {
-            CF::OctetSequence_var data;
-            srcFile->read(data, srcSize);
-            fileStream.write((const char*)data->get_buffer(), data->length());
-            fileStream.close();
-        }
-        srcFile->close();
+        _copyFile( fs, workingFileName, relativeFileName, workingFileName );
         chmod(relativeFileName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         fileTypeTable[workingFileName] = CF::FileSystem::PLAIN;
     } else {
@@ -388,6 +391,8 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
 
     // Update environment to use newly-loaded library
     if (loadKind == CF::LoadableDevice::SHARED_LIBRARY) {
+        sharedLibraryStorage env_changes;
+        env_changes.setFilename(workingFileName);
         bool CLibrary = false;
         bool PythonPackage = false;
         bool JavaJar = false;
@@ -407,18 +412,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
             // at least one slash, so it's safe to erase from that point on
             std::string additionalPath = currentPath+std::string("/")+relativeFileName;
             additionalPath.erase(additionalPath.rfind('/'));
-
-            // Make sure that the current path is not already in LD_LIBRARY_PATH
-            if (!checkPath(ld_library_path, additionalPath)) {
-                LOG_DEBUG(LoadableDevice_impl, "Adding " << additionalPath << " to LD_LIBRARY_PATH");
-                if (ld_library_path.empty()) {
-                    ld_library_path = additionalPath;
-                } else {
-                    ld_library_path = additionalPath + ":" + ld_library_path;
-                }
-                setenv("LD_LIBRARY_PATH", ld_library_path.c_str(), 1);
-                ld_library_path = getenv("LD_LIBRARY_PATH");
-            }
+            env_changes.addModification("LD_LIBRARY_PATH", additionalPath);
             CLibrary = true;
         }
         // Check to see if it's a Python module
@@ -448,15 +442,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                     } else {
                         additionalPath = currentPath+std::string("/")+relativePath;
                     }
-                    std::string pythonpath = "";
-                    if (getenv("PYTHONPATH")) {
-                        pythonpath = getenv("PYTHONPATH");
-                    }
-                    std::string::size_type pathLocation = pythonpath.find(additionalPath);
-                    if (pathLocation == std::string::npos) {
-                        pythonpath = additionalPath + std::string(":") + pythonpath;
-                        setenv("PYTHONPATH", pythonpath.c_str(), 1);
-                    }
+                    env_changes.addModification("PYTHONPATH", additionalPath);
                     PythonPackage = true;
                 }
                 chdir(currentPath.c_str());
@@ -489,15 +475,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                         } else {
                             additionalPath = currentPath+std::string("/")+relativePath;
                         }
-                        std::string pythonpath = "";
-                        if (getenv("PYTHONPATH")) {
-                            pythonpath = getenv("PYTHONPATH");
-                        }
-                        std::string::size_type pathLocation = pythonpath.find(additionalPath);
-                        if (pathLocation == std::string::npos) {
-                            pythonpath = additionalPath + std::string(":") + pythonpath;
-                            setenv("PYTHONPATH", pythonpath.c_str(), 1);
-                        }
+                        env_changes.addModification("PYTHONPATH", additionalPath);
                         PythonPackage = true;
                     }
                 }
@@ -510,56 +488,46 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
           int retval = ossie::helpers::is_jarfile( relativeFileName );
           if ( retval == 0 ) {
             currentPath = ossie::getCurrentDirName();
-            std::string classpath = "";
-            if (getenv("CLASSPATH")) {
-              classpath = getenv("CLASSPATH");
-              LOG_DEBUG(LoadableDevice_impl, "_loadTree setting JAVA CURRENT CLASSPATH" << classpath );
-              
-            }
             std::string additionalPath = currentPath+std::string("/")+relativeFileName;
-            std::string::size_type pathLocation = classpath.find(additionalPath);
-            if (pathLocation == std::string::npos) {
-              classpath = additionalPath + std::string(":") + classpath;
-              LOG_DEBUG(LoadableDevice_impl, "_loadTree setting NEW JAVA CLASSPATH" << classpath );
-              setenv("CLASSPATH", classpath.c_str(), 1);
-            }
+            env_changes.addModification("CLASSPATH", additionalPath);
             JavaJar = true;
           }
         }
     
         // It doesn't match anything, assume that it's a set of libraries
         if (!(CLibrary || PythonPackage || JavaJar)) {
-            std::string ld_library_path;
-            if (getenv("LD_LIBRARY_PATH")) {
-                ld_library_path = getenv("LD_LIBRARY_PATH");
-            }
-            // Make sure that the current path is not already in LD_LIBRARY_PATH
             const std::string additionalPath = currentPath+std::string("/")+relativeFileName;
-            if (!checkPath(ld_library_path, additionalPath)) {
-                LOG_DEBUG(LoadableDevice_impl, "Adding " << additionalPath << " to LD_LIBRARY_PATH");
-                if (ld_library_path.empty()) {
-                    ld_library_path = additionalPath;
-                } else {
-                    ld_library_path = additionalPath + ":" + ld_library_path;
-                }
-                setenv("LD_LIBRARY_PATH", ld_library_path.c_str(), 1);
-            }
+            env_changes.addModification("LD_LIBRARY_PATH", additionalPath);
+            env_changes.addModification("OCTAVE_PATH", additionalPath);
+        }
+        update_path(env_changes);
+        sharedPkgs[env_changes.filename] = env_changes;
+    }
+}
 
-            // It may also be a set of Octave .m files
-            std::string octave_path;
-            if (getenv("OCTAVE_PATH")) {
-                octave_path = getenv("OCTAVE_PATH");
+void LoadableDevice_impl::update_selected_paths(std::vector<sharedLibraryStorage> &paths) {
+    for (std::vector<sharedLibraryStorage>::iterator pD = paths.begin();pD!=paths.end();pD++) {
+        if (this->sharedPkgs.find(pD->filename) != this->sharedPkgs.end()) {
+            update_path(*pD);
+        }
+    };
+}
+
+void LoadableDevice_impl::update_path(sharedLibraryStorage &packageDescription) {
+    for (std::vector<std::pair<std::string,std::string> >::iterator mod = packageDescription.modifications.begin();mod!=packageDescription.modifications.end();mod++) {
+        std::string current_path;
+        if (getenv(mod->first.c_str())) {
+            current_path = getenv(mod->first.c_str());
+        } else {
+            current_path.clear();
+        }
+        // Make sure that the current path is not already in the current path
+        if (!checkPath(current_path, mod->second)) {
+            std::string path_mod = mod->second;
+            if (!current_path.empty()) {
+                path_mod += ":" + current_path;
             }
-            // Make sure that the current path is not already in OCTAVE_PATH
-            if (!checkPath(octave_path, additionalPath)) {
-                LOG_DEBUG(LoadableDevice_impl, "Adding " << additionalPath << " to OCTAVE_PATH");
-                if (octave_path.empty()) {
-                    octave_path = additionalPath;
-                } else {
-                    octave_path = additionalPath + ":" + octave_path;
-                }
-                setenv("OCTAVE_PATH", octave_path.c_str(), 1);
-            }
+            setenv(mod->first.c_str(), path_mod.c_str(), 1);
         }
     }
 }
@@ -628,9 +596,16 @@ void LoadableDevice_impl::_deleteTree(const std::string &fileKey)
 
 void LoadableDevice_impl::_copyFile(CF::FileSystem_ptr fs, const std::string &remotePath, const std::string &localPath, const std::string &fileKey)
 {
-    CF::File_var fileToLoad = fs->open(remotePath.c_str(), true);
-    const std::size_t blockTransferSize = ossie::corba::giopMaxMsgSize() * 0.95;
-     
+    CF::File_var fileToLoad= fs->open(remotePath.c_str(), true);
+    if ( CORBA::is_nil(fileToLoad) ) {
+        LOG_ERROR(LoadableDevice_impl, "Unable to open remote file: " << remotePath);
+        throw CF::FileException();
+    }
+
+    if ( transferSize < 1 ) 
+        transferSize = ossie::corba::giopMaxMsgSize() * 0.95;
+    std::size_t blockTransferSize = transferSize;
+    std::size_t toRead=0;
     std::fstream fileStream;
     std::ios_base::openmode mode;
     mode = std::ios::out | std::ios::trunc;
@@ -643,15 +618,43 @@ void LoadableDevice_impl::_copyFile(CF::FileSystem_ptr fs, const std::string &re
 
     copiedFiles.insert(copiedFiles_type::value_type(fileKey, localPath));
     std::size_t fileSize = fileToLoad->sizeOf();
-    while (fileSize > 0) {
-        std::size_t toRead = std::min(fileSize, blockTransferSize);
-        CF::OctetSequence_var data;
+    bool fe=false;
+    try  {
+      while (fileSize > 0) {
+      CF::OctetSequence_var data;
+      toRead = std::min(fileSize, blockTransferSize);
+      fileSize -= toRead;
+
+      //LOG_TRACE(LoadableDevice_impl, "READ Local file " << localPath << " length:" << toRead << " filesize/bts " << fileSize << "/" << blockTransferSize );
+      try {
         fileToLoad->read(data, toRead);
         fileStream.write((const char*)data->get_buffer(), data->length());
-        fileSize -= toRead;
+      }
+      catch ( CF::File::IOException &e ) {
+        LOG_WARN(LoadableDevice_impl, "READ Local file exception, " << ossie::corba::returnString(e.msg) );
+        throw;
+      }
+        
+      }
+    }catch(...) {
+      fe=true;
     }
+
+    // need to close the files...
+    try {
+      fileToLoad->close();
+    }
+    catch(...) {
+      LOG_ERROR(LoadableDevice_impl, "Closing remote file encountered exception, file:" << remotePath );
+      fe=true;
+    }
+      
     fileStream.close();
-    fileToLoad->close();
+
+    if (fe) {
+      throw CF::FileException();
+    }
+
 }
 
 
@@ -669,7 +672,7 @@ void
 LoadableDevice_impl::unload (const char* fileName)
 throw (CORBA::SystemException, CF::Device::InvalidState, CF::InvalidFileName)
 {
-    boost::mutex::scoped_lock lock(load_execute_lock);
+    boost::recursive_mutex::scoped_lock lock(load_execute_lock);
     try
     {
         do_unload(fileName);
@@ -741,6 +744,9 @@ LoadableDevice_impl::decrementFile (std::string fileName)
         loadedFiles[fileName]--;
     }
     if (loadedFiles[fileName] == 0) {
+        if (this->sharedPkgs.find(fileName) != this->sharedPkgs.end()) {
+            this->sharedPkgs.erase(fileName);
+        }
         loadedFiles.erase(fileName);
     }
 }

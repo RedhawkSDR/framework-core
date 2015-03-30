@@ -27,7 +27,9 @@ pkginclude_HEADERS = AggregateDevice_impl.h \
              Resource_impl.h \
              Device_impl.h \
              ExecutableDevice_impl.h \
+             EventTypes.h \
              EventChannelSupport.h \
+             Events.h \
              TestableObject_impl.h \
              LifeCycle_impl.h \
              ossieSupport.h \
@@ -42,15 +44,21 @@ pkginclude_HEADERS = AggregateDevice_impl.h \
              MessageInterface.h \
              type_traits.h \
              AnyUtils.h \
+             RedhawkDefs.h \
+             ProcessThread.h \
              ThreadedComponent.h \
-	     Containers.h \
+             Containers.h \
              exceptions.h \
              Component.h \
              Value.h \
              PropertyMap.h \
              PropertyType.h \
-             callback.h
+             concurrent.h \
+             callback.h \
+             signalling.h \
+             OptionalProperty.h
 
 nobase_pkginclude_HEADERS = internal/equals.h \
 	     logging/rh_logger.h \
+	     logging/LogConfigUriResolver.h \
 	     logging/loghelpers.h

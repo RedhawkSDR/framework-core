@@ -171,16 +171,16 @@ def getPropNameDict(prf):
       
         nameDict[str(tagbase)] = str(struct.get_id())
         tagbase = tagbase + "."
-        for simple in struct.get_simple():
-            if simple.get_name() == None:
-                name = simple.get_id()
+        for prop in struct.get_props():
+            if prop.get_name() == None:
+                name = prop.get_id()
             else:
-                name = simple.get_name()
+                name = prop.get_name()
             if nameDict.has_key( tagbase + str(name) ):
                 print "WARN: struct element with duplicate name %s" % tagbase
                 continue
 
-            nameDict[str(tagbase + str(name))] = str(simple.get_id())
+            nameDict[str(tagbase + str(name))] = str(prop.get_id())
 
     # do it for all 'struct' sequences
     tagbase = ""
@@ -199,17 +199,17 @@ def getPropNameDict(prf):
         struct = structSequence.get_struct()
 
         # pull out all of the elements of the struct
-        for simple in struct.get_simple():
-            # make sure this struct simple element's name is unique
-            if simple.get_name() == None:
-                name = simple.get_id()
+        for prop in struct.get_props():
+            # make sure this struct element's name is unique
+            if prop.get_name() == None:
+                name = prop.get_id()
             else:
-                name = simple.get_name()
+                name = prop.get_name()
             if nameDict.has_key( tagbase + str(name)):
                 print "WARN: property with non-unique name %s" % name
                 continue
 
-            nameDict[str(tagbase + str(name))] = str(simple.get_id())
+            nameDict[str(tagbase + str(name))] = str(prop.get_id())
           
     return nameDict
 
@@ -356,8 +356,24 @@ class Property(object):
         type = str(self.compRef._getPropType(simple))
         return defVal, value, type, kinds, enums
 
+    def _getStructsSimpleSeqProps(self, sprop, prop):
+        kinds = []
+        enums = []
+        values = None
+        defVal = None
+        for i in self.compRef._properties:
+            if i.clean_name == prop.id_:
+                for k in prop.get_configurationkind():
+                    kinds.append(k.get_kindtype())
+                if i.members[_cleanId(sprop)]._enums != None:
+                    enums = i.members[_cleanId(sprop)]._enums
+                if self.mode != "writeonly":
+                    values = i.members[_cleanId(sprop)]
+                defVal = i.members[_cleanId(sprop)].defValue
+        type = str(self.compRef._getPropType(sprop))
+        return defVal, values, type, kinds, enums
+
     def api(self):
-    
         kinds = []
         print "\nProperty\n--------"
         print "% -*s %s" % (17,"ID:",self.id)
@@ -392,6 +408,12 @@ class Property(object):
                         if first:
                             print "% -*s %s" % (17,"Kinds: ", ', '.join(kinds))
                             first = False
+                    for sprop in prop.get_simplesequence():
+                        defVal,values,type,kinds,enums = self._getStructsSimpleSeqProps(sprop, prop)
+                        structTable.append(sprop.get_id(),type,defVal,values,enums)
+                        if first:
+                            print "% -*s %s" % (17,"Kinds: ",', '.join(kinds))
+                            first = False
             structTable.write()
         elif self.type == "sequence":
             print "sequence: ",type(self)
@@ -404,8 +426,8 @@ class Property(object):
                 for kind in prop.get_configurationkind():
                     kinds.append(kind.get_kindtype())
                 if prop.id_ == self.id and prop.get_struct() != None:
-                    for simple in prop.get_struct().get_simple():
-                        structTable.append(simple.id_, simple.get_type())
+                    for prop in prop.get_struct().get_props():
+                        structTable.append(prop.id_, prop.get_type())
             print "% -*s %s" % (17,"Kinds: ", ', '.join(kinds))
             print "\nStruct\n======"
             structTable.write()
@@ -807,7 +829,7 @@ class simpleProperty(Property):
 
 
 class sequenceProperty(Property):
-    def __init__(self, id, valueType, kinds, compRef, defValue=None, mode='readwrite'):
+    def __init__(self, id, valueType, kinds, compRef, defValue=None, parent=None, mode='readwrite'):
         """
         Create a new sequence property. Instances behave like list objects.
 
@@ -822,7 +844,7 @@ class sequenceProperty(Property):
             raise('"' + str(valueType) + '"' + ' is not a valid valueType, choose from\n ' + str(SCA_TYPES))
         
         # Initialize the parent Property
-        Property.__init__(self, id, type=valueType, kinds=kinds, compRef=compRef, mode=mode, action='external',
+        Property.__init__(self, id, type=valueType, kinds=kinds, compRef=compRef, parent=parent, mode=mode, action='external',
                           defValue=defValue)
         
         self.complex = False
@@ -861,6 +883,9 @@ class sequenceProperty(Property):
                 # to determine complexity, as in the case of a struct sequence,
                 # the value of self.valueType may not be a string.
                 self.complex = True
+
+    def _getItemKey(self):
+        return self.id
 
     def _mapCFtoComplex(self, CFVal):
         return complex(CFVal.real, CFVal.imag)
@@ -999,24 +1024,36 @@ class structProperty(Property):
 
         #used when the struct is part of a struct sequence
         self.structSeqIdx = structSeqIdx
-
+       
         #each of these members is itself a simple property
-        simplePropIndex = 0
+        propIndex = 0
         for _id, _type, _defValue, _clean_name in valueType:
             try:
-                enum = props[simplePropIndex].get_enumerations().get_enumeration()
+                enum = props[propIndex].get_enumerations().get_enumeration()
             except:
                 enum = None
-            simpleProp = simpleProperty(_id, _type, enum, compRef=compRef, kinds=kinds, defValue=_defValue, parent=self)
-            simpleProp.clean_name = _clean_name
-            self.members[_id] = simpleProp
+            classType = ''
+            for p in props:
+                if _id == p.get_id():
+                    if isinstance(p, _parsers.prf.simple):
+                        classType = 'simple'
+                        break
+                    elif isinstance(p, _parsers.prf.simpleSequence):
+                        classType = 'simpleSequence'
+                        break
+            if classType == 'simple':
+                prop = simpleProperty(_id, _type, enum, compRef=compRef, kinds=kinds, defValue=_defValue, parent=self)
+            elif classType == 'simpleSequence':
+                prop = sequenceProperty(_id, _type, compRef=compRef, kinds=kinds, defValue=_defValue, parent=self)
+            prop.clean_name = _clean_name
+            self.members[_id] = prop
             # Map the clean name back to the ID, and if it was a duplicate
             # (and thus had a count appended), map the non-unique name as well
             self._memberNames[_clean_name] = _id
-            baseName = _cleanId(props[simplePropIndex])
+            baseName = _cleanId(props[propIndex])
             if baseName != _clean_name:
                 self._memberNames[baseName] = _id
-            simplePropIndex += 1
+            propIndex += 1
 
     def _getItemKey(self):
         return self.structSeqIdx
@@ -1034,9 +1071,9 @@ class structProperty(Property):
         structValue = self._queryValue()
         if structValue is None:
             return
-        for simple in structValue._v:
-            if simple.id == propId:
-                simple.value = value
+        for prop in structValue._v:
+            if prop.id == propId:
+                prop.value = value
         self._configureValue(structValue)
 
     def _checkValue(self, value):
@@ -1082,12 +1119,12 @@ class structProperty(Property):
             return {}
 
         structVal = {}
-        for simple in value.value():
+        for prop in value.value():
             try:
-                member = self.members[simple.id]
-                structVal[simple.id] = member.fromAny(simple.value)
+                member = self.members[prop.id]
+                structVal[prop.id] = member.fromAny(prop.value)
             except KeyError:
-                structVal[simple.id] = _any.from_any(simple.value) 
+                structVal[prop.id] = _any.from_any(prop.value) 
                 
         return structVal
 
@@ -1219,7 +1256,7 @@ class structSequenceProperty(sequenceProperty):
         self.valueType = valueType
         self.props = props
         # Create a property for the struct definition.
-        self.structDef = structProperty(id=structID, valueType=self.valueType, kinds=kinds,props=props, compRef=self.compRef, mode=self.mode)
+        self.structDef = structProperty(id=structID, valueType=self.valueType, kinds=kinds, props=props, compRef=self.compRef, mode=self.mode)
 
     @property
     def propRef(self):
@@ -1278,7 +1315,6 @@ class structSequenceProperty(sequenceProperty):
         '''
         if value is None:
             return _any.to_any(None)
-
         return _CORBA.Any(self.typecode, [self.structDef.toAny(v) for v in value])
 
 def parseComplexString(ajbString, baseType):

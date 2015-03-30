@@ -31,7 +31,7 @@
 
 #include "ossie/debug.h"
 #include "ossie/PropertyInterface.h"
-
+#include "ossie/ProcessThread.h"
 #include "CF/cf.h"
 
 /**
@@ -71,6 +71,17 @@ public:
     void registerPropertyChangePort(PropertyEventSupplier* _propertyChangePort) {
         propertyChangePort = _propertyChangePort;
     };
+
+   char *registerPropertyListener( CORBA::Object_ptr listener, const CF::StringSequence &prop_ids, const CORBA::Float interval)
+      throw(CF::UnknownProperties, CF::InvalidObjectReference);
+   void unregisterPropertyListener( const char *reg_id )  
+      throw(CF::InvalidIdentifier);
+
+   //
+   // calls to start and stop property change service function
+   //
+   void   startPropertyChangeMonitor();
+   void   stopPropertyChangeMonitor();
 
 protected:
 
@@ -156,7 +167,7 @@ protected:
     }
 
     template <typename T, typename Target, typename Func>
-    void addPropertyChangeListener (T& value, Target target, Func func)
+    void addPropertyListener (T& value, Target target, Func func)
     {
         try {
             getPropertyWrapper(value)->addChangeListener(target, func);
@@ -166,7 +177,7 @@ protected:
     }
 
     template <typename T, typename Func>
-    void addPropertyChangeListener (T& value, Func func)
+    void addPropertyListener (T& value, Func func)
     {
         try {
             getPropertyWrapper(value)->addChangeListener(func);
@@ -315,6 +326,64 @@ private:
 
     typedef std::map<std::string, PropertyCallback> PropertyCallbackMap;
     PropertyCallbackMap propCallbacks;
+
+    //
+    // value changed callback when PropertyChangeListeners are registered
+    //
+    struct PCL_Callback {
+      bool    isChanged;
+     PCL_Callback() : isChanged(false) {};
+      void     recordChanged(void) { isChanged = true;};
+      void     reset() { isChanged = false; };
+      bool     isSet() { return isChanged; };
+    };
+
+    // safe pointer to clean up memory
+    typedef boost::shared_ptr<PCL_Callback>             PCL_CallbackPtr;
+
+    // map of property id to callback methods
+    typedef std::map< std::string, PCL_CallbackPtr  >   PropertyReportTable;
+
+    // class that perform change notifications
+    class PropertyChangeListener;
+    class EC_PropertyChangeListener;
+    class INF_PropertyChangeListener;
+    typedef boost::shared_ptr< PropertyChangeListener > PCL_ListenerPtr;
+
+    
+    // Registration and listerner contect to handle property change notifications
+    struct  PropertyChangeRec {
+      std::string                       regId;          // registration id
+      CORBA::Object_ptr                 listener;       // listener to send changes to
+      boost::posix_time::time_duration  reportInterval; // > 0 wait till 
+      boost::posix_time::ptime          expiration;     // time when next notification should happen
+      PropertyReportTable               props;          // list of property ids to report on
+      PCL_ListenerPtr                   pcl;            // listener to performs the work...
+
+    };
+
+    class  PropertyChangeListener {
+    public:
+      virtual ~PropertyChangeListener() {};
+      virtual int  notify( PropertyChangeRec *rec, CF::Properties &changes ) = 0;
+    private:
+    };
+
+    
+    // Mappings of PropertyChangeListeners  to registration identifiers
+    typedef std::map< std::string, PropertyChangeRec > PropertyChangeRegistry;
+
+    friend class PropertyChangeThread;
+
+    // Registry of active PropertyChangeListeners 
+    PropertyChangeRegistry      _propChangeRegistry;
+
+    // monitor thread that calls our service function
+    ossie::ProcessThread        _propChangeThread;
+    
+    // service function that reports on change events
+    int    _propertyChangeServiceFunction();
+    
 
 };
 #endif                                            /*  */

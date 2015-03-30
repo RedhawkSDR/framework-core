@@ -1,3 +1,22 @@
+/*
+ * This file is protected by Copyright. Please refer to the COPYRIGHT file
+ * distributed with this source distribution.
+ *
+ * This file is part of REDHAWK GPP.
+ *
+ * REDHAWK GPP is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * REDHAWK GPP is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see http://www.gnu.org/licenses/.
+ */
 /**************************************************************************
 
     This is the device code. This file contains the child class where
@@ -7,55 +26,22 @@
 
 **************************************************************************/
 
-#include "GPP.h"
-#include "boost/filesystem/path.hpp"
-#include "utils/ReferenceWrapper.h"
 #include <linux/limits.h>
-#include "dirent.h"
 #include <sys/wait.h>
+#include <dirent.h>
+#include <boost/filesystem/path.hpp>
+#include <signal.h>
+#include <sys/signalfd.h>
+#include <sys/utsname.h>
+#include "GPP.h"
+#include "utils/ReferenceWrapper.h"
+
+
 
 PREPARE_LOGGING(GPP_i)
 
 extern GPP_i *devicePtr;
 
-static void sigchld_handler(int sig)
-{
-    int status, saved_errno;
-    pid_t child_pid;
-    
-    saved_errno = errno;
-    
-    while( (child_pid = waitpid(-1, &status, WNOHANG)) > 0 )
-    {
-        try {
-            component_description_struct retval;
-            retval = devicePtr->getComponentDescription(child_pid);
-            devicePtr->sendChildNotification(devicePtr->_identifier, retval.identifier, retval.appName);
-            break;
-        } catch ( ... ) {
-        }
-        /*if( WIFEXITED(status) && WEXITSTATUS(status) )
-            printf("Child %ld exited with status %d\n", (long) child_pid, WEXITSTATUS(status) );
-        else if( WIFSIGNALED(status) )
-            printf("Child %ld killed by signal %d\n", (long) child_pid, WTERMSIG(status) );
-        else if( WIFSTOPPED(status) )
-            printf("Child %ld stopped by signal %d\n", (long) child_pid, WSTOPSIG(status) );
-        else if( WIFCONTINUED(status) )
-            printf("Child %ld continued\n", (long) child_pid );*/
-        try {
-            devicePtr->sendChildNotification(devicePtr->_identifier, "Unknown", "Unknown");
-        } catch ( ... ) {
-        }
-    }
-    
-    if( child_pid == -1 && errno != ECHILD )
-    {
-        // Error
-        perror("waitpid");
-    }
-    
-    errno = saved_errno;
-}
 
 std::vector<int> GPP_i::getPids()
 {
@@ -99,34 +85,54 @@ void GPP_i::removePid(int pid)
 GPP_i::GPP_i(char *devMgr_ior, char *id, char *lbl, char *sftwrPrfl) :
     GPP_base(devMgr_ior, id, lbl, sftwrPrfl)
 {
+  _init();
 }
 
 GPP_i::GPP_i(char *devMgr_ior, char *id, char *lbl, char *sftwrPrfl, char *compDev) :
     GPP_base(devMgr_ior, id, lbl, sftwrPrfl, compDev)
 {
+  _init();
 }
 
 GPP_i::GPP_i(char *devMgr_ior, char *id, char *lbl, char *sftwrPrfl, CF::Properties capacities) :
     GPP_base(devMgr_ior, id, lbl, sftwrPrfl, capacities)
 {
+  _init();
 }
 
 GPP_i::GPP_i(char *devMgr_ior, char *id, char *lbl, char *sftwrPrfl, CF::Properties capacities, char *compDev) :
     GPP_base(devMgr_ior, id, lbl, sftwrPrfl, capacities, compDev)
 {
+  _init();
 }
 
 GPP_i::~GPP_i()
 {
+
 }
 
-void GPP_i::addReservation(component_description_struct component)
+void GPP_i::_init() {
+
+    // Install signal handler to properly handle SIGCHLD signals
+  int err;
+  sigset_t  sigset;
+  err=sigemptyset(&sigset);
+  err = sigaddset(&sigset, SIGCHLD);
+  /* We must block the signals in order for signalfd to receive them */
+  err = sigprocmask(SIG_BLOCK, &sigset, NULL);
+  /* Create the signalfd */
+  sig_fd = signalfd(-1, &sigset,0);
+  assert(sig_fd != -1);
+}
+
+
+void GPP_i::addReservation( const component_description_struct &component)
 {
     boost::mutex::scoped_lock lock(pidLock);
     this->reservations.push_back(component);
 }
 
-void GPP_i::removeReservation(component_description_struct component)
+void GPP_i::removeReservation( const component_description_struct &component)
 {
     boost::mutex::scoped_lock lock(pidLock);
     std::vector<component_description_struct>::iterator it = std::find(this->reservations.begin(), this->reservations.end(), component);
@@ -139,9 +145,8 @@ void GPP_i::removeReservation(component_description_struct component)
     }
 }
 
-void GPP_i::shiftReservation(component_description_struct component)
+void GPP_i::TableReservation( const component_description_struct &component)
 {
-    boost::mutex::scoped_lock lock(pidLock);
     std::vector<component_description_struct>::iterator it = std::find(this->reservations.begin(), this->reservations.end(), component);
     if (it != this->reservations.end()) {
         this->tabled_reservations.push_back(*it);
@@ -149,9 +154,8 @@ void GPP_i::shiftReservation(component_description_struct component)
     }
 }
 
-void GPP_i::shiftReservationBack(component_description_struct component)
+void GPP_i::RestoreReservation( const component_description_struct &component)
 {
-    boost::mutex::scoped_lock lock(pidLock);
     std::vector<component_description_struct>::iterator it = std::find(this->tabled_reservations.begin(), this->tabled_reservations.end(), component);
     if (it != this->tabled_reservations.end()) {
         this->reservations.push_back(*it);
@@ -161,23 +165,23 @@ void GPP_i::shiftReservationBack(component_description_struct component)
 
 void GPP_i::initialize() throw (CF::LifeCycle::InitializeError, CORBA::SystemException)
 {
-    // Install signal handler to properly handle SIGCHLD signals
-    struct sigaction sa;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sa.sa_handler = sigchld_handler;
-    if( sigaction(SIGCHLD, &sa, NULL) == -1 )
-    {
-        perror("sigaction");
-        LOG_ERROR(GPP_i, __FUNCTION__ << ": Error registering SIGCHLD handler");
-    }
     this->setAllocationImpl("nic_allocation", this, &GPP_i::allocateCapacity_nic_allocation, &GPP_i::deallocateCapacity_nic_allocation);
 
     setAllocationImpl("DCE:72c1c4a9-2bcf-49c5-bafd-ae2c1d567056", this, &GPP_i::allocate_loadCapacity, &GPP_i::deallocate_loadCapacity);
     this->processor_cores = boost::thread::hardware_concurrency();
+    struct utsname _uts;
+    if (uname(&_uts) != -1) {
+        std::string machine(_uts.machine);
+        if ((machine== "i386") or (machine== "i686")) {
+            machine = "x86";
+        }
+        this->processor_name = machine;
+        this->os_name = _uts.sysname;
+        this->os_version = _uts.release;
+    }
     
     addPropertyChangeListener("reserved_capacity_per_component", this, &GPP_i::reservedChanged);
-    this->idle_capacity_modifier = this->reserved_capacity_per_component/((float)this->processor_cores);
+    this->idle_capacity_modifier = 100.0 * this->reserved_capacity_per_component/((float)this->processor_cores);
     this->modified_thresholds = this->thresholds;
     
     char hostname[HOST_NAME_MAX];
@@ -202,8 +206,41 @@ void GPP_i::initialize() throw (CF::LifeCycle::InitializeError, CORBA::SystemExc
     initializeNetworkMonitor();
     // update states
     std::for_each( states.begin(), states.end(), boost::bind( &State::update_state, _1 ) );
+
+    time_mark = boost::posix_time::microsec_clock::local_time();
     GPP_base::start();
     GPP_base::initialize();
+    mymgr = redhawk::events::Manager::GetManager(this);
+    odm_consumer = mymgr->Subscriber("ODM_Channel");
+    odm_consumer->setDataArrivedListener(this, &GPP_i::process_ODM);
+}
+
+void GPP_i::process_ODM(const CORBA::Any &data) {
+    boost::mutex::scoped_lock lock(pidLock);
+    ExtendedEvent::ResourceStateChangeEventType* app_state_change;
+    if (data >>= app_state_change) {
+        std::string appName = ossie::corba::returnString(app_state_change->sourceName);
+        if (app_state_change->stateChangeTo == ExtendedEvent::STARTED) {
+            for (std::vector<component_description_struct>::iterator it=reservations.begin();it!=reservations.end();it++) {
+                if ((*it).appName == appName) {
+                    this->TableReservation(*it);
+                    break;
+                }
+            }
+        } else if (app_state_change->stateChangeTo == ExtendedEvent::STOPPED) {
+            for (std::vector<component_description_struct>::iterator it=tabled_reservations.begin();it!=tabled_reservations.end();it++) {
+                if ((*it).appName == appName) {
+                    this->RestoreReservation(*it);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void GPP_i::releaseObject() throw (CORBA::SystemException, CF::LifeCycle::ReleaseError) {
+    mymgr->Terminate();
+    GPP_base::releaseObject();
 }
 
 bool GPP_i::allocateCapacity_nic_allocation(const nic_allocation_struct &alloc)
@@ -258,9 +295,33 @@ void GPP_i::deallocateCapacity_nic_allocation(const nic_allocation_struct &alloc
     }
 }
 
+void GPP_i::deallocateCapacity (const CF::Properties& capacities) throw (CF::Device::InvalidState, CF::Device::InvalidCapacity, CORBA::SystemException)
+{
+    /*CF::Properties tmp_props = capacities;
+    redhawk::PropertyMap& tmp_params = redhawk::PropertyMap::cast(tmp_props);
+    if (tmp_params.find(PROCESSOR_NAME) != tmp_params.end()) {
+        if (tmp_params[PROCESSOR_NAME].toString() != this->processor_name)
+            return;
+    }
+    if (tmp_params.find(OS_NAME) != tmp_params.end()) {
+        if (tmp_params[OS_NAME].toString() != this->os_name)
+            return;
+    }
+    if (tmp_params.find(OS_VERSION) != tmp_params.end()) {
+        if (tmp_params[OS_VERSION].toString() != this->os_version)
+            return;
+    }*/
+    GPP_base::deallocateCapacity(capacities);
+}
+CORBA::Boolean GPP_i::allocateCapacity (const CF::Properties& capacities) throw (CF::Device::InvalidState, CF::Device::InvalidCapacity, CF::Device::InsufficientCapacity, CORBA::SystemException)
+{
+    bool retval = GPP_base::allocateCapacity(capacities);
+    return retval;
+}
+
 void GPP_i::reservedChanged(const float *oldValue, const float *newValue)
 {
-    this->idle_capacity_modifier = this->reserved_capacity_per_component/((float)this->processor_cores);
+    this->idle_capacity_modifier = 100.0 * this->reserved_capacity_per_component/((float)this->processor_cores);
 }
 
 void
@@ -319,16 +380,18 @@ void GPP_i::send_threshold_event(const threshold_event_struct& message)
 	MessageEvent_out->sendMessage(message);
 }
 
-void GPP_i::sendChildNotification(std::string dev_id, std::string comp_id, std::string app_id)
+void GPP_i::sendChildNotification(const std::string &comp_id, const std::string &app_id)
 {
+
+  LOG_INFO(GPP_i, "Child termination notification on the IDM channel : comp:" << comp_id  << " app:" <<app_id);
     StandardEvent::AbnormalComponentTerminationEventType event;
-    event.deviceId = CORBA::string_dup(dev_id.c_str());
+    event.deviceId = CORBA::string_dup(_identifier.c_str());
     event.componentId = CORBA::string_dup(comp_id.c_str());
     event.applicationId = CORBA::string_dup(app_id.c_str());
     CORBA::Any outboundMessage;
     outboundMessage <<= event;
     try {
-        this->proxy_consumer->push(outboundMessage);
+        this->idm_publisher->push(outboundMessage);
     } catch ( ... ) {
         LOG_WARN(GPP_i, "Unable to send a child termination notification on the IDM channel");
     }
@@ -354,6 +417,20 @@ CF::ExecutableDevice::ProcessID_Type GPP_i::execute (const char* name, const CF:
            CF::ExecutableDevice::InvalidParameters, CF::ExecutableDevice::InvalidOptions, 
            CF::InvalidFileName, CF::ExecutableDevice::ExecuteFail)
 {
+
+    boost::recursive_mutex::scoped_lock lock;
+    try
+    {
+        lock = boost::recursive_mutex::scoped_lock(load_execute_lock);
+    }
+    catch( const boost::thread_resource_error& e )
+    {
+        std::stringstream errstr;
+        errstr << "Error acquiring lock (errno=" << e.native_error() << " msg=\"" << e.what() << "\")";
+        LOG_ERROR(GPP_i, __FUNCTION__ << ": " << errstr.str() );
+        throw CF::Device::InvalidState(errstr.str().c_str());
+    }
+
     std::vector<std::string> prepend_args;
     std::string naming_context_ior;
     const redhawk::PropertyMap& tmp_params = redhawk::PropertyMap::cast(parameters);
@@ -430,7 +507,7 @@ CF::ExecutableDevice::ProcessID_Type GPP_i::execute (const char* name, const CF:
     try {
         ret_pid = ExecutableDevice_impl::do_execute(name, options, parameters, prepend_args);
         this->addPid(ret_pid, app_id, component_id);
-        this->addReservation(this->pids[ret_pid]);
+        this->addReservation( getComponentDescription(ret_pid) );
     } catch ( ... ) {
         throw;
     }
@@ -439,8 +516,13 @@ CF::ExecutableDevice::ProcessID_Type GPP_i::execute (const char* name, const CF:
 
 void GPP_i::terminate (CF::ExecutableDevice::ProcessID_Type processId) throw (CORBA::SystemException, CF::ExecutableDevice::InvalidProcess, CF::Device::InvalidState)
 {
-    ExecutableDevice_impl::terminate(processId);
-    this->removeReservation(this->pids[processId]);
+    boost::recursive_mutex::scoped_lock lock(load_execute_lock);
+    try {
+      ExecutableDevice_impl::terminate(processId);
+      this->removeReservation( getComponentDescription(processId)) ;
+    }
+    catch(...){
+    }
     this->removePid(processId);
 }
 
@@ -467,73 +549,7 @@ void GPP_i::updateThresholdMonitors()
 
 void GPP_i::establishModifiedThresholds()
 {
-    this->modified_thresholds = this->thresholds;
-    CF::DomainManager::ApplicationSequence_var apps = new CF::DomainManager::ApplicationSequence();
-    std::map<std::string,bool> checked_apps;
-    if (this->reservations.size() > 0) {
-        std::vector<component_description_struct> original_res = reservations;
-        for (std::vector<component_description_struct>::iterator it=original_res.begin();it!=original_res.end();it++) {
-            if (applications.find((*it).appName) == applications.end()) {
-                if (apps->length() == 0) {
-                    apps = this->getDomainManager()->getRef()->applications();
-                }
-                for (unsigned int i=0; i<apps->length(); i++) {
-                    std::string appname = ossie::corba::returnString(apps[i]->name());
-                    if (appname == (*it).appName) {
-                        applications[appname] = CF::Application::_duplicate(apps[i]);
-                        break;
-                    }
-                }
-            }
-            bool started = false;
-            if (checked_apps.find((*it).appName) == checked_apps.end()) {
-                try {
-                    started = applications[(*it).appName]->started();
-                    checked_apps[(*it).appName] = started;
-                } catch ( ... ) {
-                    // The application went away between getting the reference and now
-                    // This will clean up when terminate is called on the device
-                }
-            } else {
-                started = checked_apps[(*it).appName];
-            }
-            if (started) {
-                this->shiftReservation((*it));
-            }
-        }
-    }
-    if (this->tabled_reservations.size() > 0) {
-        std::vector<component_description_struct> original_res = tabled_reservations;
-        for (std::vector<component_description_struct>::iterator it=original_res.begin();it!=original_res.end();it++) {
-            if (applications.find((*it).appName) == applications.end()) {
-                if (apps->length() == 0) {
-                    apps = this->getDomainManager()->getRef()->applications();
-                }
-                for (unsigned int i=0; i<apps->length(); i++) {
-                    std::string appname = ossie::corba::returnString(apps[i]->name());
-                    if (appname == (*it).appName) {
-                        applications[appname] = CF::Application::_duplicate(apps[i]);
-                        break;
-                    }
-                }
-            }
-            bool started = false;
-            if (checked_apps.find((*it).appName) == checked_apps.end()) {
-                try {
-                    started = applications[(*it).appName]->started();
-                    checked_apps[(*it).appName] = started;
-                } catch ( ... ) {
-                    // The application went away between getting the reference and now
-                    // This will clean up when terminate is called on the device
-                }
-            } else {
-                started = checked_apps[(*it).appName];
-            }
-            if (!started) {
-                this->shiftReservationBack((*it));
-            }
-        }
-    }
+    boost::mutex::scoped_lock lock(pidLock);
     this->modified_thresholds.cpu_idle = this->thresholds.cpu_idle + (this->idle_capacity_modifier * this->reservations.size());
 }
 
@@ -541,41 +557,109 @@ void GPP_i::calculateSystemMemoryLoading() {
 	memCapacity = system_monitor.physical_memory_free;
 }
 
-int GPP_i::serviceFunction()
+
+
+void GPP_i::sigchld_handler(int sig)
 {
-	usleep(1000000);
-    
-    establishModifiedThresholds();
-    
-    try
-	{
-        // update states
-        std::for_each( states.begin(), states.end(), boost::bind( &State::update_state, _1 ) );
-        // compute statistics
-        std::for_each( statistics.begin(), statistics.end(), boost::bind( &Statistics::compute_statistics, _1 ) );
-        // compile reports
-        std::for_each( reports.begin(), reports.end(), boost::bind( &Reporting::report, _1 ) );
+    int status;
+    pid_t child_pid;
         
-        calculateSystemMemoryLoading();
-	}
-    catch( const boost::thread_resource_error& e )
+    while( (child_pid = waitpid(-1, &status, WNOHANG)) > 0 )
     {
-        std::stringstream errstr;
-        errstr << "Error acquiring lock (errno=" << e.native_error() << " msg=\"" << e.what() << "\")";
-        LOG_ERROR(GPP_i, __FUNCTION__ << ": " << errstr.str() );
-        return NOOP;
+      try {
+        component_description_struct retval;
+        if ( devicePtr) {
+          retval = devicePtr->getComponentDescription(child_pid);
+          sendChildNotification(retval.identifier, retval.appName);
+        }
+        break;
+      } catch ( ... ) {
+        try {
+          sendChildNotification("Unknown", "Unknown");
+        } catch ( ... ) {
+        }
+      }
+    }
+    
+    if( child_pid == -1 && errno != ECHILD )
+    {
+        // Error
+        perror("waitpid");
     }
 
-	for( size_t i=0; i<threshold_monitors.size(); ++i )
-	{
-		threshold_monitors[i]->update();
-		LOG_TRACE(GPP_i, __FUNCTION__ << ": resource_id=" << threshold_monitors[i]->get_resource_id() << " threshold=" << threshold_monitors[i]->get_threshold() << " measured=" << threshold_monitors[i]->get_measured())
+}
+
+int GPP_i::serviceFunction()
+{
+
+  // Check if any children died....
+  fd_set readfds;
+  FD_ZERO(&readfds);
+  FD_SET(sig_fd, &readfds);
+  struct timeval tv = {0, 50};
+  struct signalfd_siginfo si;
+  ssize_t s;
+
+  if ( sig_fd > -1 ) {
+    // don't care about writefds and exceptfds:
+    select(sig_fd+1, &readfds, NULL, NULL, &tv);
+    if (FD_ISSET(sig_fd, &readfds)) {
+      LOG_TRACE(GPP_i, "Checking for signals from SIGNALFD......" << sig_fd);
+      s = read(sig_fd, &si, sizeof(struct signalfd_siginfo));
+      if (s != sizeof(struct signalfd_siginfo)){
+        LOG_ERROR(GPP_i, "SIGCHLD handling error ...");
+      }
+ 
+      if ( si.ssi_signo == SIGCHLD) {
+        LOG_TRACE(GPP_i, "Child died.................................." << si.ssi_pid);
+        sigchld_handler(si.ssi_signo);
+      }
+    }
+  }
+
+  boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
+  boost::posix_time::time_duration dur = now -time_mark;
+  if ( dur.total_milliseconds() < 1000 ) {
+    // only update every second
+    return NOOP;
+  }
+  
+  time_mark = now;
+
+  //
+  // update metrics and counters for system state
+  //
+  establishModifiedThresholds();
+    
+  try
+    {
+      // update states
+      std::for_each( states.begin(), states.end(), boost::bind( &State::update_state, _1 ) );
+      // compute statistics
+      std::for_each( statistics.begin(), statistics.end(), boost::bind( &Statistics::compute_statistics, _1 ) );
+      // compile reports
+      std::for_each( reports.begin(), reports.end(), boost::bind( &Reporting::report, _1 ) );
+        
+      calculateSystemMemoryLoading();
+    }
+  catch( const boost::thread_resource_error& e )
+    {
+      std::stringstream errstr;
+      errstr << "Error acquiring lock (errno=" << e.native_error() << " msg=\"" << e.what() << "\")";
+      LOG_ERROR(GPP_i, __FUNCTION__ << ": " << errstr.str() );
+      return NOOP;
+    }
+
+  for( size_t i=0; i<threshold_monitors.size(); ++i )
+    {
+      threshold_monitors[i]->update();
+      LOG_TRACE(GPP_i, __FUNCTION__ << ": resource_id=" << threshold_monitors[i]->get_resource_id() << " threshold=" << threshold_monitors[i]->get_threshold() << " measured=" << threshold_monitors[i]->get_measured())
 	}
 
-	updateThresholdMonitors();
+  updateThresholdMonitors();
 
-	updateUsageState();
+  updateUsageState();
     
-    return NOOP;
+  return NOOP;
 }
 

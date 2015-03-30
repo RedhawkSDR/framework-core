@@ -73,6 +73,7 @@ class SupplierAdmin_i : public virtual POA_CosEventChannelAdmin::SupplierAdmin {
 };
 
 class MessageConsumerPort : public Port_Provides_base_impl, public virtual POA_ExtendedEvent::MessageEvent {
+    ENABLE_LOGGING
 
 public:
     MessageConsumerPort (std::string port_name);

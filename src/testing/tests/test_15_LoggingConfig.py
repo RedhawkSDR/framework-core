@@ -150,8 +150,8 @@ class CppLoggingConfig(scatest.CorbaTestCase):
             "log4j.appender.STDOUT=org.apache.log4j.ConsoleAppender\n" + \
             "log4j.appender.STDOUT.layout=org.apache.log4j.PatternLayout\n" + \
             "log4j.appender.STDOUT.layout.ConversionPattern=@@@COMPONENT.NAME@@@\n" + \
-            "# Direct log messages to stdout\n" + \
-            "log4j.appender.pse=RH_LogEventAppender\n" + \
+            "# Direct log messages to event channel\n" + \
+            "log4j.appender.pse=org.ossie.logging.RH_LogEventAppender\n" + \
             "log4j.appender.pse.name_context=TEST_APPENDER\n" + \
             "log4j.appender.pse.event_channel=TEST_EVT_CH1\n" + \
             "log4j.appender.pse.producer_id=PRODUCER1\n" + \
@@ -264,14 +264,14 @@ class JavaLoggingConfig(scatest.CorbaTestCase):
         self.assertNotEquals( res, -1 )
 
 
-    def disable_tbd_test_comp_log_event_appender(self):
+    def test_comp_log_event_appender(self):
         cfg = "log4j.rootLogger=ERROR,STDOUT,pse\n" + \
             "# Direct log messages to STDOUT\n" + \
             "log4j.appender.STDOUT=org.apache.log4j.ConsoleAppender\n" + \
             "log4j.appender.STDOUT.layout=org.apache.log4j.PatternLayout\n" + \
             "log4j.appender.STDOUT.layout.ConversionPattern=@@@COMPONENT.NAME@@@\n" + \
-            "# Direct log messages to stdout\n" + \
-            "log4j.appender.pse=RH_LogEventAppender\n" + \
+            "# Direct log messages to event channel\n" + \
+            "log4j.appender.pse=org.ossie.logging.RH_LogEventAppender\n" + \
             "log4j.appender.pse.name_context=TEST_APPENDER\n" + \
             "log4j.appender.pse.event_channel=TEST_EVT_CH1\n" + \
             "log4j.appender.pse.producer_id=PRODUCER1\n" + \
@@ -282,7 +282,6 @@ class JavaLoggingConfig(scatest.CorbaTestCase):
         c_cfg=self.comp.ref.setLogConfig(cfg)
         c_cfg=self.comp.ref.start()
         c_cfg=self.comp.ref.stop()
-
 
 class PythonLoggingConfig(scatest.CorbaTestCase):
     def setUp(self):
@@ -375,14 +374,14 @@ class PythonLoggingConfig(scatest.CorbaTestCase):
         self.assertNotEquals( res, -1 )
 
 
-    def disable_tbd_test_comp_log_event_appender(self):
+    def test_comp_log_event_appender(self):
         cfg = "log4j.rootLogger=ERROR,STDOUT,pse\n" + \
             "# Direct log messages to STDOUT \n" + \
             "log4j.appender.STDOUT=org.apache.log4j.ConsoleAppender\n" + \
             "log4j.appender.STDOUT.layout=org.apache.log4j.PatternLayout\n" + \
             "log4j.appender.STDOUT.layout.ConversionPattern=@@@COMPONENT.NAME@@@\n" + \
-            "# Direct log messages to stdout\n" + \
-            "log4j.appender.pse=RH_LogEventAppender\n" + \
+            "# Direct log messages to event channel\n" + \
+            "log4j.appender.pse=org.ossie.logging.RH_LogEventAppender\n" + \
             "log4j.appender.pse.name_context=TEST_APPENDER\n" + \
             "log4j.appender.pse.event_channel=TEST_EVT_CH1\n" + \
             "log4j.appender.pse.producer_id=PRODUCER1\n" + \

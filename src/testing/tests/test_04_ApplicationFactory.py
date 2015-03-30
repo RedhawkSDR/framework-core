@@ -236,6 +236,23 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         domMgr.uninstallApplication(appFact._get_identifier())
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
 
+    def test_NamespacedWaveform(self):
+        nodebooter, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication("/waveforms/foo/wav/wav.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        appFact = domMgr._get_applicationFactories()[0]
+
+        app = appFact.create(appFact._get_name(), [], [])
+        self.assertEqual(len(domMgr._get_applications()), 1)
+        number_components = len(app._get_registeredComponents())
+        self.assertEqual(number_components, 3)
+        app.releaseObject()
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
     def test_NonScaCompliant(self):
         nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
@@ -473,7 +490,6 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(pidExists(componentPid), True)
         self.assertEqual(pidExists(firstChild), True)
         self.assertEqual(pidExists(secondChild), True)
-
         app.releaseObject()
         time.sleep(0.5)
         self.assertEqual(pidExists(componentPid), False)
@@ -1725,6 +1741,32 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
             except OSError:
                 pass
 
+    def test_softpkgDependency_colliding_PyDev(self):
+        dommgr_nb, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication("/waveforms/CommandWrapperSPDDep/CommandWrapperSPDDep.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+        appFact = domMgr._get_applicationFactories()[0]
+        app = appFact.create(appFact._get_name(), [], [])
+        self.assertEqual(len(domMgr._get_applications()), 1)
+        domMgr.installApplication("/waveforms/CommandWrapperSPDDep_collide/CommandWrapperSPDDep_collide.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 2)
+        self.assertEqual(len(domMgr._get_applications()), 1)
+        appFact_2 = domMgr._get_applicationFactories()[1]
+        app_2 = appFact_2.create(appFact._get_name(), [], [])
+        self.assertEqual(len(domMgr._get_applications()), 2)
+        app.releaseObject()
+        app_2.releaseObject()
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        domMgr.uninstallApplication(appFact._get_identifier())
+        domMgr.uninstallApplication(appFact_2._get_identifier())
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
+
     def test_softpkgDependency_PyDev(self):
         dommgr_nb, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
@@ -1798,6 +1840,32 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
         domMgr.uninstallApplication(appFact._get_identifier())
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
+
+    def test_softpkgDependency_colliding_CppDev(self):
+        dommgr_nb, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication("/waveforms/CommandWrapperSPDDep/CommandWrapperSPDDep.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+        appFact = domMgr._get_applicationFactories()[0]
+        app = appFact.create(appFact._get_name(), [], [])
+        self.assertEqual(len(domMgr._get_applications()), 1)
+        domMgr.installApplication("/waveforms/CommandWrapperSPDDep_collide/CommandWrapperSPDDep_collide.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 2)
+        self.assertEqual(len(domMgr._get_applications()), 1)
+        appFact_2 = domMgr._get_applicationFactories()[1]
+        app_2 = appFact_2.create(appFact._get_name(), [], [])
+        self.assertEqual(len(domMgr._get_applications()), 2)
+        app.releaseObject()
+        app_2.releaseObject()
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        domMgr.uninstallApplication(appFact._get_identifier())
+        domMgr.uninstallApplication(appFact_2._get_identifier())
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
 
     def test_softpkgDependency_CppDev(self):

@@ -168,6 +168,7 @@ static pid_t launchSPD (
     const std::string&                         spdFile,
     const fs::path&                            sdrRoot,
     const ExecParams&                          overrideExecParams,
+    const ExecParams&                          optionParams,
     const std::vector<const ossie::Property*>& deviceProps,
     bool                                       doFork)
 {
@@ -244,6 +245,12 @@ static pid_t launchSPD (
         LOG_TRACE(nodebooter, "EXEC_PARAM: " << param->first << "=\"" << param->second << "\"");
         argv.push_back(param->first.c_str());
         argv.push_back(param->second.c_str());
+    }
+
+    // push options as command line args
+    for (ExecParams::const_iterator param = optionParams.begin(); param != optionParams.end(); ++param) {
+        LOG_TRACE(nodebooter, "EXEC_PARAM (option): " << param->first );
+        argv.push_back(param->first.c_str());
     }
 
     argv.push_back(NULL);
@@ -389,7 +396,6 @@ static void initializeDaemon (
     // Clear umask.
     umask(0);
 
-    chdir("/");
 
     // Redirect stdin, stdout and stderr to /dev/null.
     freopen("/dev/null", "r", stdin);
@@ -410,6 +416,7 @@ void usage()
     std::cerr << "    -sdrcache <abs path>       Set sdr cache with absolute path to cache directory" << std::endl;
     std::cerr << "    -debug                     Set the threshold used for logging, the default is 3 (5=TRACE,4=DEBUG,3=INFO,2=WARN,1=ERROR,0=FATAL)" << std::endl << std::endl;
     std::cerr << "    -logcfgfile <config file>  Pass in a logging config file uri" << std::endl;
+    std::cerr << "    --useloglib                Use libossielogcfg.so to generate LOGGING_CONFIG_URI " << std::endl;
     std::cerr << "    --dburl                    Store domain state in the following URL" << std::endl;
     std::cerr << "    --nopersist                Disable DomainManager IOR persistence" << std::endl;
     std::cerr << "    --force-rebind             Overwrite any existing name binding for the DomainManager" << std::endl;
@@ -472,6 +479,7 @@ void startDomainManager(
     const int&                                 debugLevel,
     const bool&                                noPersist,
     const string&                              logfile_uri,
+    const bool&                                use_loglib,
     const string&                              db_uri,
     const string&                              endPoint,
     const bool&                                forceRebind,
@@ -515,6 +523,7 @@ void startDomainManager(
     }
 
     ExecParams execParams;
+    ExecParams optionParams;
     execParams["DMD_FILE"] = dmdFile;
     execParams["DOMAIN_NAME"] = domainName;
     execParams["SDRROOT"] = sdrRootPath.string();
@@ -550,8 +559,12 @@ void startDomainManager(
          }
     }
 
+    if (use_loglib) {
+        optionParams["USELOGCFG"] =  "";
+    }
+
     try {
-        domPid = launchSPD(spdFile, domRootPath, execParams, systemProps, doFork);
+      domPid = launchSPD(spdFile, domRootPath, execParams, optionParams, systemProps, doFork);
     } catch (const std::runtime_error& ex) {
         LOG_ERROR(nodebooter, "Unable to launch DomainManager Softpkg: " << ex.what());
         exit(EXIT_FAILURE);
@@ -566,6 +579,7 @@ void startDeviceManager(
     const fs::path&                            sdrRootPath,
     const int&                                 debugLevel,
     const string&                              logfile_uri,
+    const bool&                                use_loglib,
     const string&                              orb_init_ref,
     const std::vector<string>&                 execparams,
     const std::vector<const ossie::Property*>& systemProps,
@@ -632,6 +646,7 @@ void startDeviceManager(
 
     // Build up the execparams based on the DCD and command line arguments.
     ExecParams execParams;
+    ExecParams optionParams;
     execParams["DCD_FILE"] = dcdFile;
     execParams["DOMAIN_NAME"] = domainName;
     execParams["SDRROOT"] = sdrRootPath.string();
@@ -659,8 +674,12 @@ void startDeviceManager(
          }
     }
 
+    if (use_loglib) {
+        optionParams["USELOGCFG"] =  "";
+    }
+
     try {
-        devPid = launchSPD(spdFile, devRootPath, execParams, systemProps, doFork);
+      devPid = launchSPD(spdFile, devRootPath, execParams, optionParams, systemProps, doFork);
     } catch (const std::runtime_error& ex) {
         LOG_ERROR(nodebooter, "Unable to launch DeviceManager Softpkg: " << ex.what());
         exit(EXIT_FAILURE);
@@ -745,6 +764,9 @@ int main(int argc, char* argv[])
 
     // If "--nopersist" is asserted, turn off persistent IORs.
     bool noPersist = false;
+
+    // enable/disable use of libossielogcfg.so to resolve LOGGING_CONFIG_URI values
+    bool use_loglib = false;
 
     // If "--force-rebind" is asserted, the DomainManager will replace any
     // existing name binding.
@@ -847,6 +869,11 @@ int main(int argc, char* argv[])
                 exit(EXIT_FAILURE);
             }
         }
+
+        if (( strcmp( argv[i], "--useloglib" ) == 0 )) {
+            use_loglib = true;
+        }
+
 
         if (( strcmp( argv[i], "-dburl" ) == 0 )) {
             if( i + 1 < argc && strcmp( argv[i + 1], "--" ) != 0) {
@@ -1115,7 +1142,8 @@ int main(int argc, char* argv[])
                                  "eq",
                                  kinds,
                                  std::string(un.sysname),
-                                 "false");
+                                 "false",
+				 "false");
     ossie::SimpleProperty procProp("DCE:fefb9c66-d14a-438d-ad59-2cfd1adb272b",
                                    "processor_name",
                                    "string",
@@ -1123,7 +1151,8 @@ int main(int argc, char* argv[])
                                    "eq",
                                    kinds,
                                    std::string(un.machine),
-                                   "false");
+                                   "false",
+				   "false");
     std::vector<const ossie::Property*> systemProps;
     systemProps.push_back(&osProp);
     systemProps.push_back(&procProp);
@@ -1139,6 +1168,7 @@ int main(int argc, char* argv[])
                                debugLevel,
                                noPersist,
                                logfile_uri,
+                               use_loglib,
                                db_uri,
                                endPoint,
                                forceRebind,
@@ -1156,6 +1186,7 @@ int main(int argc, char* argv[])
                                sdrRootPath,
                                debugLevel,
                                logfile_uri,
+                               use_loglib,
                                orb_init_ref,
                                execparams,
                                systemProps,

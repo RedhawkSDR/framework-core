@@ -84,7 +84,6 @@ def _parsePropertiesStream( cfg ):
   NOTE: CURRENTLY THIS DOES NOT SUPPORT ESCAPE CHARACTERS
   NOR LINE CONTINUATIONS.
   """
-  
   result = {}
   for line in cfg.split('\n'):
     line = line.lstrip()
@@ -93,7 +92,6 @@ def _parsePropertiesStream( cfg ):
     # non-white space character; comment lines are also ignored
     if len(line) == 0 or line[0] in ('#', '!'):
       continue
-
     key = None
     value = None
     for i, char in enumerate(line):
@@ -115,6 +113,8 @@ def _parsePropertiesStream( cfg ):
 def _import_handler(name):
   if name.startswith("org.apache.log4j."):
     name = name[len("org.apache.log4j."):]
+  if name.startswith("org.ossie.logging."):
+    name = name[len("org.ossie.logging."):]
   return eval(name)
 
 def _import_layout(name):
@@ -177,6 +177,7 @@ def _config(props, category=None):
           klass = _import_handler(appenderClass)
           handler = klass()
           setattr(handler, "threshold", _LEVEL_TRANS[categoryCfg[0].strip()])
+          logging.getLogger(str(pyname)).setLevel( _LEVEL_TRANS[categoryCfg[0].strip()] ) 
           # Deal with appender options
           appenderOptions = filter(lambda x: x.startswith(appenderKey+"."), props.keys())
           for appenderOption in appenderOptions:
@@ -204,15 +205,15 @@ def _config(props, category=None):
           if layout:
             handler.setFormatter(layout)
 
-    # check additive tags to avoid additive logging to the root loggers
-    additivities = filter(lambda x: x.startswith("log4j.additivity."), props.keys())
-  
-    for additive in additivities:
-      pyname = additive[len("log4j.additivity."):]  
-      if (pyname == category):
-        if ( (str(props[additive]).strip().upper()) == "FALSE" ):
-          return
-  
+  # check additive tags to avoid additive logging to the root loggers
+  additivities = filter(lambda x: x.startswith("log4j.additivity."), props.keys())
+  for additive in additivities:
+    pyname = additive[len("log4j.additivity."):]  
+    if ( (str(props[additive]).strip().upper()) == "FALSE" ):
+      logging.getLogger(str(pyname)).propagate = False
+    if ( (str(props[additive]).strip().upper()) == "TRUE" ):
+      logging.getLogger(str(pyname)).propagate = True
+
   # Now deal with root logging appenders
   for logger, appenders in loggers.items():
     for appender in appenders:
@@ -226,7 +227,9 @@ def _config(props, category=None):
       for appenderOption in appenderOptions:
         opt = appenderOption[len(appenderKey+"."):]
         value = props[appenderOption].strip()
-        if opt.lower().endswith("layout"):
+        if "RH_LogEventAppender" in handler.__class__.__name__:
+          handler.setOption(opt,value)
+        if opt.endswith("layout"):
           layoutClass = value
           klass = _import_layout(layoutClass)
           layout = klass()

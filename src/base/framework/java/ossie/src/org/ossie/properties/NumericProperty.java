@@ -30,6 +30,11 @@ abstract class NumericProperty<T extends Number> extends AbstractSimpleProperty<
         super(id, name, type, value, mode, action, kinds);
     }
 
+    public NumericProperty(String id, String name, String type, T value, Mode mode,
+                           Action action, Kind[] kinds, boolean optional) {
+        super(id, name, type, value, mode, action, kinds, optional);
+    }
+
     public void setValue(Number value) {
         this.value = fromNumber(value);
     }

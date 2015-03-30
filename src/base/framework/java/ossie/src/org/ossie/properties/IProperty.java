@@ -25,7 +25,7 @@ import org.omg.CORBA.Any;
 import CF.DevicePackage.InvalidCapacity;
 import CF.DevicePackage.InvalidState;
 
-public interface IProperty {
+public interface IProperty  {
     
     /**
      * Update the value of this property from an Any.
@@ -132,4 +132,20 @@ public interface IProperty {
      * @return whether or not the property is eventable
      */
     public boolean isEventable();
+
+    /**
+     * Registers a listener for changes to this property's value.
+     */
+    public void addObjectListener( PropertyListener< Object > listener);
+    
+    /**
+     * Unregisters a listener for changes to this property's value.
+     */
+    public void removeObjectListener( PropertyListener< Object > listener);
+
+    /** This returns whether or not the property is set with a value
+     * 
+     * @return whether or not the property is set
+     */
+    public boolean isSet();
 }

@@ -25,11 +25,12 @@ domainmgr_PROGRAMS = DomainManager
 DomainManager_SOURCES = applicationSupport.cpp \
                         connectionSupport.cpp \
                         AllocationManager_impl.cpp \
+                        EventChannelManager.cpp \
                         Application_impl.cpp \
                         ApplicationRegistrar.cpp \
                         ApplicationFactory_impl.cpp \
+                        DomainManager_EventSupport.cpp \
                         ConnectionManager.cpp \
-                        DomainManager_Channels.cpp \
                         DomainManager_impl.cpp \
                         FakeApplication.cpp \
                         main.cpp

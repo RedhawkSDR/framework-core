@@ -245,6 +245,16 @@ def to_tc_value(data, type_):
     elif __TYPE_MAP.has_key(type_):
         # If the typecode is known, use that
         pytype, tc = __TYPE_MAP[type_]
+
+        # If the value is already an Any, check its type; if it's already the
+        # right type, nothing needs to happen, otherwise extract the value and
+        # convert
+        if isinstance(data, CORBA.Any):
+            if data.typecode().equal(tc):
+                return data
+            else:
+                data = data.value()
+
         # Convert to the correct Python type, if necessary
         if not isinstance(data, pytype):
             data = to_pyvalue(data, type_)
@@ -263,6 +273,7 @@ def struct_fields(value):
     fields = getattr(clazz, '__fields', None)
     if fields is None:
         fields = [p for p in clazz.__dict__.itervalues() if isinstance(p, simple_property)]
+        fields += [p for p in clazz.__dict__.itervalues() if isinstance(p, simpleseq_property)]
     return fields
 
 def struct_values(value):
@@ -298,11 +309,14 @@ def struct_from_props(value, structdef):
 
     # For each field, try to set the value
     for name, attr in structdef.__dict__.items():
-        if type(attr) is not simple_property:
+        if type(attr) is not simple_property and type(attr) is not simpleseq_property:
             continue
+        if attr.optional == True:
+            if attr.id_ not in newvalues:
+                newvalues[attr.id_] = None
         try:
             value = newvalues[attr.id_]
-        except KeyError:
+        except: 
             raise ValueError, "provided value is missing element " + attr.id_
         else:
             attr.set(structval, value)
@@ -569,7 +583,6 @@ class _property(object):
         # By default operators are not supported
         if operator != None:
             raise AttributeError, "this property doesn't support configure/query operators"
-
         value = self._query(obj)
 
         # Only try to do conversion to CORBA Any if the value is not already
@@ -1018,7 +1031,8 @@ class simple_property(_property):
                  fget=None, 
                  fset=None, 
                  fval=None,
-                 complex=False):
+                 complex=False,
+		 optional=False):
         _property.__init__(self, 
                            id_, 
                            type_, 
@@ -1033,6 +1047,7 @@ class simple_property(_property):
                            fval, 
                            complex)
         self.defvalue = defvalue
+        self.optional = optional
 
     def rebind(self, fget=None, fset=None, fval=None):
         return simple_property(self.id_, 
@@ -1104,7 +1119,8 @@ class simpleseq_property(_sequence_property):
                  fget        = None, 
                  fset        = None, 
                  fval        = None, 
-                 complex     = False):
+                 complex     = False,
+                 optional    = False):
         _sequence_property.__init__(self, 
                                     id_, 
                                     type_, 
@@ -1119,6 +1135,7 @@ class simpleseq_property(_sequence_property):
                                     fval, 
                                     complex)
         self.defvalue = defvalue
+        self.optional = optional
         
     def rebind(self, fget=None, fset=None, fval=None):
         return simpleseq_property(self.id_,  
@@ -1224,6 +1241,8 @@ class struct_property(_property):
         for name, attr in self.structdef.__dict__.items():
             if type(attr) is simple_property:
                 self.fields[attr.id_] = (name, attr)
+            elif type(attr) is simpleseq_property:
+                self.fields[attr.id_] = (name, attr)
     
     def rebind(self, fget=None, fset=None, fval=None):
         return struct_property(self.id_, 
@@ -1253,8 +1272,15 @@ class struct_property(_property):
                                                 description=attr.__doc__,
                                                 value=to_xmlvalue(attr.defvalue, attr.type_),
                                                 units=attr.units)
-                struct.add_simple(simp)
-
+                struct.add_prop(simp)
+            elif type(attr) is simpleseq_property:
+                simpseq = ossie.parsers.prf.simpleSequence(id_=attr.id_,
+                                                           type_=attr.type_,
+                                                           name=attr.name,
+                                                           description=attr.__doc__,
+                                                           values=[to_xmlvalue(v, attr.type_) for v in attr.defvalue],
+                                                           units=attr.units)
+                struct.add_prop(simpseq)
 
         xml = StringIO.StringIO()
         struct.export(xml, level)
@@ -1262,12 +1288,12 @@ class struct_property(_property):
 
     def compareValues(self, oldValue, newValue):
         if newValue != None:
-            new_member_values = set([x[1] for x in struct_values(newValue)])
+            new_member_values = [x[1] for x in struct_values(newValue)]
         else:
             new_member_values = None
             
         if oldValue != None:
-            old_member_values = set([x[1] for x in struct_values(oldValue)])
+            old_member_values = [x[1] for x in struct_values(oldValue)]
         else:
             old_member_values = None
 
@@ -1276,9 +1302,11 @@ class struct_property(_property):
     def initialize(self, obj):
         # Create an initial object
         structval = self.structdef()
-        # Initialize all of the simples in the struct
+        # Initialize all of the properties in the struct
         for name, attr in self.structdef.__dict__.items():
             if type(attr) is simple_property: 
+                attr.initialize(structval)
+            elif type(attr) is simpleseq_property:
                 attr.initialize(structval)
         # Set the default value
         self.set(obj, structval)
@@ -1315,6 +1343,8 @@ class structseq_property(_sequence_property):
         self.fields = {} # Map field id's to attribute names
         for name, attr in self.structdef.__dict__.items():
             if type(attr) is simple_property:
+                self.fields[attr.id_] = (name, attr)
+            elif type(attr) is simpleseq_property:
                 self.fields[attr.id_] = (name, attr)                
         self.defvalue = defvalue
 
@@ -1350,7 +1380,14 @@ class structseq_property(_sequence_property):
                                                 name=attr.name, 
                                                 description=attr.__doc__,
                                                 units=attr.units)
-                struct.add_simple(simp)
+                struct.add_prop(simp)
+            elif type(attr) is simpleseq_property: 
+                simpseq = ossie.parsers.prf.simpleSequence(id_=attr.id_, 
+                                                           type_=attr.type_,
+                                                           name=attr.name, 
+                                                           description=attr.__doc__,
+                                                           units=attr.units)
+                struct.add_prop(simpseq)
         structseq.set_struct(struct)
 
         if self.defvalue:
@@ -1361,6 +1398,10 @@ class structseq_property(_sequence_property):
                         id_=attr.id_
                         value = to_xmlvalue(attr.get(v), attr.type_)
                         structval.add_simpleref(ossie.parsers.prf.simpleRef(id_, value))
+                    elif type(attr) is simpleseq_property:
+                        id_=attr.id_
+                        values = [to_xmlvalue(val, attr.type_) for val in attr.defvalue]
+                        structval.add_simpleseqref(ossie.parsers.prf.simpleSequenceRef(id_, values))
                 structseq.add_structvalue(structval)
 
         xml = StringIO.StringIO()
@@ -1392,14 +1433,14 @@ class structseq_property(_sequence_property):
         if newValue != None:
             new_member_values = []
             for strct in newValue:
-                new_member_values.append(set([x[1] for x in struct_values(strct)]))
+                new_member_values.append([x[1] for x in struct_values(strct)])
         else:
             new_member_values = None
         
         if oldValue != None:
             old_member_values = []
             for strct in oldValue:
-                old_member_values.append(set([x[1] for x in struct_values(strct)]))
+                old_member_values.append([x[1] for x in struct_values(strct)])
         else:
             old_member_values = None
 
@@ -1688,7 +1729,7 @@ class PropertyStorage:
         if value == None:
             return None
         if typename == "boolean":
-            return {"TRUE": True, "FALSE": False}[value.strip().upper()]
+            return {"TRUE": True, "FALSE": False, "1": True, "0": False}[value.strip().upper()]
         elif typename in ("short", "long", "ulong", "ushort"):
             return int(value)
         elif typename == "double":

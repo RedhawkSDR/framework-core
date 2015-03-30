@@ -27,6 +27,7 @@
 #include <boost/shared_ptr.hpp>
 #include <ossie/CF/LogInterfaces.h>
 #include <ossie/logging/rh_logger.h>
+#include <ossie/logging/LogConfigUriResolver.h>
 
 /**
 The logging namespace contain common routines for configuration
@@ -37,6 +38,25 @@ namespace ossie
 {
 
   namespace logging {
+
+    std::string GetDeviceMgrPath( const std::string &dm,
+                                  const std::string &node );
+
+    std::string GetComponentPath( const std::string &dm,
+				  const std::string &wf,
+				  const std::string &cid );
+
+    std::string GetDevicePath( const std::string &dm,
+				  const std::string &node,
+			       const std::string &dev_id);
+
+    std::string GetServicePath( const std::string &dm,
+				  const std::string &node,
+				const std::string &sname);
+
+    // Returns object to assist with resolving LOGGING_CONFIG_URI value for all Domain resources
+    LogConfigUriResolverPtr   GetLogConfigUriResolver();
+    
 
     /** 
       Default Logging Macro Table tokens available for substitution in a log4j properties or xml configuration file

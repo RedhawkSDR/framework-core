@@ -37,7 +37,8 @@
 #include <ossie/ossieSupport.h>
 #include <ossie/debug.h>
 #include <ossie/logging/loghelpers.h>
-
+#include <boost/asio.hpp>
+using boost::asio::ip::tcp;
 #ifdef   HAVE_LOG4CXX
 #include <log4cxx/logger.h>
 #include <log4cxx/level.h>
@@ -50,6 +51,7 @@
 #include <log4cxx/helpers/bytearrayinputstream.h>
 #include <log4cxx/stream.h>
 #include <fstream>
+#include <dlfcn.h>
 #include "StringInputStream.h"
 #else
 #include "rh_logger_cfg.h"                       // this class spoofs the log4cxx configuration calls, when log4cxx is disabled
@@ -62,9 +64,130 @@
 #define STDOUT_DEBUG(x)    
 #endif
 
+
+
+
+
 namespace ossie {
 
   namespace logging {
+
+    static const std::string DomPrefix("dom");
+    static const std::string DevMgrPrefix("devmgr");
+    static const std::string DevicePrefix("dev");
+    static const std::string ServicePrefix("svc");
+    static const std::string ComponentPrefix("rsc");
+
+    class _EmptyLogConfigUri : public LogConfigUriResolver {
+
+    public:
+
+      _EmptyLogConfigUri() {};
+
+      virtual ~_EmptyLogConfigUri(){};
+
+      std::string get_uri( const std::string &path ) { return std::string(""); };
+
+    };
+
+    struct  LogConfigFactoryHolder {
+      void               *library;
+      LogConfigFactory   factory;
+      LogConfigFactoryHolder(): library(NULL), factory(NULL){};
+      ~LogConfigFactoryHolder() {
+      };
+      void close() {
+        if (library) dlclose(library);
+        library=NULL;
+      }
+    };
+
+    static LogConfigUriResolverPtr  _logcfg_resolver;
+    static LogConfigFactoryHolder   _logcfg;
+
+    void _LoadLogConfigUriLibrary() {
+
+      // multiple dlopens return the same instance so we need to close each time
+      if ( _logcfg.library ) _logcfg.close();
+      
+      try{
+        void* log_library = dlopen("libossielogcfg.so", RTLD_LAZY);
+        if (!log_library) {
+          RH_NL_DEBUG("ossie.logging", "Cannot load library (libossielogcfg.so) : " << dlerror() );
+          throw 1;
+        }
+        _logcfg.library=log_library;
+        // reset errors
+        dlerror();
+    
+        // load the symbols
+        ossie::logging::LogConfigFactory logcfg_factory = (ossie::logging::LogConfigFactory) dlsym(log_library, "logcfg_factory");
+        const char* dlsym_error = dlerror();
+        if (dlsym_error) {
+          RH_NL_ERROR( "ossie.logging", "Cannot file logcfg_factory symbol in libossielogcfg.so library: " << dlsym_error);
+          throw 2;
+        }
+        _logcfg.factory=logcfg_factory;
+
+        std::cout << "ossie.logging: Found libossielogcfg.so for LOGGING_CONFIG_URI resolution." << std::endl;
+      }
+      catch( std::exception &e){
+      }
+      catch( int e){
+      }
+
+    }
+
+
+    LogConfigUriResolverPtr GetLogConfigUriResolver() {
+      
+      if ( !_logcfg_resolver ) {
+        _LoadLogConfigUriLibrary();
+      }
+        
+
+      if ( !_logcfg_resolver ) {
+        // if the library is missing use empty resolver for backwards compatability
+	if ( !_logcfg.factory ) return LogConfigUriResolverPtr( new _EmptyLogConfigUri() );
+	_logcfg_resolver = _logcfg.factory();
+      }
+	
+     return _logcfg_resolver;
+    }
+
+
+    std::string GetComponentPath( const std::string &dm,
+				  const std::string &wf,
+				  const std::string &cid ) {
+      std::ostringstream os;
+      os << ComponentPrefix << ":" << dm << "/" << wf << "/" << cid;
+      return os.str();
+    }
+
+    std::string GetDeviceMgrPath( const std::string &dm,
+				  const std::string &node  ) {
+      std::ostringstream os;
+      os << DevMgrPrefix << ":" << dm << "/" << node ;
+      return os.str();
+    }
+
+    std::string GetDevicePath( const std::string &dm,
+				  const std::string &node,
+				  const std::string &dev_id) {
+      std::ostringstream os;
+      os << DevicePrefix << ":" << dm << "/" << node << "/" << dev_id;
+      return os.str();
+    }
+
+    std::string GetServicePath( const std::string &dm,
+				  const std::string &node,
+				  const std::string &sname) {
+      std::ostringstream os;
+      os << ServicePrefix << ":" << dm << "/" << node << "/" << sname;
+      return os.str();
+    }
+
+    
 
 
     MacroTable GetDefaultMacros() {
@@ -612,6 +735,90 @@ namespace ossie {
       return fileContents;
     }
 
+    std::string GetHTTPFileContents(const std::string &url) throw ( std::exception )
+    {
+      std::string fileContents;
+      std::ostringstream ss;
+      //get host name from url
+      std::string host;
+      std::string address;
+      unsigned int pos = 0;
+      std::string delimiter = "http://";
+      pos = url.find(delimiter);      
+      if ( pos != 0 ) 
+        throw std::runtime_error("invalid uri");
+
+      host = url.substr(pos+delimiter.length(),url.length());
+      delimiter = "/";
+      pos = host.find(delimiter);
+      address = host.substr(pos+delimiter.length(), host.length());
+      host = host.substr(0,pos);
+      
+      try {
+        boost::asio::io_service io_service;
+
+        // Get a list of endpoints corresponding to the server name.
+        tcp::resolver resolver(io_service);
+        tcp::resolver::query query(host, "http");
+        tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+        tcp::resolver::iterator end;
+
+        // Try each endpoint until we successfully establish a connection.
+        tcp::socket socket(io_service);
+        boost::system::error_code error = boost::asio::error::host_not_found;
+        while (error && endpoint_iterator != end)
+        {
+          socket.close();
+          socket.connect(*endpoint_iterator++, error);
+        }
+        if (error)
+          throw boost::system::system_error(error);
+
+        // Form the request. We specify the "Connection: close" header so that the
+        // server will close the socket after transmitting the response. This will
+        // allow us to treat all data up until the EOF as the content.
+        boost::asio::streambuf request;
+        std::ostream request_stream(&request);
+        request_stream << "GET " << address << " HTTP/1.0\r\n";
+        request_stream << "Host: " << host << "\r\n";
+        request_stream << "Accept: */*\r\n";
+        request_stream << "Connection: close\r\n\r\n";
+
+        // Send the request.
+        boost::asio::write(socket, request);
+
+        // Read the response status line.
+        boost::asio::streambuf response;
+        boost::asio::read_until(socket, response, "\r\n");
+
+        // Check that response is OK.
+        std::istream response_stream(&response);
+        std::string http_version;
+        response_stream >> http_version;
+        unsigned int status_code;
+        response_stream >> status_code;
+        std::string status_message;
+        std::getline(response_stream, status_message);
+        if (!response_stream || http_version.substr(0, 5) != "HTTP/") {
+          return "Invalid response\n";
+        }
+        if (status_code != 200) {
+          return "Response returned with status code \n";
+        }
+
+        while (boost::asio::read(socket, response,
+            boost::asio::transfer_at_least(1), error)) 
+          ss << &response;
+          fileContents = ss.str();
+        if (error != boost::asio::error::eof)
+          throw boost::system::system_error(error);
+        
+      }
+      catch (std::exception& e) {
+        std::cout << "Exception: " << e.what() << "\n";
+      }
+      return fileContents;
+    }
 
     std::string GetConfigFileContents( const std::string &url ) throw (std::exception)
     {
@@ -641,9 +848,8 @@ namespace ossie {
       }
 
       if ( url.find( "http:")  == 0 ) { 
-        // RESOLVE .. need to grab contents of remote file via http
-        //fileContents = getLogConfig( uri+5 );
-        //validFile=true;
+        STDOUT_DEBUG("GetLogConfigfile: Processing HTTP File ..." << url );
+        fileContents = GetHTTPFileContents( url );
       }
 
       if ( url.find( "log:") == 0 ) { 
@@ -810,7 +1016,7 @@ namespace ossie {
     }
 
     void Terminate() {
-       log4cxx::LogManager::shutdown();
+      log4cxx::LogManager::shutdown();
    }
 
 

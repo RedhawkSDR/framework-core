@@ -94,6 +94,51 @@ namespace ossie {
             }
         };
 
+
+        //
+        // Orb
+        //
+        // Context for access to ORB and common CORBA services
+        //
+        struct OrbContext {
+
+          // orb instantiation
+          CORBA::ORB_ptr                          orb;
+
+          // root POA for to handle activation requests
+          PortableServer::POA_ptr                 rootPOA;
+
+          // handle to naming service
+          CosNaming::NamingContext_ptr            namingService;
+
+          // handle to naming service
+          CosNaming::NamingContextExt_ptr         namingServiceCtx;
+
+          virtual ~OrbContext() {};
+
+          OrbContext() {
+            init();
+          }
+
+          void init(){
+            orb = ossie::corba::Orb();
+            rootPOA = ossie::corba::RootPOA();
+            namingService = ossie::corba::InitialNamingContext();
+            namingServiceCtx = CosNaming::NamingContextExt::_nil();
+            try {
+              CORBA::Object_var obj;
+              obj=orb->resolve_initial_references("NameService");
+              namingServiceCtx = CosNaming::NamingContextExt::_narrow(obj);
+            }
+            catch(...){
+            };
+          };
+
+        };
+
+        typedef OrbContext*     OrbCtxPtr;
+
+
 	// naming service actions
 	enum  NS_ACTION { NS_NOBIND=0, NS_BIND=1, NS_REBIND=2, NS_UNBIND=3 };
 

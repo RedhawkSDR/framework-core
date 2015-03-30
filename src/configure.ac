@@ -19,7 +19,7 @@
 #
 
 dnl Update this version number immedately after a release
-AC_INIT([ossie],[1.11.0])
+AC_INIT([ossie],[2.0.0])
 #AM_INIT_AUTOMAKE(nostdinc)
 # allows filenames over 99 characters long during dist
 AM_INIT_AUTOMAKE([1.9 tar-pax subdir-objects])
@@ -289,6 +289,8 @@ AC_CONFIG_FILES(Makefile \
                 base/include/ossie/Makefile \
                 base/include/Makefile \
                 base/parser/Makefile \
+                base/plugin/Makefile \
+                base/plugin/logcfg/Makefile \
                 idl/Makefile \
                 xml/Makefile \
                 tools/LogEventAppender/Makefile \
@@ -337,7 +339,14 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dom/components/TestAllPropTypes/java/Makefile \
                 testing/sdr/dom/components/TestLoggingAPI/cpp/Makefile \
                 testing/sdr/dom/components/cpp_comp/cpp/Makefile \
-                testing/sdr/dom/components/TestLoggingAPI/java/Makefile )
-
+                testing/sdr/dom/components/TestLoggingAPI/java/Makefile \
+                testing/sdr/dom/components/ECM_CPP/cpp/Makefile \
+                testing/sdr/dom/components/ECM_JAVA/java/Makefile \
+                testing/sdr/dom/components/PropertyChange_C1/cpp/Makefile \
+                testing/sdr/dom/components/PropertyChange_J1/java/Makefile \
+                testing/sdr/dom/components/foo/bar/comp/cpp/Makefile \
+                testing/sdr/dom/components/foo/bar/jv/java/Makefile \
+                testing/sdr/dom/components/TestCppOptionalProps/cpp/Makefile \
+                testing/sdr/dom/components/TestJavaOptionalProps/java/Makefile )
 AC_OUTPUT
 

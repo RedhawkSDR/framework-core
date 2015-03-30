@@ -44,7 +44,7 @@ namespace urn:mil:jpeojtrs:sca:sad {
     simplesequenceref "ossie::SimpleSequencePropertyRef*";
     structref "ossie::StructPropertyRef*";
     structsequenceref "ossie::StructSequencePropertyRef*";
-    structvalue "::std::map<std::string, std::string>";
+    structvalue "::std::map<std::string, ossie::ComponentProperty*>";
     componentfileref "::std::string";
     assemblycontroller "::std::string";
     componentinstantiationref "::std::string";

@@ -228,7 +228,10 @@ configuring the component.</xs:documentation>
 	<xs:element name="simplesequenceref" type="simplesequenceref"/>
 	<xs:complexType name="structref" ecore:name="StructRef">
 		<xs:sequence>
-			<xs:element ref="simpleref" maxOccurs="unbounded" ecore:name="simpleRef"/>
+			<xs:choice maxOccurs="unbounded">
+				<xs:element ref="simpleref" ecore:name="simpleRef"/>
+				<xs:element ref="simplesequenceref" ecore:name="simpleSequenceRef"/>
+			</xs:choice>
 		</xs:sequence>
 		<xs:attribute name="refid" use="required" type="xs:string" ecore:name="refID"/>
 	</xs:complexType>
@@ -242,7 +245,10 @@ configuring the component.</xs:documentation>
 	<xs:element name="structsequenceref" type="structsequenceref"/>
 	<xs:complexType name="structvalue" ecore:name="StructValue">
 		<xs:sequence>
-			<xs:element ref="simpleref" maxOccurs="unbounded" ecore:name="simpleRef"/>
+			<xs:choice maxOccurs="unbounded">
+				<xs:element ref="simpleref" ecore:name="simpleRef"/>
+				<xs:element ref="simplesequenceref" ecore:name="simpleSequenceRef"/>
+			</xs:choice>
 		</xs:sequence>
 	</xs:complexType>
 	<xs:element name="structvalue" type="structvalue"/>

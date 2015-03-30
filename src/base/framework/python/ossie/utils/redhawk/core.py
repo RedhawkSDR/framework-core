@@ -1008,13 +1008,13 @@ class Domain(_CF__POA.DomainManager, object):
         self._updateListAvailableSads()
 
     def __newDeviceManager(self, deviceManager):
-        label = deviceManager._get_label()
-        dcdPath = deviceManager._get_deviceConfigurationProfile()
-        devMgrFileSys = deviceManager._get_fileSys()
         try:
+            label = deviceManager._get_label()
+            dcdPath = deviceManager._get_deviceConfigurationProfile()
+            devMgrFileSys = deviceManager._get_fileSys()
             dcdFile = devMgrFileSys.open(dcdPath, True)
         except:
-            raise RuntimeError, "Unable to open $SDRROOT/dev"+dcdPath+". Unable to create proxy for Device Manager '"+label+"'"
+            raise RuntimeError, "Unable to open $SDRROOT/dev"+dcdPath+". Unable to create proxy for Device Manager"
         dcdContents = dcdFile.read(dcdFile.sizeOf())
         dcdFile.close()
 

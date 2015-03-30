@@ -32,6 +32,17 @@ namespace {
         }
         return end;
     }
+    template <typename Iterator>
+    int find_offset(Iterator start, const Iterator end, const Iterator target) {
+        unsigned int idx = 0;
+        for (; start != end; ++start) {
+            if (start == target) {
+                return idx;
+            }
+            idx++;
+        }
+        return -1;
+    }
 }
 
 PropertyMap::PropertyMap() :
@@ -129,4 +140,26 @@ PropertyMap::iterator PropertyMap::find(const std::string& id)
 PropertyMap::const_iterator PropertyMap::find(const std::string& id) const
 {
     return find_impl(begin(), end(), id);
+}
+
+void PropertyMap::erase(const std::string& id)
+{
+    erase(find(id));
+}
+
+void PropertyMap::erase(iterator pos)
+{
+    if (pos == end()) {
+        return;
+    }
+    erase(pos, pos + 1);
+}
+
+void PropertyMap::erase(iterator first, iterator last)
+{
+    // Move items after range backwards to fill the gap
+    std::copy(last, end(), first);
+
+    // Resize to remove deleted items
+    length(length()-(last-first));
 }

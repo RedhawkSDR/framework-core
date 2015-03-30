@@ -225,6 +225,8 @@ namespace ossie
         void setIsAssemblyController(bool isAssemblyController);
         void setIsScaCompliant(bool isScaCompliant);
         void setNicAssignment(std::string nic);
+        void addResolvedSoftPkgDependency(const std::string &dep);
+        std::vector<std::string> getResolvedSoftPkgDependencies();
 
         void addFactoryParameter(CF::DataType dt);
         void addExecParameter(CF::DataType dt);
@@ -284,6 +286,8 @@ namespace ossie
         CF::Properties options;
         CF::Properties factoryParameters;
         CF::Properties execParameters;
+        
+        std::vector<std::string> resolved_softpkg_dependencies;
 
         CF::Resource_var rsc;
 

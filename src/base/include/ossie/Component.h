@@ -21,6 +21,8 @@
 #ifndef COMPONENT_H
 #define	COMPONENT_H
 #include "Resource_impl.h"
+#include "ossie/debug.h"
+#include "ossie/Events.h"
 
 class Component : public Resource_impl {
 public:

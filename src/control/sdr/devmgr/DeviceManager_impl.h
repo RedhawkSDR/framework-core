@@ -27,7 +27,7 @@
 
 #include <boost/thread/recursive_mutex.hpp>
 
-#include <COS/CosEventChannelAdmin.hh>
+//#include <COS/CosEventChannelAdmin.hh>
 
 #include <ossie/ComponentDescriptor.h>
 #include <ossie/ossieSupport.h>
@@ -37,6 +37,7 @@
 #include <ossie/FileManager_impl.h>
 #include <ossie/Properties.h>
 #include <ossie/SoftPkg.h>
+#include <ossie/Events.h>
 
 #include <dirent.h>
 
@@ -48,13 +49,9 @@ class DeviceManager_impl:
     ENABLE_LOGGING
 
 public:
-    DeviceManager_impl (const char*, const char*, const char*, const char*, struct utsname uname, bool *);
+  DeviceManager_impl (const char*, const char*, const char*, const char*, struct utsname uname, bool, bool *);
 
-    // Run this after the constructor and the caller has created the object reference
-    void post_constructor(CF::DeviceManager_var, const char*) throw (CORBA::SystemException, std::runtime_error);
-
-    ~
-    DeviceManager_impl ();
+    ~DeviceManager_impl ();
     char* deviceConfigurationProfile ()
         throw (CORBA::SystemException);
 
@@ -75,6 +72,9 @@ public:
 
     CF::DeviceManager::ServiceSequence * registeredServices ()
         throw (CORBA::SystemException);
+
+    // Run this after the constructor
+    void postConstructor( const char*) throw (CORBA::SystemException, std::runtime_error);
 
     void registerDevice (CF::Device_ptr registeringDevice)
         throw (CF::InvalidObjectReference, CORBA::SystemException);
@@ -98,9 +98,13 @@ public:
     char* _local_getComponentImplementationId (const char* componentInstantiationId)
         throw (CORBA::SystemException);
 
+    bool getUseLogConfigResolver() { return _useLogConfigUriResolver; };
+
     void childExited (pid_t pid, int status);
 
     bool allChildrenExited ();
+
+    bool isShutdown() { return  _adminState == DEVMGR_SHUTDOWN; };
 
 private:
     DeviceManager_impl ();   // No default constructor
@@ -341,7 +345,7 @@ private:
     std::string deviceMgrIOR;
     std::string fileSysIOR;
     bool *_internalShutdown;
-
+    bool _useLogConfigUriResolver;   
     bool skip_fork;
 
     // this mutex is used for synchronizing _registeredDevices, labelTable, and identifierTable
@@ -349,8 +353,9 @@ private:
 
     std::map<std::string, std::string> _componentImplMap;
 
-    CosEventChannelAdmin::EventChannel_var IDM_channel;
-    std::string IDM_IOR;
+    /// Registration record for Domain's IDM_Channel 
+    ossie::events::EventChannelReg_var   idm_registration;
+    std::string                          IDM_IOR;
 
 };
 

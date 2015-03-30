@@ -34,14 +34,19 @@
 #include <ossie/CF/cf.h>
 #include <ossie/PropertySet_impl.h>
 #include <ossie/Runnable.h>
+#include <ossie/Events.h>
 
 #include "PersistenceStore.h"
 #include "connectionSupport.h"
+#include "DomainManager_EventSupport.h"
+#include "EventChannelManager.h"
+
 
 class Application_impl;
 class ApplicationFactory_impl;
 class AllocationManager_impl;
 class ConnectionManager_impl;
+
 
 class DomainManager_impl: public virtual POA_CF::DomainManager, public PropertySet_impl, public ossie::ComponentLookup, public ossie::DomainLookup, public ossie::Runnable
 {
@@ -51,7 +56,7 @@ class DomainManager_impl: public virtual POA_CF::DomainManager, public PropertyS
 // Constructors/Destructors
 ///////////////////////////
 public:
-    DomainManager_impl (const char*, const char*, const char*, const char*);
+  DomainManager_impl (const char*, const char*, const char*, const char*, bool);
     ~DomainManager_impl ();
 
     friend class ODM_Channel_Supplier_i;
@@ -78,6 +83,8 @@ public:
     CF::FileManager_ptr fileMgr (void) throw (CORBA::SystemException);
     
     CF::AllocationManager_ptr allocationMgr (void) throw (CORBA::SystemException);
+
+    CF::EventChannelManager_ptr eventChannelMgr (void) throw (CORBA::SystemException);
 
     CF::ConnectionManager_ptr connectionMgr (void) throw (CORBA::SystemException);
     
@@ -122,18 +129,18 @@ public:
            
     void registerWithEventChannel (CORBA::Object_ptr registeringObject, const char* registeringId, const char* eventChannelName)
         throw (CF::DomainManager::AlreadyConnected, CF::DomainManager::InvalidEventChannelName, CF::InvalidObjectReference, CORBA::SystemException);
-    void _local_registerWithEventChannel (CORBA::Object_ptr registeringObject, const char* registeringId, const char* eventChannelName);
+    void _local_registerWithEventChannel (CORBA::Object_ptr registeringObject, std::string &registeringId, std::string &eventChannelName);
            
     void unregisterFromEventChannel (const char* unregisteringId, const char* eventChannelName)
         throw (CF::DomainManager::NotConnected, CF::DomainManager::InvalidEventChannelName, CORBA::SystemException);
-    void _local_unregisterFromEventChannel (const char* unregisteringId, const char* eventChannelName);
+    void _local_unregisterFromEventChannel (std::string &unregisteringId, std::string &eventChannelName);
 
     void registerRemoteDomainManager (CF::DomainManager_ptr registeringRemoteDomainManager)
         throw (CF::DomainManager::RegisterError, CF::InvalidObjectReference, CORBA::SystemException);
 
     void unregisterRemoteDomainManager (CF::DomainManager_ptr unregisteringRemoteDomainManager)
         throw (CF::DomainManager::UnregisterError, CF::InvalidObjectReference, CORBA::SystemException);
-    
+
 ////////////////////////////////////////////////////////
 // Public Helper Functions and Members
 // Mostly used by ApplicationFactory and Application
@@ -163,7 +170,7 @@ public:
     }
     
     int getComponentBindingTimeout (void) const {
-        return componentBindingTimeout;
+      return componentBindingTimeout;
     }
 
     ossie::DeviceList getRegisteredDevices(); // Get a copy of registered devices
@@ -173,6 +180,9 @@ public:
     // DomainLookup methods
     CORBA::Object_ptr lookupDomainObject (const std::string& type, const std::string& name);
     CF::DeviceManager_ptr lookupDeviceManagerByInstantiationId(const std::string& identifier);
+
+
+    ossie::events::EventChannel_ptr lookupEventChannel(const std::string &EventChannelName);
     unsigned int incrementEventChannelConnections(const std::string &EventChannelName);
     unsigned int decrementEventChannelConnections(const std::string &EventChannelName);
 
@@ -181,18 +191,37 @@ public:
 
     CosEventChannelAdmin::EventChannel_ptr getEventChannel(const std::string &name);
     bool eventChannelExists(const std::string &name);
-    CosEventChannelAdmin::EventChannel_ptr createEventChannel (const std::string& name);
+    ::ossie::events::EventChannel_ptr createEventChannel (const std::string& name);
+
     void destroyEventChannel (const std::string& name);
 
-    CosEventChannelAdmin::ProxyPushConsumer_var proxy_consumer;
+    void sendAddEvent( const std::string &prod_id, 
+                       const std::string &source_id, 
+                       const std::string &source_name,
+                       CORBA::Object_ptr obj,
+                       StandardEvent::SourceCategoryType sourceCategory);
+
+    void sendRemoveEvent( const std::string &prod_id, 
+                       const std::string &source_id, 
+                       const std::string &source_name,
+                       StandardEvent::SourceCategoryType sourceCategory);
+    
+    void sendResourceStateChange( const std::string &source_id,
+                       const std::string &source_name,
+                       const ExtendedEvent::ResourceStateChangeType stateChangeFrom, 
+                       const ExtendedEvent::ResourceStateChangeType stateChangeTo);
+
     std::map<std::string, ossie::consumerContainer> registeredConsumers;
 
     CF::FileManager_var _fileMgr;
 
     AllocationManager_impl* _allocationMgr;
 
+
     std::string getLastDeviceUsedForDeployment();
     void setLastDeviceUsedForDeployment(const std::string& identifier);
+
+    bool getUseLogConfigResolver() { return _useLogConfigUriResolver; };
 
 /////////////////////////////
 // Internal Helper Functions
@@ -213,8 +242,6 @@ protected:
     bool domainMgrIsRegistered (CF::DomainManager_ptr);
     bool deviceIsRegistered (CF::Device_ptr);
     bool serviceIsRegistered (const char*);
-    void disconectEventService ();
-    void sendEventToOutgoingChannel (CORBA::Any& _event);
     void addDeviceMgr (CF::DeviceManager_ptr deviceMgr);
     void mountDeviceMgrFileSys (CF::DeviceManager_ptr deviceMgr);
     void addDomainMgr (CF::DomainManager_ptr domainMgr);
@@ -237,10 +264,15 @@ protected:
     ossie::ServiceList::iterator findServiceByName (const std::string& name);
     ossie::ServiceList::iterator findServiceByType (const std::string& repId);
 
-    void destroyEventChannels (void);
-    void connectToOutgoingEventChannel (void);
-
     void parseDeviceProfile (ossie::DeviceNode& node);
+
+    //
+    // Events/Event Channel Management 
+    //
+    void establishDomainManagementChannels();
+    void disconnectDomainManagementChannels();
+    void destroyEventChannels (void);
+
 
     Application_impl* findApplicationById (const std::string& identifier);
 
@@ -261,6 +293,20 @@ protected:
     std::vector < ossie::ApplicationNode > _runningApplications;
     ossie::ServiceList _registeredServices;
     std::vector < ossie::EventChannelNode > _eventChannels;
+
+
+
+    //
+    // Handle to EventChannelManager for the Domain
+    //
+    EventChannelManager*                 _eventChannelMgr;
+
+
+    DOM_Publisher_ptr                    publisher( const std::string &cname );
+    DOM_Subscriber_ptr                   subscriber( const std::string &cname );
+
+    DOM_Publisher_ptr                    _odm_publisher;
+    DOM_Subscriber_ptr                   _idm_subscriber;
 
 ///////////////////////
 // Private Domain State
@@ -291,10 +337,11 @@ private:
     // Identifier of last device that was successfully used for deployment
     std::string _lastDeviceUsedForDeployment;
 
-    std::string logging_config_uri;
-    StringProperty* logging_config_prop;
-    CORBA::ULong componentBindingTimeout;
-    std::string redhawk_version;
+    std::string      logging_config_uri;
+    StringProperty*  logging_config_prop;
+    CORBA::ULong     componentBindingTimeout;
+    std::string      redhawk_version;
+    bool             _useLogConfigUriResolver;
 };                                            /* END CLASS DEFINITION DomainManager */
 
 

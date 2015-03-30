@@ -60,6 +60,7 @@ ossiepy = ['ossie',
            'ossie/cf/ExtendedCF__POA',
            'ossie/cf/ExtendedCF/WKP',
            'ossie/cf/ExtendedCF__POA/WKP',
+           'ossie/events',
            'ossie/logger',
            'ossie/parsers',
            'ossie/utils',
@@ -75,7 +76,7 @@ ossiepy = ['ossie',
            'ossie/utils/tools',
            'redhawk']
 
-version='1.11.0'
+version='2.0.0'
 
 setup(
         name='ossiepy',

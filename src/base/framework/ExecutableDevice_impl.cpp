@@ -121,11 +121,57 @@ std::string ExecutableDevice_impl::get_component_name_from_exec_params(const CF:
     throw CF::ExecutableDevice::InvalidParameters(parameters);
 }
 
+CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::executeLinked (const char* name, const CF::Properties& options, const CF::Properties& parameters, const CF::StringSequence& deps) throw (CORBA::SystemException, CF::Device::InvalidState, CF::ExecutableDevice::InvalidFunction, CF::ExecutableDevice::InvalidParameters, CF::ExecutableDevice::InvalidOptions, CF::InvalidFileName, CF::ExecutableDevice::ExecuteFail)
+{
+    boost::recursive_mutex::scoped_lock lock;
+    try
+    {
+        lock = boost::recursive_mutex::scoped_lock(load_execute_lock);
+    }
+    catch( const boost::thread_resource_error& e )
+    {
+        std::stringstream errstr;
+        errstr << "Error acquiring lock (errno=" << e.native_error() << " msg=\"" << e.what() << "\")";
+        LOG_ERROR(ExecutableDevice_impl, __FUNCTION__ << ": " << errstr.str() );
+        throw CF::Device::InvalidState(errstr.str().c_str());
+    }
+    
+    boost::shared_ptr<envState> initial_env(new envState());
+    this->initialState.set();
+    
+    std::vector<sharedLibraryStorage> selected_paths;
+    for (unsigned int i=0; i<deps.length(); i++) {
+        std::string dep = ossie::corba::returnString(deps[i]);
+        if (this->sharedPkgs.find(dep) == this->sharedPkgs.end()) {
+            // it is not a loaded package
+        } else {
+            selected_paths.push_back(this->sharedPkgs[dep]);
+        }
+    }
+    update_selected_paths(selected_paths);
+
+    std::vector<std::string> prepend_args;
+    CF::ExecutableDevice::ProcessID_Type pid = execute(name, options, parameters);
+    return pid;
+}
+
 CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::execute (const char* name, const CF::Properties& options, const CF::Properties& parameters) throw (CORBA::SystemException, CF::Device::InvalidState, CF::ExecutableDevice::InvalidFunction, CF::ExecutableDevice::InvalidParameters, CF::ExecutableDevice::InvalidOptions, CF::InvalidFileName, CF::ExecutableDevice::ExecuteFail)
 {
+    boost::recursive_mutex::scoped_lock lock;
+    try
+    {
+        lock = boost::recursive_mutex::scoped_lock(load_execute_lock);
+    }
+    catch( const boost::thread_resource_error& e )
+    {
+        std::stringstream errstr;
+        errstr << "Error acquiring lock (errno=" << e.native_error() << " msg=\"" << e.what() << "\")";
+        LOG_ERROR(ExecutableDevice_impl, __FUNCTION__ << ": " << errstr.str() );
+        throw CF::Device::InvalidState(errstr.str().c_str());
+    }
+    
     std::vector<std::string> prepend_args;
     CF::ExecutableDevice::ProcessID_Type pid = do_execute(name, options, parameters, prepend_args);
-    //std::string component_name = get_component_name_from_exec_params(parameters);
     return pid;
 }
 /* execute *****************************************************************
@@ -171,19 +217,6 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
 
     if (invalidOptions.length() > 0) {
         throw CF::ExecutableDevice::InvalidOptions(invalidOptions);
-    }
-
-    boost::mutex::scoped_lock lock;
-    try
-    {
-        lock = boost::mutex::scoped_lock(load_execute_lock);
-    }
-    catch( const boost::thread_resource_error& e )
-    {
-        std::stringstream errstr;
-        errstr << "Error acquiring lock (errno=" << e.native_error() << " msg=\"" << e.what() << "\")";
-        LOG_ERROR(ExecutableDevice_impl, __FUNCTION__ << ": " << errstr.str() );
-        throw CF::Device::InvalidState(errstr.str().c_str());
     }
 
     // retrieve current working directory
