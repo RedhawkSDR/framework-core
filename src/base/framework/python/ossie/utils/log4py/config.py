@@ -179,6 +179,7 @@ def _config(props, category=None):
           klass = _import_handler(appenderClass)
           handler = klass()
           setattr(handler, "threshold", _LEVEL_TRANS[categoryCfg[0].strip()])
+          logging.getLogger(str(pyname)).setLevel( _LEVEL_TRANS[categoryCfg[0].strip()] ) 
           # Deal with appender options
           appenderOptions = filter(lambda x: x.startswith(appenderKey+"."), props.keys())
           for appenderOption in appenderOptions:
@@ -206,15 +207,15 @@ def _config(props, category=None):
           if layout:
             handler.setFormatter(layout)
 
-    # check additive tags to avoid additive logging to the root loggers
-    additivities = filter(lambda x: x.startswith("log4j.additivity."), props.keys())
-  
-    for additive in additivities:
-      pyname = additive[len("log4j.additivity."):]  
-      if (pyname == category):
-        if ( (str(props[additive]).strip().upper()) == "FALSE" ):
-          return
-  
+  # check additive tags to avoid additive logging to the root loggers
+  additivities = filter(lambda x: x.startswith("log4j.additivity."), props.keys())
+  for additive in additivities:
+    pyname = additive[len("log4j.additivity."):]  
+    if ( (str(props[additive]).strip().upper()) == "FALSE" ):
+      logging.getLogger(str(pyname)).propagate = False
+    if ( (str(props[additive]).strip().upper()) == "TRUE" ):
+      logging.getLogger(str(pyname)).propagate = True
+
   # Now deal with root logging appenders
   for logger, appenders in loggers.items():
     for appender in appenders:

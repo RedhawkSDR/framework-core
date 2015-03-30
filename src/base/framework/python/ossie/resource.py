@@ -150,13 +150,14 @@ class Resource(object):
         self.loggingCtx = None
         self.loggingURL=None
         if loggerName == None:
-            self._logid = self._id
-            self._log = logging.getLogger(self._id)
+            self._logid = execparams.get("NAME_BINDING", self._id)
+            self._logid = self._logid.rsplit("_", 1)[0]
         else:
             self._logid = loggerName
-            self._log = logging.getLogger(loggerName)
-        self.logListenerCallback=None
 
+        self._logid = self._logid.replace(':','_')
+        self._log = logging.getLogger(self._logid)
+        self.logListenerCallback=None
         self._name = execparams.get("NAME_BINDING", "")
         # The base resource class manages properties ...
         self._props = PropertyStorage(self, propertydefs, execparams)
@@ -726,6 +727,11 @@ def start_component(componentclass, interactive_callback=None, thread_policy=Non
             dpath=execparams.get("DOM_PATH", "")
             component_identifier=execparams.get("COMPONENT_IDENTIFIER", "")
             name_binding=execparams.get("NAME_BINDING", "")
+            category=loggerName
+            try:
+              if not category and name_binding != "": category=name_binding.rsplit("_", 1)[0]
+            except:
+                pass 
 
             ## sets up logging during component startup
             ctx = ossie.logger.ComponentCtx(
@@ -735,7 +741,8 @@ def start_component(componentclass, interactive_callback=None, thread_policy=Non
             ossie.logger.Configure(
                 logcfgUri = log_config_uri,
                 logLevel = debug_level,
-                ctx = ctx)
+                ctx = ctx,
+                category=category )
 
             # Create the component
             component_Obj = componentclass(execparams["COMPONENT_IDENTIFIER"], execparams)

@@ -2157,14 +2157,16 @@ throw (CORBA::SystemException, CF::InvalidObjectReference,
        CF::DomainManager::AlreadyConnected)
 {
     boost::mutex::scoped_lock lock(interfaceAccess);
-    _local_registerWithEventChannel(registeringObject, registeringId, eventChannelName);
+    std::string tmp_id = ossie::corba::returnString(registeringId);
+    std::string eventchannel_name = ossie::corba::returnString(eventChannelName);
+    _local_registerWithEventChannel(registeringObject, tmp_id, eventchannel_name);
 }
 
 void
 DomainManager_impl::_local_registerWithEventChannel (CORBA::
                                               Object_ptr registeringObject,
-                                              const char* registeringId,
-                                              const char* eventChannelName)
+                                              std::string &registeringId,
+                                              std::string &eventChannelName)
 throw (CORBA::SystemException, CF::InvalidObjectReference,
        CF::DomainManager::InvalidEventChannelName,
        CF::DomainManager::AlreadyConnected)
@@ -2208,12 +2210,14 @@ throw (CORBA::SystemException, CF::DomainManager::InvalidEventChannelName,
        CF::DomainManager::NotConnected)
 {
     boost::mutex::scoped_lock lock(interfaceAccess);
-    _local_unregisterFromEventChannel(unregisteringId, eventChannelName);
+    std::string tmp_id = ossie::corba::returnString(unregisteringId);
+    std::string eventchannel_name = ossie::corba::returnString(eventChannelName);
+    _local_unregisterFromEventChannel(tmp_id, eventchannel_name);
 }
 
 void
-DomainManager_impl::_local_unregisterFromEventChannel (const char* unregisteringId,
-                                                const char* eventChannelName)
+DomainManager_impl::_local_unregisterFromEventChannel (std::string &unregisteringId,
+                                                std::string &eventChannelName)
 throw (CORBA::SystemException, CF::DomainManager::InvalidEventChannelName,
        CF::DomainManager::NotConnected)
 {

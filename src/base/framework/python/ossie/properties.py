@@ -1698,7 +1698,7 @@ class PropertyStorage:
         if value == None:
             return None
         if typename == "boolean":
-            return {"TRUE": True, "FALSE": False}[value.strip().upper()]
+            return {"TRUE": True, "FALSE": False, "1": True, "0": False}[value.strip().upper()]
         elif typename in ("short", "long", "ulong", "ushort"):
             return int(value)
         elif typename == "double":

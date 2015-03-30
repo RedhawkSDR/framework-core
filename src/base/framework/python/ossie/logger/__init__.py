@@ -337,7 +337,7 @@ def ConfigureDefault():
     logging.getLogger().setLevel( logging.INFO )
 
 
-def ConfigureWithContext( cfg_data, tbl ):
+def ConfigureWithContext( cfg_data, tbl, category=None ):
     cfg=None
     try:
         fileContents=""
@@ -347,17 +347,16 @@ def ConfigureWithContext( cfg_data, tbl ):
 
         fileContents=ExpandMacros( fc_raw, tbl)
 
-        ossie.utils.log4py.config.strConfig(fileContents)
+        ossie.utils.log4py.config.strConfig(fileContents, category)
 
         cfg=fileContents
 
     except Exception, e:
-        print e
-        # TODO: report an error?
+        print "Error: log4py configuration file error", e
         pass
     return cfg
 
-def Configure( logcfgUri, logLevel=None, ctx=None ):
+def Configure( logcfgUri, logLevel=None, ctx=None, category=None ):
 
     # test we have a logging URI
     if logcfgUri==None or logcfgUri=="" :
@@ -374,9 +373,9 @@ def Configure( logcfgUri, logLevel=None, ctx=None ):
                 ctx.apply(tbl)
 
             if fileContents and len(fileContents) != 0:
-                fc=ConfigureWithContext( fileContents, tbl)
+                fc=ConfigureWithContext( fileContents, tbl, category )
         except Exception,e:
-            print e
+            print "Error: log4py configuration file error", e
             pass
 
     # If a log level was explicitly stated, set it here, potentially

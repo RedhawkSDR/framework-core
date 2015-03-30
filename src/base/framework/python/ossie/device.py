@@ -106,6 +106,7 @@ class Device(resource.Resource):
     """
 
     def __init__(self, devmgr, identifier, label, softwareProfile, compositeDevice, execparams, propertydefs=(),loggerName=None):
+        if not loggerName and label: loggerName = label.rsplit("_", 1)[0]
         resource.Resource.__init__(self, identifier, execparams, propertydefs, loggerName=loggerName)
         self._log.debug("Initializing Device %s %s %s %s", identifier, execparams, propertydefs, loggerName)
         self._label = label
@@ -1134,8 +1135,13 @@ def start_device(deviceclass, interactive_callback=None, thread_policy=None,logg
             debug_level = execparams.get("DEBUG_LEVEL", None)
             if debug_level != None: debug_level = int(debug_level)
             dpath=execparams.get("DOM_PATH", "")
+            category=loggerName
+            try:
+              if not category and label != "": category=label.rsplit("_", 1)[0]
+            except:
+                pass 
             ctx = ossie.logger.DeviceCtx( label, id, dpath )
-            ossie.logger.Configure( log_config_uri, debug_level, ctx )
+            ossie.logger.Configure( log_config_uri, debug_level, ctx, category )
 
             # instantiate the provided device
             logging.debug("Instantiating Device")

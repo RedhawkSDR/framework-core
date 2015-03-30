@@ -109,8 +109,13 @@ def start_service(serviceclass, thread_policy=None):
             debug_level = execparams.get("DEBUG_LEVEL", None)
             if debug_level != None: debug_level = int(debug_level)
             dpath=execparams.get("DOM_PATH", "")
+            category=None
+            try:
+              if name != "": category=name.rsplit("_", 1)[0]
+            except:
+                pass 
             ctx = ossie.logger.ServiceCtx( name, dpath )
-            ossie.logger.Configure( log_config_uri, debug_level, ctx )
+            ossie.logger.Configure( log_config_uri, debug_level, ctx, category )
 
             # Create the component
             component_Obj = serviceclass(execparams["SERVICE_NAME"], execparams)
