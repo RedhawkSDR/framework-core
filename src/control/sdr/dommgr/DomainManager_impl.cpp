@@ -254,7 +254,7 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
                     }
                 }
                 if (!foundEventChannel) {
-                    LOG_WARN(DomainManager_impl, "Failed to recover Event Channel: " << i->boundName);
+                    _eventChannels.push_back(*i);
                 }
             } else {
                 LOG_WARN(DomainManager_impl, "Failed to recover Event Channel: " << i->boundName);
@@ -1400,10 +1400,10 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
                     continue;
                 }
 
-                CF::DeviceAssignmentSequence* compDevices = app->componentDevices();
+                CF::DeviceAssignmentSequence_var compDevices = app->componentDevices();
                 bool foundMatch = false;
                 for  (unsigned int j = 0; j < compDevices->length(); j++) {
-                    if (strcmp(deviceNode->identifier.c_str(), (*compDevices)[j].assignedDeviceId) == 0) {
+                    if (strcmp(deviceNode->identifier.c_str(), compDevices[j].assignedDeviceId) == 0) {
                         LOG_WARN(DomainManager_impl, "Releasing application that depends on registered device " << deviceNode->identifier)
                         app->releaseObject();
                         foundMatch = true;
@@ -1780,8 +1780,8 @@ DomainManager_impl::addApplication(Application_impl* new_app)
         appNode._registeredComponents.length(new_app->_registeredComponents.length());
         for (unsigned int i=0; i<appNode._registeredComponents.length(); i++) {
             ComponentNode compNode;
-            compNode.identifier = CORBA::string_dup(new_app->_registeredComponents[i].identifier);
-            compNode.softwareProfile = CORBA::string_dup(new_app->_registeredComponents[i].softwareProfile);
+            compNode.identifier = new_app->_registeredComponents[i].identifier;
+            compNode.softwareProfile = new_app->_registeredComponents[i].softwareProfile;
             compNode.ior = ossie::corba::objectToString(new_app->_registeredComponents[i].componentObject);
             appNode.components.push_back(compNode);
             appNode._registeredComponents[i].identifier = CORBA::string_dup(new_app->_registeredComponents[i].identifier);

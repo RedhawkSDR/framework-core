@@ -442,7 +442,11 @@ Examples:
         spd = SPDParser.parse(self.spd_file)
         
         if self.testRunner is None:
-            self.testRunner = unittest.TextTestRunner(verbosity=self.verbosity)    
+            try:
+                import xmlrunner
+                self.testRunner = xmlrunner.XMLTestRunner(verbosity=self.verbosity)
+            except ImportError:
+                self.testRunner = unittest.TextTestRunner(verbosity=self.verbosity)
         
         for implementation in spd.get_implementation():
             IMPL_ID = implementation.get_id()

@@ -425,18 +425,18 @@ def overloadProperty(component, simples=None, simpleseq=None, struct=None, struc
                                 clean_name = str(simple[0])
                             else:
                                 clean_name = str(simple[3])
-                        if simple[1] == 'string' or simple[1] == 'char':
-                            structValue[clean_name] = overload.value[clean_name]
-                        elif simple[1] == 'boolean':
-                            structValue[clean_name] = bool(overload.value[clean_name])
-                        elif simple[1] == 'ulong' or simple[1] == 'short' or simple[1] == 'octet' or \
-                             simple[1] == 'ushort' or simple[1] == 'long' or simple[1] == 'longlong' or \
-                             simple[1] == 'ulonglong':
-                            structValue[clean_name] = int(overload.value[clean_name])
-                        elif simple[1] == 'float' or simple[1] == 'double':
-                            structValue[clean_name] = float(overload.value[clean_name])
-                        else:
-                            print "the proposed overload (id="+entry.id+") is not of a supported type ("+entry.valueType+")"
+                            if simple[1] == 'string' or simple[1] == 'char':
+                                structValue[clean_name] = overload.value[clean_name]
+                            elif simple[1] == 'boolean':
+                                structValue[clean_name] = bool(overload.value[clean_name])
+                            elif simple[1] == 'ulong' or simple[1] == 'short' or simple[1] == 'octet' or \
+                                 simple[1] == 'ushort' or simple[1] == 'long' or simple[1] == 'longlong' or \
+                                 simple[1] == 'ulonglong':
+                                structValue[clean_name] = int(overload.value[clean_name])
+                            elif simple[1] == 'float' or simple[1] == 'double':
+                                structValue[clean_name] = float(overload.value[clean_name])
+                            else:
+                                print "the proposed overload (id="+entry.id+") is not of a supported type ("+entry.valueType+")"
                             
                     setattr(component, entry.clean_name, structValue)
             for overload in structseq:
@@ -451,18 +451,18 @@ def overloadProperty(component, simples=None, simpleseq=None, struct=None, struc
                                     clean_name = str(simple[0])
                                 else:
                                     clean_name = str(simple[3])
-                            if simple[1] == 'string' or simple[1] == 'char':
-                                structValue[clean_name] = overloadedValue[clean_name]
-                            elif simple[1] == 'boolean':
-                                structValue[clean_name] = bool(overloadedValue[clean_name])
-                            elif simple[1] == 'ulong' or simple[1] == 'short' or simple[1] == 'octet' or \
-                                simple[1] == 'ushort' or simple[1] == 'long' or simple[1] == 'longlong' or \
-                                simple[1] == 'ulonglong':
-                                structValue[clean_name] = int(overloadedValue[clean_name])
-                            elif simple[1] == 'float' or simple[1] == 'double':
-                                structValue[clean_name] = float(overloadedValue[clean_name])
-                            else:
-                                print "the proposed overload (id="+entry.id+") is not of a supported type ("+entry.valueType+")"
+                                if simple[1] == 'string' or simple[1] == 'char':
+                                    structValue[clean_name] = overloadedValue[clean_name]
+                                elif simple[1] == 'boolean':
+                                    structValue[clean_name] = bool(overloadedValue[clean_name])
+                                elif simple[1] == 'ulong' or simple[1] == 'short' or simple[1] == 'octet' or \
+                                    simple[1] == 'ushort' or simple[1] == 'long' or simple[1] == 'longlong' or \
+                                    simple[1] == 'ulonglong':
+                                    structValue[clean_name] = int(overloadedValue[clean_name])
+                                elif simple[1] == 'float' or simple[1] == 'double':
+                                    structValue[clean_name] = float(overloadedValue[clean_name])
+                                else:
+                                    print "the proposed overload (id="+entry.id+") is not of a supported type ("+entry.valueType+")"
                         structSeqValue.append(structValue)
                     setattr(component, entry.clean_name, structSeqValue)
         for prop in allProps:
@@ -715,7 +715,7 @@ def loadSADFile(filename, props={}):
                             structseq_vals.append(overloadContainer(str(structseq.refid),values_vals))
                     if len(sandboxComponent._propertySet) > 0:
                         overloadProperty(sandboxComponent, simple_vals, simpleseq_vals, struct_vals, structseq_vals)
-            if assemblyController:
+            if assemblyController and len(props) > 0 :
                 prop_types = {}
                 prop_types['simple'] = []
                 prop_types['simpleseq'] = []

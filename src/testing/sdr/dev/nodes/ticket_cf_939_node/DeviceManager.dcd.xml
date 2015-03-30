@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE deviceconfiguration PUBLIC "-//JTRS//DTD SCA V2.2.2 DCD//EN" "deviceconfiguration.dtd">
+<deviceconfiguration name="ticket_cf_939_node" id="DCE:8849e2d4-b53f-4483-9877-79562ab1ef4b">
+    <devicemanagersoftpkg>
+    	<localfile name="/mgr/DeviceManager.spd.xml">
+    	</localfile>
+    </devicemanagersoftpkg>
+    <componentfiles> 
+    	<componentfile type="SPD" id="ticket_cf_939_dev_0d4d993a-6cfb-49f8-ace2-7ae14364c9ea">
+    		<localfile name="/devices/ticket_cf_939_dev/ticket_cf_939_dev.spd.xml">
+    		</localfile>
+    	</componentfile>
+    </componentfiles>    
+    <partitioning>
+		<componentplacement>
+	    	<componentfileref refid="ticket_cf_939_dev_0d4d993a-6cfb-49f8-ace2-7ae14364c9ea">
+    		</componentfileref>
+	     	<componentinstantiation id="DCE:ead760b3-9dc5-40a8-9de6-002a8228a487">
+	     		<usagename>ticket_cf_939_dev_1</usagename>
+	     	</componentinstantiation>
+    	</componentplacement>
+    </partitioning>
+    <domainmanager>
+    	<namingservice name="REDHAWK_DEV/REDHAWK_DEV">
+    	</namingservice>
+    </domainmanager>
+</deviceconfiguration>

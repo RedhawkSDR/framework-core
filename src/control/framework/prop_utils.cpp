@@ -446,7 +446,7 @@ bool ossie::checkOs(const std::vector<ossie::SPD::NameVersionPair>& osDeps, cons
                             dev_os_version = tmp_dev_os_version;
                         }
                         LOG_TRACE(prop_utils, "Performing comparison operation " << dev_os_version << " " << action << " " << osVersion);
-                        matchOsVersion = ossie::perform_action(dev_os_version, os, action);
+                        matchOsVersion = ossie::perform_action(dev_os_version, osVersion, action);
                         LOG_TRACE(prop_utils, "Performing comparison operation " << dev_os_version << " " << action << " " << osVersion << " RESULT:" << matchOsVersion);
                         if (matchOsVersion) break;
                     }

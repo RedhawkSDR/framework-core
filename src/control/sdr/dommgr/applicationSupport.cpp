@@ -536,7 +536,7 @@ bool ImplementationInfo::checkMatchingDependencies(const Properties& _prf, const
                 const char* propvalue = dependency->getValue();
                 const char* matchingpropvalue;
                 if (deviceManagerProfile == "") {
-		    deviceManagerProfile = ossie::corba::returnString(_devMgr->deviceConfigurationProfile());
+                    deviceManagerProfile = ossie::corba::returnString(_devMgr->deviceConfigurationProfile());
                     File_stream _dcd(_devMgr->fileSys(), deviceManagerProfile.c_str());
                     dcdParser.load(_dcd);
                     _dcd.close();

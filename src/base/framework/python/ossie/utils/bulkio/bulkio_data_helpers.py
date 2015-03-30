@@ -152,7 +152,10 @@ class ArraySource(object):
         else:
             if sampleRate > 0:
                 self.sri.xdelta = 1/sampleRate
-            self.sri.mode = complexData
+            if complexData:
+                self.sri.mode = 1
+            else:
+                self.sri.mode = 0
             if streamID != None:
                 self.sri.streamID = streamID
             if startTime >= 0.0:
@@ -182,7 +185,7 @@ class ArraySource(object):
             T = BULKIO.PrecisionUTCTime(BULKIO.TCM_CPU, BULKIO.TCS_VALID, 0.0, int(currentSampleTime), currentSampleTime - int(currentSampleTime))
             self.pushPacket(d, T, False, self.sri.streamID)
             dataSize = len(d)
-            if complexData:
+            if self.sri.mode == 1:
                 dataSize = dataSize / 2
             currentSampleTime = currentSampleTime + dataSize/sampleRate
         T = BULKIO.PrecisionUTCTime(BULKIO.TCM_CPU, BULKIO.TCS_VALID, 0.0, int(currentSampleTime), currentSampleTime - int(currentSampleTime))
@@ -734,7 +737,10 @@ class FileSource(object):
         else:
             if sampleRate > 0:
                 self.sri.xdelta = 1/sampleRate
-            self.sri.mode = complexData
+            if complexData:
+                self.sri.mode = 1
+            else:
+                self.sri.mode = 0
             if streamID != None:
                 self.sri.streamID = streamID
             if startTime >= 0.0:
@@ -763,9 +769,9 @@ class FileSource(object):
                 fmt = '<' + str(dataSize) + self.structFormat
                 signalData = struct.unpack(fmt, byteData)
             else:
-                dataSize = len(byteData)
-            if complexData:
-                dataSize = dataSize/2
+                dataSize = len(byteData)                                                                     
+            if self.sri.mode == 1:                                                                                 
+                dataSize = dataSize/2                                                                      
             self.pushPacket(signalData,T, False, self.sri.streamID)
             sampleRate = 1.0/self.sri.xdelta
             currentSampleTime = currentSampleTime + dataSize/sampleRate
