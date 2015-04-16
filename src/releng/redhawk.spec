@@ -24,10 +24,10 @@
 %define groupname redhawk
 %define username redhawk
 
-Name:		redhawk
-Version:	1.8.9
-Release:        3%{?dist}
-Summary:	REDHAWK is a Software Defined Radio framework
+Name:     redhawk
+Version:  1.8.9
+Release:  4%{?dist}
+Summary:  REDHAWK is a Software Defined Radio framework
 
 Group:		Applications/Engineering
 License:	LGPLv3+
@@ -136,12 +136,6 @@ Requires:       gcc-c++
 Requires:       python-devel >= 2.4
 Requires:       java-devel >= 1.6
 
-# qtbrowse
-%if 0%{?rhel} == 7
-%else
-Requires:       PyQt
-%endif
-
 %description devel
 This package ensures that all requirements for REDHAWK development are installed. It also provides a useful development utilities.
 
@@ -169,10 +163,9 @@ cd src
 make install DESTDIR=$RPM_BUILD_ROOT
 cp control/sdr/domain/DomainManager.dmd.xml $RPM_BUILD_ROOT%{_sdrroot}/dom/domain/
 
-%if 0%{?rhel} == 7
+#PyQt is no longer avaialable for el6, so omit qtbrowse
 rm $RPM_BUILD_ROOT%{_bindir}/qtbrowse
 rm -r $RPM_BUILD_ROOT%{_prefix}/lib/python/ossie/apps/qtbrowse
-%endif
 
 
 %clean
@@ -193,7 +186,6 @@ fi
 %files
 %defattr(-,root,root)
 %{_bindir}
-%exclude %{_bindir}/qtbrowse
 %exclude %{_bindir}/prf2py.py
 %exclude %{_bindir}/py2prf
 %{_prefix}/include
@@ -206,7 +198,6 @@ fi
 %{_prefix}/lib/log4j-1.2.15.jar
 %{_prefix}/lib/ossie.jar
 %{_prefix}/lib/python
-%exclude %{_prefix}/lib/python/ossie/apps/qtbrowse
 %{_libdir}/libomnijni.*
 %{_libdir}/libossiecf.*
 %{_libdir}/libossiecfjni.*
@@ -254,11 +245,6 @@ fi
 %defattr(-,%{username},%{groupname})
 %{_bindir}/prf2py.py
 %{_bindir}/py2prf
-%if 0%{?rhel} == 7
-%else
-%{_bindir}/qtbrowse
-%{_prefix}/lib/python/ossie/apps/qtbrowse
-%endif
 
 %post
 /sbin/ldconfig
@@ -268,6 +254,9 @@ fi
 
 
 %changelog
+* Mon Apr 16 2015 - 1.8.9-4
+- Exclude qtbrowse and PyQt dependency; retired from EPEL 6
+
 * Mon Mar 31 2014 - 1.8.7-1
 - Improve OS version detection for RHEL/CentOS/Fedora
 - Exclude qtbrowse on el7
