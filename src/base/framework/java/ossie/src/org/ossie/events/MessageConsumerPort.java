@@ -35,6 +35,7 @@ import org.omg.PortableServer.POAPackage.WrongPolicy;
 
 import org.apache.log4j.Logger;
 
+import org.ossie.component.PortBase;
 import org.ossie.properties.StructDef;
 
 /**
@@ -42,7 +43,7 @@ import org.ossie.properties.StructDef;
  * distributed over event channels.
  */
 @SuppressWarnings("deprecation")
-public class MessageConsumerPort extends ExtendedEvent.MessageEventPOA {
+public class MessageConsumerPort extends ExtendedEvent.MessageEventPOA implements PortBase {
     public Object updatingPortsLock = new Object();
 
     protected HashMap<String, EventCallback> callbacks = new HashMap<String, EventCallback>();
@@ -146,6 +147,16 @@ public class MessageConsumerPort extends ExtendedEvent.MessageEventPOA {
     {
         this.logger = logger;
     }
+
+	public String getRepid()
+	{
+		return "IDL:ExtendedEvent/MessageEvent:1.0";
+	}
+
+	public String getDirection()
+	{
+		return "Bidir";
+	}
 
     /**
      * Register a listener for a message.

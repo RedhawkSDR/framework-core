@@ -516,7 +516,7 @@ class _property(object):
                  units=None, 
                  mode="readwrite", 
                  action="external", 
-                 kinds=("configure",), 
+                 kinds=("configure","property"), 
                  description=None, 
                  fget=None, 
                  fset=None, 
@@ -592,7 +592,7 @@ class _property(object):
         else:
             return self._toAny(value)
 
-    def configure(self, obj, value, operator=None):
+    def construct(self, obj, value ):
         # By default operators are not supported
         if operator != None:
             raise AttributeError, "this property doesn't support configure/query operators"
@@ -601,7 +601,18 @@ class _property(object):
         # should be a class instance, not a dictionary).
         value = self._fromAny(value)
         self.checkValue(value, obj)
-        self._configure(obj, value)
+        self._configure(obj, value, disableCallbacks=True )
+
+    def configure(self, obj, value, operator=None, disableCallbacks=False):
+        # By default operators are not supported
+        if operator != None:
+            raise AttributeError, "this property doesn't support configure/query operators"
+
+        # Convert the value to its proper representation (e.g. structs
+        # should be a class instance, not a dictionary).
+        value = self._fromAny(value)
+        self.checkValue(value, obj)
+        self._configure(obj, value, disableCallbacks=disableCallbacks)
 
     def _checkBoundsOfSimpleProperty(self, value):
         goodValue = True
@@ -716,15 +727,19 @@ class _property(object):
 
     # Generic behavior
     def isConfigurable(self):
-        configurable = ("configure" in self.kinds)
+        configurable = ("configure" in self.kinds) or self.isProperty()
         return (configurable and self.isWritable())
+
+    # Generic behavior
+    def isProperty(self):
+        return ("property" in self.kinds)
 
     def isSendEventChange(self):
         iseventchange = ("event" in self.kinds)
-        return (iseventchange and (("configure" in self.kinds) or (("allocation" in self.kinds) and ("external" == self.action))))
+        return (iseventchange and (("configure" in self.kinds) or ("property" in self.kinds) or (("allocation" in self.kinds) and ("external" == self.action))))
 
     def isQueryable(self):
-        queryable = (("configure" in self.kinds) or ("execparam" in self.kinds) or (("allocation" in self.kinds) and ("external" == self.action)))
+        queryable = (("configure" in self.kinds) or ("property" in self.kinds) or ("execparam" in self.kinds) or (("allocation" in self.kinds) and ("external" == self.action)))
         return (queryable and self.isReadable())
 
     def isAllocatable(self):
@@ -815,7 +830,7 @@ class _property(object):
         else: 
             return self.get(obj)
 
-    def _configure(self, obj, value):
+    def _configure(self, obj, value, disableCallbacks=False ):
         # Try the implicit callback, then fall back
         # to the automatic attribute
         if self.fval != None and not self.fval(obj, value):
@@ -831,6 +846,8 @@ class _property(object):
             configure(oldvalue, value)
         else:
             self.set(obj, value)
+        
+        if disableCallbacks == True : return
             
         valueChanged = self.compareValues(oldvalue, value)
         if valueChanged and self.isSendEventChange():
@@ -855,7 +872,7 @@ class _sequence_property(_property):
                  units=None, 
                  mode        = "readwrite", 
                  action      = "external", 
-                 kinds       = ("configure",), 
+                 kinds       = ("configure","property"), 
                  description = None, 
                  fget        = None, 
                  fset        = None, 
@@ -908,7 +925,8 @@ class _sequence_property(_property):
         # standard conversion routine.
         return self._toAny(value)
 
-    def configure(self, obj, value, operator=None):
+
+    def construct(self, obj, value ):
         # Convert the input value to the desired new value for the property,
         # applying any operators.
         if operator == "[@]":
@@ -920,7 +938,22 @@ class _sequence_property(_property):
             self.checkValue(value, obj)
 
         # Set the new value via the base interface.
-        self._configure(obj, value)
+        self._configure(obj, value, disableCallbacks=True )
+
+
+    def configure(self, obj, value, operator=None, disableCallbacks=False):
+        # Convert the input value to the desired new value for the property,
+        # applying any operators.
+        if operator == "[@]":
+            v = any.from_any(value)
+            oldvalue = self.get(obj)
+            value = self._setKeyValuePairsOperator(oldvalue, v, operator)
+        else:
+            value = self._fromAny(value)
+            self.checkValue(value, obj)
+
+        # Set the new value via the base interface.
+        self._configure(obj, value, disableCallbacks=disableCallbacks )
 
     def _itemToAny(self, value):
         return any.to_any(check_type_for_long(value))
@@ -1026,7 +1059,7 @@ class simple_property(_property):
                  units=None, 
                  mode="readwrite", 
                  action="external", 
-                 kinds=("configure",), 
+                 kinds=("configure","property"), 
                  description=None, 
                  fget=None, 
                  fset=None, 
@@ -1114,7 +1147,7 @@ class simpleseq_property(_sequence_property):
                  units       = None, 
                  mode        = "readwrite", 
                  action      = "external", 
-                 kinds       = ("configure",), 
+                 kinds       = ("configure","property"), 
                  description = None, 
                  fget        = None, 
                  fset        = None, 
@@ -1217,7 +1250,7 @@ class struct_property(_property):
                  structdef,
                  name=None, 
                  mode="readwrite", 
-                 configurationkind=("configure",),
+                 configurationkind=("configure","property"),
                  description=None, 
                  fget=None, 
                  fset=None, 
@@ -1325,7 +1358,7 @@ class structseq_property(_sequence_property):
                  name=None,
                  defvalue=None,
                  mode="readwrite", 
-                 configurationkind=("configure",),
+                 configurationkind=("configure","property"),
                  description=None, 
                  fget=None, 
                  fset=None, 
@@ -1577,14 +1610,24 @@ class PropertyStorage:
         return prop.query(self.__resource, operator)
 
 
-    def configure(self, propid, value):
+    def construct(self, propid, value):
         prop = None
         id_, operator = self.splitId(propid)
         # First lookup by propid
         prop = self.__properties[id_]
         oldvalue = prop.get(self.__resource)
-        prop.configure(self.__resource, value, operator)
+        prop.configure(self.__resource, value, operator, disableCallbacks=True)
         newvalue = prop.get(self.__resource)
+
+    def configure(self, propid, value, disableCallbacks=False ):
+        prop = None
+        id_, operator = self.splitId(propid)
+        # First lookup by propid
+        prop = self.__properties[id_]
+        oldvalue = prop.get(self.__resource)
+        prop.configure(self.__resource, value, operator, disableCallbacks=disableCallbacks)
+        newvalue = prop.get(self.__resource)
+        if disableCallbacks: return
         if id_ in self._changeListeners:
             self._changeListeners[id_](id_, oldvalue, newvalue)
         for callback in self._genericListeners:
@@ -1688,6 +1731,11 @@ class PropertyStorage:
     def isConfigurable(self, propid):
         id_, operator = self.splitId(propid)
         return self.__properties[id_].isConfigurable()
+
+    # Make helper functions for command truth testing inquiries
+    def isProperty(self, propid):
+        id_, operator = self.splitId(propid)
+        return self.__properties[id_].isProperty()
 
     def isAllocatable(self, propid):
         id_, operator = self.splitId(propid)

@@ -226,6 +226,7 @@ void DomainManager_impl::disconnectDomainManagementChannels() {
     if ( _eventChannelMgr ) {
       RH_NL_DEBUG("DomainManager", "Disconnect Domain Mananagment Event Channels. " );
       try {
+        _odm_publisher->disconnect();
         _odm_publisher.reset();
       }
       catch(...){ 
@@ -233,6 +234,7 @@ void DomainManager_impl::disconnectDomainManagementChannels() {
       }
 
       try {
+        _idm_subscriber->disconnect();
         _idm_subscriber.reset();
       }
       catch(...){ 
@@ -378,6 +380,8 @@ void DomainManager_impl::destroyEventChannels()
     if ( _eventChannelMgr ) {
       RH_NL_DEBUG("DomainManager", "Delete Domain Mananagment Event Channels. " );
       try {
+      RH_NL_DEBUG("DomainManager", "Disconnect ODM CHANNEL. " );
+        _odm_publisher->disconnect();
         _odm_publisher.reset();
       }
       catch(...){ 
@@ -385,6 +389,8 @@ void DomainManager_impl::destroyEventChannels()
       }
 
       try {
+      RH_NL_DEBUG("DomainManager", "Disconnect IDM CHANNEL. " );
+        _idm_subscriber->disconnect();
         _idm_subscriber.reset();
       }
       catch(...){ 
@@ -403,6 +409,7 @@ void DomainManager_impl::destroyEventChannels()
         
 
         RH_NL_DEBUG("DomainManager", "Terminating all event channels within EventChannelManager" );
+        //boost::this_thread::sleep( boost::posix_time::milliseconds( 3000 ) );
         _eventChannelMgr->terminate();
 
       }

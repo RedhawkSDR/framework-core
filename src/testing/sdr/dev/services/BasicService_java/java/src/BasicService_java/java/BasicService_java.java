@@ -57,6 +57,11 @@ public class BasicService_java extends Service implements PropertySetOperations
     {
     }
 
+
+    public void initializeProperties (CF.DataType[] configProperties) throws CF.PropertySetPackage.InvalidConfiguration, CF.PropertySetPackage.PartialConfiguration
+    {
+    }
+
     public void configure (CF.DataType[] configProperties) throws CF.PropertySetPackage.InvalidConfiguration, CF.PropertySetPackage.PartialConfiguration
     {
         // TODO

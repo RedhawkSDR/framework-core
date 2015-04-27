@@ -192,9 +192,9 @@ private:
     ossie::ComponentInfo* getAssemblyController();
     void overrideExternalProperties(const CF::Properties& initConfiguration);
     void overrideProperties(const CF::Properties& initConfiguration, ossie::ComponentInfo* component);
-    void assignRemainingComponentsToDevices();
+    void assignRemainingComponentsToDevices(const std::string &appIdentifier);
     void _assignComponentsUsingDAS(
-        const DeviceAssignmentMap& deviceAssignments);
+        const DeviceAssignmentMap& deviceAssignments, const std::string &appIdentifier);
     void _getComponentsToPlace(
         const std::vector<ossie::ComponentPlacement>& collocatedComponents,
         ossie::DeviceIDList&                          assignedDevices,
@@ -207,8 +207,8 @@ private:
         ossie::ComponentInfo* assemblyControllerComponent) const;
     void setUpExternalPorts(Application_impl* application);
     void setUpExternalProperties(Application_impl* application);
-    void _handleHostCollocation();
-    void _placeHostCollocation(const ossie::SoftwareAssembly::HostCollocation& collocation);
+    void _handleHostCollocation(const std::string &appIdentifier);
+    void _placeHostCollocation(const ossie::SoftwareAssembly::HostCollocation& collocation, const std::string &appIdentifier);
     void _handleUsesDevices(const std::string& appName);
     void _resolveImplementations(PlacementList::iterator comp, PlacementList& compList, std::vector<ossie::ImplementationInfo::List> &res_vec);
     void _removeUnmatchedImplementations(std::vector<ossie::ImplementationInfo::List> &res_vec);
@@ -233,11 +233,13 @@ private:
         const CF::Properties& configureProperties);
     void allocateComponent(ossie::ComponentInfo* component,
                            const std::string& assignedDeviceId,
-                           DeviceAssignmentList &appAssignedDevices);
+                           DeviceAssignmentList &appAssignedDevices,
+                           const std::string& appIdentifier);
 
     ossie::AllocationResult allocateComponentToDevice(ossie::ComponentInfo* component,
                                    ossie::ImplementationInfo* implementation,
-                                   const std::string& assignedDeviceId);
+                                   const std::string& assignedDeviceId,
+                                   const std::string& appIdentifier);
 
     bool resolveSoftpkgDependencies(ossie::ImplementationInfo* implementation, ossie::DeviceNode& device);
     ossie::ImplementationInfo* resolveDependencyImplementation(ossie::SoftpkgInfo* softpkg, ossie::DeviceNode& device);

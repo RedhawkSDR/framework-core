@@ -24,7 +24,9 @@ from _unitTestHelpers import scatest
 from ossie.cf import CF
 from omniORB import CORBA
 import struct
+import time
 from ossie.utils import sb
+from ossie.utils import redhawk
 
 class CppPropertiesTest(scatest.CorbaTestCase):
     def setUp(self):
@@ -779,3 +781,78 @@ class CppCallbacksTest(scatest.CorbaTestCase):
         comp.station = station
         comp.servers = servers
         self.assertEqual(comp.callbacks_run, [])
+
+
+class CPPPropertyTest(scatest.CorbaTestCase):
+    def setUp(self):
+        self._domBooter, self._domMgr = self.launchDomainManager()
+
+    def tearDown(self):
+        try:
+            self._app.stop()
+            self._app.releaseObject()
+        except AttributeError:
+            pass
+
+        try:
+            self._devMgr.shutdown()
+        except AttributeError:
+            pass
+
+        try:
+            self.terminateChild(self._devBooter)
+        except AttributeError:
+            pass
+
+        try:
+            self.terminateChild(self._domBooter)
+        except AttributeError:
+            pass
+
+        # Do all application and node booter shutdown before calling the base
+        # class tearDown, or failures will occur.
+        scatest.CorbaTestCase.tearDown(self)
+
+    def test_Property_CPP(self):
+        self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", self._domMgr)
+        self.assertNotEqual(self._devBooter, None)
+        self._domMgr.installApplication("/waveforms/Property_T1/Property_T1.sad.xml")
+        appFact = self._domMgr._get_applicationFactories()[0]
+        self.assertNotEqual(appFact, None)
+        app = appFact.create(appFact._get_name(), [], [])
+        self.assertNotEqual(app, None)
+        app.start()
+        time.sleep(1)
+
+        ps=None
+        c=None
+        d=redhawk.attach(scatest.getTestDomainName())
+        a=d.apps[0]
+        c=filter( lambda c : c.name == 'Property_CPP', a.comps )[0]
+        self.assertNotEqual(c,None)
+        ps = c.ref._narrow(CF.PropertySet)
+        self.assertNotEqual(ps,None)
+        
+        self.assertEquals(c.p1,"prop1")
+        self.assertAlmostEquals(c.p2,123.4)
+        self.assertEquals(c.p3,567)
+        self.assertEquals(c.p4.p4sub1,"prop2")
+        t1=int(c.p4.p4sub2)
+        self.assertEquals(t1,890)
+
+        c.p1 = "testing"
+        c.p2 = 100.0
+        c.p3 = 100
+        c.p4.p4sub1="testing2"
+        c.p4.p4sub2=200.0
+
+        self.assertEquals(c.p1,"testing")
+        self.assertAlmostEquals(c.p2,100.0)
+        self.assertEquals(c.p3,100)
+        self.assertEquals(c.p4.p4sub1,"testing2")
+        t1=int(c.p4.p4sub2)
+        self.assertEquals(t1,200)
+
+
+        app.releaseObject()
+

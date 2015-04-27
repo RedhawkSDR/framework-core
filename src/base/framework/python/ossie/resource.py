@@ -81,12 +81,18 @@ class PropertyAttributeMixIn:
 
 # Class 'static' objects for describing a port
 class _port(object):
-    def __init__(self, name, repid, type_, fget=None):
+    def __init__(self, name, repid, type_, fget=None, description=None):
         self.name = name
         self.repid = repid
         self.type_ = type_
         self.fget = fget
         self._attrname = "__port_%s__" % self.name
+        if description != None:
+            self.__doc__ = description
+        elif fget != None:
+            self.__doc__ = fget.__doc__
+        else:
+            self.__doc__ = ""
 
     def __get__(self, obj, objtype=None):
         if obj is None:
@@ -281,6 +287,9 @@ class Resource(object):
 
         logging.trace("Initial property storage %s", self._props)
 
+        self.__initialized = False
+        self.__propertiesInitialized = False
+
     def setAdditionalParameters(self, softwareProfile, application_registrar_ior, nic):
         self._softwareProfile = softwareProfile
         orb = __orb__
@@ -296,6 +305,7 @@ class Resource(object):
     
     def getDomainManager(self):
         return self._domMgr
+
 
     #########################################
     # CF::Resource
@@ -330,6 +340,16 @@ class Resource(object):
     # CF::LifeCycle
     def initialize(self):
         self._log.trace("initialize()")
+        if not self.__initialized:
+            self.__initialized = True
+            try:
+                self.constructor()
+            except Exception, exc:
+                self._log.error("initialize(): %s", str(exc))
+                raise CF.LifeCycle.InitializeError([str(exc)])
+
+    def constructor(self):
+        pass
 
     def releaseObject(self):
         self._log.trace("releaseObject()")
@@ -364,6 +384,26 @@ class Resource(object):
                 self._log.warning("getPort() for %s did match required repid", name)
             self._log.trace("getPort() --> %s", port)
             return port
+
+    def getPortSet(self):
+       """Return list of ports for this Resource"""
+       self._log.trace("getPortSet()")
+       portList = []
+       for name, portdef in self.__ports.iteritems():
+           obj_ptr = self.getPort(name)
+           repid = portdef.repid
+           description = portdef.__doc__
+           direction = ''
+           if isinstance(portdef, usesport):
+               direction = 'Uses'
+           elif isinstance(portdef, providesport):
+               direction = 'Provides'
+           if repid == 'IDL:ExtendedEvent/MessageEvent:1.0':
+               direction = 'Bidir'
+           info = CF.PortSupplier.PortInfoType(obj_ptr, name, repid, description, direction)
+           portList.append(info)
+
+       return portList
 
     def __loadPorts(self):
         self.__ports = {}
@@ -571,8 +611,12 @@ class Resource(object):
                             newvalval = []
                             for v in value.value():
                                 if prp.fields[v.id][1].optional == True:
-                                    if v.value.value() != None:
-                                        newvalval.append(v)
+                                    if isinstance(v.value.value(), list):
+                                        if v.value.value() != []:
+                                            newvalval.append(v)
+                                    else:
+                                        if v.value.value() != None:
+                                            newvalval.append(v)
                                 else:
                                     newvalval.append(v)
                             value = CORBA.Any(value.typecode(), newvalval)
@@ -598,8 +642,12 @@ class Resource(object):
                             newvalval = []
                             for v in prop.value.value():
                                 if prp.fields[v.id][1].optional == True:
-                                    if v.value.value() != None:
-                                        newvalval.append(v)
+                                    if isinstance(v.value.value(), list):
+                                        if v.value.value() != []:
+                                            newvalval.append(v)
+                                    else:
+                                        if v.value.value() != None:
+                                            newvalval.append(v)
                                 else:
                                     newvalval.append(v)
                             prop.value = CORBA.Any(prop.value.typecode(), newvalval)
@@ -621,6 +669,43 @@ class Resource(object):
 	
         self._log.trace("query -> %s properties", len(rv))
         return rv
+
+    def initializeProperties(self, ctorProps):
+        self._log.trace("initializeProperties(%s)", ctorProps)
+
+        with self.propertySetAccess:
+            # Disallow multiple calls
+            if self.__propertiesInitialized:
+                raise CF.PropertySet.AlreadyInitialized()
+            self.__propertiesInitialized = True
+
+            notSet = []
+            for prop in ctorProps:
+                try:
+                    if self._props.has_id(prop.id) and self._props.isProperty(prop.id) and self._props.isConfigurable(prop.id):
+                        try:
+                            # run configure on property.. disable callback feature
+                            self._props.construct(prop.id, prop.value)
+                        except ValueError, e:
+                            self._log.warning("Invalid value provided to construct for property %s %s", prop.id, e)
+                            notSet.append(prop)
+                    else:
+                        self._log.warning("Tried to construct non-existent, readonly, or property with action not equal to external %s", prop.id)
+                        notSet.append(prop)
+                except Exception, e:
+                    self._log.exception("Unexpected exception.")
+                    notSet.append(prop)
+
+            if notSet:
+                if len(notSet) < len(ctorProps):
+                    self._log.warning("Property initialization failed with partial configuration, %s", notSet)
+                    raise CF.PropertySet.PartialConfiguration(notSet)
+                else:
+                    self._log.warning("Property initialization failed with invalid configuration, %s", notSet)
+                    raise CF.PropertySet.InvalidConfiguration("Failure", notSet)
+
+        self._log.trace("initializeProperties(%s)", ctorProps)
+
 
     def configure(self, configProperties):
         self._log.trace("configure(%s)", configProperties)

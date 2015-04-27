@@ -10,6 +10,10 @@ import org.omg.CosEventComm.*;
 import org.omg.CosEventChannelAdmin.*;
 import CF.EventChannelManagerPackage.*;
 import org.ossie.properties.AnyUtils;
+import java.lang.InterruptedException;
+import java.util.concurrent.locks.*;
+import java.util.concurrent.TimeUnit;
+
 
 
 public class  Subscriber  {
@@ -22,21 +26,74 @@ public class  Subscriber  {
     };
 
 
-    private class DefaultConsumer extends EventSubscriberConsumer {
+    public abstract class Receiver extends PushConsumerPOA {
+        
+        public Receiver() {};
+
+        public boolean   get_disconnect() { return _recv_disconnect; };
+
+        public void   reset() { _recv_disconnect = false; };
+      
+        public void disconnect_push_consumer () {
+            _logger.debug("::disconnect_push_consumer handle disconnect_push_supplier." );
+            _lock.lock();
+            try{
+                _recv_disconnect =  true;
+                _cond.signalAll();
+            }finally {
+                _lock.unlock();
+            }
+        };
+
+
+        public void wait_for_disconnect ( int wait_time, int retries )
+        {
+            int tries=retries;
+            _lock.lock();
+            try {
+                while( _recv_disconnect == false ) {
+                    if ( wait_time > -1 ) {
+                        _logger.debug("::wait_for_disconnect.. Waiting on disconnect." );
+                        boolean ret = false;
+                        try {
+                            ret= _cond.await( wait_time, TimeUnit.MILLISECONDS );
+                        } catch( InterruptedException e ) {
+                        }
+                        if ( !ret && tries == -1  ) {
+                            break;
+                        }
+                        if ( tries-- < 1 )  break;
+                    }
+                    else {
+                        try {
+                            _cond.await();
+
+                        } catch( InterruptedException e ) {
+                        }
+                    }
+                }
+            } finally {
+                _lock.unlock();
+            }
+        
+            return;
+        };
+
+      
+      protected Lock                        _lock = new ReentrantLock();
+      protected Condition                   _cond = _lock.newCondition();
+      protected boolean                     _recv_disconnect = true;
+      protected Logger                      _logger = Logger.getLogger("Publisher.Receiver");                     
+
+    };
+
+
+    private class DefaultConsumer extends Receiver  {
 
 	public DefaultConsumer ( Subscriber inParent ) {
 	    parent = inParent;
 	}
 
-	public void disconnect_push_consumer() {
-	    if (parent != null) {
-		parent.logger.debug( "handle disconnect_push_consumer." );
-		if ( parent.proxy != null ){
-		    parent.proxy = null;
-		}
-	    }
-	}
-    
     
 	public  void push( final org.omg.CORBA.Any data ) {
 	    if ( parent != null ) {
@@ -151,8 +208,13 @@ public class  Subscriber  {
                 }
                 tries--;
             } while(tries>0);
-            logger.debug("Subscriber: ProxyPushSupplier disconnected." );
 
+            if ( consumer  != null ){
+                logger.debug("Subscriber::disconnect Waiting for disconnect ........" );
+                consumer.wait_for_disconnect(1,3);
+                logger.debug("Subscriber::disconnect received disconnect." );     
+            }
+            logger.debug("Subscriber: ProxyPushSupplier disconnected." );
         }
         
         return retval;
@@ -219,16 +281,8 @@ public class  Subscriber  {
 
 	if ( proxy == null  ) return retval;
 
-        PushConsumer sptr;
-	if  ( consumer == null ) {
-            logger.debug( "Subscriber, Create local DefaultConsumer for EventChannel Subscriber." );
-	    consumer = new DefaultConsumer( this );
-	    if ( consumer == null ) return retval;
-            org.ossie.corba.utils.activateObject(consumer, null);
-	    sptr = consumer._this();
-	}
-	else {
-            org.ossie.corba.utils.activateObject(consumer, null);
+        PushConsumer sptr=null;
+	if  ( consumer != null ) {
 	    sptr = consumer._this();
 	}
 
@@ -237,6 +291,7 @@ public class  Subscriber  {
 	do {
 	    try {
 		proxy.connect_push_consumer( sptr );
+                consumer.reset();
                 logger.debug( "Subscriber, Connected Consumer to EventChannel....." );
                 retval=0;
 		break;
@@ -251,6 +306,7 @@ public class  Subscriber  {
 	    }
 	    catch(AlreadyConnected ex) {
                 logger.warn( "Subscriber, Push Consumer already connected!");
+                consumer.reset();
                 retval=0;
 		break;
 	    }
@@ -282,7 +338,7 @@ public class  Subscriber  {
     protected ProxyPushSupplier             proxy;
 
     // handle to object that responds to disconnect messages
-    protected EventSubscriberConsumer       consumer;
+    protected Receiver                      consumer;
 
     //
     // Logger object 
@@ -305,15 +361,18 @@ public class  Subscriber  {
 
         dataArrivedCB = newListener;
 
-        // create a local consumer object for the event channel
-        consumer = new DefaultConsumer(this);
-
         // create queue to hold events
         events = new LinkedList< Any >();
 
         // if user passes a bad param then throw...
         channel=inChannel;
 	if ( inChannel == null ) throw new OperationNotAllowed();
+
+        // create a local consumer object for the event channel
+        consumer = new DefaultConsumer(this);
+        if ( consumer != null ) {
+            org.ossie.corba.utils.activateObject(consumer, null);
+        }
 
 	// connect to the event channel for a subscriber pattern
         connect();

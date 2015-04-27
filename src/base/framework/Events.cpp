@@ -265,10 +265,10 @@ namespace events {
   public:
 
     virtual ~EM_Publisher() {
-      RH_NL_INFO("EM_Publisher", "DTOR START");
+      RH_NL_TRACE("EM_Publisher", "DTOR START");
       // unregister the object with the Manager
       _ecm._unregister( _creg );
-      RH_NL_INFO("EM_Publisher", "DTOR END");
+      RH_NL_TRACE("EM_Publisher", "DTOR END");
     };
 
 
@@ -300,10 +300,10 @@ namespace events {
   public:
 
     virtual ~EM_Subscriber() {
-      RH_NL_INFO("EM_Subscriber", "DTOR START");
+      RH_NL_TRACE("EM_Subscriber", "DTOR START");
       // unregister the object with the Manager
       _ecm._unregister( _creg );
-      RH_NL_INFO("EM_Subscriber", "DTOR END");
+      RH_NL_TRACE("EM_Subscriber", "DTOR END");
     };
 
   private: 
@@ -343,7 +343,8 @@ namespace events {
         RH_NL_DEBUG("redhawk::events::Manager",  "Created EventManager for Resource: " << oid );
       }
       catch(...){
-        RH_NL_ERROR("redhawk::events::Manager",  "Resource (" <<oid << ") does not provide EventChannelManager access, Event channel management is not allowed");
+        RH_NL_WARN("redhawk::events::Manager",  "Resource (" <<oid << ") does not provide EventChannelManager access, Event channel management is not allowed");
+        throw;
       }
 
     }
@@ -575,6 +576,75 @@ namespace events {
   ///////////////////////////////////////////////////////////////////////////
   ///////////////////////////////////////////////////////////////////////////
 
+
+  class Publisher::Receiver :  public virtual ossie::events::EventPublisherSupplierPOA, public virtual PortableServer::RefCountServantBase {
+
+      struct check_disconnect {
+      check_disconnect( Publisher::Receiver &p ): _p(p) {};
+        
+        bool operator() () const {
+          return _p.get_disconnect();
+        };
+        
+        Publisher::Receiver &_p;
+      };
+
+    public:
+
+      Receiver() : _recv_disconnect(true) {};
+
+      virtual ~Receiver() {
+        _recv_disconnect=true;
+        _cond.notify_all();
+      };
+      
+      bool   get_disconnect() { return _recv_disconnect; };
+
+      void   reset() { 
+        _recv_disconnect = false; 
+      };
+      
+      virtual void disconnect_push_supplier ()
+      {
+        RH_NL_DEBUG("Publisher::Receiver", "handle disconnect_push_supplier." );
+        SCOPED_LOCK(_lock);
+        _recv_disconnect =  true;
+        _cond.notify_all();
+      };
+
+
+      virtual void wait_for_disconnect ( const int wait_time=-1, const int retries=-1)
+      {
+        SCOPED_LOCK(_lock);
+        int tries=retries;
+        while( !_recv_disconnect ) {
+          if ( wait_time > -1 ) {
+            boost::system_time const timeout=boost::get_system_time()+ boost::posix_time::milliseconds(wait_time);
+            RH_NL_TRACE("Publisher::Receiver", "Waiting on disconnect." );
+            bool ret= _cond.timed_wait( __slock, timeout, check_disconnect(*this) );
+            if ( !ret && tries == -1  ) {
+              break;
+            }
+            if ( tries-- < 1 )  break;
+          }
+          else {
+            _cond.wait( __slock, check_disconnect(*this) );
+          }
+        };
+
+        return;
+      };
+
+    protected:
+      
+      Mutex                       _lock;
+      boost::condition_variable   _cond;
+      bool                        _recv_disconnect;
+
+    };
+
+
+
   /**
 
      redhawk::events::Publisher
@@ -582,19 +652,13 @@ namespace events {
    */
 
 
-  class DefaultSupplier : virtual public ossie::events::EventPublisherSupplierPOA {
+  class DefaultReceiver :  virtual public Publisher::Receiver  {
     public:
-      virtual ~DefaultSupplier() {};
-      virtual void disconnect_push_supplier () 
-    {
-      RH_NL_DEBUG("DefaultSupplier", "handle disconnect_push_supplier." );
-      parent.proxy = ossie::events::EventPublisher::_nil();
-    } ;
-
+      virtual ~DefaultReceiver() {};
   private:
     friend class Publisher;
 
-    DefaultSupplier ( Publisher &parent ) : 
+    DefaultReceiver ( Publisher &parent ) : 
       parent(parent)
     {};
 
@@ -603,64 +667,59 @@ namespace events {
   };
 
   Publisher::Publisher( ossie::events::EventChannel_ptr   inChannel ) :
-    channel(inChannel),
-    supplier(NULL),
-    is_local(true)
+    _disconnectReceiver(NULL)
     {
       // if user passes a bad param then throw...
       if ( CORBA::is_nil(inChannel) == true ) throw (CF::EventChannelManager::OperationNotAllowed());
+      channel = ossie::events::EventChannel::_duplicate(inChannel);
 
-      // create a local supplier object 
-      supplier = new DefaultSupplier(*this);
+      // create a local disconnect object 
+      _disconnectReceiver = new DefaultReceiver(*this);
 
-      connect();
-    }
+     try {
+       RH_NL_DEBUG("Publisher", "::connect pushing Suppiler servant to POA ." );
+        PortableServer::POA_ptr poa = _disconnectReceiver->_default_POA();
+        if (!CORBA::is_nil(poa) )  {
+          PortableServer::ObjectId_var oid = poa->servant_to_id(_disconnectReceiver);
+          RH_NL_DEBUG("Publisher", "::connect activiting Suppiler servant." );
+          poa->activate_object_with_id( oid, _disconnectReceiver );
+          _disconnectReceiver->_remove_ref();
+        }
+     }
+     catch(...) {
+     }
 
-  //
-  //  Publisher for an Event Channel
-  //
-  // @param channel    event channel to create a subscriber for
-  // @apram 
-  // @param supplier   actual supplier object that pushes information to event channel
-  // @param retries    number of retries to perform when trying to establish  publisher interface
-  // @param retry_wait number of millisecs to wait between retries
-  Publisher::Publisher( ossie::events::EventChannel_ptr   inChannel,
-                        ossie::events::EventPublisherSupplierPOA   *supplier ):
-    channel(inChannel),
-    supplier(supplier),
-    is_local(false)
-    {
-      if ( CORBA::is_nil(inChannel) == true ) throw (CF::EventChannelManager::OperationNotAllowed());
-
-      connect();
+     connect();
     }
 
 
   Publisher::~Publisher() {
 
-    RH_NL_INFO("Publisher", "DTOR - START." );
+    RH_NL_TRACE("Publisher", "DTOR - START." );
 
     try {
-      disconnect();
+      if ( _disconnectReceiver && !_disconnectReceiver->get_disconnect() ) {
+        RH_NL_DEBUG("Publisher::DTOR", "DISCONNECT." );
+        disconnect();
+      }
     }
     catch(...){
     }
 
-    if ( supplier ) {
-      supplier->_remove_ref();
+    if ( _disconnectReceiver ) {
+      try {
+        RH_NL_DEBUG("Publisher::DTOR", "DEACTIVATE RECEIVER" );
+        PortableServer::POA_ptr poa = _disconnectReceiver->_default_POA();
+        PortableServer::ObjectId_var oid = poa->servant_to_id(_disconnectReceiver);
+        poa->deactivate_object( oid );
+      }
+      catch (...) {
+      }
     }
-    proxy = ossie::events::EventPublisher::_nil();
-    supplier=NULL;
-    channel=ossie::events::EventChannel::_nil();
-
-    RH_NL_DEBUG("Publisher", "DTOR - END." );
+    _disconnectReceiver=NULL;
+    RH_NL_TRACE("Publisher", "DTOR - END." );
 
   }
-
-
-  void Publisher::_init( ) {
-
-  };
 
 
  int Publisher::connect(const int retries,  const int retry_wait )
@@ -716,20 +775,9 @@ namespace events {
    if ( CORBA::is_nil(proxy) ) return retval;
 
    ossie::events::EventPublisherSupplier_var sptr =  ossie::events::EventPublisherSupplier::_nil();
-   if ( supplier != NULL ) {
-     try {
-       RH_NL_DEBUG("Publisher", "::connect pushing Suppiler servant to POA ." );
-        PortableServer::POA_ptr poa = supplier->_default_POA();
-        if (!CORBA::is_nil(poa) )  {
-          PortableServer::ObjectId_var oid = poa->servant_to_id(supplier);
-          RH_NL_DEBUG("Publisher", "::connect activiting Suppiler servant." );
-          poa->activate_object_with_id( oid, supplier );
-        }
-     }
-     catch(...) {
-     }
-     sptr = supplier->_this();
-        
+   if ( _disconnectReceiver != NULL ) {
+     // get fresh reference to receiver...
+     sptr = _disconnectReceiver->_this();
    }
 
    // now attach supplier to the proxy
@@ -737,6 +785,7 @@ namespace events {
    do {
      try {
        proxy->connect_push_supplier(sptr.in());
+       if ( _disconnectReceiver ) _disconnectReceiver->reset();
        retval=0;
        RH_NL_DEBUG("Publisher", "::connect, Connect Supplier to EventChannel....." );
        break;
@@ -746,6 +795,7 @@ namespace events {
        break;
      }
      catch (CosEventChannelAdmin::AlreadyConnected& ex) {
+       if ( _disconnectReceiver ) _disconnectReceiver->reset();
        retval=0;
        break;
      }
@@ -768,17 +818,6 @@ namespace events {
 int Publisher::disconnect(const int retries,  const int retry_wait ) 
 {
   int retval=-1;
-
-  RH_NL_DEBUG("Publisher", "::disconnect deactivate supplier." );
-  if ( supplier ){
-    try {
-      PortableServer::POA_ptr poa = supplier->_default_POA();
-      PortableServer::ObjectId_var oid = poa->servant_to_id(supplier);
-      poa->deactivate_object( oid );
-    }
-    catch (...) {
-    }
-  }
 
   RH_NL_DEBUG("Publisher", "::disconnect Checking for proxy." );
   if ( CORBA::is_nil(proxy) ) return retval;
@@ -805,7 +844,14 @@ int Publisher::disconnect(const int retries,  const int retry_wait )
     }
     tries--;
   } while(tries);
-  RH_NL_DEBUG("Publisher",  "::disconnect ProxyPushConsumer disconnected." );     
+
+  if ( _disconnectReceiver ){
+    RH_NL_DEBUG("Publisher",  "::disconnect Waiting for disconnect..........." );     
+    _disconnectReceiver->wait_for_disconnect(1,3);
+    RH_NL_DEBUG("Publisher",  "::disconnect received disconnect." );
+    // couters.... _this from connect method     
+    _disconnectReceiver->_remove_ref();
+  }
 
   return retval;
 
@@ -891,13 +937,85 @@ int Publisher::disconnect(const int retries,  const int retry_wait )
     Subscriber::DataArrivedCallbackFn func_;
   };
 
+
+  //
+  // Callback class to capture disconnect messages
+  //
+  class Subscriber::Receiver : public virtual ossie::events::EventSubscriberConsumerPOA,  public virtual PortableServer::RefCountServantBase {  
+
+      struct check_disconnect {
+        check_disconnect( Receiver &p ): _p(p){};
+        
+        bool operator() () const {
+          return _p.get_disconnect();
+        };
+        
+        Receiver &_p;
+      };
+
+    public:
+
+    Receiver() : _recv_disconnect(true)  {} ;
+
+    virtual ~Receiver() {
+        _recv_disconnect=true;
+        _cond.notify_all();
+      };
+      
+      bool   get_disconnect() { return _recv_disconnect; };
+
+      void   reset() { 
+        _recv_disconnect = false; 
+        
+      };
+
+    virtual void push( const CORBA::Any &data ) {};
+      
+    virtual void disconnect_push_consumer ()
+      {
+        RH_NL_DEBUG("Subcriber::Receiver", "handle disconnect_push_consumer" );
+        SCOPED_LOCK(_lock);
+        _recv_disconnect =  true;
+        _cond.notify_all();
+      };
+
+
+    virtual void wait_for_disconnect ( const int wait_time=-1, const int retries=-1)
+      {
+        SCOPED_LOCK(_lock);
+        int tries=retries;
+        while( !_recv_disconnect ) {
+          if ( wait_time > -1 ) {
+            boost::system_time const timeout=boost::get_system_time()+ boost::posix_time::milliseconds(wait_time);
+            RH_NL_TRACE("Subscriber::Receiver", "Waiting on disconnect." );
+            bool ret= _cond.timed_wait( __slock, timeout, check_disconnect(*this) );
+            if ( !ret && tries == -1  ) {
+              break;
+            }
+            if ( tries-- < 1 )  break;
+          }
+          else {
+            _cond.wait( __slock, check_disconnect(*this) );
+          }
+        };
+
+        return;
+      };
+
+    protected:
+      
+      Mutex                       _lock;
+      boost::condition_variable   _cond;
+      bool                        _recv_disconnect;
+
+    };
+
   //
   // CallbackConsumer provided to Subscriber
   //
-  class CallbackConsumer : public ossie::events::EventSubscriberConsumerPOA {
+  class CallbackConsumer : public Subscriber::Receiver {
   public:
     virtual ~CallbackConsumer() {};
-    virtual void disconnect_push_consumer() {};
     virtual void push( const CORBA::Any &data ) {
       if ( callback ) {
         try{
@@ -924,15 +1042,9 @@ int Publisher::disconnect(const int retries,  const int retry_wait )
   };
 
 
-  class DefaultConsumer : public ossie::events::EventSubscriberConsumerPOA {
+  class DefaultConsumer : public Subscriber::Receiver {
   public:
     virtual ~DefaultConsumer() {};
-    virtual void disconnect_push_consumer() {
-      RH_NL_DEBUG("DefaultConsumer", "handle disconnect_push_consumer." );
-      if ( CORBA::is_nil(parent.proxy) == false ){
-	parent.proxy = ossie::events::EventSubscriber::_nil();
-      }
-    };
     virtual void push( const CORBA::Any &data ) {
       // if parent defines a callback
       if ( parent.dataArrivedCB ) {
@@ -963,33 +1075,30 @@ int Publisher::disconnect(const int retries,  const int retry_wait )
 
 
   Subscriber::Subscriber(  ossie::events::EventChannel_ptr  inChannel ):
-    channel(inChannel),
     consumer(NULL)
   {
     if ( CORBA::is_nil(inChannel) == true ) throw (CF::EventChannelManager::OperationNotAllowed());
-    _init();
+    _init( inChannel );
   }
 
 
   Subscriber::Subscriber(  ossie::events::EventChannel_ptr  inChannel,
                            DataArrivedListener *newListener ):
-    channel(inChannel),
     consumer(NULL)
   {
     dataArrivedCB =  boost::shared_ptr< DataArrivedListener >(newListener, null_deleter());
     if ( CORBA::is_nil(inChannel) == true ) throw (CF::EventChannelManager::OperationNotAllowed());
-    _init();
+    _init( inChannel );
   }
 
 
   Subscriber::Subscriber(  ossie::events::EventChannel_ptr  inChannel,
                            DataArrivedCallbackFn  newListener ) :
-    channel(inChannel),
     consumer(NULL)
   {
     dataArrivedCB =  boost::make_shared< StaticDataArrivedListener >( newListener );
     if ( CORBA::is_nil(inChannel) == true ) throw (CF::EventChannelManager::OperationNotAllowed());
-    _init();
+    _init( inChannel );
   }
 
 
@@ -998,33 +1107,56 @@ int Publisher::disconnect(const int retries,  const int retry_wait )
 
     RH_NL_TRACE("Subscriber", "DTOR - START." );
 
-    try {
-      disconnect();
+    try{
+      if ( consumer && !consumer->get_disconnect() ) {
+        RH_NL_DEBUG("Subscriber::DTOR", "DISCONNECT" );
+        disconnect();
+      }        
     }
     catch(...){
     }
 
     if ( consumer ) {
-      consumer->_remove_ref();
+      RH_NL_DEBUG("Subscriber::DTOR", "DEACTIVATE CONSUMER" );
+      try {
+        PortableServer::POA_ptr poa = consumer->_default_POA();
+        PortableServer::ObjectId_var oid = poa->servant_to_id(consumer);
+        poa->deactivate_object( oid );
+      }
+      catch (...) {
+      }
+
     }
 
-    proxy = ossie::events::EventSubscriber::_nil();
     consumer = NULL;
-    channel=ossie::events::EventChannel::_nil();
-
-    RH_NL_DEBUG("Subscriber", "DTOR - END." );
+    RH_NL_TRACE("Subscriber", "DTOR - END." );
   }
 
 
-  void Subscriber::_init( ) 
+  void Subscriber::_init( ossie::events::EventChannel_ptr  inChannel )  
   {
+    channel = ossie::events::EventChannel::_duplicate(inChannel);
+
     if  ( consumer == NULL ) {
       RH_NL_DEBUG("Subscriber", "Create local DefaultConsumer for EventChannel Subscriber." );
       consumer = new DefaultConsumer(*this );
       if ( consumer == NULL ) return;
     }
 
+    try {
+      PortableServer::POA_ptr poa = consumer->_default_POA();
+      if (!CORBA::is_nil(poa) )  {
+        PortableServer::ObjectId_var oid = poa->servant_to_id(consumer);
+        poa->activate_object_with_id( oid, consumer );
+        // let poa manage memory....
+        consumer->_remove_ref();
+      }
+    }
+    catch(...) {
+    }
+
     connect();
+
   };
 
 
@@ -1032,16 +1164,6 @@ int Subscriber::disconnect(const int retries,  const int retry_wait )
 {  
   int retval=-1;
   int tries = retries;
-
-  if ( consumer ){
-    try {
-      PortableServer::POA_ptr poa = consumer->_default_POA();
-      PortableServer::ObjectId_var oid = poa->servant_to_id(consumer);
-      poa->deactivate_object( oid );
-    }
-    catch (...) {
-    }
-  }
 
 
   if ( CORBA::is_nil(proxy) == false ) {
@@ -1070,10 +1192,17 @@ int Subscriber::disconnect(const int retries,  const int retry_wait )
     RH_NL_TRACE("Subscriber", "ProxyPushSupplier disconnected." );
   }
 
+  if ( consumer ){
+    RH_NL_DEBUG("Subscriber", "Waiting for disconnect ........" );
+    consumer->wait_for_disconnect(1,3);
+    RH_NL_DEBUG("Subscriber",  "::disconnect received disconnect." );     
+    // counters.... _this from connect
+    consumer->_remove_ref();
+  }
+
   return retval;
 
 }
-
 
 int Subscriber::connect(const int retries,  const int retry_wait ) {
 
@@ -1128,22 +1257,11 @@ int Subscriber::connect(const int retries,  const int retry_wait ) {
 
   CosEventComm::PushConsumer_var sptr = CosEventComm::PushConsumer::_nil();
   if  ( consumer != NULL ) {
-     try {
-        PortableServer::POA_ptr poa = consumer->_default_POA();
-        if (!CORBA::is_nil(poa) )  {
-          PortableServer::ObjectId_var oid = poa->servant_to_id(consumer);
-          poa->activate_object_with_id( oid, consumer );
-        }
-     }
-     catch(...) {
-     }
-     sptr = consumer->_this();
+    // get a fresh reference
+    sptr = consumer->_this();
   }
   else {
-      RH_NL_DEBUG("Subscriber", "Create local DefaultConsumer for EventChannel Subscriber." );
-      consumer = new DefaultConsumer(*this );
-      if ( consumer == NULL ) return retval;
-    sptr = consumer->_this();
+      RH_NL_WARN("Subscriber", "No Consumer for event channel." );
   }
 
   // now attach supplier to the proxy
@@ -1152,6 +1270,7 @@ int Subscriber::connect(const int retries,  const int retry_wait ) {
     try {
       // connect the the consumer object to the supplier's proxy
       proxy->connect_push_consumer( sptr.in() );
+      if ( consumer ) consumer->reset();
       retval=0;
       RH_NL_DEBUG("Subscriber", "Consumer is now attached to event channel, (connect method)" );
       break;
@@ -1161,6 +1280,7 @@ int Subscriber::connect(const int retries,  const int retry_wait ) {
       break;
     }
     catch (CosEventChannelAdmin::AlreadyConnected& ex) {
+      if ( consumer ) consumer->reset();
       retval=0;
       break;
     }

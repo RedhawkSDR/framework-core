@@ -404,7 +404,7 @@ class PropertySet(object):
         #DEPRICATED: replaced with _properties, _propertySet did not contain all kinds and actions
         _warnings.warn("'_propertySet' is deprecated", DeprecationWarning)
         try:
-            return [p for p in self._properties if 'execparam' in p.kinds or 'configure' in p.kinds]
+            return [p for p in self._properties if 'execparam' in p.kinds or 'configure' in p.kinds or 'property' in p.kinds]
         except:
             return None
     
@@ -417,6 +417,19 @@ class PropertySet(object):
     def _itemToDataType(self, name, value):
         prop = self._findProperty(name)
         return _CF.DataType(prop.id, prop.toAny(value))
+
+    def construct(self, props):
+        self.__log.trace("construct('%s')", str(props))
+        if not self.ref:
+            pass
+        try:
+            # Turn a dictionary of Python values into a list of CF Properties
+            props = [self._itemToDataType(k,v) for k,v in props.iteritems()]
+        except AttributeError:
+            # Assume the exception occurred because props is not a dictionary
+            pass
+        self.ref.construct(props)
+
 
     def configure(self, props):
         self.__log.trace("configure('%s')", str(props))
@@ -439,7 +452,7 @@ class PropertySet(object):
                 return None
    
     def api(self, externalPropInfo=None):
-        properties = [p for p in self._properties if 'configure' in p.kinds or 'execparam' in p.kinds]
+        properties = [p for p in self._properties if 'property' in p.kinds or 'configure' in p.kinds or 'execparam' in p.kinds]
         if not properties:
             return
 
@@ -492,10 +505,13 @@ class PropertySet(object):
                     name = ' ' + member.clean_name
                     scaType = _formatType(member.type)
                     if not writeOnly:
-                        if isinstance(member, prop_helpers.sequenceProperty):
-                            _currentValue = _formatSimpleSequence(member, currentValue[member.id], member.id)
+                        if member.id in currentValue:
+                            if isinstance(member, prop_helpers.sequenceProperty):
+                                _currentValue = _formatSimpleSequence(member, currentValue[member.id], member.id)
+                            else:
+                                _currentValue = _formatSimple(member, currentValue[member.id], member.id)
                         else:
-                            _currentValue = _formatSimple(member, currentValue[member.id], member.id)
+                            _currentValue = "N/A"
                     else: 
                         _currentValue = "N/A"
                     table.append(' '+name, '('+scaType+')', str(member.defValue), _currentValue)
@@ -803,7 +819,7 @@ class ComponentBase(object):
         self._pid = pid
         self._id = None
         self._devs = devs
-        self._properties = self._getPropertySet(kinds=("configure","execparam","allocation","event","message"),
+        self._properties = self._getPropertySet(kinds=("configure","property","execparam","allocation","event","message"),
                                           modes=("readwrite","readonly","writeonly"),
                                           action=("external","eq","ge","gt","le","lt","ne"),
                                           includeNil=True)
@@ -873,7 +889,7 @@ class ComponentBase(object):
         return propType
      
     def _getPropertySet(self, \
-                        kinds=("configure","execparam"), \
+                        kinds=("configure","property", "execparam"), \
                         modes=("readwrite", "writeonly", "readonly"), \
                         action=("external"), \
                         includeNil=True):
@@ -1130,7 +1146,8 @@ class ComponentBase(object):
             self._usesPortDict[name]["Port Interface"] = str(port.get_repid())
 
         for prop in self._properties:
-            if 'configure' in prop.kinds:
+            #if set(['configure','property']).issubset(set(prop.kinds)):
+            if 'configure' in prop.kinds or 'property' in prop.kinds:
                 self._configureTable[prop.id] = prop
 
         if _DEBUG == True:

@@ -33,6 +33,11 @@ public interface IProperty  {
      * @return
      */
     public void configure(Any value);
+    
+    /**
+     * Update the value of the property without callbacks
+     */
+    public void construct(Any value );
 
     /**
      * Attempt to allocate capacity from the property.
@@ -111,6 +116,13 @@ public interface IProperty  {
      * @return whether or not the property is queryable
      */
     public boolean isQueryable();
+
+    /**
+     * This returns whether or not the property is new style property
+     * 
+     * @return whether or not the property is a property
+     */
+    public boolean isProperty();
     
     /**
      * This returns whether or not the property is configurable
@@ -118,7 +130,7 @@ public interface IProperty  {
      * @return whether or not the property is configurable
      */
     public boolean isConfigurable();
-    
+
     /**
      * This returns whether or not the property is allocatable
      * 

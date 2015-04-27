@@ -73,6 +73,11 @@ public:
         throw (CF::Resource::StopError, CORBA::SystemException);
 
     /// The core framework provides an implementation for this method.
+    void initializeProperties (const CF::Properties& configProperties)
+        throw (CF::PropertySet::PartialConfiguration,
+           CF::PropertySet::InvalidConfiguration, CORBA::SystemException);
+
+    /// The core framework provides an implementation for this method.
     void configure (const CF::Properties& configProperties)
         throw (CF::PropertySet::PartialConfiguration,
            CF::PropertySet::InvalidConfiguration, CORBA::SystemException);
@@ -95,6 +100,8 @@ public:
         
     CORBA::Object_ptr getPort (const char*)
         throw (CORBA::SystemException, CF::PortSupplier::UnknownPort);
+
+    CF::PortSupplier::PortInfoSequence* getPortSet ();
         
     void runTest (CORBA::ULong, CF::Properties&)
         throw (CORBA::SystemException, CF::UnknownProperties, CF::TestableObject::UnknownTest);

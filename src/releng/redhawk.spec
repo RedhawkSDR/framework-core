@@ -231,6 +231,7 @@ fi
 %attr(2775,redhawk,redhawk) %dir %{_sdrroot}
 %attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dom
 %attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dom/components
+%attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dom/deps
 %attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dom/domain
 %attr(2775,redhawk,redhawk) %dir %{_sdrroot}/dom/mgr
 %attr(775,redhawk,redhawk) %{_sdrroot}/dom/mgr/DomainManager

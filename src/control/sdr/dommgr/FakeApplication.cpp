@@ -86,6 +86,11 @@ CORBA::Object_ptr FakeApplication::getPort (const char*)
     throw CF::PortSupplier::UnknownPort();
 }
 
+CF::PortSupplier::PortInfoSequence* FakeApplication::getPortSet ()
+{
+	return new CF::PortSupplier::PortInfoSequence();
+}
+
 void FakeApplication::runTest (CORBA::ULong, CF::Properties&)
 {
     throw CF::TestableObject::UnknownTest();

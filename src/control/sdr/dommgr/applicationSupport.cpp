@@ -580,6 +580,13 @@ ComponentInfo* ComponentInfo::buildComponentInfoFromSPDFile(CF::FileManager_ptr 
                 newComponent->addConfigureProperty(convertPropertyToDataType(prop[i]));
             }
         }
+
+        const std::vector<const Property*>& cprop = newComponent->prf.getConstructProperties();
+        for (unsigned int i = 0; i < cprop.size(); i++) {
+          LOG_TRACE(ComponentInfo, "Adding construct prop " << cprop[i]->getID() << " " << cprop[i]->getName() << " " << cprop[i]->isReadOnly());
+          newComponent->addConstructProperty(convertPropertyToDataType(cprop[i]));
+        }
+
     }
     
     LOG_TRACE(ComponentInfo, "Done building component info from file " << spdFileName);
@@ -666,6 +673,11 @@ void ComponentInfo::addConfigureProperty(CF::DataType dt)
     addProperty(dt, configureProperties);
 }
 
+void ComponentInfo::addConstructProperty(CF::DataType dt)
+{
+    addProperty(dt, ctorProperties);
+}
+
 void ComponentInfo::overrideProperty(const ossie::ComponentProperty* propref) {
     std::string propId = propref->getID();
     LOG_TRACE(ComponentInfo, "Instantiation property id = " << propId)
@@ -708,6 +720,7 @@ void ComponentInfo::overrideProperty(const char* id, const CORBA::Any& value)
             return;
         }
     }
+    process_overrides(&ctorProperties, id, value);
     process_overrides(&configureProperties, id, value);
     process_overrides(&options, id, value);
     process_overrides(&factoryParameters, id, value);
@@ -786,6 +799,7 @@ const bool  ComponentInfo::isConfigurable()
     return scd.isConfigurable();
 }
 
+
 const bool  ComponentInfo::isAssemblyController()
 {
     return _isAssemblyController;
@@ -806,9 +820,20 @@ CF::Properties ComponentInfo::getNonNilConfigureProperties()
     return ossie::getNonNilConfigureProperties(configureProperties);
 }
 
+CF::Properties ComponentInfo::getNonNilConstructProperties()
+{
+    return ossie::getNonNilProperties(ctorProperties);
+}
+
 CF::Properties ComponentInfo::getConfigureProperties()
 {
     return configureProperties;
+}
+
+
+CF::Properties ComponentInfo::getConstructProperties()
+{
+    return ctorProperties;
 }
 
 CF::Properties ComponentInfo::getOptions()

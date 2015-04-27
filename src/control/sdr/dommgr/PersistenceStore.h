@@ -78,6 +78,7 @@ namespace ossie {
     struct AllocationType {
         std::string allocationID;
         std::string requestingDomain;
+        std::string sourceID;
         CF::Properties allocationProperties;
         CF::Device_var allocatedDevice;
         CF::DeviceManager_var allocationDeviceManager;

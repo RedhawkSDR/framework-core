@@ -52,6 +52,11 @@ public:
      */
     void setExecparamProperties(std::map<std::string, char*>&);
 
+    void
+    initializeProperties(const CF::Properties& initialProperties)
+    throw (CF::PropertySet::AlreadyInitialized, CF::PropertySet::PartialConfiguration,
+           CF::PropertySet::InvalidConfiguration, CORBA::SystemException);
+
     /// The core framework provides an implementation for this method.
     void
     configure (const CF::Properties& configProperties)
@@ -384,6 +389,7 @@ private:
     // service function that reports on change events
     int    _propertyChangeServiceFunction();
     
-
+    bool _propertiesInitialized;
 };
+
 #endif                                            /*  */

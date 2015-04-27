@@ -199,8 +199,8 @@ CORBA::Boolean Application_impl::started () throw (CORBA::SystemException)
 void Application_impl::start ()
 throw (CORBA::SystemException, CF::Resource::StartError)
 {
-    if (CORBA::is_nil(assemblyController)) {
-        throw(CF::Resource::StartError(CF::CF_ENOTSUP, "No assembly controller"));
+    if (CORBA::is_nil(assemblyController) and (_appStartSeq.size() == 0)) {
+        throw(CF::Resource::StartError(CF::CF_ENOTSUP, "No assembly controller and no Components with startorder set"));
         return;
     }
 
@@ -235,8 +235,8 @@ throw (CORBA::SystemException, CF::Resource::StartError)
 void Application_impl::stop ()
 throw (CORBA::SystemException, CF::Resource::StopError)
 {
-    if (CORBA::is_nil(assemblyController)) {
-        throw(CF::Resource::StopError(CF::CF_ENOTSUP, "No assembly controller"));
+    if (CORBA::is_nil(assemblyController) and (_appStartSeq.size() == 0)) {
+        throw(CF::Resource::StopError(CF::CF_ENOTSUP, "No assembly controller and no Components with startorder set"));
         return;
     }
 
@@ -269,6 +269,12 @@ throw (CORBA::SystemException, CF::Resource::StopError)
                     ExtendedEvent::STOPPED);
         }
     }
+}
+
+
+void Application_impl::initializeProperties (const CF::Properties& configProperties)
+throw (CF::PropertySet::PartialConfiguration, CF::PropertySet::InvalidConfiguration, CORBA::SystemException)
+{
 }
 
 void Application_impl::configure (const CF::Properties& configProperties)
@@ -631,6 +637,11 @@ throw (CORBA::SystemException, CF::PortSupplier::UnknownPort)
     }
 }
 
+CF::PortSupplier::PortInfoSequence* Application_impl::getPortSet ()
+{
+	return new CF::PortSupplier::PortInfoSequence();
+}
+
 
 void Application_impl::runTest (CORBA::ULong _testId, CF::Properties& _props)
 throw (CORBA::SystemException, CF::UnknownProperties, CF::TestableObject::UnknownTest)
@@ -789,6 +800,11 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
 void Application_impl::releaseComponents()
 {
     for (ossie::ComponentList::iterator ii = _components.begin(); ii != _components.end(); ++ii) {
+        if (CORBA::is_nil(ii->componentObject)) {
+            // Ignore components that never registered
+            continue;
+        }
+
         LOG_DEBUG(Application_impl, "Releasing component '" << ii->identifier << "'");
         try {
             CF::Resource_var resource = CF::Resource::_narrow(ii->componentObject);

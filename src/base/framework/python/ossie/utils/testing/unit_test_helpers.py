@@ -199,7 +199,7 @@ class ScaComponentTestCase(unittest.TestCase):
 
             matchKind = False
             if prop.get_kind() == None:
-                k = ["configure"]
+                k = ["configure", "property"]
             else:
                 k = prop.get_kind()
             for kind in k:
@@ -211,7 +211,7 @@ class ScaComponentTestCase(unittest.TestCase):
 
             matchKind = False
             if prop.get_configurationkind() == None:
-                k = ["configure"]
+                k = ["configure", "property"]
             else:
                 k = prop.get_configurationkind()
             for kind in k:
@@ -224,7 +224,7 @@ class ScaComponentTestCase(unittest.TestCase):
 
         return matchMode and matchKind and matchAction
        
-    def getPropertySet(self, kinds=("configure",), \
+    def getPropertySet(self, kinds=("configure","property",), \
                              modes=("readwrite", "writeonly", "readonly"), \
                              action="external", \
                              includeNil=True):

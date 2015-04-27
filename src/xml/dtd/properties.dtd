@@ -70,8 +70,8 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 
 <!ELEMENT kind EMPTY>
 <!ATTLIST kind
-	kindtype	(allocation | configure | test | execparam | factoryparam | event | message) 
-"configure">
+	kindtype	(allocation | property | configure | test | execparam | factoryparam | event | message) 
+"property">
 
 <!ELEMENT action EMPTY>
 <!ATTLIST action
@@ -127,8 +127,8 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 
 <!ELEMENT configurationkind EMPTY>
 <!ATTLIST configurationkind
-	kindtype	(allocation | configure | test | factoryparam | event | message)
-"configure">
+	kindtype	(allocation | property | configure | test | factoryparam | event | message  )
+"property">
 
 <!ELEMENT structsequence
 	( description?

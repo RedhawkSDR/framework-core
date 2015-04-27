@@ -107,6 +107,10 @@ public:
     Consumer_i* removeConsumer(std::string consumer_id);
     
     void fireCallback (const std::string& id, const CORBA::Any& data);
+
+	std::string getRepid() const;
+
+	std::string getDirection() const;
     
 
 protected:
@@ -225,6 +229,8 @@ public:
         data <<= properties;
         push(data);
     }
+
+	std::string getRepid() const;
 
 protected:
     boost::mutex portInterfaceAccess;

@@ -935,7 +935,7 @@ class DomainPersistenceTest(scatest.CorbaTestCase):
         nicCapacityId = 'DCE:4f9a57fc-8fb3-47f6-b779-3c2692f52cf9'
         allocations = { 'test1': {memCapacityId:2048, nicCapacityId:0.125},
                         'test2': {bogoMipsId:10000}}
-        requests = [CF.AllocationManager.AllocationRequestType(k, properties.props_from_dict(v), [], []) for k,v in allocations.iteritems()]
+        requests = [CF.AllocationManager.AllocationRequestType(k, properties.props_from_dict(v), [], [], 'test_Allocations') for k,v in allocations.iteritems()]
         results = allocMgr.allocate(requests)
         self.assertEqual(len(results), len(requests))
 

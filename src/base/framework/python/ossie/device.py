@@ -20,6 +20,7 @@
 
 from ossie.cf import CF
 from omniORB import any, CORBA
+import omniORB
 hasEvents = True
 try:
     import CosEventComm__POA
@@ -960,6 +961,11 @@ class LoadableDevice(Device):
                 loadedFiles.append(localFile)
                 if modified_file != None:
                     loadedFiles.append(modified_file)
+                for prop in fileInformation.fileProperties:
+                    if prop.id == 'EXECUTABLE':
+                        if prop.value._v == True:
+                            command = localFile
+                            os.chmod(command, os.stat(command)[0] | stat.S_IEXEC | stat.S_IREAD | stat.S_IWRITE)
             elif fileInformation.kind == CF.FileSystem.DIRECTORY:
                 localDirectory = os.path.join(localPath, fileInformation.name)
                 if not os.path.exists(localDirectory):
@@ -1052,7 +1058,6 @@ class ExecutableDevice(LoadableDevice):
     def __init__(self, devmgr, identifier, label, softwareProfile, compositeDevice, execparams, propertydefs=(),loggerName=None):
         LoadableDevice.__init__(self, devmgr, identifier, label, softwareProfile, compositeDevice, execparams, propertydefs,loggerName=loggerName)
         self._applications = {}
-        
         # Install our own SIGCHLD handler to allow reporting on abnormally terminated children,
         # keeping the old one around so that it can be chained (in case a subclass creates its
         # own children, for example).
@@ -1368,6 +1373,16 @@ def start_device(deviceclass, interactive_callback=None, thread_policy=None,logg
                 obj = devicePOA.servant_to_id(component_Obj)
                 if skip_run:
                     return component_Obj
+
+                # Establish a handler for CORBA::COMM_FAILURE exceptions that
+                # can occur with persistence enabled; if the DomainManager dies
+                # and comes back, there may be a cached connection that has to
+                # fail once before establishing a new connection. More than one
+                # failure indicates a more serious problem.
+                def retry_on_failure(cookie, retries, exc):
+                    return retries == 0
+                omniORB.installCommFailureExceptionHandler(None, retry_on_failure)
+
                 while objectActivated:
                     try:
                         obj = devicePOA.reference_to_servant(component_Obj._this())

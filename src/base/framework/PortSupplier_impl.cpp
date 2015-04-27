@@ -19,6 +19,7 @@
  */
 
 #include <ossie/PortSupplier_impl.h>
+#include <ossie/CorbaUtils.h>
 
 PREPARE_LOGGING(PortSupplier_impl);
 
@@ -37,6 +38,25 @@ CORBA::Object* PortSupplier_impl::getPort (const char* name) throw (CORBA::Syste
     throw CF::PortSupplier::UnknownPort();
 }
 
+CF::PortSupplier::PortInfoSequence* PortSupplier_impl::getPortSet () 
+{
+	CF::PortSupplier::PortInfoSequence_var retval = new CF::PortSupplier::PortInfoSequence();
+
+	PortServantMap::iterator port;
+	for (port=_portServants.begin(); port!=_portServants.end(); ++port) {
+        CF::PortSupplier::PortInfoType info;		
+        info.obj_ptr = getPort(port->first.c_str());
+		info.name = port->first.c_str();
+        info.repid = port->second->getRepid().c_str();;
+		info.description = port->second->getDescription().c_str();
+        info.direction = port->second->getDirection().c_str();
+	
+		ossie::corba::push_back(retval, info);
+	}
+
+	return retval._retn();
+}
+
 void PortSupplier_impl::addPort (const std::string& name, PortBase* servant)
 {
     LOG_TRACE(PortSupplier_impl, "Adding port '" << name << "'");
@@ -46,6 +66,13 @@ void PortSupplier_impl::addPort (const std::string& name, PortBase* servant)
     LOG_TRACE(PortSupplier_impl, "Activating port '" << name << "'");
     PortableServer::POA_var poa = servant->_default_POA();
     PortableServer::ObjectId_var oid = poa->activate_object(servant);
+}
+
+void PortSupplier_impl::addPort (const std::string& name, const std::string& description, PortBase* servant)
+{
+    LOG_TRACE(PortSupplier_impl, "Adding port '" << name << "': " << description);
+    addPort(name, servant);
+	servant->setDescription(description);
 }
 
 void PortSupplier_impl::startPorts ()

@@ -11,6 +11,9 @@ import org.omg.PortableServer.POA;
 import org.apache.log4j.Logger;
 import org.ossie.corba.utils.*;
 import CF.EventChannelManagerPackage.*;
+import java.lang.InterruptedException;
+import java.util.concurrent.locks.*;
+import java.util.concurrent.TimeUnit;
 
 public class  Publisher  {
 
@@ -18,16 +21,75 @@ public class  Publisher  {
 
     };
 
-  class DefaultSupplier extends Supplier {
 
-    public DefaultSupplier ( Publisher inParent )  {
-	parent=inParent;
+    public class Receiver extends PushSupplierPOA {
+
+        
+        public Receiver() {};
+
+        public boolean   get_disconnect() { return _recv_disconnect; };
+
+        public void   reset() { _recv_disconnect = false; };
+      
+        public void disconnect_push_supplier () {
+            _logger.debug("::disconnect_push_supplier handle disconnect_push_supplier." );
+            _lock.lock();
+            try{
+                _recv_disconnect =  true;
+                _cond.signalAll();
+            }finally {
+                _lock.unlock();
+            }
+        };
+
+
+        public void wait_for_disconnect ( int wait_time, int retries )
+        {
+            int tries=retries;
+            _lock.lock();
+            try {
+                while( _recv_disconnect == false ) {
+                    if ( wait_time > -1 ) {
+                        _logger.debug("::wait_for_disconnect.. Waiting on disconnect." );
+                        boolean ret = false;
+                        try {
+                            ret= _cond.await( wait_time, TimeUnit.MILLISECONDS );
+                        } catch( InterruptedException e ) {
+                        }
+                        if ( !ret && tries == -1  ) {
+                            break;
+                        }
+                        if ( tries-- < 1 )  break;
+                    }
+                    else {
+                        try {
+                            _cond.await();
+
+                        } catch( InterruptedException e ) {
+                        }
+                    }
+                }
+            } finally {
+                _lock.unlock();
+            }
+        
+            return;
+        };
+
+      
+      protected Lock                        _lock = new ReentrantLock();
+      protected Condition                   _cond = _lock.newCondition();
+      protected boolean                     _recv_disconnect = true;
+      protected Logger                      _logger = Logger.getLogger("Publisher.Receiver");                     
+
     };
 
-    public void disconnect_push_supplier () 
-    {
-	if ( parent != null ) parent.logger.debug( "DefaultSupplier: handler disconnect_push_supplier." );
-	parent.proxy = null;
+
+
+  class DefaultReceiver extends Receiver {
+
+    public DefaultReceiver ( Publisher inParent )  {
+	parent=inParent;
     };
 
     protected Publisher parent;
@@ -42,37 +104,41 @@ public class  Publisher  {
     // @param pub   interface that is notified when a disconnect occurs
     // @param retries    number of retries to perform when trying to establish  publisher interface
     // @param retry_wait number of millisecs to wait between retries
-    public Publisher( EventChannel    channel )
+    public Publisher( EventChannel    inChannel )
 	throws OperationNotAllowed
     {
-	is_local = true;
-	supplier = new DefaultSupplier(this);
-	_init(channel,supplier);
-    }
+	logger = Logger.getLogger("ossie.events.Publisher");
 
-    public Publisher( EventChannel       channel ,
-		      Supplier           supplier ) 
-	throws OperationNotAllowed
-    {
-	is_local = false;
-        _init( channel, supplier );
+        // if user passes a bad param then throw...
+        channel = inChannel;
+	if ( inChannel == null ) throw new OperationNotAllowed();
+
+        //  local supplier object 
+	disconnectReceiver = new DefaultReceiver(this);
+	if ( disconnectReceiver != null ) {
+            org.ossie.corba.utils.activateObject(disconnectReceiver, null);
+	}
+
+        // initialize the event channel for a publisher and the local supplier interface
+        connect( );
+
     }
 
 
     public void  terminate() {
         logger.debug("TERMINATE - START." );
-
-        // stop our supplier from receiving data...
-        if ( is_local )  {
-            org.ossie.corba.utils.deactivateObject(supplier);
-        }
-
+        
         // disconnect the channel
         disconnect();
 
+        // stop our disconnectReceiver from receiving data...
+        if ( disconnectReceiver != null ) {
+            org.ossie.corba.utils.deactivateObject(disconnectReceiver);
+        }
+
         // free up the resource
         proxy = null;
-        supplier=null;
+        disconnectReceiver=null;
 
         logger.debug("TERMINATE - END." );
     }
@@ -104,6 +170,13 @@ public class  Publisher  {
                 }
                 tries--;
             } while(tries>0);
+
+            if ( disconnectReceiver != null ) {
+                logger.debug( "Publisher::disconnect waiting for disconnect.." );
+                disconnectReceiver.wait_for_disconnect(1,3);
+                logger.debug( "Publisher::disconnect received disconnect.." );
+            }
+                
         }
 
         logger.debug( "Publisher disconnected ...." );     
@@ -165,9 +238,8 @@ public class  Publisher  {
         if ( proxy == null ) return retval;
 
 	PushSupplier   sptr=null;
-	if ( supplier != null ) {
-            org.ossie.corba.utils.activateObject(supplier, null);
-	    sptr = supplier._this();
+	if ( disconnectReceiver != null ) {
+	    sptr = disconnectReceiver._this();
 	}
 
         // now attach supplier to the proxy
@@ -175,6 +247,7 @@ public class  Publisher  {
         do {
             try {
                 proxy.connect_push_supplier(sptr);
+                disconnectReceiver.reset();
                 retval=0;
                 break;
             }
@@ -183,6 +256,7 @@ public class  Publisher  {
                 break;
             }
             catch(AlreadyConnected ex) {
+                disconnectReceiver.reset();
                 retval=0;
                 logger.error("Proxy Push Consumer already connected!");
                 break;
@@ -231,33 +305,11 @@ public class  Publisher  {
     protected ProxyPushConsumer         proxy = null;
 
     // handle to object that responds to disconnect messages
-    protected Supplier                  supplier = null;
-
-    //
-    // designator if supplier is a local object or provided
-    //
-    protected boolean                   is_local=true;
+    protected Receiver                  disconnectReceiver = null;
 
     //
     // logger
     protected Logger                    logger=null;
 
-
-
-    private void _init( EventChannel inChannel, Supplier inSupplier ) 
-        throws OperationNotAllowed {
-
-	logger = Logger.getLogger("ossie.events.Publisher");
-
-        // create a local supplier object 
-        supplier = inSupplier;
-
-        // if user passes a bad param then throw...
-        channel = inChannel;
-	if ( inChannel == null ) throw new OperationNotAllowed();
-
-        // initialize the event channel for a publisher and the local supplier interface
-        connect( );
-    }
 
 };

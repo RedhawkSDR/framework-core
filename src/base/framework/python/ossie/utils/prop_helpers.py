@@ -279,6 +279,8 @@ def isMatch(prop, modes, kinds, actions):
         for kind in k:
             if "configure" == kind.get_kindtype():
                 foundConf = True
+            if "property" == kind.get_kindtype():
+                foundConf = True
             if "allocation" == kind.get_kindtype():
                 foundAlloc = True
         if foundConf and foundAlloc:
@@ -337,7 +339,7 @@ class Property(object):
             self.kinds = kinds
         else:
             # Default to "configure" if no kinds given
-            self.kinds = ('configure',)
+            self.kinds = ('configure',"property")
 
     def _getStructsSimpleProps(self,simple,prop):
         kinds = []

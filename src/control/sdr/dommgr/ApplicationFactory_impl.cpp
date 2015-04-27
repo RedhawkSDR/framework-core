@@ -396,7 +396,7 @@ void createHelper::_configureComponents()
         CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL, "Configure of component failed (unclear where in the process this occurred)"))
 }
 
-void createHelper::assignRemainingComponentsToDevices()
+void createHelper::assignRemainingComponentsToDevices(const std::string &appIdentifier)
 {
     PlacementList::iterator componentIter;
     for (componentIter  = _requiredComponents.begin(); 
@@ -404,12 +404,12 @@ void createHelper::assignRemainingComponentsToDevices()
          componentIter++)
     {
         if (!(*componentIter)->isAssignedToDevice()) {
-            allocateComponent(*componentIter, std::string(), _appUsedDevs);
+            allocateComponent(*componentIter, std::string(), _appUsedDevs, appIdentifier);
         }
     }
 }
 
-void createHelper::_assignComponentsUsingDAS(const DeviceAssignmentMap& deviceAssignments)
+void createHelper::_assignComponentsUsingDAS(const DeviceAssignmentMap& deviceAssignments, const std::string &appIdentifier)
 {
     LOG_TRACE(ApplicationFactory_impl, "Assigning " << deviceAssignments.size() 
               << " component(s) based on DeviceAssignmentSequence");
@@ -430,7 +430,7 @@ void createHelper::_assignComponentsUsingDAS(const DeviceAssignmentMap& deviceAs
             badDAS[0].assignedDeviceId = assignedDeviceId.c_str();
             throw CF::ApplicationFactory::CreateApplicationRequestError(badDAS);
         }
-        allocateComponent(component, assignedDeviceId, _appUsedDevs);
+        allocateComponent(component, assignedDeviceId, _appUsedDevs, appIdentifier);
     }
 }
 
@@ -591,7 +591,7 @@ void createHelper::_consolidateAllocations(const ossie::ImplementationInfo::List
     }
 }
 
-void createHelper::_handleHostCollocation()
+void createHelper::_handleHostCollocation(const std::string &appIdentifier)
 {
     const std::vector<SoftwareAssembly::HostCollocation>& hostCollocations =
         _appFact._sadParser.getHostCollocations();
@@ -600,11 +600,11 @@ void createHelper::_handleHostCollocation()
                     << " collocated groups of components");
 
     for (unsigned int ii = 0; ii < hostCollocations.size(); ++ii) {
-        _placeHostCollocation(hostCollocations[ii]);
+        _placeHostCollocation(hostCollocations[ii], appIdentifier);
     }
 }
 
-void createHelper::_placeHostCollocation(const SoftwareAssembly::HostCollocation& collocation)
+void createHelper::_placeHostCollocation(const SoftwareAssembly::HostCollocation& collocation, const std::string &appIdentifier)
 {
     LOG_TRACE(ApplicationFactory_impl,
               "-- Begin placment for Collocation " <<
@@ -659,7 +659,7 @@ void createHelper::_placeHostCollocation(const SoftwareAssembly::HostCollocation
         this->_consolidateAllocations(res_vec[index], allocationProperties);
 
         const std::string requestid = ossie::generateUUID();
-        ossie::AllocationResult response = this->_allocationMgr->allocateDeployment(requestid, allocationProperties, deploymentDevices, processorDeps, osDeps);
+        ossie::AllocationResult response = this->_allocationMgr->allocateDeployment(requestid, allocationProperties, deploymentDevices, appIdentifier, processorDeps, osDeps);
         if (!response.first.empty()) {
             // Ensure that all capacities get cleaned up
             this->_allocations.push_back(response.first);
@@ -1075,24 +1075,24 @@ throw (CORBA::SystemException,
         // Allocate any usesdevice capacities specified in the SAD file
         _handleUsesDevices(name);
 
-        // First, assign components to devices based on the caller supplied
-        // DAS.
-        _assignComponentsUsingDAS(deviceAssignments);
-
-        // Second, attempt to honor host collocation.
-        _handleHostCollocation();
-
-        assignRemainingComponentsToDevices();
-
-        ////////////////////////////////////////////////
-        // Create the Application servant
-
         // Give the application a unique identifier of the form 
         // "softwareassemblyid:ApplicationName", where the application 
         // name includes the serial number generated for the naming context
         // (e.g. "Application_1").
         std::string appIdentifier = 
             _appFact._identifier + ":" + _waveformContextName;
+
+        // First, assign components to devices based on the caller supplied
+        // DAS.
+        _assignComponentsUsingDAS(deviceAssignments, appIdentifier);
+
+        // Second, attempt to honor host collocation.
+        _handleHostCollocation(appIdentifier);
+
+        assignRemainingComponentsToDevices(appIdentifier);
+
+        ////////////////////////////////////////////////
+        // Create the Application servant
 
         // Manage the Application servant with an auto_ptr in case 
         // something throws an exception.
@@ -1304,7 +1304,8 @@ CF::AllocationManager::AllocationResponseSequence* createHelper::allocateUsesDev
  */
 void createHelper::allocateComponent(ossie::ComponentInfo*  component,
                                      const std::string& assignedDeviceId,
-                                     DeviceAssignmentList &appAssignedDevs)
+                                     DeviceAssignmentList &appAssignedDevs,
+                                     const std::string& appIdentifier)
 {
     // get the implementations from the component
     ossie::ImplementationInfo::List  implementations;
@@ -1352,7 +1353,7 @@ void createHelper::allocateComponent(ossie::ComponentInfo*  component,
         // Found an implementation which has its 'usesdevice' dependencies
         // satisfied, now perform assignment/allocation of component to device
         LOG_DEBUG(ApplicationFactory_impl, "Trying to find the device");
-        ossie::AllocationResult response = allocateComponentToDevice(component, impl, assignedDeviceId);
+        ossie::AllocationResult response = allocateComponentToDevice(component, impl, assignedDeviceId, appIdentifier);
         
         if (response.first.empty()) {
             LOG_TRACE(ApplicationFactory_impl, "Unable to allocate device for component "
@@ -1577,7 +1578,8 @@ void createHelper::_evaluateMATHinRequest(CF::Properties &request, CF::Propertie
  */
 ossie::AllocationResult createHelper::allocateComponentToDevice( ossie::ComponentInfo* component,
                                               ossie::ImplementationInfo* implementation,
-                                              const std::string& assignedDeviceId)
+                                              const std::string& assignedDeviceId,
+                                              const std::string& appIdentifier)
 {
     ossie::DeviceList devices = _registeredDevices;
 
@@ -1624,7 +1626,7 @@ ossie::AllocationResult createHelper::allocateComponentToDevice( ossie::Componen
         }
     }
     
-    ossie::AllocationResult response = this->_allocationMgr->allocateDeployment(requestid, allocationProperties, devices, implementation->getProcessorDeps(), implementation->getOsDeps());
+    ossie::AllocationResult response = this->_allocationMgr->allocateDeployment(requestid, allocationProperties, devices, appIdentifier, implementation->getProcessorDeps(), implementation->getOsDeps());
     if (allocationProperties.contains("nic_allocation")) {
         if (!response.first.empty()) {
             redhawk::PropertyMap query_props;
@@ -1902,12 +1904,20 @@ string ApplicationFactory_impl::getWaveformContextName(string name )
         if (_lastWaveformUniqueId == 0) ++_lastWaveformUniqueId;
         waveform_context_name = "";
         waveform_context_name.append(name);
+        std::string mod_waveform_context_name = waveform_context_name;
+        for (int i=mod_waveform_context_name.size()-1;i>=0;i--) {
+            if (mod_waveform_context_name[i]=='.') {
+                mod_waveform_context_name.insert(i, 1, '\\');
+            }
+        }
         waveform_context_name.append("_");
+        mod_waveform_context_name.append("_");
         ostringstream number_str;
         number_str << _lastWaveformUniqueId;
         waveform_context_name.append(number_str.str());
+        mod_waveform_context_name.append(number_str.str());
         string temp_waveform_context(_domainName + string("/"));
-        temp_waveform_context.append(waveform_context_name);
+        temp_waveform_context.append(mod_waveform_context_name);
         CosNaming::Name_var cosName = ossie::corba::stringToName(temp_waveform_context);
         try {
             CORBA::Object_var obj_WaveformContext = inc->resolve(cosName);
@@ -2382,6 +2392,53 @@ void createHelper::initializeComponents()
         }
 
         component->setResourcePtr(resource);
+
+        //
+        // call resource's initializeProperties method to handle any properties required for construction
+        //
+        LOG_DEBUG(ApplicationFactory_impl, "Initialize properties for component " << componentId);
+        if (component->isResource () && component->isConfigurable ()) {
+          try {
+            // Try to set the initial values for the component's properties
+            resource->initializeProperties(component->getNonNilConstructProperties());
+          } catch(CF::PropertySet::InvalidConfiguration& e) {
+            ostringstream eout;
+            eout << "Failed to initialize component properties: '";
+            eout << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId() << "' ";
+            eout << " in waveform '"<< _waveformContextName<<"';";
+            eout <<  "InvalidConfiguration with this info: <";
+            eout << e.msg << "> for these invalid properties: ";
+            for (unsigned int propIdx = 0; propIdx < e.invalidProperties.length(); propIdx++){
+              eout << "(" << e.invalidProperties[propIdx].id << ",";
+              eout << ossie::any_to_string(e.invalidProperties[propIdx].value) << ")";
+            }
+            eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
+            LOG_ERROR(ApplicationFactory_impl, eout.str());
+            throw CF::ApplicationFactory::InvalidInitConfiguration(e.invalidProperties);
+          } catch(CF::PropertySet::PartialConfiguration& e) {
+            ostringstream eout;
+            eout << "Failed to initialize component properties: '";
+            eout << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId() << "' ";
+            eout << " in waveform '"<< _waveformContextName<<"';";
+            eout << "PartialConfiguration for these invalid properties: ";
+            for (unsigned int propIdx = 0; propIdx < e.invalidProperties.length(); propIdx++){
+              eout << "(" << e.invalidProperties[propIdx].id << ",";
+              eout << ossie::any_to_string(e.invalidProperties[propIdx].value) << ")";
+            }
+            eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
+            LOG_ERROR(ApplicationFactory_impl, eout.str());
+            throw CF::ApplicationFactory::InvalidInitConfiguration(e.invalidProperties);
+          } catch( ... ) {
+            ostringstream eout;
+            eout << "Failed to initialize component properties: '";
+            eout << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId() << "' ";
+            eout << " in waveform '"<< _waveformContextName<<"';";
+            eout << "'initializeProperties' failed with Unknown Exception";
+            eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
+            LOG_ERROR(ApplicationFactory_impl, eout.str());
+            throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL, eout.str().c_str());
+          }
+        }
 
         LOG_TRACE(ApplicationFactory_impl, "Initializing component " << componentId);
         try {

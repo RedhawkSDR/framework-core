@@ -232,6 +232,7 @@ namespace ossie
         void addExecParameter(CF::DataType dt);
         void addDependencyProperty(std::string implId, CF::DataType dt);
         void addConfigureProperty(CF::DataType dt);
+        void addConstructProperty(CF::DataType dt);
 
         void overrideProperty(const ossie::ComponentProperty* propref);
         void overrideProperty(const char* id, const CORBA::Any& value);
@@ -255,7 +256,9 @@ namespace ossie
         bool isAssignedToDevice() const;
 
         CF::Properties getNonNilConfigureProperties();
+        CF::Properties getNonNilConstructProperties();
         CF::Properties getConfigureProperties();
+        CF::Properties getConstructProperties();
         CF::Properties getOptions();
         CF::Properties getExecParameters();
 
@@ -283,6 +286,7 @@ namespace ossie
         std::string nicAssignment;
 
         CF::Properties configureProperties;
+        CF::Properties ctorProperties;
         CF::Properties options;
         CF::Properties factoryParameters;
         CF::Properties execParameters;

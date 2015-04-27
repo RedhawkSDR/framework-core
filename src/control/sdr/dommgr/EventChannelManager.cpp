@@ -108,7 +108,7 @@ void EventChannelManager::terminate ( const bool destroyChannels ) {
   ECM_DEBUG("terminate", " Terminate START" );
   SCOPED_LOCK(_mgrlock);
 
-  ECM_DEBUG("terminater", "Event Channel Registry Size:" << _channels.size() );
+  ECM_DEBUG("terminate", "Event Channel Registry Size:" << _channels.size() );
   ChannelRegistrationTable::iterator  iter = _channels.begin();
   for ( ; iter != _channels.end(); iter++ ) {
     try {

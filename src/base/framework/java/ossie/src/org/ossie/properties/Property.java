@@ -73,7 +73,9 @@ abstract class Property<T extends Object> implements IProperty {
 
         this.kinds = new HashSet<Kind>();
         if (kinds == null) {
+            // RESOLVE --  need to deprecate 
             this.kinds.add(Kind.CONFIGURE);
+            this.kinds.add(Kind.PROPERTY);
         } else {
             for (Kind kind : kinds) {
                 this.kinds.add(kind);
@@ -102,13 +104,24 @@ abstract class Property<T extends Object> implements IProperty {
 
         this.kinds = new HashSet<Kind>();
         if (kinds == null) {
+            // RESOLVE --  need to deprecate 
             this.kinds.add(Kind.CONFIGURE);
+            this.kinds.add(Kind.PROPERTY);
         } else {
             for (Kind kind : kinds) {
                 this.kinds.add(kind);
             }
         }
     }
+
+    /**
+     * Updates the value of the property, triggering any change listeners.
+     */
+    public void construct(Any any) {
+        T oldValue = this.value;
+        fromAny(any);
+    }
+
 
     /**
      * Updates the value of the property, triggering any change listeners.
@@ -262,14 +275,24 @@ abstract class Property<T extends Object> implements IProperty {
 
 
     public boolean isQueryable() {
-        if (this.kinds.contains(Kind.CONFIGURE) || this.kinds.contains(Kind.EXECPARAM)) {
+        if (this.kinds.contains(Kind.CONFIGURE) || 
+            this.kinds.contains(Kind.EXECPARAM) || 
+            this.isProperty() ) {
             return (mode != Mode.WRITEONLY);
         }
         return false;
     }
+
     
+    public boolean isProperty() {
+        if (this.kinds.contains(Kind.PROPERTY)) {
+            return true;
+        }
+        return false;
+    }
+
     public boolean isConfigurable() {
-        if (this.kinds.contains(Kind.CONFIGURE)) {
+        if (this.kinds.contains(Kind.CONFIGURE) || this.isProperty() ) {
             return (mode != Mode.READONLY);
         }
         return false;

@@ -40,9 +40,10 @@ import org.omg.PortableServer.POAPackage.WrongPolicy;
 import org.apache.log4j.Logger;
 
 import org.ossie.component.UsesPort;
+import org.ossie.component.PortBase;
 import org.ossie.properties.StructDef;
 
-public class MessageSupplierPort extends UsesPort<EventChannelOperations> implements EventChannelOperations {
+public class MessageSupplierPort extends UsesPort<EventChannelOperations> implements EventChannelOperations, PortBase {
 
     /**
      * Internal class to adapt PushSupplier CORBA interface for disconnection
@@ -240,4 +241,14 @@ public class MessageSupplierPort extends UsesPort<EventChannelOperations> implem
     {
         return null;
     }
+
+	public String getRepid()
+	{
+		return "IDL:ExtendedEvent/MessageEvent:1.0";
+	}
+
+	public String getDirection()
+	{
+		return "Uses";
+	}
 }

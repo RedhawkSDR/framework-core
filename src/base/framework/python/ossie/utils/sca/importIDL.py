@@ -84,7 +84,10 @@ class IDLType(object):
             aliasType = IDLType.instance(type.decl().alias().aliasType())
             return AliasType(aliasType, type.scopedName())
         elif kind == CORBA.tk_TypeCode:
-                return NamedType(kind, ['CORBA', 'TypeCode'])
+            return NamedType(kind, ['CORBA', 'TypeCode'])
+        elif kind == CORBA.tk_enum:
+            values = [EnumValue(en.scopedName()) for en in type.decl().enumerators()]
+            return EnumType(type.scopedName(), values)
         else:
             return NamedType(kind, type.scopedName())
 
@@ -120,6 +123,24 @@ class AliasType(NamedType):
 
     def aliasType(self):
         return self._aliasType
+
+class EnumValue(object):
+    def __init__(self, scopedName):
+        self._scopedName = scopedName
+
+    def identifier(self):
+        return self._scopedName[-1]
+
+    def scopedName(self):
+        return self._scopedName
+
+class EnumType(NamedType):
+    def __init__(self, scopedName, values):
+        super(EnumType,self).__init__(CORBA.tk_enum, scopedName)
+        self._enumValues = values
+
+    def enumValues(self):
+        return self._enumValues
 
 def ExceptionType(type):
     return NamedType(CORBA.tk_except, type.scopedName())

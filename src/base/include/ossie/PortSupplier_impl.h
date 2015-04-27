@@ -43,12 +43,14 @@ public:
 
     /// Return an object reference for the named port.
     CORBA::Object* getPort (const char*) throw (CF::PortSupplier::UnknownPort, CORBA::SystemException);
+	CF::PortSupplier::PortInfoSequence* getPortSet ();
 
 protected:
     typedef std::map<std::string, PortBase*> PortServantMap;
     PortServantMap _portServants;
 
     void addPort (const std::string& name, PortBase* servant);
+    void addPort (const std::string& name, const std::string& description, PortBase* servant);
     void releasePorts ();
 
     void startPorts ();

@@ -91,7 +91,8 @@ PREPARE_LOGGING(PropertySet_impl);
 
 PropertySet_impl::PropertySet_impl ():
   propertyChangePort(0),
-  _propChangeThread( new PropertyChangeThread(*this), 0.1 )
+  _propChangeThread( new PropertyChangeThread(*this), 0.1 ),
+  _propertiesInitialized(false)
 {
   
 }
@@ -134,6 +135,53 @@ void PropertySet_impl::setExecparamProperties(std::map<std::string, char*>& exec
     }
     LOG_TRACE(PropertySet_impl, "Done setting exec parameters");
 }
+
+void
+PropertySet_impl::initializeProperties(const CF::Properties& ctorProps)
+throw (CF::PropertySet::AlreadyInitialized, CF::PropertySet::PartialConfiguration,
+       CF::PropertySet::InvalidConfiguration, CORBA::SystemException)
+{
+    TRACE_ENTER(PropertySet_impl);
+    boost::mutex::scoped_lock lock(propertySetAccess);
+
+    // Disallow multiple calls
+    if (_propertiesInitialized) {
+        throw CF::PropertySet::AlreadyInitialized();
+    }
+    _propertiesInitialized = true;
+
+    CF::Properties invalidProperties;
+    for (CORBA::ULong ii = 0; ii < ctorProps.length(); ++ii) {
+        PropertyInterface* property = getPropertyFromId((const char*)ctorProps[ii].id);
+        if (property && property->isProperty()) {
+            LOG_TRACE(PropertySet_impl, "Constructor property: " << property->id);
+            try {
+                property->setValue(ctorProps[ii].value);
+            } catch (std::exception& e) {
+                LOG_ERROR(PropertySet_impl, "Setting property " << property->id << ", " << property->name << " failed.  Cause: " << e.what());
+                ossie::corba::push_back(invalidProperties, ctorProps[ii]);
+            } catch (CORBA::Exception& e) {
+                LOG_ERROR(PropertySet_impl, "Setting property " << property->id << " failed.  Cause: " << e._name());
+                ossie::corba::push_back(invalidProperties, ctorProps[ii]);
+            }
+        } else {
+            ossie::corba::push_back(invalidProperties, ctorProps[ii]);
+        }
+    }
+
+
+    if (invalidProperties.length () > 0) {
+        if (invalidProperties.length() < ctorProps.length()) {
+            throw CF::PropertySet::PartialConfiguration(invalidProperties);
+        } else {
+            throw CF::PropertySet::InvalidConfiguration("No matching properties found", invalidProperties);
+        }
+    }
+
+    TRACE_EXIT(PropertySet_impl);
+}
+
+
 
 void
 PropertySet_impl::configure (const CF::Properties& configProperties)

@@ -107,11 +107,10 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 	refid		CDATA	#REQUIRED
 	usesrefid	CDATA	#REQUIRED>
 
-<!ELEMENT simpleref 
-        (values
-        )>
+<!ELEMENT simpleref EMPTY>
 <!ATTLIST simpleref
-	refid		CDATA	#REQUIRED>
+	refid		CDATA	#REQUIRED
+	value		CDATA	#REQUIRED>
 		
 <!ELEMENT simplesequenceref
 	(values

@@ -29,7 +29,8 @@ Resource_impl::Resource_impl (const char* _uuid) :
     _started(false),
     component_running_mutex(),
     component_running(&component_running_mutex),
-    _domMgr(NULL)
+    _domMgr(NULL),
+    _initialized(false)
 {
 }
 
@@ -40,7 +41,8 @@ Resource_impl::Resource_impl (const char* _uuid, const char *label) :
     _started(false),
     component_running_mutex(),
     component_running(&component_running_mutex),
-    _domMgr(NULL)
+    _domMgr(NULL),
+    _initialized(false)
 {
 }
 
@@ -87,6 +89,11 @@ void Resource_impl::setAdditionalParameters(std::string &softwareProfile, std::s
 }
 
 
+void Resource_impl::constructor ()
+{
+}
+
+
 void Resource_impl::start () throw (CORBA::SystemException, CF::Resource::StartError)
 {
     startPorts();
@@ -121,6 +128,17 @@ CORBA::Boolean Resource_impl::started () throw (CORBA::SystemException)
 void Resource_impl::initialize () throw (CF::LifeCycle::InitializeError, CORBA::SystemException)
 {
   startPropertyChangeMonitor();
+  if (!_initialized) {
+      _initialized = true;
+      try {
+          constructor();
+      } catch (const std::exception& exc) {
+          LOG_ERROR(Resource_impl, "initialize(): " << exc.what());
+          CF::StringSequence messages;
+          ossie::corba::push_back(messages, exc.what());
+          throw CF::LifeCycle::InitializeError(messages);
+      }
+  }
 }
 
 void Resource_impl::releaseObject() throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)

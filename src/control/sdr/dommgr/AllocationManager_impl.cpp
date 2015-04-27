@@ -50,6 +50,7 @@ namespace {
         CF::AllocationManager::AllocationStatusType status;
         status.allocationID = entry.first.c_str();
         status.requestingDomain = entry.second.requestingDomain.c_str();
+        status.sourceID = entry.second.sourceID.c_str();
         status.allocationProperties = entry.second.allocationProperties;
         status.allocatedDevice = CF::Device::_duplicate(entry.second.allocatedDevice);
         status.allocationDeviceManager = CF::DeviceManager::_duplicate(entry.second.allocationDeviceManager);
@@ -176,6 +177,7 @@ CF::AllocationManager::AllocationResponseSequence* AllocationManager_impl::alloc
     for (unsigned int request_idx=0; request_idx<requests.length(); request_idx++) {
         const CF::AllocationManager::AllocationRequestType& request = requests[request_idx];
         const std::string requestID(request.requestID);
+        const std::string sourceID(request.sourceID);
         LOG_TRACE(AllocationManager_impl, "Allocation request " << requestID
                   << " contains " << request.allocationProperties.length() << " properties");
 
@@ -202,7 +204,7 @@ CF::AllocationManager::AllocationResponseSequence* AllocationManager_impl::alloc
             }
         }
 
-        std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> result = allocateRequest(requestID, request.allocationProperties, requestedDevices, std::vector<std::string>(), std::vector<ossie::SPD::NameVersionPair>(), domainName);
+        std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> result = allocateRequest(requestID, request.allocationProperties, requestedDevices, sourceID, std::vector<std::string>(), std::vector<ossie::SPD::NameVersionPair>(), domainName);
         if (result.first) {
             local_allocations.push_back(result.first);
             ossie::AllocationType* allocation(result.first);
@@ -224,7 +226,7 @@ CF::AllocationManager::AllocationResponseSequence* AllocationManager_impl::alloc
     return response._retn();
 }
 
-std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> AllocationManager_impl::allocateRequest(const std::string& requestID, const CF::Properties& dependencyProperties, ossie::DeviceList& devices, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps, const std::string& domainName)
+std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> AllocationManager_impl::allocateRequest(const std::string& requestID, const CF::Properties& dependencyProperties, ossie::DeviceList& devices, const std::string& sourceID,  const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps, const std::string& domainName)
 {
     for (ossie::DeviceList::iterator iter = devices.begin(); iter != devices.end(); ++iter) {
         boost::shared_ptr<ossie::DeviceNode> node = *iter;
@@ -232,6 +234,7 @@ std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> AllocationManager_
         if (allocateDevice(dependencyProperties, *node, allocatedProperties, processorDeps, osDeps)) {
             ossie::AllocationType* allocation = new ossie::AllocationType();
             allocation->allocationID = ossie::generateUUID();
+            allocation->sourceID = sourceID;
             allocation->allocatedDevice = CF::Device::_duplicate(node->device);
             allocation->allocationDeviceManager = CF::DeviceManager::_duplicate(node->devMgr.deviceManager);
             allocation->allocationProperties = allocatedProperties;
@@ -242,10 +245,10 @@ std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> AllocationManager_
     return std::make_pair((ossie::AllocationType*)0, devices.end());
 }
 
-ossie::AllocationResult AllocationManager_impl::allocateDeployment(const std::string& requestID, const CF::Properties& allocationProperties, ossie::DeviceList& devices, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps)
+ossie::AllocationResult AllocationManager_impl::allocateDeployment(const std::string& requestID, const CF::Properties& allocationProperties, ossie::DeviceList& devices, const std::string& sourceID, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps)
 {
     const std::string domainName = this->_domainManager->getDomainManagerName();
-    std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> result = allocateRequest(requestID, allocationProperties, devices, processorDeps, osDeps, domainName);
+    std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> result = allocateRequest(requestID, allocationProperties, devices, sourceID, processorDeps, osDeps, domainName);
     if (result.first) {
         // Update the allocation table, including the persistence store
         const std::string allocationID = result.first->allocationID;

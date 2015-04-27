@@ -53,6 +53,9 @@ void PRF::addProperty(const Property* p) throw (ossie::parser_error)
         if (p->isConfigure ()) {
             _configProperties.push_back(p);
         }
+        if (p->isProperty ()) {
+            _ctorProperties.push_back(p);
+        }
         if (p->isExecParam ()) {
             _execProperties.push_back(p);
         }
@@ -200,6 +203,13 @@ const std::vector<const Property*>& Properties::getConfigureProperties() const
     return _prf->_configProperties;
 }
 
+
+const std::vector<const Property*>& Properties::getConstructProperties() const
+{
+    assert(_prf.get() != 0);
+    return _prf->_ctorProperties;
+}
+
 const std::vector<const Property*>& Properties::getAllocationProperties() const
 {
     assert(_prf.get() != 0);
@@ -249,13 +259,32 @@ bool Property::isAllocation() const
 bool Property::isConfigure() const
 {
     TRACE_ENTER(Property);
-
-    if (kinds.size() == 0) {
+    bool retval=isProperty();
+    if ( retval == false ) {
+      if (kinds.size() == 0) {
         return true;
-    }
-    for (unsigned int i = 0; i < kinds.size (); i++) {
+      }
+      for (unsigned int i = 0; i < kinds.size (); i++) {
         if (kinds[i] == "configure")
-            { return true; }
+          { return true; }
+      }
+
+      return false;
+    }
+    return retval;
+
+}
+
+bool Property::isProperty() const
+{
+    TRACE_ENTER(Property);
+    // RESOLVE, could be default behavior with old style properties
+    //if (kinds.size() == 0) {
+    //return true;
+    //}
+    for (unsigned int i = 0; i < kinds.size (); i++) {
+        if (kinds[i] == "property")
+          { return true; }
     }
 
     return false;

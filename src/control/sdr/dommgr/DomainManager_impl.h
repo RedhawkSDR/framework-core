@@ -56,6 +56,7 @@ class DomainManager_impl: public virtual POA_CF::DomainManager, public PropertyS
 // Constructors/Destructors
 ///////////////////////////
 public:
+
   DomainManager_impl (const char*, const char*, const char*, const char*, bool);
     ~DomainManager_impl ();
 

@@ -42,8 +42,8 @@ def compareAllocationStatusSequence(lhs, rhs):
             return False
     return True
 
-def createRequest(requestId, props, pools=[], devices=[]):
-    return CF.AllocationManager.AllocationRequestType(requestId, props, pools, devices)
+def createRequest(requestId, props, pools=[], devices=[], sourceId=''):
+    return CF.AllocationManager.AllocationRequestType(requestId, props, pools, devices, sourceId)
 
 def parseDomainDevices(domMgr):
     devices = {}

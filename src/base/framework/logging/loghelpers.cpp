@@ -129,7 +129,6 @@ namespace ossie {
         }
         _logcfg.factory=logcfg_factory;
 
-        std::cout << "ossie.logging: Found libossielogcfg.so for LOGGING_CONFIG_URI resolution." << std::endl;
       }
       catch( std::exception &e){
       }

@@ -251,7 +251,7 @@ class PortBase : public virtual PortableServer::ServantBase
 {
 public:
     PortBase (const std::string& name) :
-        name(name)
+        name(name), description("")
     {
     }
 
@@ -262,6 +262,21 @@ public:
     virtual std::string getName ()
     {
         return name;
+    }
+
+    virtual void setDescription(const std::string& desc)
+    {
+		description = desc;
+    }
+
+    virtual std::string getDescription ()
+    {
+		return description;
+    }
+
+	virtual std::string getRepid () const
+    {
+		return "IDL:CORBA/Object:1.0";
     }
 
     virtual void startPort ()
@@ -276,8 +291,14 @@ public:
     {
     }
 
+	virtual std::string getDirection() const 
+	{
+		return "Direction";
+	}
+
 protected:
     std::string name;
+    std::string description;
 };
 
 class Port_Uses_base_impl : public PortBase
@@ -311,6 +332,11 @@ public:
         active = active_flag;
     }
 
+	virtual std::string getDirection () const 
+	{
+		return "Uses";	
+	}
+
 protected:
     bool active;
     boost::mutex updatingPortsLock;
@@ -328,6 +354,11 @@ public:
     virtual ~Port_Provides_base_impl()
     {
     }
+
+	virtual std::string getDirection () const 
+	{
+		return "Provides";	
+	}
 };
 
 

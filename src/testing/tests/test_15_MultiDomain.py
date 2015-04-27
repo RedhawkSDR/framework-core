@@ -235,12 +235,22 @@ class MultiDomainTest(scatest.CorbaTestCase):
         execcap = {'DCE:8dcef419-b440-4bcf-b893-cab79b6024fb':1000,
                    'DCE:4f9a57fc-8fb3-47f6-b779-3c2692f52cf9':50.0}
         usescap = {'DCE:8cad8ca5-c155-4d1d-ae40-e194aa1d855f':1}
-        requests = [allocMgrHelpers.createRequest('exec', properties.props_from_dict(execcap)),
+        requests = [allocMgrHelpers.createRequest('exec', properties.props_from_dict(execcap),sourceId='TestId'),
                     allocMgrHelpers.createRequest('uses', properties.props_from_dict(usescap))]
         results = dict((r.requestID, r) for r in allocMgr_1.allocate(requests))
         self.assertEqual(len(requests), len(results))
         usesId = results['uses'].allocationID
         execId = results['exec'].allocationID
+        allocations = allocMgr_1.listAllocations(CF.AllocationManager.ALL_ALLOCATIONS,100)[0]
+        number_checks = 0
+        for allocation in allocations:
+            if allocation.allocationID == results['uses'].allocationID:
+                self.assertEqual(allocation.sourceID,'')
+                number_checks += 1
+            else:
+                self.assertEqual(allocation.sourceID,'TestId')
+                number_checks += 1
+        self.assertEqual(number_checks,2)
 
         # The first domain should report the full set of allocations, with only
         # the "exec" allocation showing up in the local allocations

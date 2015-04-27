@@ -70,10 +70,10 @@ class Manager:
         self._mgr_lock = threading.Lock()
         self._ecm = None
         self._logger = logging.getLogger("ossie.events.Manager")
-        self._logger.setLevel(logging.DEBUG)
+        self._logger.setLevel(logging.INFO)
         self._allow = True
         self._registrations=[]
-        if ( resource ):
+        if resource :
             try:
                 self._logger.debug("Requesting Domain Manager Access....")
                 dom = resource.getDomainManager()
@@ -81,8 +81,8 @@ class Manager:
                 self._ecm  = dom.getRef()._get_eventChannelMgr()
                 self._logger.debug("Acquired reference to EventChannelManager")
             except:
-                print traceback.format_exc()
-                self._logger.error("EventChannelManager - unable to resolve DomainManager's EventChannelManager ")
+                #print traceback.format_exc()
+                self._logger.warn("EventChannelManager - unable to resolve DomainManager's EventChannelManager ")
                 pass
 
 
@@ -92,8 +92,8 @@ class Manager:
             try:
                 Manager._manager = Manager( resource )
             except:
-                print traceback.format_exc()
-                logging.getLogger("ossie.events.Manager").error("Unable to resolve Event Manager")
+                #print traceback.format_exc()
+                logging.getLogger("ossie.events.Manager").warn("Unable to resolve Event Manager")
  
         return Manager._manager
 
@@ -125,7 +125,7 @@ class Manager:
                 self._registrations.append( registration )
         
         except:
-            print traceback.format_exc()
+            #print traceback.format_exc()
             self._logger.error("Unable to create Publisher for Channel:" + str(channel_name ))
         finally:
             self._mgr_lock.release()
@@ -152,7 +152,7 @@ class Manager:
                 self._registrations.append( registration )
         
         except:
-            print traceback.format_exc()
+            #print traceback.format_exc()
             self._logger.error("Unable to create Subscriber for Channel:" + str(channel_name ))
         finally:
             self._mgr_lock.release()

@@ -67,6 +67,7 @@ public:
     virtual void enableNil (bool enableNil);
 
     bool isQueryable () const;
+    bool isProperty () const;
     bool isConfigurable () const;
     bool isAllocatable () const;
 

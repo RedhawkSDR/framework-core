@@ -293,6 +293,7 @@ AC_CONFIG_FILES(Makefile \
                 base/plugin/logcfg/Makefile \
                 idl/Makefile \
                 xml/Makefile \
+                tools/Makefile \
                 tools/LogEventAppender/Makefile \
                 testing/Makefile \
                 testing/_unitTestHelpers/buildconfig.py \
@@ -344,6 +345,8 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dom/components/ECM_JAVA/java/Makefile \
                 testing/sdr/dom/components/PropertyChange_C1/cpp/Makefile \
                 testing/sdr/dom/components/PropertyChange_J1/java/Makefile \
+                testing/sdr/dom/components/Property_CPP/cpp/Makefile \
+                testing/sdr/dom/components/Property_JAVA/java/Makefile \
                 testing/sdr/dom/components/foo/bar/comp/cpp/Makefile \
                 testing/sdr/dom/components/foo/bar/jv/java/Makefile \
                 testing/sdr/dom/components/TestCppOptionalProps/cpp/Makefile \

@@ -46,33 +46,51 @@ void PropertyInterface::enableNil (bool enable)
 
 bool PropertyInterface::isQueryable () const
 {
-    if (mode != std::string("writeonly")) {
-        std::vector<std::string>::const_iterator p = kinds.begin();
-        while (p != kinds.end()) {
-            if ((*p) == std::string("configure"))
-                return true;
-            if ((*p) == std::string("execparam"))
-                return true;
-            if ((*p) == std::string("allocation"))
-                if (action == std::string("external"))
-                    return true;
-            p++;
-        }
+  if (mode != std::string("writeonly")) {
+    std::vector<std::string>::const_iterator p = kinds.begin();
+    while (p != kinds.end()) {
+      if ((*p) == std::string("property"))
+        return true;
+      if ((*p) == std::string("configure"))
+        return true;
+      if ((*p) == std::string("execparam"))
+        return true;
+      if ((*p) == std::string("allocation"))
+        if (action == std::string("external"))
+          return true;
+      p++;
     }
-    return false;
+  }
+  return false;
+
+}
+
+
+bool PropertyInterface::isProperty () const
+{
+  std::vector<std::string>::const_iterator p = kinds.begin();
+  while (p != kinds.end()) {
+    if ((*p) == std::string("property"))
+      return true;
+    p++;
+  }
+  return false;
 }
 
 bool PropertyInterface::isConfigurable () const
 {
-    if (mode != std::string("readonly")) {
-        std::vector<std::string>::const_iterator p = kinds.begin();
-        while (p != kinds.end()) {
-            if ((*p) == std::string("configure"))
-                return true;
-            p++;
-        }
+  if (mode != std::string("readonly")) {
+    std::vector<std::string>::const_iterator p = kinds.begin();
+    while (p != kinds.end()) {
+      if ((*p) == std::string("configure"))
+        return true;
+      if ((*p) == std::string("property"))
+        return true;
+      p++;
     }
-    return false;
+  }
+  return false;
+  
 }
 
 bool PropertyInterface::isAllocatable () const

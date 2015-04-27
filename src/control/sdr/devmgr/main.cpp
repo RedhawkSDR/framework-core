@@ -280,7 +280,7 @@ int main(int argc, char* argv[])
     os.str("");
     os << domainName << "/" << node_name;
     dpath= os.str();
-    std::cout << "dpath:" << dpath << std::endl;
+    
     //
     // setup logging context for this DeviceManager
     //
@@ -522,5 +522,4 @@ int main(int argc, char* argv[])
     ossie::logging::Terminate();
 
     exit( pstage>1?0:-1);
-    
 }

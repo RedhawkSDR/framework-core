@@ -170,6 +170,16 @@ void MessageConsumerPort::fireCallback (const std::string& id, const CORBA::Any&
     generic_callbacks_(id, data);
 };
 
+std::string MessageConsumerPort::getRepid() const 
+{
+	return "IDL:ExtendedEvent/MessageEvent:1.0";
+}
+
+std::string MessageConsumerPort::getDirection() const 
+{
+	return "Bidir";
+}
+
 MessageSupplierPort::MessageSupplierPort (std::string port_name) :
     Port_Uses_base_impl(port_name)
 {
@@ -233,4 +243,9 @@ CosEventChannelAdmin::ProxyPushConsumer_ptr MessageSupplierPort::removeConsumer(
 void MessageSupplierPort::extendConsumers(std::string consumer_id, CosEventChannelAdmin::ProxyPushConsumer_ptr proxy_consumer)
 {
     consumers[std::string(consumer_id)] = proxy_consumer;
+}
+
+std::string MessageSupplierPort::getRepid() const 
+{
+	return "IDL:ExtendedEvent/MessageEvent:1.0";
 }

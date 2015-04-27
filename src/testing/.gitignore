@@ -21,6 +21,7 @@ sdr/dom/components/ECM_CPP/cpp/ECM_CPP
 sdr/dom/components/HardLimit/HardLimit_java_impl1/fileList.txt
 sdr/dom/components/MessageReceiverCpp/MessageReceiverCpp
 sdr/dom/components/MessageSenderCpp/MessageSenderCpp
+sdr/dom/components/Property_CPP/cpp/Property_CPP
 sdr/dom/components/PropertyChangeEventsCpp/PropertyChangeSenderCpp
 sdr/dom/components/SimpleComponent/SimpleComponent_cpp_impl1/SimpleComponent_cpp_impl1
 sdr/dom/components/TestAllPropTypes/cpp/TestAllPropTypes
@@ -32,6 +33,7 @@ sdr/dom/components/TestLoggingAPI/cpp/TestLoggingAPI
 sdr/dom/components/ticket2093/cpp/ticket2093
 sdr/dom/components/PropertyChange_C1/cpp/PropertyChange_C1
 sdr/dom/components/TestCppOptionalProps/cpp/TestCppOptionalProps
+sdr/dom/components/foo/bar/comp/cpp/comp
 sdr/dom/domain/
 sdr/dom/mgr/DomainManager*
 sdr/runtests.log

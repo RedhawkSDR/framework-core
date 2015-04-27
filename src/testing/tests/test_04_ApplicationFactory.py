@@ -277,14 +277,16 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(app._get_componentProcessIds()), 1)
         self.assertEqual(len(app._get_componentDevices()), 1)
         self.assertEqual(len(app._get_componentImplementations()), 1)
+        
+        self.assertRaises(CF.Resource.StartError, app.start, )
 
         # Give the application a moment to run, since there is no programmatic
         # feedback to let us know that the non-compliant component is running
         # other than the pid
-        time.sleep(0.1)
+        time.sleep(0.5)
 
         # Clean-up
-        app.stop()
+        self.assertRaises(CF.Resource.StopError, app.stop, )
         app.releaseObject()
 
         self.assertEqual(len(domMgr._get_applicationFactories()), 1)
@@ -1580,7 +1582,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(nicCapacity.value._v, 100.0)
         self.assertEqual(fakeCapacity.value._v, 3)
 
-        for failurePos in ("PreOrbInit", "PreServantCreation", "PreNameBinding", "PreOrbRun", "Initialize", "Configure"):
+        for failurePos in ("constructor", "initializeProperties", "initialize", "configure"):
             self.assertRaises(CF.ApplicationFactory.CreateApplicationError, appFact.create, appFact._get_name(), [CF.DataType(id="FAIL_AT", value=any.to_any(failurePos))], [])
             self.assertEqual(len(domMgr._get_applications()), 0)
             # Verify that capacity was not allocated

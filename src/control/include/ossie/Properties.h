@@ -66,6 +66,7 @@ namespace ossie {
         bool isWriteOnly() const;
         bool isAllocation() const;
         bool isConfigure() const;
+        bool isProperty() const;
         bool isTest() const;
         bool isExecParam() const;
         bool isFactoryParam() const;
@@ -315,6 +316,7 @@ namespace ossie {
         std::map<std::string, const ossie::Property*> _properties;
         std::vector<const Property*> _allProperties;
         std::vector<const Property*> _configProperties;
+        std::vector<const Property*> _ctorProperties;
         std::vector<const Property*> _allocationProperties;
         std::vector<const Property*> _execProperties;
         std::vector<const Property*> _factoryProperties;
@@ -323,6 +325,7 @@ namespace ossie {
         _properties(), 
         _allProperties(), 
         _configProperties(), 
+        _ctorProperties(), 
         _allocationProperties(), 
         _execProperties(), 
         _factoryProperties() 
@@ -338,6 +341,7 @@ namespace ossie {
 
         _allProperties.clear();
         _configProperties.clear();
+        _ctorProperties.clear();
         _allocationProperties.clear();
         _execProperties.clear();
         _factoryProperties.clear();
@@ -375,6 +379,8 @@ namespace ossie {
         const Property* getProperty(const std::string& id);
 
         const std::vector<const Property*>& getConfigureProperties() const;
+
+        const std::vector<const Property*>& getConstructProperties() const;
 
         const std::vector<const Property*>& getAllocationProperties() const;
 

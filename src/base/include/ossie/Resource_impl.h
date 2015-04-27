@@ -58,6 +58,7 @@ public:
     Resource_impl (const char* _uuid, const char *label);
     virtual ~Resource_impl ();
 
+    virtual void constructor ();
 
     void setParentId( const std::string &parentid ) { _parent_id = parentid; };
 
@@ -113,5 +114,6 @@ private:
 
     std::string currentWorkingDirectory;
     redhawk::DomainManagerContainer *_domMgr;
+    bool _initialized;
 };
 #endif

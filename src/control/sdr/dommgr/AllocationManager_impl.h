@@ -74,7 +74,7 @@ class AllocationManager_impl: public virtual POA_CF::AllocationManager
         CF::DomainManager_ptr domainMgr();
 
         /* Allocates a set of dependencies for deployment; not part of the CORBA API */
-        ossie::AllocationResult allocateDeployment(const std::string& requestID, const CF::Properties& allocationProperties, ossie::DeviceList& devices, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps);
+        ossie::AllocationResult allocateDeployment(const std::string& requestID, const CF::Properties& allocationProperties, ossie::DeviceList& devices, const std::string& sourceID, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps);
 
         /* Deallocates a set of allocations */
         template <class Iterator>
@@ -108,7 +108,7 @@ class AllocationManager_impl: public virtual POA_CF::AllocationManager
     private:
         CF::AllocationManager::AllocationResponseSequence* allocateDevices(const CF::AllocationManager::AllocationRequestSequence &requests, ossie::DeviceList& devices, const std::string& domainName);
 
-        std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> allocateRequest(const std::string& requestID, const CF::Properties& allocationProperties, ossie::DeviceList& devices, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps, const std::string& domainName);
+        std::pair<ossie::AllocationType*,ossie::DeviceList::iterator> allocateRequest(const std::string& requestID, const CF::Properties& allocationProperties, ossie::DeviceList& devices, const std::string& sourceID, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps, const std::string& domainName);
 
         bool checkDeviceMatching(ossie::Properties& _prf, CF::Properties& externalProps, const CF::Properties& dependencyPropertiesFromComponent, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps);
 

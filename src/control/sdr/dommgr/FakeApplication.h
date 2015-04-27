@@ -40,6 +40,7 @@ public:
     void start ();
     void stop ();
 
+    void initializeProperties (const CF::Properties& configProperties){};
     void configure (const CF::Properties& configProperties);
     void query (CF::Properties& configProperties);
     char *registerPropertyListener( CORBA::Object_ptr listener, const CF::StringSequence &prop_ids, const CORBA::Float interval)
@@ -52,6 +53,8 @@ public:
     void releaseObject ();
         
     CORBA::Object_ptr getPort (const char*);
+
+    CF::PortSupplier::PortInfoSequence* getPortSet ();
         
     void runTest (CORBA::ULong, CF::Properties&);
     

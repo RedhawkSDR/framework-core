@@ -1093,7 +1093,8 @@ CORBA::TypeCode_ptr ossie::getTypeCode(CORBA::TCKind kind, std::string structNam
     return typecode;
 }
 
-CF::Properties ossie::getNonNilConfigureProperties(CF::Properties& originalProperties)
+
+CF::Properties ossie::getNonNilProperties(CF::Properties& originalProperties)
 {
     CF::Properties nonNilProperties;
     CORBA::TypeCode_var typeProp;
@@ -1107,4 +1108,9 @@ CF::Properties ossie::getNonNilConfigureProperties(CF::Properties& originalPrope
         }
     }
     return nonNilProperties;
+}
+
+CF::Properties ossie::getNonNilConfigureProperties(CF::Properties& originalProperties)
+{
+  return getNonNilProperties(originalProperties);
 }

@@ -30,33 +30,89 @@ import CosEventComm__POA
 import CosEventChannelAdmin, CosEventChannelAdmin__POA
 
 
-class DefaultSupplier(CosEventComm__POA.PushSupplier):
+class Receiver(CosEventComm__POA.PushSupplier):
+    def __init__(self):
+        self._recv_disconnect = True
+        self._lock = threading.Lock()
+        self._cond = threading.Condition(self._lock)
+        self.logger = logging.getLogger("ossie.events.Publisher.Receiver")
+
+    def __del__(self):
+        self._cond.acquire()
+        self._recv_disconnect = True
+        self._cond.notifyAll()
+        self._cond.release()
+    
+    def get_disconnect(self):
+        return self._recv_disconnect
+
+    def reset(self):
+        self._recv_disconnect = False
+
+    def disconnect_push_supplier(self):
+        self.logger.debug("Publisher.Reciever handle disconnect_push_supplier")
+        self._cond.acquire()
+        self._recv_disconnect = True
+        self._cond.notifyAll()
+        self._cond.release()
+    
+    def wait_for_disconnect( self, wait_time=-1.0, retries=-1 ):
+        try:
+            self._cond.acquire()
+            tries = retries
+            while _recv_disconnect == False:
+                self.logger.debug("Publisher.Reciever .... waiting for disconnect")
+                if wait_time > -1.0:
+                    self._cond.wait( wait_time/1000.0 )
+                    if tries == -1:
+                        break
+                    tries -= 1
+                    if tries < 1:
+                        break;
+                else:
+                    self._cond.wait()
+        finally:
+            self._cond.release()
+        
+
+class DefaultReceiver(Receiver):
     def __init__(self,parent):
         self.parent = parent
 
-    def disconnect_push_supplier(self):
-        if self.parent and self.parent.proxy:
-            self.parent.proxy = None
-        pass
-
 class Publisher:
-    def __init__(self, channel, supplier=None ):
+    def __init__(self, channel ):
         self.channel = channel
-        self.is_local = True
-        self.supplier = supplier
         self.proxy = None
-        if supplier == None:
-            self.supplier = DefaultSupplier(self)
+        self.disconnectReceiver = DefaultReceiver(self)
         self.logger = logging.getLogger("ossie.events.Publisher")
             
         self.connect()
 
-
     def __del__(self):
-        self.terminate()
+        self.logger.debug("Publisher  DTOR START")
+        if self.disconnectReceiver and self.disconnectReceiver.get_disconnect() == False:
+            self.logger.debug("Publisher::DTOR  DISCONNECT")
+            self.disconnect()
+        
+        self.logger.debug("Publisher::DTOR  DEACTIVATE")
+        self.disconnectReciever=None
+        self.proxy=None
+        self.channel=None
+        self.logger.debug("Publisher  DTOR END")
 
 
     def terminate(self):
+        self.logger.debug("Publisher::terminate START")
+        if self.disconnectReceiver and self.disconnectReceiver.get_disconnect() == False:
+            self.logger.debug("Publisher::terminate  DISCONNECT")
+            self.disconnect()
+        
+        self.logger.debug("Publisher::terminate  DEACTIVATE")
+        self.disconnectReciever=None
+        self.proxy=None
+        self.channel=None
+        self.logger.debug("Publisher::terminate END")
+
         if self.proxy:
             for x in range(10):
                 try:
@@ -67,8 +123,7 @@ class Publisher:
                 time.sleep(.01)
 
         self.proxy = None
-        if self.is_local:
-            self.supplier = None
+        self.supplier = None
         self.channel = None
 
 
@@ -101,8 +156,14 @@ class Publisher:
                     retval=0
                     break
                 except CORBA.COMM_FAILURE:
+                    self.logger.error("Publisher ::disconnect, Caught COMM_FAILURE, Retrying.")
                     pass
                 time.sleep(retry_wait)
+
+            if self.disconnectReceiver:
+                self.logger.debug("Publisher ::disconnect, Waiting for disconnect.......")
+                self.disconnectRecevier.wait_for_disconnect( .01, 3)
+                self.logger.debug("Publisher ::disconnect, received disconnect.......")
 
         return retval
 
@@ -131,23 +192,24 @@ class Publisher:
                     pass
                 time.sleep(retry_wait)
 
-        if self.supplier == None and self.is_local == True :
-            self.supplier = DefaultSupplier(self)
-
-        self.logger.debug("Assign default supplier to channel")
-        for x in range(retries):
-            try: 
-                self.proxy.connect_push_supplier( self.supplier._this() )
-                retval=0
-                break
-            except CORBA.BAD_PARM:
-                break
-            except CORBA.COMM_FAILURE:
-                pass
-            except CosEventChannelAdmin.AlreadyConnected:
-                retval=0
-                break
-                
-            time.sleep(retry_wait)
+        self.logger.debug("Publisher Checking proxy...")
+        if self.proxy != None:
+            self.logger.debug("Publisher Connect receiver to  EventChannel ")
+            for x in range(retries):
+                try: 
+                    self.proxy.connect_push_supplier( self.disconnectReceiver._this() )
+                    self.disconnectReceiver.reset()
+                    retval=0
+                    break
+                except CORBA.BAD_PARM:
+                    break
+                except CORBA.COMM_FAILURE:
+                    pass
+                except CosEventChannelAdmin.AlreadyConnected:
+                    self.logger.debug("Publisher Already connected to  EventChannel ")
+                    self.disconnectReceiver.reset()
+                    retval=0
+                    break
+                time.sleep(retry_wait)
 
         return retval

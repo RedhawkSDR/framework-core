@@ -23,7 +23,7 @@
 
 #include <iostream>
 #include <memory>
-#include <cassert>
+#include <stdexcept>
 #include <vector>
 
 template<class T>
@@ -49,7 +49,6 @@ class optional_property
         optional_property(const optional_property<T>& ov) {
             if (ov._p.get() != 0) {
                 _p.reset(new T(*(ov._p)));
-                assert(_p.get() != 0);
             }
         }
 
@@ -61,8 +60,10 @@ class optional_property
             return _p.get();
         }
 
-        T& operator*() const {
-            assert(_p.get() != 0);
+        T& operator*() const throw (std::runtime_error) {
+            if (_p.get() == 0) {
+                throw std::runtime_error("Attempted to use unset optional property.");
+            }
             return *(_p.get());
         }
 
@@ -72,14 +73,12 @@ class optional_property
 
         optional_property<T>& operator=(const T& v) {
             _p.reset(new T(v));
-            assert(_p.get() != 0);
             return *this;
         }
 
         optional_property<T>& operator=(const optional_property<T>& ov) {
             if (ov._p.get() != 0) {
                 _p.reset(new T(*(ov._p)));
-                assert(_p.get() != 0);
             } else {
                 _p.reset(0);
             }
@@ -87,8 +86,8 @@ class optional_property
         }
 
         void reset() {
-	    _p.reset(0);
- 	}
+            _p.reset(0);
+        }
 
     private:
         std::auto_ptr<T> _p;
@@ -99,9 +98,9 @@ template<class T>
 inline bool operator==(const optional_property<T>& lhs, const optional_property<T>& rhs)
 {
     if (lhs.get() != 0 && rhs.get() != 0) {
-	if (*lhs == *rhs) {
-	    return true;
-	}
+        if (*lhs == *rhs) {
+            return true;
+        }
     } 
     return false;   
 }

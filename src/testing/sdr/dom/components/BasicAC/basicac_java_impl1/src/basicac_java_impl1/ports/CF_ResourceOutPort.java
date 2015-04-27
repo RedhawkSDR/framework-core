@@ -115,6 +115,11 @@ public class CF_ResourceOutPort extends UsesPort<ResourceOperations> implements 
         
         return retval;
     }
+
+    public void initializeProperties(CF.DataType[] configProperties) throws CF.PropertySetPackage.InvalidConfiguration, CF.PropertySetPackage.PartialConfiguration
+    {
+    }
+
     /**
      * @generated
      */
@@ -197,6 +202,13 @@ public class CF_ResourceOutPort extends UsesPort<ResourceOperations> implements 
         
         return retval;
     }
+
+	public CF.PortSupplierPackage.PortInfoType[] getPortSet()
+	{
+	  	CF.PortSupplierPackage.PortInfoType[] retval = new CF.PortSupplierPackage.PortInfoType[1];
+	  	return retval;
+	}
+
     /**
      * @generated
      */

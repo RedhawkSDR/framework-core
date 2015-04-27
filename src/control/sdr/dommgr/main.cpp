@@ -343,6 +343,7 @@ int old_main(int argc, char* argv[])
     LOG_DEBUG(DomainManager, "Root of DomainManager FileSystem set to " << domRootPath);
     LOG_DEBUG(DomainManager, "DMD path set to " << dmdFile);
     LOG_DEBUG(DomainManager, "Domain Name set to " << domainName);
+
     try {
         DomainManager_servant = new DomainManager_impl(dmdFile.c_str(),
                                                        domRootPath.string().c_str(),
@@ -393,7 +394,6 @@ int old_main(int argc, char* argv[])
         PortableServer::POA_var dommgr_poa = root_poa->find_POA("DomainManager", 1);
         PortableServer::ObjectId_var oid = ossie::corba::activatePersistentObject(dommgr_poa, DomainManager_servant, DomainManager_servant->getFullDomainManagerName());
 
-
         // Bind the DomainManager object to its full name (e.g. "DomainName/DomainName") in the NameService.
         LOG_DEBUG(DomainManager, "Binding DomainManager to NamingService name " << DomainManager_servant->getFullDomainManagerName());
         CF::DomainManager_var DomainManager_obj = DomainManager_servant->_this();
@@ -426,7 +426,7 @@ int old_main(int argc, char* argv[])
 
         LOG_INFO(DomainManager, "Requesting ORB shutdown");
         ossie::corba::OrbShutdown(true);
-
+        ossie::logging::Terminate();
         LOG_INFO(DomainManager, "Goodbye!");
     } catch (const CORBA::Exception& ex) {
         LOG_FATAL(DomainManager, "Terminated with CORBA::" << ex._name() << " exception");
@@ -448,7 +448,7 @@ int old_main(int argc, char* argv[])
 }
 
 int main(int argc, char* argv[]) {
-  std::cout << " DomainManager pid=" << getpid() << std::endl;
+  //std::cout << " DomainManager pid=" << getpid() << std::endl;
   int status = old_main(argc, argv);
   ossie::logging::Terminate();
   exit(status);

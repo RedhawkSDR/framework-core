@@ -354,6 +354,7 @@ CF::FileSystem::FileInformationSequence* FileSystem_impl::list (const char* patt
 
             const std::string localFilename = itr->path().string();
             bool readonly = access(localFilename.c_str(), W_OK);
+            bool executable = !access(localFilename.c_str(), X_OK);
             CORBA::ULongLong modtime = fs::last_write_time(*itr);
 
             redhawk::PropertyMap& props = redhawk::PropertyMap::cast(result[index].fileProperties);
@@ -361,6 +362,7 @@ CF::FileSystem::FileInformationSequence* FileSystem_impl::list (const char* patt
             props[CF::FileSystem::MODIFIED_TIME_ID] = modtime;
             props[CF::FileSystem::LAST_ACCESS_TIME_ID] = modtime;
             props["READ_ONLY"] = readonly;
+            props["EXECUTABLE"] = executable;
             props["IOR_AVAILABLE"] = getFileIOR(localFilename);
         }
     }

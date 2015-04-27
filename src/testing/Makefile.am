@@ -57,6 +57,7 @@ SUBDIRS = sdr/dev/devices/ExecutableDevice \
           sdr/dom/components/TestLoggingAPI/cpp \
           sdr/dom/components/ECM_CPP/cpp \
           sdr/dom/components/PropertyChange_C1/cpp \
+          sdr/dom/components/Property_CPP/cpp \
           sdr/dom/components/foo/bar/comp/cpp \
           sdr/dom/components/TestCppOptionalProps/cpp
 
@@ -80,6 +81,7 @@ SUBDIRS += sdr/dev/devices/BasicTestDevice_java/java \
            sdr/dom/components/TestLoggingAPI/java \
            sdr/dom/components/ECM_JAVA/java \
            sdr/dom/components/PropertyChange_J1/java \
+           sdr/dom/components/Property_JAVA/java \
            sdr/dom/components/foo/bar/jv/java \
            sdr/dom/components/TestJavaOptionalProps/java
 endif

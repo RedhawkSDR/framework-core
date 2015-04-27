@@ -34,6 +34,7 @@ import java.util.Properties;
 import java.io.FileOutputStream;
 import java.io.File;
 import java.util.UUID;
+import java.util.Set;
 
 
 import org.apache.log4j.BasicConfigurator;
@@ -99,6 +100,7 @@ import CF.InvalidIdentifier;
 import CF.LifeCyclePackage.InitializeError;
 import CF.LifeCyclePackage.ReleaseError;
 import CF.PortSupplierPackage.UnknownPort;
+import CF.PropertySetPackage.AlreadyInitialized;
 import CF.PropertySetPackage.InvalidConfiguration;
 import CF.PropertySetPackage.PartialConfiguration;
 import CF.ResourcePackage.StartError;
@@ -188,6 +190,8 @@ public abstract class Resource extends Logging implements ResourceOperations, Ru
     protected Hashtable<String, omnijni.Servant> nativePorts;
     /** Map of properties for this resource */
     protected Hashtable<String, IProperty> propSet;
+    /** Map of port descriptions for this resource */
+    protected HashMap<String, String> portDescriptions;
     /** flag if we're started */
     protected volatile boolean _started = false;
     /** flag if we're released */
@@ -199,6 +203,8 @@ public abstract class Resource extends Logging implements ResourceOperations, Ru
     /** port to be used to output property changes */
     protected PropertyEventSupplier propertyChangePort;
     protected String softwareProfile;
+    /** flag for whether initializeProperties has been called */
+    private boolean _propertiesInitialized = false;
 
     protected Hashtable< String, PropertyChangeRec >   _propChangeRegistry;
     protected PropertyChangeProcessor                  _propChangeProcessor;
@@ -221,6 +227,7 @@ public abstract class Resource extends Logging implements ResourceOperations, Ru
         this.portObjects = new Hashtable<String, Object>();
         this.nativePorts = new Hashtable<String, omnijni.Servant>();
         this.propSet = new Hashtable<String, IProperty>();
+		this.portDescriptions = new HashMap<String, String>();
 
         this._propChangeRegistry = new Hashtable< String, PropertyChangeRec >();
         this._propChangeProcessor = new PropertyChangeProcessor(this);
@@ -237,6 +244,16 @@ public abstract class Resource extends Logging implements ResourceOperations, Ru
 
     protected void addPort(String name, omnijni.Servant servant) {
         this.nativePorts.put(name, servant);
+    }
+
+    public void addPort(String name, String description, Object object) {
+		this.portDescriptions.put(name, description);
+        addPort(name, object);
+    }
+
+    protected void addPort(String name, String description, omnijni.Servant servant) {
+		this.portDescriptions.put(name, description);
+        addPort(name, servant);
     }
     
     /**
@@ -281,6 +298,13 @@ public abstract class Resource extends Logging implements ResourceOperations, Ru
     /* METHODS EXPECTED TO BE IMPLEMENTED BY THE USER */
 
     /**
+     * REDHAWK constructor
+     */
+    public void constructor()
+    {
+    }
+
+    /**
      * {@inheritDoc}
      */
     public void initialize() throws InitializeError {
@@ -292,6 +316,14 @@ public abstract class Resource extends Logging implements ResourceOperations, Ru
                 this.ports.put(me.getKey(), obj);
             }
             initialized = true;
+
+            try {
+                this.constructor();
+            } catch (final Throwable exc) {
+                final String message = exc.getMessage(); 
+                logger.error("initialize(): " + message);
+                throw new InitializeError(new String[]{message});
+            }
         }
     }
 
@@ -414,6 +446,107 @@ public abstract class Resource extends Logging implements ResourceOperations, Ru
         
         throw new UnknownPort("Unknown port: " + name);
     }
+
+    public void initializeProperties(final DataType[] ctorProperties) throws AlreadyInitialized, InvalidConfiguration, PartialConfiguration {
+        logger.trace("initializeProperties() - star ");
+
+        // Disallow multiple calls
+        if (this._propertiesInitialized) {
+            throw new AlreadyInitialized();
+        }
+        this._propertiesInitialized = true;
+
+        // Ensure there's something to do
+        if (ctorProperties.length == 0) {
+            return;
+        }
+
+        final ArrayList<DataType> invalidProperties = new ArrayList<DataType>();
+        for (final DataType dt : ctorProperties) {
+            // Look up the property and ensure it is configurable
+            final IProperty prop = this.propSet.get(dt.id);
+            if ((prop == null) || !prop.isConfigurable()) {
+                invalidProperties.add(dt);
+                continue;
+            }
+
+            try {
+                // See if the value has changed
+                if (AnyUtils.compareAnys(prop.toAny(), dt.value, "ne")) {
+                    // Update the value on the property, which may trigger a
+                    // callback.
+                    prop.configure(dt.value);
+                }
+                logger.trace("Construct property: " + prop);
+            } catch (Throwable t) {
+                logger.error("Unable to construct property " + dt.id + ": " + t.getMessage());
+                invalidProperties.add(dt);
+            }
+        }
+        
+        if (invalidProperties.size() == ctorProperties.length) {
+            throw new InvalidConfiguration("Error constructing component", invalidProperties.toArray(new DataType[0]));
+        } else if (invalidProperties.size() > 0) {
+            throw new PartialConfiguration(invalidProperties.toArray(new DataType[0]));
+        }
+
+        logger.trace("initializeProperties() - end");
+    }
+
+	public CF.PortSupplierPackage.PortInfoType[] getPortSet () {
+		final ArrayList<CF.PortSupplierPackage.PortInfoType> ports = new ArrayList<CF.PortSupplierPackage.PortInfoType>();
+
+		for (String name : this.nativePorts.keySet()) {
+			CF.PortSupplierPackage.PortInfoType info = new CF.PortSupplierPackage.PortInfoType();
+			try {
+				info.obj_ptr = getPort(name);
+			} catch (UnknownPort ex) {
+				continue;
+			}
+			info.name = name;
+			omnijni.Servant port = this.nativePorts.get(name);
+			if (port instanceof PortBase) {
+				PortBase cast = (PortBase)port;
+				info.repid = cast.getRepid();
+				info.direction = cast.getDirection();				
+			} else {
+				info.repid = "IDL:CORBA/Object:1.0";
+				info.direction = "direction";
+			}
+			if (this.portDescriptions.containsKey(name)) {
+				info.description = this.portDescriptions.get(name);
+			} else {
+				info.description = "";
+			}
+			ports.add(info);
+		}
+		for (String name : this.portServants.keySet()) {
+			CF.PortSupplierPackage.PortInfoType info = new CF.PortSupplierPackage.PortInfoType();
+			try {
+				info.obj_ptr = getPort(name);
+			} catch (UnknownPort ex) {
+				continue;
+			}
+			info.name = name;
+			Servant port = this.portServants.get(name);
+			if (port instanceof PortBase) {
+				PortBase cast = (PortBase)port; 
+				info.repid = cast.getRepid();
+				info.direction = cast.getDirection();			
+			} else {
+				info.repid = "IDL:CORBA/Object:1.0";
+				info.direction = "direction";
+			}
+			if (this.portDescriptions.containsKey(name)) {
+				info.description = this.portDescriptions.get(name);
+			} else {
+				info.description = "";
+			}
+			ports.add(info);
+		}
+		
+		return ports.toArray(new CF.PortSupplierPackage.PortInfoType[0]);
+	}
 
     /**
      * {@inheritDoc}

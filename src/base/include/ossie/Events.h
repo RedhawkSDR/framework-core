@@ -250,7 +250,7 @@ namespace events {
 
     Manager(  Resource_impl *obj );
 
-    static ManagerPtr             _Manager;
+    static ManagerPtr              _Manager;
 
     Registrations                  _registrations;
 
@@ -266,12 +266,23 @@ namespace events {
   };
 
 
+   
+  
+  // forward declarations for Disconnect interfaces
+
 
 
   class  Publisher  {
 
+  public:
+
+    // interface that handle disconnects from channel
+    class Receiver;
+
+  private:
     friend class Manager;
-    friend class DefaultSupplier;
+    friend class Receiver;
+
 
   public:    
 
@@ -345,7 +356,6 @@ namespace events {
     int     push( const std::string &msg );
     int     push( CORBA::Any &data );
 
-
     //
     // disconnect from the event channnel
     //
@@ -366,26 +376,16 @@ namespace events {
   protected:
 
 
-    Publisher( ossie::events::EventChannel_ptr            channel,
-               ossie::events::EventPublisherSupplierPOA   *supplier );
-
     // handle to the Event Channel ... 
-    ossie::events::EventChannel_ptr           channel;
+    ossie::events::EventChannel_var           channel;
 
     // handle to object that publishes the event to the channel's consumers
     ossie::events::EventPublisher_var         proxy;
 
-    // handle to object that responds to disconnect messages
-    ossie::events::EventPublisherSupplierPOA *supplier;
-    
-    //
-    // designator if supplier is a local object or provided
-    //
-    bool is_local;
-
-
   private:
-    void   _init( );
+
+    // handle to object that responds to disconnect messages
+    Receiver                                 *_disconnectReceiver;
 
   };
 
@@ -406,6 +406,10 @@ namespace events {
 
     static const int DEFAULT_RETRIES=10;
     static const int DEFAULT_WAIT=10;
+
+    //
+    // Interface to handle received messages and disconnects
+    class Receiver;
 
     //
     // Callback interface when data arrives event happens
@@ -566,7 +570,7 @@ namespace events {
     friend class DefaultConsumer;
 
     // handle to the Event Channel ... 
-    ossie::events::EventChannel_ptr       channel;
+    ossie::events::EventChannel_var       channel;
 
     //
     // Subscriber proxy 
@@ -574,9 +578,9 @@ namespace events {
     ossie::events::EventSubscriber_var     proxy;
 
     //
-    // Event subscriber consumer
+    // Event subscriber consumer/disconnect
     //
-    ossie::events::EventSubscriberConsumerPOA *consumer;
+    Receiver                              *consumer;
 
     //
     // Callback to notify when data has arrived
@@ -591,10 +595,11 @@ namespace events {
     //
     std::deque< CORBA::Any >               events;
 
+
   private:
 
 
-    void   _init();
+    void   _init(  ossie::events::EventChannel_ptr     inChannel );
 
 
   }; // end of Subscriber
