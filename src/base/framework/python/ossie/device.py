@@ -110,6 +110,7 @@ class Device(resource.Resource):
         resource.Resource.__init__(self, identifier, execparams, propertydefs, loggerName=loggerName)
         self._log.debug("Initializing Device %s %s %s %s", identifier, execparams, propertydefs, loggerName)
         self._label = label
+        self._name = label
         self._softwareProfile = softwareProfile
         self._devmgr = devmgr
         self._compositeDevice = compositeDevice
@@ -890,7 +891,6 @@ class ExecutableDevice(LoadableDevice):
     def __init__(self, devmgr, identifier, label, softwareProfile, compositeDevice, execparams, propertydefs=(),loggerName=None):
         LoadableDevice.__init__(self, devmgr, identifier, label, softwareProfile, compositeDevice, execparams, propertydefs,loggerName=loggerName)
         self._applications = {}
-
         # Install our own SIGCHLD handler to allow reporting on abnormally terminated children,
         # keeping the old one around so that it can be chained (in case a subclass creates its
         # own children, for example).
@@ -1006,21 +1006,41 @@ class ExecutableDevice(LoadableDevice):
             raise CF.ExecutableDevice.InvalidProcess(CF.CF_ENOENT,
                 "Cannot terminate.  Process %s does not exist." % str(pid))
         # SR:456
-        sp = self._applications[pid]
-        for sig, timeout in self.STOP_SIGNALS:
-            if not _checkpg(pid):
-                break
-            self._log.debug('Sending signal %d to process group %d', sig, pid)
-            try:
-                # the group id is used to handle child processes (if they exist) of the component being cleaned up
-                os.killpg(pid, sig)
-            except OSError:
-                pass
-            giveup_time = time.time() + timeout
-            while _checkpg(pid) and time.time() < giveup_time:
-                time.sleep(0.1)
         try:
-            del self._applications[pid]
+            sp = self._applications[pid]
+            for sig, timeout in self.STOP_SIGNALS:
+                try:
+                    self._log.info('Sending signal %d to process group %d', sig, pid)
+                    # the group id is used to handle child processes (if they exist) of the component being cleaned up
+                    os.killpg(pid, sig)
+                except OSError:
+                    pass
+
+                # check if pid has finished
+                status=None
+                try:
+                    status = self._applications[pid].poll()
+                except KeyError:
+                    time.sleep(0.01)                    
+                    continue
+            
+                if status != None: 
+                    self._log.debug('Process has stopped...pocess group ' + str(pid) + ' status' + str(status))
+                    time.sleep(0.01)                    
+                    continue
+            
+                if not _checkpg(pid): break
+                giveup_time = time.time() + timeout
+                while _checkpg(pid) and time.time() < giveup_time:
+                    time.sleep(0.1)
+
+                if not _checkpg(pid): break
+
+            try:
+                self._log.info(' Delete APP (_terminate)  %d', pid)
+                del self._applications[pid]
+            except:
+                pass
         except:
             pass
 
@@ -1041,6 +1061,7 @@ class ExecutableDevice(LoadableDevice):
             if status < 0:
                 self._log.error("Child process %d terminated with signal %s", pid, -status)
                 try:
+                    self._log.info(' Delete APP (_child_handler)  %d', pid)
                     del self._applications[pid]
                 except:
                     pass

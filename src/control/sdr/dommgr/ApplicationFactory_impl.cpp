@@ -1289,7 +1289,6 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
     // now actually perform the create operation
     LOG_TRACE(ApplicationFactory_impl, "Performing 'create' function.");
     CF::Application_ptr new_app = new_createhelper.create(name, initConfiguration, deviceAssignmentMap);
-
     // return the new Application
     TRACE_EXIT(ApplicationFactory_impl);
     return new_app;
@@ -2481,56 +2480,65 @@ void createHelper::loadAndExecuteComponents(
             // See if the LOGGING_CONFIG_URI has already been set
             // via <componentproperties> or initParams
             bool alreadyHasLoggingConfigURI = false;
+	    std::string logging_uri("");
+            CF::DataType* logcfg_prop = NULL;
             CF::Properties execParameters = component->getExecParameters();
             for (unsigned int i = 0; i < execParameters.length(); ++i) {
                 std::string propid = static_cast<const char*>(execParameters[i].id);
                 if (propid == "LOGGING_CONFIG_URI") {
-                    alreadyHasLoggingConfigURI = true;
-                    break;
+		  logcfg_prop = &execParameters[i];
+		  const char* tmpstr;
+		  logcfg_prop->value >>= tmpstr;
+		  LOG_TRACE(ApplicationFactory_impl, "Resource logging configuration provided, logcfg:" << tmpstr);
+		  logging_uri = string(tmpstr);
+		  alreadyHasLoggingConfigURI = true;
+		  break;
                 }
             }
 
-            if (!alreadyHasLoggingConfigURI) {
+	    ossie::logging::LogConfigUriResolverPtr logcfg_resolver = ossie::logging::GetLogConfigUriResolver();
+	    std::string logcfg_path = ossie::logging::GetComponentPath( _appFact._domainName,
+									_waveformContextName,
+									component->getNamingServiceName() );
+	    if ( _appFact._domainManager->getUseLogConfigResolver() && logcfg_resolver ) {
+              std::string t_uri = logcfg_resolver->get_uri( logcfg_path );
+              LOG_DEBUG(ApplicationFactory_impl, "Using LogConfigResolver plugin: path " << logcfg_path << " logcfg:" << t_uri );
+              if ( !t_uri.empty() ) logging_uri = t_uri;
+	    }
+            
+	    if (!alreadyHasLoggingConfigURI && logging_uri.empty() ) {
                 // Query the DomainManager for the logging configuration
                 LOG_TRACE(ApplicationFactory_impl, "Checking DomainManager for LOGGING_CONFIG_URI");
-                PropertyInterface* logProperty = _appFact._domainManager->getPropertyFromId("LOGGING_CONFIG_URI");
+                PropertyInterface *log_prop = _appFact._domainManager->getPropertyFromId("LOGGING_CONFIG_URI");
+		StringProperty *logProperty = (StringProperty *)log_prop;
                 if (!logProperty->isNil()) {
-                    CF::DataType prop;
-                    prop.id = logProperty->id.c_str();
-                    logProperty->getValue(prop.value);
-                    component->addExecParameter(prop);
+		  logging_uri = logProperty->getValue();
                 } else {
                     LOG_TRACE(ApplicationFactory_impl, "DomainManager LOGGING_CONFIG_URI is not set");
                 }
-            }
+	    }
 
-            // prepare LOGGING_CONFIG_URI execparam
-            CF::DataType* lc = NULL;
-            execParameters = component->getExecParameters();
-            for (unsigned int i = 0; i < execParameters.length(); ++i) {
-                std::string propid = static_cast<const char*>(execParameters[i].id);
-                if (propid == "LOGGING_CONFIG_URI") {
-                    lc = &execParameters[i];
-                    break;
-                }
-            }
+	    // if we have a uri but no property, add property to component's exec param list
+	    if ( logcfg_prop == NULL && !logging_uri.empty() ) {
+	      CF::DataType prop;
+	      prop.id = "LOGGING_CONFIG_URI";
+	      prop.value <<= logging_uri.c_str();
+	      component->addExecParameter(prop);
+	    }
 
-            if (lc != NULL) {
-                const char* tmpstr;
-                lc->value >>= tmpstr;
-                LOG_TRACE(ApplicationFactory_impl, "Logging configuration provided " << tmpstr);
-                string logging_uri = string(tmpstr);
-
+            if (!logging_uri.empty()) {
                 if (logging_uri.substr(0, 4) == "sca:") {
                     string fileSysIOR = ossie::corba::objectToString(_appFact._domainManager->_fileMgr);
                     logging_uri += ("?fs=" + fileSysIOR);
                     LOG_TRACE(ApplicationFactory_impl, "Adding file system IOR " << logging_uri);
                 }
-                lc->value <<= logging_uri.c_str();
-                component->overrideProperty("LOGGING_CONFIG_URI", lc->value);
-            } else {
-                LOG_TRACE(ApplicationFactory_impl, "No logging configuration provided");
-            }
+
+                LOG_DEBUG(ApplicationFactory_impl, " LOGGING_CONFIG_URI :" << logging_uri);
+                CORBA::Any loguri;
+                loguri <<= logging_uri.c_str();
+                // this overrides all instances of the property called LOGGING_CONFIG_URI
+                component->overrideProperty("LOGGING_CONFIG_URI", loguri);
+	    }
 
             fs::path executeName;
             if ((implementation->getCodeType() == CF::LoadableDevice::EXECUTABLE) && (implementation->getEntryPoint().size() == 0)) {

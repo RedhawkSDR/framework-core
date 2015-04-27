@@ -170,6 +170,7 @@ class Resource(object):
     def setAdditionalParameters(self, softwareProfile):
         self._softwareProfile = softwareProfile
 
+
     #########################################
     # CF::Resource
     def start(self):
@@ -690,8 +691,10 @@ def parseCommandLineArgs(componentclass):
 
 def start_component(componentclass, interactive_callback=None, thread_policy=None, loggerName=None):   
     execparams, interactive = parseCommandLineArgs(componentclass)
+    name_binding="NOT SET"
     setupSignalHandlers()
     orb = None
+    globals()['__orb__'] = orb
 
     try:
         try:
@@ -700,9 +703,6 @@ def start_component(componentclass, interactive_callback=None, thread_policy=Non
             name_binding=""
             component_identifier=""
             
-            # set up backwards-compatable logging
-            #configureLogging(execparams, loggerName, orb)
-
             componentPOA = getPOA(orb, thread_policy, "componentPOA")
           
             if not execparams.has_key("COMPONENT_IDENTIFIER"):

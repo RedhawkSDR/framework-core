@@ -73,6 +73,7 @@ appendClassPath('../base/framework/java/ossie/ossie.jar')
 
 # Add path to libomnijni.so to LD_LIBRARY_PATH for Java components
 appendPath('LD_LIBRARY_PATH', '../omnijni/src/cpp/.libs')
+appendPath('LD_LIBRARY_PATH', '../base/plugin/logcfg/.libs')
 
 # Set the model IDL paths to point to the (uninstalled) REDHAWK IDLs.
 from _unitTestHelpers import scatest

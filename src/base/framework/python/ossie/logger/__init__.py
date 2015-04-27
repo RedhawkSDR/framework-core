@@ -23,6 +23,7 @@ import os
 from   ossie.cf import CF
 import urlparse
 import ossie.utils.log4py.config
+from   ossie.utils.log4py import RedhawkLogger
 from  omniORB import CORBA
 
 def GetDefaultMacros():
@@ -257,6 +258,11 @@ def SetLogLevel( logid, newLevel ):
     level = ConvertToLog4Level( newLevel )
     if logger:
         logger.setLevel( level )
+
+
+def SetEventChannelManager( ECM ):
+    #print "ossie.logger.SetEvenChannelManager " + str(ECM)
+    RedhawkLogger.SetEventChannelManager(ECM)
 
 
 def GetDefaultConfig():

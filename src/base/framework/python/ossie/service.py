@@ -27,6 +27,7 @@ from omniORB import CORBA
 from ossie.resource import load_logging_config_uri
 from ossie.cf import CF
 import ossie.logger
+import types
 
 def __exit_handler(signum, frame):
     # Raise SystemExit - but only the first time we get a signal
@@ -35,6 +36,97 @@ def __exit_handler(signum, frame):
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
     raise SystemExit
 
+#
+# Add required features to a python service instance
+#
+def patchService(target):
+    def getDeviceManager(self):
+        return self._devMgr
+    def getDomainManager(self):
+        return self._domMgr
+
+    def initLogging(self, svc_name, loggerName=None):
+        ##
+        ## logging context for the resource
+        ##
+        self.logLevel = logging.DEBUG
+        self.logConfig = ""
+        self.loggingMacros = ossie.logger.GetDefaultMacros()
+        ossie.logger.ResolveHostInfo( self.loggingMacros )
+        self.loggingCtx = None
+        self.loggingURL=None
+
+        if loggerName == None:
+            self._logid = svc_name
+            self._logid = self._logid.rsplit("_", 1)[0]
+        else:
+            self._logid = loggerName
+        self._logid = self._logid.replace(":","_")
+        self._log = logging.getLogger(self._logid)
+        self._log.setLevel(self.logLevel)
+        self.logListenerCallback=None
+
+    # logging context 
+    def saveLoggingContext(self, logcfg_url, oldstyle_loglevel, rscCtx ):
+
+        if self.name:
+            self.initLogging(self.name)
+        elif rscCtx:
+            self.initLogging(rscCtx.name)
+        else:
+           self.initLogging("SERVICE.NAME")
+
+
+        # apply resource context to macro definitions
+        if rscCtx:
+            rscCtx.apply(self.loggingMacros )
+            self.loggingCtx = rscCtx
+
+        # test we have a logging URLx
+        self.loggingURL = logcfg_url
+        if logcfg_url==None or logcfg_url=="" :
+            self.logConfig = ossie.logger.GetDefaultConfig()
+        else:
+            # try to process URL and grab contents
+            try:
+                cfg_data=ossie.logger.GetConfigFileContents( logcfg_url )
+                if cfg_data and len(cfg_data) > 0 :
+                    self.logConfig = ossie.logger.ExpandMacros( cfg_data, self.loggingMacros )
+            except:
+                pass
+
+        # apply logging level if explicitly stated
+        if oldstyle_loglevel != None and oldstyle_loglevel > -1 :
+            _logLevel = ossie.logger.ConvertLogLevel(oldstyle_loglevel)
+        else:
+            _logLevel = ossie.logger.ConvertLog4ToCFLevel( logging.getLogger(None).getEffectiveLevel() )
+
+    def releaseObject(self):
+        # release EventChannelManager from service use
+        if self._releaseObject:
+            self._releaseObject()
+
+    def terminateService(self):
+        # assign an event channel manager to the logging library
+        if self._terminateService:
+            self._terminateService()
+
+
+    target._terminateService=None
+    if callable(getattr(target, "terminateService", None)):
+        target._terminateService = getattr(target, "terminateService", None)
+    target._releaseObject=None
+    if callable(getattr(target, "releaseObject", None)):
+        target._releaseObject = getattr(target, "releaseObject", None)
+    target.getDeviceManager = types.MethodType(getDeviceManager,target)
+    target.getDomainManager = types.MethodType(getDomainManager,target)
+    target.saveLoggingContext = types.MethodType(saveLoggingContext,target)
+    target.initLogging = types.MethodType(initLogging,target)
+    target.releaseObject = types.MethodType(releaseObject,target)
+    target.terminateService = types.MethodType(terminateService,target)
+
+
+    
 def start_service(serviceclass, thread_policy=None):
     import sys
     import CosNaming
@@ -122,15 +214,19 @@ def start_service(serviceclass, thread_policy=None):
             servicePOA.activate_object(component_Obj)
             component_Var = component_Obj._this()
 
-            ## RESOLVE  - service does not follow Resource class hierarchy
-            ## set logging context for resource to support CF::Logging
-            ##component_Obj.setLoggingContext( log_config_uri, debug_level, ctx )
-
+            # add required methods
+            patchService(component_Obj)
+            
             if devMgr != None:
                 logging.debug("Registering service with device manager")
+                component_Obj._devMgr = devMgr
+                component_Obj._domM = None
                 devMgr.registerService(component_Var, execparams["SERVICE_NAME"])
             else:
                 print orb.object_to_string(component_Var)
+
+            ## sets up logging context for resource to support CF::Logging
+            component_Obj.saveLoggingContext( log_config_uri, debug_level, ctx )
 
             # Run the blocking main loop
             logging.debug("Starting ORB event loop")

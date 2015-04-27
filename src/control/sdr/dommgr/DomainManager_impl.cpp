@@ -63,8 +63,11 @@ static const ComponentInstantiation* findComponentInstantiation (const std::vect
 PREPARE_LOGGING(DomainManager_impl)
 
 // If _overrideDomainName == NULL read the domain name from the DMD file
-DomainManager_impl::DomainManager_impl (const char* _dmdFile, const char* _rootpath, const char* domainName, const char* _logconfig_uri, const char* db_uri) :
-    _connectionManager(this, this, domainName)
+DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpath, const char* domainName, const char* _logconfig_uri, bool useLogCfgResolver) :
+  _domainName(domainName),
+  _domainManagerProfile(dmdFile),
+  _connectionManager(this, this, domainName),
+  _useLogConfigUriResolver(useLogCfgResolver)
 {
 
     TRACE_ENTER(DomainManager_impl)
@@ -73,7 +76,7 @@ DomainManager_impl::DomainManager_impl (const char* _dmdFile, const char* _rootp
     LOG_TRACE(DomainManager_impl, "Looking for DomainManager POA");
     poa = ossie::corba::RootPOA()->find_POA("DomainManager", 1);
 
-    _domainManagerProfile = _dmdFile;
+    _domainManagerProfile = dmdFile;
 
     _applications.length(0);
 

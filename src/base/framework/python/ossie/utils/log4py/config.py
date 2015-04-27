@@ -229,7 +229,9 @@ def _config(props, category=None):
       for appenderOption in appenderOptions:
         opt = appenderOption[len(appenderKey+"."):]
         value = props[appenderOption].strip()
-        if opt.lower().endswith("layout"):
+        if "RH_LogEventAppender" in handler.__class__.__name__:
+          handler.setOption(opt,value)
+        if opt.endswith("layout"):
           layoutClass = value
           klass = _import_layout(layoutClass)
           layout = klass()

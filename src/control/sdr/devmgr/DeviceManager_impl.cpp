@@ -632,7 +632,7 @@ void DeviceManager_impl::createDeviceExecStatement(
     std::vector<ComponentProperty*>::const_iterator iprops_iter;
 
     unsigned long new_argc = 0;
-
+    std::string logcfg_path("");
     deviceMgrIOR = ossie::corba::objectToString(myObj);
     if (getenv("VALGRIND")) {
         new_argv[new_argc] =  "/usr/local/bin/valgrind";
@@ -673,11 +673,13 @@ void DeviceManager_impl::createDeviceExecStatement(
             new_argv[new_argc] = (char*)IDM_IOR.c_str();
             new_argc++;
         }
+        logcfg_path= ossie::logging::GetDevicePath(_domainName, _label, usageName );
     } else if (componentType == "service") {
-        new_argv[new_argc] = "SERVICE_NAME";
-        new_argc++;
-        new_argv[new_argc] = (char*)usageName.c_str();
-        new_argc++;
+      logcfg_path= ossie::logging::GetServicePath(_domainName, _label, usageName );
+      new_argv[new_argc] = "SERVICE_NAME";
+      new_argc++;
+      new_argv[new_argc] = (char*)usageName.c_str();
+      new_argc++;
     }
 
     logging_uri = "";
@@ -690,10 +692,15 @@ void DeviceManager_impl::createDeviceExecStatement(
         }
     }
 
-    if (logging_uri.empty()) {
-        if (!logging_config_prop->isNil()) {
-            logging_uri = logging_config_uri;
-        }
+    if ( logging_uri.empty() ||  getUseLogConfigResolver() ) {
+      ossie::logging::LogConfigUriResolverPtr log_cfg_resolver = ossie::logging::GetLogConfigUriResolver();
+      if ( log_cfg_resolver ) {
+	logging_uri = log_cfg_resolver->get_uri(  logcfg_path );
+        LOG_DEBUG(DeviceManager_impl, "Resolve LOGGING_CONFIG_URI:  key:" << logcfg_path << " value <" << logging_uri << ">" );
+      }
+      if (logging_uri.empty() && !logging_config_prop->isNil()) {
+	logging_uri = logging_config_uri;
+      }
     }
 
     std::string debug_level;
@@ -705,6 +712,7 @@ void DeviceManager_impl::createDeviceExecStatement(
         new_argc++;
         new_argv[new_argc] = (char*)logging_uri.c_str();
         new_argc++;
+	LOG_INFO(DeviceManager_impl, "RSC: " << usageName << " LOGGING PARAM:VALUE " << new_argv[new_argc-2] << ":" <<new_argv[new_argc-1] );
     } else {
         // Pass along the current debug level setting.
         int level = ossie::logging::ConvertRHLevelToDebug(rh_logger::Logger::getRootLogger()->getLevel());
@@ -749,6 +757,9 @@ DeviceManager_impl::ExecparamList DeviceManager_impl::createDeviceExecparams(
     // fork() and execv().
     ExecparamList execparams;
 
+
+    std::string logcfg_path("");
+    deviceMgrIOR = ossie::corba::objectToString(myObj);
     execparams.push_back(std::make_pair("DEVICE_MGR_IOR", deviceMgrIOR));
     if (componentType == "device") {
         execparams.push_back(std::make_pair("PROFILE_NAME", DCDParser.getFileNameFromRefId(componentPlacement.getFileRefId())));
@@ -760,9 +771,18 @@ DeviceManager_impl::ExecparamList DeviceManager_impl::createDeviceExecparams(
         if (!CORBA::is_nil(IDM_channel)) {
             execparams.push_back(std::make_pair("IDM_CHANNEL_IOR", IDM_IOR));
         }
+	logcfg_path=ossie::logging::GetDevicePath( _domainName, _label, usageName );
     } else if (componentType == "service") {
-        execparams.push_back(std::make_pair("SERVICE_NAME", usageName));
+      logcfg_path=ossie::logging::GetServicePath( _domainName, _label, usageName );
+      execparams.push_back(std::make_pair("SERVICE_NAME", usageName));
     }
+
+    // Try to resolve LOGGING_CONFIG_URI exec param.
+    //  1) honor LOGGING_CONFIG_URI property
+    //  2) check if log_cfg_resolver resolves device path
+    //  3) use  devmgr's property value
+
+    ossie::logging::LogConfigUriResolverPtr      log_cfg_resolver = ossie::logging::GetLogConfigUriResolver();
 
     std::vector<ComponentProperty*>::const_iterator iprops_iter;
     logging_uri = "";
@@ -776,9 +796,13 @@ DeviceManager_impl::ExecparamList DeviceManager_impl::createDeviceExecparams(
     }
 
     if (logging_uri.empty()) {
-        if (!logging_config_prop->isNil()) {
-            logging_uri = logging_config_uri;
-        }
+      if ( log_cfg_resolver ) {
+	logging_uri = log_cfg_resolver->get_uri( logcfg_path );
+        LOG_INFO(DeviceManager_impl, "Resolve LOGGING_CONFIG_URI:  key:" << logcfg_path << " value <" << logging_uri << ">" );
+      }
+      if (logging_uri.empty() && !logging_config_prop->isNil()) {
+	logging_uri = logging_config_uri;
+      }
     }
 
     std::string debug_level;
@@ -961,34 +985,56 @@ void DeviceManager_impl::createDeviceThread(
             }
         }
         else if (pid == 0) {
-            // Child process
+          // Child process
+          int err;
+          sigset_t  sigset;
+          err=sigemptyset(&sigset);
+          err = sigaddset(&sigset, SIGINT);
+          if ( err ) {
+            LOG_ERROR(DeviceManager_impl, "sigaction(SIGINT): " << strerror(errno));
+          }
+          err = sigaddset(&sigset, SIGQUIT);
+          if ( err ) {
+            LOG_ERROR(DeviceManager_impl, "sigaction(SIGQUIT): " << strerror(errno));
+          }
+          err = sigaddset(&sigset, SIGTERM);
+          if ( err ) {
+            LOG_ERROR(DeviceManager_impl, "sigaction(SIGTERM): " << strerror(errno));
+          }
+          err = sigaddset(&sigset, SIGCHLD);
+          if ( err ) {
+            LOG_ERROR(DeviceManager_impl, "sigaction(SIGCHLD): " << strerror(errno));
+          }
 
-            //////////////////////////////////////////////////////////////
-            // DO not put any LOG calls between the fork and the execv
-            //////////////////////////////////////////////////////////////
+          // We must unblock the signals for child processes
+          err = sigprocmask(SIG_UNBLOCK, &sigset, NULL);
 
-            // switch to working directory
-            chdir(devcache.c_str());
+          //////////////////////////////////////////////////////////////
+          // DO not put any LOG calls between the fork and the execv
+          //////////////////////////////////////////////////////////////
 
-            const char* new_argv[pOverloadprops->size() + 30];
+          // switch to working directory
+          chdir(devcache.c_str());
 
-            createDeviceExecStatement(new_argv, 
-                                      componentPlacement,
-                                      componentType,
-                                      pOverloadprops,
-                                      codeFilePath,
-                                      DCDParser,
-                                      instantiation,
-                                      usageName,
-                                      componentPlacements,
-                                      compositeDeviceIOR,
-                                      instanceprops) ;
+          const char* new_argv[pOverloadprops->size() + 30];
 
-            // now exec - we should not return from this
-            execv(new_argv[0], (char * const*) new_argv);
+          createDeviceExecStatement(new_argv, 
+                                    componentPlacement,
+                                    componentType,
+                                    pOverloadprops,
+                                    codeFilePath,
+                                    DCDParser,
+                                    instantiation,
+                                    usageName,
+                                    componentPlacements,
+                                    compositeDeviceIOR,
+                                    instanceprops) ;
 
-            LOG_ERROR(DeviceManager_impl, new_argv[0] << " did not execute : " << strerror(errno));
-            exit(-1);
+          // now exec - we should not return from this
+          execv(new_argv[0], (char * const*) new_argv);
+
+          LOG_ERROR(DeviceManager_impl, new_argv[0] << " did not execute : " << strerror(errno));
+          exit(-1);
         }
         else {
             // The system cannot support deployment of the device
@@ -1017,6 +1063,7 @@ DeviceManager_impl::DeviceManager_impl(
         const char*     _cachepath, 
         const char*     _logconfig_uri, 
         struct utsname uname, 
+        bool           useLogCfgResolver,
         bool*          internalShutdown) :
     _registeredDevices()
 {
@@ -1026,6 +1073,7 @@ DeviceManager_impl::DeviceManager_impl(
     _deviceConfigurationProfile = DCDInput;
     _uname                      = uname;
     _internalShutdown           = internalShutdown;
+    _useLogConfigUriResolver    = useLogCfgResolver,
 
     // Initialize properties
     logging_config_prop = (StringProperty*)addProperty(logging_config_uri, 
@@ -1985,12 +2033,13 @@ DeviceManager_impl::shutdown ()
 throw (CORBA::SystemException)
 {
     *_internalShutdown = true;
+    LOG_DEBUG(DeviceManager_impl, "SHUTDOWN START........." << *_internalShutdown)
 
     if ((_adminState == DEVMGR_SHUTTING_DOWN) || (_adminState == DEVMGR_SHUTDOWN)) {
         return;
     }
 
-    _adminState = DEVMGR_SHUTTING_DOWN;
+  _adminState = DEVMGR_SHUTTING_DOWN;
 
     // SR:501
     // The shutdown operation shall unregister the DeviceManager from the DomainManager.
@@ -1999,6 +2048,7 @@ throw (CORBA::SystemException)
     try {
         CF::DeviceManager_var self = _this();
         _dmnMgr->unregisterDeviceManager(self);
+        LOG_DEBUG(DeviceManager_impl, "SHUTDOWN ......... unregisterDeviceManager ");
     } catch( ... ) {
     }
 
@@ -2011,6 +2061,7 @@ throw (CORBA::SystemException)
     clean_externalServices();
     clean_registeredDevices();
 
+    LOG_DEBUG(DeviceManager_impl, "SHUTDOWN ......... Unbinding device manager context");
     try {
         CosNaming::Name devMgrContextName;
         devMgrContextName.length(1);
@@ -2026,16 +2077,13 @@ throw (CORBA::SystemException)
     } catch ( ... ) {
     }
 
+
     try {
         _adminState = DEVMGR_SHUTDOWN;
     } catch ( ... ) {
     }
 
-    // Only attempt to shut down the ORB if it is not shared with a DomainManager.
-    try {
-        ossie::corba::OrbShutdown(false);
-    } catch ( ... ) {
-    }
+    LOG_DEBUG(DeviceManager_impl, "SHUTDOWN ......... completed");
 }
 
 void
@@ -2621,6 +2669,7 @@ void DeviceManager_impl::clean_registeredDevices()
         // should update the registered devices list; it is possible that the
         // device node will be deleted before the lock is re-acquired, so local
         // copies of any objects must be used
+        LOG_INFO(DeviceManager_impl, "Releasing device " << label);
         lock.unlock();
         try {
             unsigned long timeout = 3; // seconds
@@ -2644,6 +2693,7 @@ void DeviceManager_impl::clean_registeredDevices()
         }
     }
 
+    LOG_DEBUG(DeviceManager_impl, "Sending SIGNAL TREE to to device process " );
     // Clean up device processes, starting with an orderly shutdown and
     // escalating as needed
     // NOTE: If the DeviceManager was terminated with a ^C, sending SIGINT may
@@ -2755,7 +2805,9 @@ bool DeviceManager_impl::allChildrenExited ()
 {
     boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
 
-    if ((_pendingDevices.size() == 0) && (_registeredDevices.size() == 0)) {
+    if ((_pendingDevices.size() == 0) && (_registeredDevices.size() == 0) &&
+        (_pendingServices.size() == 0) && (_registeredServices.size() == 0)
+        ) {
         return true;
     }
 

@@ -74,6 +74,9 @@
   }
 
 
+//
+//  Gen 1 Macros, use classname to resolve logger instance to use
+//
 #define LOG_TRACE(classname, expression)  _RH_LOG( Trace,  classname::__logger, expression)
 #define LOG_DEBUG(classname, expression)  _RH_LOG( Debug,  classname::__logger, expression)
 #define LOG_INFO(classname, expression)   _RH_LOG( Info,   classname::__logger, expression)
@@ -81,12 +84,27 @@
 #define LOG_ERROR(classname, expression)  _RH_LOG( Error,   classname::__logger, expression)
 #define LOG_FATAL(classname, expression)  _RH_LOG( Fatal,   classname::__logger, expression)
 
+//
+//  Gen 2 Macros, use specified logger instance to use
+//
 #define RH_TRACE( logger, expression )  _RH_LOG( Trace,  logger, expression)
 #define RH_DEBUG( logger, expression )  _RH_LOG( Debug,  logger, expression)
 #define RH_INFO( logger, expression )   _RH_LOG( Info,   logger, expression)
 #define RH_WARN( logger, expression )   _RH_LOG( Warn,   logger, expression)
 #define RH_ERROR( logger, expression )  _RH_LOG( Error,  logger, expression)
 #define RH_FATAL( logger, expression )  _RH_LOG( Fatal,  logger, expression)
+
+
+//
+//  Gen 3 Macros, use named logger to lookup logger instance to use
+//
+#define RH_NL_TRACE( loggerName, expression )  _RH_LOG( Trace,  rh_logger::Logger::getLogger(loggerName), expression)
+#define RH_NL_DEBUG( loggerName, expression )  _RH_LOG( Debug,  rh_logger::Logger::getLogger(loggerName), expression)
+#define RH_NL_INFO( loggerName, expression )   _RH_LOG( Info,   rh_logger::Logger::getLogger(loggerName), expression)
+#define RH_NL_WARN( loggerName, expression )   _RH_LOG( Warn,   rh_logger::Logger::getLogger(loggerName), expression)
+#define RH_NL_ERROR( loggerName, expression )  _RH_LOG( Error,  rh_logger::Logger::getLogger(loggerName), expression)
+#define RH_NL_FATAL( loggerName, expression )  _RH_LOG( Fatal,  rh_logger::Logger::getLogger(loggerName), expression)
+
 
 
 #ifdef HAVE_LOG4CXX

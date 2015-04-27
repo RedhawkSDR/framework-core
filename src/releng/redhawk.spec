@@ -202,6 +202,7 @@ fi
 %{_libdir}/libossiecfjni.so.*
 %{_libdir}/libossieidl.so.*
 %{_libdir}/libossieparser.so.*
+%{_libdir}/libossielogcfg.so.*
 %dir %{_libdir}/pkgconfig
 %{_datadir}
 %{_sysconfdir}/profile.d/redhawk.csh
@@ -253,6 +254,8 @@ fi
 %{_libdir}/libossieidl.*a
 %{_libdir}/libossieparser.*a
 %{_libdir}/libossieparser.so
+%{_libdir}/libossielogcfg.*a
+%{_libdir}/libossielogcfg.so
 %{_libdir}/pkgconfig/ossie.pc
 %{_sysconfdir}/bash_completion.d/nodeBooter
 

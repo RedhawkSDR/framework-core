@@ -18,8 +18,4 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-if HAVE_JAVASUPPORT
-  JAVADIR = framework/java
-endif
-
-SUBDIRS = framework/idl framework/python $(JAVADIR) parser framework include plugin
+SUBDIRS = logcfg 

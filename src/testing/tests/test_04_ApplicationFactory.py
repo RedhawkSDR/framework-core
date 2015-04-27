@@ -469,7 +469,6 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(pidExists(componentPid), True)
         self.assertEqual(pidExists(firstChild), True)
         self.assertEqual(pidExists(secondChild), True)
-
         app.releaseObject()
         time.sleep(0.5)
         self.assertEqual(pidExists(componentPid), False)

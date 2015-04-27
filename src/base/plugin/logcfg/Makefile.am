@@ -18,8 +18,12 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-if HAVE_JAVASUPPORT
-  JAVADIR = framework/java
-endif
+AM_CPPFLAGS = -I../../include
 
-SUBDIRS = framework/idl framework/python $(JAVADIR) parser framework include plugin
+lib_LTLIBRARIES = libossielogcfg.la
+libossielogcfg_la_SOURCES = EmptyLogCfgUri.cpp
+
+libossielogcfg_la_CXXFLAGS = -Wall $(BOOST_CPPFLAGS) $(LOG4CXX_FLAGS)
+libossielogcfg_la_LIBADD = $(BOOST_LDFLAGS) $(BOOST_FILESYSTEM_LIB) $(BOOST_SERIALIZATION_LIB) $(BOOST_THREAD_LIB) $(BOOST_SYSTEM_LIB) $(LOG4CXX_LIBS)
+libossielogcfg_la_LDFLAGS = -rdynamic -Wall 
+

@@ -50,7 +50,8 @@ class DomainManager_impl: public virtual POA_CF::DomainManager, public PropertyS
 // Constructors/Destructors
 ///////////////////////////
 public:
-    DomainManager_impl (const char*, const char*, const char*, const char*, const char*);
+
+  DomainManager_impl (const char*, const char*, const char*, const char*, bool);
     ~DomainManager_impl ();
 
     friend class IDM_Channel_Consumer_i;
@@ -198,6 +199,8 @@ public:
     std::string getLastDeviceUsedForDeployment();
     void setLastDeviceUsedForDeployment(const std::string& identifier);
 
+    bool getUseLogConfigResolver() { return _useLogConfigUriResolver; };
+
 /////////////////////////////
 // Internal Helper Functions
 /////////////////////////////
@@ -294,10 +297,11 @@ private:
     // Identifier of last device that was successfully used for deployment
     std::string _lastDeviceUsedForDeployment;
 
-    std::string logging_config_uri;
-    StringProperty* logging_config_prop;
-    CORBA::ULong componentBindingTimeout;
-    std::string redhawk_version;
+    std::string      logging_config_uri;
+    StringProperty*  logging_config_prop;
+    CORBA::ULong     componentBindingTimeout;
+    std::string      redhawk_version;
+    bool             _useLogConfigUriResolver;
 };                                            /* END CLASS DEFINITION DomainManager */
 
 

@@ -296,6 +296,8 @@ AC_CONFIG_FILES(Makefile \
                 base/include/ossie/Makefile \
                 base/include/Makefile \
                 base/parser/Makefile \
+                base/plugin/Makefile \
+                base/plugin/logcfg/Makefile \
                 idl/Makefile \
                 xml/Makefile \
                 tools/LogEventAppender/Makefile \

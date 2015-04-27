@@ -50,6 +50,7 @@
 #include <log4cxx/helpers/bytearrayinputstream.h>
 #include <log4cxx/stream.h>
 #include <fstream>
+#include <dlfcn.h>
 #include "StringInputStream.h"
 #else
 #include "rh_logger_cfg.h"                       // this class spoofs the log4cxx configuration calls, when log4cxx is disabled
@@ -62,9 +63,130 @@
 #define STDOUT_DEBUG(x)    
 #endif
 
+
+
+
+
 namespace ossie {
 
   namespace logging {
+
+    static const std::string DomPrefix("dom");
+    static const std::string DevMgrPrefix("devmgr");
+    static const std::string DevicePrefix("dev");
+    static const std::string ServicePrefix("svc");
+    static const std::string ComponentPrefix("rsc");
+
+    class _EmptyLogConfigUri : public LogConfigUriResolver {
+
+    public:
+
+      _EmptyLogConfigUri() {};
+
+      virtual ~_EmptyLogConfigUri(){};
+
+      std::string get_uri( const std::string &path ) { return std::string(""); };
+
+    };
+
+    struct  LogConfigFactoryHolder {
+      void               *library;
+      LogConfigFactory   factory;
+      LogConfigFactoryHolder(): library(NULL), factory(NULL){};
+      ~LogConfigFactoryHolder() {
+      };
+      void close() {
+        if (library) dlclose(library);
+        library=NULL;
+      }
+    };
+
+    static LogConfigUriResolverPtr  _logcfg_resolver;
+    static LogConfigFactoryHolder   _logcfg;
+
+    void _LoadLogConfigUriLibrary() {
+
+      // multiple dlopens return the same instance so we need to close each time
+      if ( _logcfg.library ) _logcfg.close();
+      
+      try{
+        void* log_library = dlopen("libossielogcfg.so", RTLD_LAZY);
+        if (!log_library) {
+          RH_NL_DEBUG("ossie.logging", "Cannot load library (libossielogcfg.so) : " << dlerror() );
+          throw 1;
+        }
+        _logcfg.library=log_library;
+        // reset errors
+        dlerror();
+    
+        // load the symbols
+        ossie::logging::LogConfigFactory logcfg_factory = (ossie::logging::LogConfigFactory) dlsym(log_library, "logcfg_factory");
+        const char* dlsym_error = dlerror();
+        if (dlsym_error) {
+          RH_NL_ERROR( "ossie.logging", "Cannot file logcfg_factory symbol in libossielogcfg.so library: " << dlsym_error);
+          throw 2;
+        }
+        _logcfg.factory=logcfg_factory;
+
+        std::cout << "ossie.logging: Found libossielogcfg.so for LOGGING_CONFIG_URI resolution." << std::endl;
+      }
+      catch( std::exception &e){
+      }
+      catch( int e){
+      }
+
+    }
+
+
+    LogConfigUriResolverPtr GetLogConfigUriResolver() {
+      
+      if ( !_logcfg_resolver ) {
+        _LoadLogConfigUriLibrary();
+      }
+        
+
+      if ( !_logcfg_resolver ) {
+        // if the library is missing use empty resolver for backwards compatability
+	if ( !_logcfg.factory ) return LogConfigUriResolverPtr( new _EmptyLogConfigUri() );
+	_logcfg_resolver = _logcfg.factory();
+      }
+	
+     return _logcfg_resolver;
+    }
+
+
+    std::string GetComponentPath( const std::string &dm,
+				  const std::string &wf,
+				  const std::string &cid ) {
+      std::ostringstream os;
+      os << ComponentPrefix << ":" << dm << "/" << wf << "/" << cid;
+      return os.str();
+    }
+
+    std::string GetDeviceMgrPath( const std::string &dm,
+				  const std::string &node  ) {
+      std::ostringstream os;
+      os << DevMgrPrefix << ":" << dm << "/" << node ;
+      return os.str();
+    }
+
+    std::string GetDevicePath( const std::string &dm,
+				  const std::string &node,
+				  const std::string &dev_id) {
+      std::ostringstream os;
+      os << DevicePrefix << ":" << dm << "/" << node << "/" << dev_id;
+      return os.str();
+    }
+
+    std::string GetServicePath( const std::string &dm,
+				  const std::string &node,
+				  const std::string &sname) {
+      std::ostringstream os;
+      os << ServicePrefix << ":" << dm << "/" << node << "/" << sname;
+      return os.str();
+    }
+
+    
 
 
     MacroTable GetDefaultMacros() {

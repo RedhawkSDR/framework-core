@@ -147,7 +147,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         # as per DeviceManager requirement SR:482
         devMgr.shutdown()
 
-        time.sleep(0.5)
+        time.sleep(1.0)
         self.assertNotEqual(devmgr_nb.poll(), None, "Nodebooter did not die after shutdown")
 
     def test_CatatrophicUnregister(self):

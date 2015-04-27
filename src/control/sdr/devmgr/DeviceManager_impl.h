@@ -48,13 +48,13 @@ class DeviceManager_impl:
     ENABLE_LOGGING
 
 public:
-    DeviceManager_impl (const char*, const char*, const char*, const char*, struct utsname uname, bool *);
 
-    // Run this after the constructor and the caller has created the object reference
-    void post_constructor(CF::DeviceManager_var, const char*) throw (CORBA::SystemException, std::runtime_error);
+  DeviceManager_impl (const char*, const char*, const char*, const char*, struct utsname uname, bool, bool *);
 
-    ~
-    DeviceManager_impl ();
+  // Run this after the constructor and the caller has created the object reference
+  void post_constructor(CF::DeviceManager_var, const char*) throw (CORBA::SystemException, std::runtime_error);
+
+    ~DeviceManager_impl ();
     char* deviceConfigurationProfile ()
         throw (CORBA::SystemException);
 
@@ -95,9 +95,13 @@ public:
     char* _local_getComponentImplementationId (const char* componentInstantiationId)
         throw (CORBA::SystemException);
 
+    bool getUseLogConfigResolver() { return _useLogConfigUriResolver; };
+
     void childExited (pid_t pid, int status);
 
     bool allChildrenExited ();
+
+    bool isShutdown() { return  _adminState == DEVMGR_SHUTDOWN; };
 
 private:
     DeviceManager_impl ();   // No default constructor
@@ -337,7 +341,7 @@ private:
     std::string deviceMgrIOR;
     std::string fileSysIOR;
     bool *_internalShutdown;
-
+    bool _useLogConfigUriResolver;   
     bool skip_fork;
 
     // this mutex is used for synchronizing _registeredDevices, labelTable, and identifierTable
