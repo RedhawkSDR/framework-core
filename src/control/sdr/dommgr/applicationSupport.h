@@ -314,7 +314,7 @@ namespace ossie
     };
 
 
-    typedef std::pair< CF::Device_ptr, std::string >   SoftPkgLoad;
+    typedef std::pair< CF::Device_var, std::string >   SoftPkgLoad;
     typedef std::vector< SoftPkgLoad >                 SoftPkgList;
 
 }

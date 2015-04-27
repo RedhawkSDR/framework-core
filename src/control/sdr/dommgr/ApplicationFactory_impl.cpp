@@ -1882,7 +1882,7 @@ throw (CF::ApplicationFactory::CreateApplicationError)
             if (codeLocalFile.has_leaf() && codeLocalFile.leaf() == ".") {
                 codeLocalFile = codeLocalFile.branch_path();
             }
-            _softpkgList.push_back( SoftPkgLoad( loadableDevice, codeLocalFile.string().c_str()) );
+            _softpkgList.push_back( SoftPkgLoad( CF::LoadableDevice::_duplicate(loadableDevice), codeLocalFile.string().c_str()) );
             loadableDevice->load(_appFact._fileMgr, codeLocalFile.string().c_str(), codeType);
         } catch ( ... ) {
             return false;
