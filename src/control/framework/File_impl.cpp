@@ -279,7 +279,7 @@ CORBA::ULong File_impl::_local_sizeOf ()throw (CORBA::SystemException,
     }
     if (!fsOpSuccess) {
         LOG_ERROR(File_impl, "Error checking the size of file, " << fName);
-        throw (CF::File::IOException (CF::CF_EIO, "[File_impl::sizeOf] Error checking the size of file"));
+        throw (CF::FileException (CF::CF_EIO, "[File_impl::sizeOf] Error checking the size of file"));
     }
 
     TRACE_EXIT(File_impl)
