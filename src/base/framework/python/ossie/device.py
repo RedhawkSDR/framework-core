@@ -602,6 +602,12 @@ class LoadableDevice(Device):
 
                     localFilePath = os.path.join(loadPoint, os.path.basename(fileName))
                     exist = os.path.exists(localFilePath)
+                    # If this is a directory, make sure that all of the sub-directories
+                    # and files exist
+                    for loadedFile in loadedFiles:
+                        if exist == False:
+                            break
+                        exist = exist & os.path.exists(loadedFile)
                     self._log.debug("File %s has reference count %s and local file existence is %s", fileName, refCnt, exist)
 
                     # Check if the remote file is newer than the local file, and if so, update the file

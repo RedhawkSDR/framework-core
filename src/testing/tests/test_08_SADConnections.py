@@ -247,11 +247,30 @@ class SADConnectionsTest(scatest.CorbaTestCase):
             self.assertEqual(props[ii].id, testOut[ii].id)
             self.assertEqual(any.from_any(props[ii].value), any.from_any(testOut[ii].value))
 
+    def _test_NoService(self, connection):
+        self.assertNotEqual(self._domMgr, None)
+        self.assertNotEqual(self._devMgr, None)
+        sadpath = "/waveforms/PortConnectService" + connection + "/PortConnectService" + connection + ".sad.xml"
+        self._domMgr.installApplication(sadpath)
+        self.assertEqual(len(self._domMgr._get_applicationFactories()), 1)
+        appFact = self._domMgr._get_applicationFactories()[0]
+
+        self.assertRaises(CF.ApplicationFactory.CreateApplicationError, appFact.create, appFact._get_name(), [], [])
+        self.assertEqual(self._app, None)
+        self.assertEqual(len(self._domMgr._get_applications()),0)
+        self.assertEqual(self._domMgr._get_identifier(),'DCE:5f52f645-110f-4142-8cc9-4d9316ddd958')
+
     def test_ServiceName(self):
         self._test_Service('Name')
 
     def test_ServiceType(self):
         self._test_Service('Type')
+
+    def test_NoServiceType(self):
+        self._test_NoService('Type')
+
+    def test_NoServiceName(self):
+        self._test_NoService('Name')
 
     def test_UnregisterServiceName(self):
         svcBooter, svcMgr = self.launchDeviceManager("/nodes/test_BasicService_node/DeviceManager.dcd.xml")

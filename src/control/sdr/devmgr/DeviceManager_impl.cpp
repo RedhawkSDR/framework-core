@@ -1892,9 +1892,8 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
         } catch (CF::PropertySet::PartialConfiguration& ex) {
             std::ostringstream eout;
             eout << "Device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "' may not have been configured correctly; "
-                                      << "Call to configure() resulted in PartialConfiguration exception. Device registration with Device Manager failed";
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
+                                      << "Call to configure() resulted in PartialConfiguration exception.";
+            LOG_WARN(DeviceManager_impl, eout.str())
         } catch (CF::PropertySet::InvalidConfiguration& ex) {
             std::ostringstream eout;
             eout << "Device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "' may not have been configured correctly; "

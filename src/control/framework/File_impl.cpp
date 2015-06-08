@@ -234,7 +234,7 @@ void File_impl::setFilePointer (CORBA::ULong _filePointer)
         throw CF::File::InvalidFilePointer();
     }
 
-    if (lseek(fd, _filePointer, SEEK_SET)) {
+    if (lseek(fd, _filePointer, SEEK_SET) == -1 ) {
         throw CF::FileException(CF::CF_EIO, "Error setting file pointer for file");
     }
 

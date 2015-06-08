@@ -54,6 +54,7 @@ Requires:       java >= 1.6
 Requires:       python
 Requires:       numpy
 Requires:       python-omniORB >= 3.0
+Requires:       omniORB-devel >= 4.1.0
 Requires:       binutils
 
 %if 0%{?rhel} >= 6 || 0%{?fedora} >= 12
