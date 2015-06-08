@@ -166,7 +166,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 			<xs:element name="structsequenceref" type="structsequenceref" ecore:name="structSequenceRef"/>
 		</xs:choice>
 		<xs:attribute ecore:id="true" name="id" use="required" type="xs:string"/>
-		<xs:attribute name="type" use="required" type="xs:string"/>
+		<xs:attribute name="type" use="optional" type="xs:string"/>
 	</xs:complexType>
         <!-- REDHAWK extension: support any property type dependency -->
 	<xs:complexType name="simpleref">

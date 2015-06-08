@@ -27,7 +27,7 @@ Prefix:         %{_sysconfdir}
 
 Name:           redhawk
 Version:        2.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        REDHAWK is a Software Defined Radio framework
 
 Group:          Applications/Engineering
@@ -60,6 +60,7 @@ Requires:       java7 >= 1.7
 Requires:       python
 Requires:       numpy
 Requires:       python-omniORB >= 3.0
+Requires:       omniORB-devel >= 4.1.0
 Requires:       binutils
 
 %if 0%{?rhel} >= 6 || 0%{?fedora} >= 12

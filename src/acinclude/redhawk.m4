@@ -92,7 +92,7 @@ AC_DEFUN([RH_SOFTPKG_CXX],
 [
   AC_REQUIRE([OSSIE_SDRROOT])
   rh_softpkg_name=`basename $1 .spd.xml`
-  rh_softpkg_spd="$1"
+  rh_softpkg_spd="${ossie_cv_sdr_root}/dom$1"
   AS_IF([test "x$2" != "x"], [
     rh_softpkg_spd="$rh_softpkg_spd:$2"
     AC_MSG_CHECKING([for C++ soft package library $1 ($2)])

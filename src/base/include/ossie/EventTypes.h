@@ -53,6 +53,10 @@ namespace ossie {
 
   };  // end of event namespace
 
+namespace event {
+    // this is added for API compatibility reasons
+    using namespace events;
+}
 
 }; // end of ossie namespace
 

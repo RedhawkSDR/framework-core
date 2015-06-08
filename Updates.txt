@@ -1,0 +1,30 @@
+New Feature list
+January/February/March/April 2015
+- Connection Manager
+- createApplication call on DomainManager object (do not have to install application and call create on ApplicationFactory object)
+- Event Channel Manager
+- Stream-based input support for BulkIO (C++ only)
+- Struct properties can have optional members
+- Struct properties can have sequence members
+- New property type "property" (deprecates "execparam" and "configure" types, although they're still supported)
+- C++ helper (redhawk::PropertyMap) for accessing CF::Properties
+- DomainManager and Application pointers as Component members
+- DomainManager and DeviceManager pointers as Device/Service members
+- Allocated NIC provided as member of Component class
+- Component and Waveform namespaces
+- IDM_Channel event notifying of the death of a Component
+- ODM_Channel event notifying start/stop of an Application
+- eventl utility that lists all event channels managed by the EventChannel service
+- rmeventall utility that destroys all event channels managed by the EventChannel service
+- New executeLinked call on the ExecutableDevice allows for the deployment of Components with colliding softpkg dependencies
+- C++ GPP replaces the Python GPP. Capacity reservation does not require the explicit declaration on the Component's SPD
+- Softpkg dependency wizard and code generators
+
+May 2015
+- Device Manager and Domain Manager properties are available through the Python interface
+- Support for complex char types in the Java any utils
+- __version__ added to the Python package
+- Tilde is supported to reference the home directory when launching from the sandbox
+- File refresh on Component load checks subdirectories in the loaded package to see if they need to be refreshed
+- Execute bit is maintained on a Component package load
+- BurstIO output succeeds with oversized push

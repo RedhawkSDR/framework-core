@@ -21,6 +21,7 @@
 #include <signal.h>
 
 #include "ossie/Resource_impl.h"
+#include "ossie/Events.h"
 
 PREPARE_LOGGING(Resource_impl)
 
@@ -145,6 +146,7 @@ void Resource_impl::releaseObject() throw (CORBA::SystemException, CF::LifeCycle
 {
     releasePorts();
     stopPropertyChangeMonitor();
+    redhawk::events::Manager::Terminate();
     PortableServer::POA_ptr root_poa = ossie::corba::RootPOA();
     PortableServer::ObjectId_var oid = root_poa->servant_to_id(this);
     root_poa->deactivate_object(oid);

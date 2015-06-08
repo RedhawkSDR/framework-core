@@ -330,17 +330,23 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
             relativeFileName = workingFileName.substr(1);
         }
         if (fs::exists(relativeFileName)) {
-            // Check if the remote file is newer than the local file, and if so, update the file
-            // in the cache. No consideration is given to clock sync differences between systems.
-            time_t remoteModifiedTime = getModTime(fileInfo->fileProperties);
-            time_t cacheModifiedTime = fs::last_write_time(relativeFileName);
-            LOG_TRACE(LoadableDevice_impl, "Remote modified: " << remoteModifiedTime << " Local modified: " << cacheModifiedTime);
-            if (remoteModifiedTime > cacheModifiedTime) {
-                LOG_DEBUG(LoadableDevice_impl, "Remote file is newer than local file");
-            } else {
-                LOG_DEBUG(LoadableDevice_impl, "File exists in cache");
-                incrementFile(workingFileName);
-                return;
+            bool reload = false;
+            if (fileInfo->kind == CF::FileSystem::DIRECTORY) {
+                reload = !this->_treeIntact(std::string(fileName));
+            }
+            if (!reload) {
+                // Check if the remote file is newer than the local file, and if so, update the file
+                // in the cache. No consideration is given to clock sync differences between systems.
+                time_t remoteModifiedTime = getModTime(fileInfo->fileProperties);
+                time_t cacheModifiedTime = fs::last_write_time(relativeFileName);
+                LOG_TRACE(LoadableDevice_impl, "Remote modified: " << remoteModifiedTime << " Local modified: " << cacheModifiedTime);
+                if (remoteModifiedTime > cacheModifiedTime) {
+                    LOG_DEBUG(LoadableDevice_impl, "Remote file is newer than local file");
+                } else {
+                    LOG_DEBUG(LoadableDevice_impl, "File exists in cache");
+                    incrementFile(workingFileName);
+                    return;
+                }
             }
         }
     }
@@ -538,8 +544,6 @@ void LoadableDevice_impl::_loadTree(CF::FileSystem_ptr fs, std::string remotePat
     LOG_DEBUG(LoadableDevice_impl, "_loadTree " << remotePath << " " << localPath)
 
     CF::FileSystem::FileInformationSequence_var fis = fs->list(remotePath.c_str());
-    if (fis->length() == 0) {
-    }
     for (unsigned int i = 0; i < fis->length(); i++) {
       if (fis[i].kind == CF::FileSystem::PLAIN) {
             std::string fileName(fis[i].name);
@@ -554,7 +558,8 @@ void LoadableDevice_impl::_loadTree(CF::FileSystem_ptr fs, std::string remotePat
             const redhawk::PropertyMap& fileprops = redhawk::PropertyMap::cast(fis[i].fileProperties);
             redhawk::PropertyMap::const_iterator iter_fileprops = fileprops.find("EXECUTABLE");
             if (iter_fileprops != fileprops.end()) {
-                chmod(localFile.string().c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+                if (fileprops["EXECUTABLE"].toBoolean())
+                    chmod(localFile.string().c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
             }
         } else if (fis[i].kind == CF::FileSystem::DIRECTORY) {
             std::string directoryName(fis[i].name);
@@ -597,6 +602,20 @@ void LoadableDevice_impl::_deleteTree(const std::string &fileKey)
     }
 
     copiedFiles.erase(fileKey);
+}
+
+bool LoadableDevice_impl::_treeIntact(const std::string &fileKey)
+{
+
+    LOG_DEBUG(LoadableDevice_impl, "_treeIntact " << fileKey)
+    std::pair<copiedFiles_type::iterator, copiedFiles_type::iterator> p = copiedFiles.equal_range(fileKey);
+
+    for ( ; p.first != p.second; ) {
+        --p.second;
+        if (not fs::exists(((*p.second).second).c_str()))
+            return false;
+    }
+    return true;
 }
 
 void LoadableDevice_impl::_copyFile(CF::FileSystem_ptr fs, const std::string &remotePath, const std::string &localPath, const std::string &fileKey)

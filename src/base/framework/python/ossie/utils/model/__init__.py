@@ -442,6 +442,18 @@ class PropertySet(object):
             # Assume the exception occurred because props is not a dictionary
             pass
         self.ref.configure(props)
+
+    def initializeProperties(self, props):
+        self.__log.trace("initializeProperties('%s')", str(props))
+        if not self.ref:
+            pass
+        try:
+            # Turn a dictionary of Python values into a list of CF Properties
+            props = [self._itemToDataType(k,v) for k,v in props.iteritems()]
+        except AttributeError:
+            # Assume the exception occurred because props is not a dictionary
+            pass
+        self.ref.initializeProperties(props)
             
     def query(self, props):
         if True:
@@ -807,18 +819,11 @@ class AggregateDevice(object):
             self.ref.removeDevice(associatedDevice)
 
 
-class ComponentBase(object):
-    def __init__(self, spd, scd, prf, instanceName, refid, impl, pid=0, devs=[]):
-        self._spd = spd
-        self._scd = scd
+class QueryableBase(object):
+    def __init__(self, prf, refid):
         self._prf = prf
-        self._instanceName = instanceName
         self._refid = refid
-        self._impl = impl
         self._configureTable = {}
-        self._pid = pid
-        self._id = None
-        self._devs = devs
         self._properties = self._getPropertySet(kinds=("configure","property","execparam","allocation","event","message"),
                                           modes=("readwrite","readonly","writeonly"),
                                           action=("external","eq","ge","gt","le","lt","ne"),
@@ -1087,15 +1092,9 @@ class ComponentBase(object):
         # create a map between prop ids and names
         if self._prf != None:
             self._props = _prop_helpers.getPropNameDict(self._prf)
-
+    
     #####################################
-    
-    def eos(self):
-        '''
-        Returns the value of the most recently received end-of-stream flag over a bulkio port
-        '''
-        return None
-    
+
     def _query(self, props=[], printResults=False):
         results = self.query(props)
         # If querying all properties, display all property names and values
@@ -1124,10 +1123,36 @@ class ComponentBase(object):
         prop = self._configureTable[propName]
         # Will generate a configure call on the component
         prop.configureValue(propValue)
+    
+    def _buildAPI(self):
+        for prop in self._properties:
+            #if set(['configure','property']).issubset(set(prop.kinds)):
+            if 'configure' in prop.kinds or 'property' in prop.kinds:
+                self._configureTable[prop.id] = prop
+    
+class ComponentBase(QueryableBase):
+    def __init__(self, spd, scd, prf, instanceName, refid, impl, pid=0, devs=[]):
+        super(ComponentBase, self).__init__(prf, refid)
+        self._spd = spd
+        self._scd = scd
+        self._instanceName = instanceName
+        self._impl = impl
+        self._pid = pid
+        self._id = None
+        self._devs = devs
+
+    #####################################
+    
+    def eos(self):
+        '''
+        Returns the value of the most recently received end-of-stream flag over a bulkio port
+        '''
+        return None
         
     def _buildAPI(self):
         if _DEBUG == True:
             print "Component:_buildAPI()"
+        super(ComponentBase,self)._buildAPI()
 
         for port in self._scd.get_componentfeatures().get_ports().get_provides():
             name = port.get_providesname()
@@ -1144,11 +1169,6 @@ class ComponentBase(object):
             self._usesPortDict[name] = {}
             self._usesPortDict[name]["Port Name"] = str(name)
             self._usesPortDict[name]["Port Interface"] = str(port.get_repid())
-
-        for prop in self._properties:
-            #if set(['configure','property']).issubset(set(prop.kinds)):
-            if 'configure' in prop.kinds or 'property' in prop.kinds:
-                self._configureTable[prop.id] = prop
 
         if _DEBUG == True:
             try:
@@ -1204,14 +1224,24 @@ class ComponentBase(object):
                 # See if interface python module has been loaded, if not then try to import it
                 if str(int_entry.nameSpace) not in interface_modules:
                     success = False
-                try:
-                    pkg_name = (int_entry.nameSpace.lower())+'.'+(int_entry.nameSpace.lower())+'Interfaces'
-                    _to = str(int_entry.nameSpace)
-                    mod = __import__(pkg_name,globals(),locals(),[_to])
-                    globals()[_to] = mod.__dict__[_to]
-                    success = True
-                except ImportError, msg:
-                    pass
+                if int_entry.nameSpace == 'ExtendedEvent':
+                    try:
+                        pkg_name = 'ossie.cf'
+                        _to = str(int_entry.nameSpace)
+                        mod = __import__(pkg_name,globals(),locals(),[_to])
+                        globals()[_to] = mod.__dict__[_to]
+                        success = True
+                    except ImportError, msg:
+                        pass
+                else:
+                    try:
+                        pkg_name = (int_entry.nameSpace.lower())+'.'+(int_entry.nameSpace.lower())+'Interfaces'
+                        _to = str(int_entry.nameSpace)
+                        mod = __import__(pkg_name,globals(),locals(),[_to])
+                        globals()[_to] = mod.__dict__[_to]
+                        success = True
+                    except ImportError, msg:
+                        pass
                 if not success:
                     std_idl_path = _os.path.join(_os.environ['OSSIEHOME'], 'lib/python')
                     for dirpath, dirs, files in _os.walk(std_idl_path):

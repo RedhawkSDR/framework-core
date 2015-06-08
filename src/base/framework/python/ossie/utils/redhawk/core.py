@@ -49,6 +49,7 @@ from component import Component
 from device import Device, createDevice
 from service import Service
 from model import DomainObjectList
+from ossie.utils.model import QueryableBase
 
 # Limit exported symbols
 __all__ = ('App', 'Component', 'Device', 'DeviceManager', 'Domain',
@@ -554,7 +555,7 @@ class App(_CF__POA.Application, Resource):
         return self.comps[i]
 
 
-class DeviceManager(_CF__POA.DeviceManager, object):
+class DeviceManager(_CF__POA.DeviceManager, QueryableBase, PropertySet):
     """The DeviceManager is a descriptor for an logical grouping of devices.
 
        Relevant member data:
@@ -596,6 +597,13 @@ class DeviceManager(_CF__POA.DeviceManager, object):
         self._domain = domain
         self._dcd = dcd
         self.fs = self.ref._get_fileSys()
+        try:
+            spd, scd, prf = _readProfile("/mgr/DeviceManager.spd.xml", self.fs)
+            super(DeviceManager, self).__init__(prf, self.id)
+        except:
+            pass
+        self._buildAPI()
+        
         self.__odmListener = odmListener
         self.__idmListener = idmListener
 
@@ -871,7 +879,7 @@ class DeviceManager(_CF__POA.DeviceManager, object):
             pass
 
 
-class Domain(_CF__POA.DomainManager, object):
+class Domain(_CF__POA.DomainManager, QueryableBase, PropertySet):
     """The Domain is a descriptor for a Domain Manager.
     
         The main functionality that can be exercised by this class is:
@@ -982,6 +990,14 @@ class Domain(_CF__POA.DomainManager, object):
                 
         self.ref = obj._narrow(_CF.DomainManager)
         self.fileManager = self.ref._get_fileMgr()
+        self.id = self.ref._get_identifier()
+        try:
+            spd, scd, prf = _readProfile("/mgr/DomainManager.spd.xml", self.fileManager)
+            super(Domain, self).__init__(prf, self.id)
+        except Exception, e:
+            pass
+
+        self._buildAPI()
 
         self.__deviceManagers = DomainObjectList(weakobj.boundmethod(self._get_deviceManagers),
                                                  weakobj.boundmethod(self.__newDeviceManager),

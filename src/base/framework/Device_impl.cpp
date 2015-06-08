@@ -244,10 +244,11 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
         }
         LOG_DEBUG(Device_impl, "Done Releasing Device")
     }
-    
+
+    RH_NL_DEBUG("Device", "Clean up IDM_CHANNEL.");
+    if ( idm_publisher )  idm_publisher.reset();
     delete this->_devMgr;
     this->_devMgr=NULL;
-    
     Resource_impl::releaseObject();
 }
 
@@ -260,9 +261,6 @@ Device_impl::~Device_impl ()
   RH_NL_DEBUG("Device", "Clean up event channel allocations");
   if ( idm_publisher ) idm_publisher.reset();
   
-  RH_NL_DEBUG("Device", "Ask ossie::events::Manager to clean up.");
-  redhawk::events::Manager::Terminate();
-
   if (this->_devMgr != NULL) {
       delete this->_devMgr;
    }

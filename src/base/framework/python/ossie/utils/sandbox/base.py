@@ -158,7 +158,9 @@ class Sandbox(object):
 
     def launch(self, descriptor, instanceName=None, refid=None, impl=None,
                debugger=None, window=None, execparams={}, configure={},
-               initialize=True, timeout=None, objType=None):
+               initialize=True, timeout=None, objType=None, property={}):
+        if descriptor[0] == '~':
+            descriptor = os.path.expanduser('~')+descriptor[1:]
         sdrRoot = self.getSdrRoot()
         # Parse the component XML profile.
         
@@ -192,6 +194,14 @@ class Sandbox(object):
         if comptype == 'service':
             return comp
 
+        if property is not None:
+            initvals = copy.deepcopy(comp._propRef)
+            initvals.update(property)
+            try:
+                comp.initializeProperties(initvals)
+            except:
+                log.exception('Failure in component configuration')
+                
         # Initialize the component unless asked not to (if the subclass has not
         # disabled automatic initialization).
         if initialize and self._autoInit:
@@ -223,11 +233,16 @@ class SandboxComponent(ComponentBase):
         self._sandbox = sandbox
         self._profile = profile
         self._componentName = spd.get_name()
+        self._propRef = {}
         self._configRef = {}
         for prop in self._getPropertySet(kinds=('configure',), modes=('readwrite', 'writeonly'), includeNil=False):
             if prop.defValue is None:
                 continue
             self._configRef[str(prop.id)] = prop.defValue
+        for prop in self._getPropertySet(kinds=('property',), modes=('readwrite', 'writeonly'), includeNil=False):
+            if prop.defValue is None:
+                continue
+            self._propRef[str(prop.id)] = prop.defValue
 
         self.__ports = None
         

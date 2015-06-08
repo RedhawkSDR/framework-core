@@ -462,7 +462,7 @@ class action(GeneratedsSuper):
 class configurationKind(GeneratedsSuper):
     subclass = None
     superclass = None
-    def __init__(self, kindtype='property'):
+    def __init__(self, kindtype='configure'):
         self.kindtype = _cast(None, kindtype)
         pass
     def factory(*args_, **kwargs_):
@@ -793,7 +793,7 @@ class inputValue(GeneratedsSuper):
 class kind(GeneratedsSuper):
     subclass = None
     superclass = None
-    def __init__(self, kindtype='property'):
+    def __init__(self, kindtype='configure'):
         self.kindtype = _cast(None, kindtype)
         pass
     def factory(*args_, **kwargs_):

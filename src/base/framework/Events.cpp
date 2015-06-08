@@ -267,7 +267,7 @@ namespace events {
     virtual ~EM_Publisher() {
       RH_NL_TRACE("EM_Publisher", "DTOR START");
       // unregister the object with the Manager
-      _ecm._unregister( _creg );
+      _ecm._unregister( _creg, this );
       RH_NL_TRACE("EM_Publisher", "DTOR END");
     };
 
@@ -302,7 +302,7 @@ namespace events {
     virtual ~EM_Subscriber() {
       RH_NL_TRACE("EM_Subscriber", "DTOR START");
       // unregister the object with the Manager
-      _ecm._unregister( _creg );
+      _ecm._unregister( _creg, this );
       RH_NL_TRACE("EM_Subscriber", "DTOR END");
     };
 
@@ -424,6 +424,7 @@ namespace events {
         registration = _ecm->registerResource( ereg );
         reg = registration.in();
         pub = EM_PublisherPtr( new EM_Publisher( *this, reg ) );
+        _publishers.push_back(pub.get());
         
         RH_NL_INFO("redhawk::events::Manager",  "PUBLISHER - Channel:" << channel_name  << " Reg-Id" << registration->reg.reg_id << " RESOURCE:" << _obj_id  );
         _registrations.push_back( reg );
@@ -476,6 +477,7 @@ namespace events {
         registration = _ecm->registerResource( ereg );
 	reg = registration.in();
         sub = EM_SubscriberPtr( new EM_Subscriber( *this, reg ) );
+        _subscribers.push_back(sub.get());
         
         RH_NL_INFO("redhawk::events::Manager",  "SUBSCRIBER - Channel:" << channel_name  << " Reg-Id" << registration->reg.reg_id  << " resource:" << _obj_id );
         _registrations.push_back( reg  );
@@ -534,8 +536,72 @@ namespace events {
       // need to cleanup Publisher memory
       _registrations.clear();
 
+      Subscribers::iterator siter = _subscribers.begin();
+      for ( ; siter != _subscribers.end(); siter++ ) {
+        if ( *siter ) delete *siter;
+        _subscribers.erase(siter);
+      }
+
+      Publishers::iterator piter = _publishers.begin();
+      for ( ; piter != _publishers.end(); piter++ ) {
+        if ( *piter ) delete *piter;
+        _publishers.erase(piter);
+      }
+      
+      // if we have any subscribers or publishers left then disconnect and delete those instances
+    _ecm = CF::EventChannelManager::_nil();
+
     RH_NL_INFO("redhawk::events::Manager",  "Terminate Completed.");
 
+  }
+
+
+  void   Manager::_deleteSubscriber(  redhawk::events::Subscriber *sub ) {
+
+    if (!_allow) return;
+
+    SCOPED_LOCK(_mgr_lock);
+    
+    Subscribers::iterator iter;
+    iter = std::find( _subscribers.begin(),_subscribers.end(), sub );
+    if ( iter != _subscribers.end() ) {
+      _subscribers.erase(iter);
+    }
+
+  }
+
+  void   Manager::_deletePublisher( redhawk::events::Publisher *pub ) {
+
+    if (!_allow) return;
+
+    SCOPED_LOCK(_mgr_lock);
+    
+    Publishers::iterator iter;
+    iter = std::find( _publishers.begin(),_publishers.end(), pub );
+    if ( iter != _publishers.end() ) {
+      _publishers.erase(iter);
+    }
+
+  }
+
+  void   Manager::_unregister( const ossie::events::EventChannelReg &reg, 
+                               redhawk::events::Publisher *pub  ) {
+
+    if (!_allow) return;
+
+    _unregister( reg );
+
+    _deletePublisher( pub );
+  }
+
+  void   Manager::_unregister( const ossie::events::EventChannelReg &reg, 
+                               redhawk::events::Subscriber *sub  ) {
+
+    if (!_allow) return;
+
+    _unregister( reg );
+
+    _deleteSubscriber( sub );
   }
 
 
@@ -570,6 +636,7 @@ namespace events {
         }
     }
   }
+
 
 
   ///////////////////////////////////////////////////////////////////////////

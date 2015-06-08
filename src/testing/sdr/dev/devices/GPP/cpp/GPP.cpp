@@ -239,8 +239,8 @@ void GPP_i::process_ODM(const CORBA::Any &data) {
 }
 
 void GPP_i::releaseObject() throw (CORBA::SystemException, CF::LifeCycle::ReleaseError) {
-    mymgr->Terminate();
-    GPP_base::releaseObject();
+  if ( odm_consumer ) odm_consumer.reset();
+  GPP_base::releaseObject();
 }
 
 bool GPP_i::allocateCapacity_nic_allocation(const nic_allocation_struct &alloc)

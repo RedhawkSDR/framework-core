@@ -202,6 +202,7 @@ protected:
 
     void _loadTree(CF::FileSystem_ptr fs, std::string remotePath, boost::filesystem::path& localPath, std::string fileKey);
     void _deleteTree(const std::string &fileKey);
+    bool _treeIntact(const std::string &fileKey);
     void _copyFile(CF::FileSystem_ptr fs, const std::string &remotePath, const std::string &localPath, const std::string &fileKey);
 
     void _init();

@@ -76,11 +76,11 @@ ossiepy = ['ossie',
            'ossie/utils/tools',
            'redhawk']
 
-version='2.0.0'
+exec(open('ossie/version.py').read())
 
 setup(
         name='ossiepy',
-        version=version,
+        version=__version__,
         description='OSSIE Python',
         packages=ossiepy,
         package_data={'ossie/apps/rhlauncher':['ui/*.ui',

@@ -265,14 +265,21 @@ class LocalLauncher(object):
         
     # this function checks if the base has a dependency not supported by impl for non-zero impls
     def _subsetDeps(self, base, impl):
+        foundMatch = True
         if len(impl[0]) != 0:
+            foundMatch = False
             for val in base[0]:
-                if not val in impl[0]:
-                    return False
+                if val in impl[0]:
+                    foundMatch = True
+        if not foundMatch:
+            return False
         if len(impl[1]) != 0:
+            foundMatch = False
             for val in base[1]:
-                if not val in impl[1]:
-                    return False
+                if val in impl[1]:
+                    foundMatch = True
+        if not foundMatch:
+            return False
         return True
 
     def _assembleOsProc(self, depimpl):

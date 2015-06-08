@@ -38,6 +38,8 @@
 #include <ossie/debug.h>
 #include <ossie/logging/loghelpers.h>
 #include <boost/asio.hpp>
+#include <fstream>
+#include <dlfcn.h>
 using boost::asio::ip::tcp;
 #ifdef   HAVE_LOG4CXX
 #include <log4cxx/logger.h>
@@ -50,8 +52,6 @@ using boost::asio::ip::tcp;
 #include <log4cxx/propertyconfigurator.h>
 #include <log4cxx/helpers/bytearrayinputstream.h>
 #include <log4cxx/stream.h>
-#include <fstream>
-#include <dlfcn.h>
 #include "StringInputStream.h"
 #else
 #include "rh_logger_cfg.h"                       // this class spoofs the log4cxx configuration calls, when log4cxx is disabled

@@ -82,6 +82,8 @@ def walkDependencies(spdfile, implId, func):
 def getImplPkgConfigPath(spdfile, impl):
     # Use the localfile to locate the pkgconfig directory
     localfile = os.path.join(spdrelpath(spdfile, impl.get_code().get_localfile().name))
+    if not os.path.exists(localfile):
+        localfile = os.path.dirname(localfile)
     if os.path.exists(localfile):
         if not os.path.isdir(localfile):
             # The localfile is a regular file (e.g., libname.so); assume that

@@ -240,10 +240,16 @@ namespace events {
   private:
 
     typedef std::vector< ossie::events::EventChannelReg >     Registrations;
+    typedef std::vector< redhawk::events::Publisher * >       Publishers;
+    typedef std::vector< redhawk::events::Subscriber * >      Subscribers;
 
     friend class EM_Publisher;
     friend class EM_Subscriber;
 
+    void _deletePublisher( redhawk::events::Publisher *pub );
+    void _deleteSubscriber( redhawk::events::Subscriber  *sub );
+    void _unregister( const ossie::events::EventChannelReg &, redhawk::events::Publisher *pub  );
+    void _unregister( const ossie::events::EventChannelReg &, redhawk::events::Subscriber *sub );
     void _unregister( const ossie::events::EventChannelReg & );
     void _terminate();
 
@@ -254,7 +260,11 @@ namespace events {
 
     Registrations                  _registrations;
 
-    CF::EventChannelManager_ptr    _ecm;
+    // allocated publishers and subscribers..
+    Publishers                     _publishers;
+    Subscribers                    _subscribers;
+
+    CF::EventChannelManager_var    _ecm;
 
     Mutex                          _mgr_lock;
 
