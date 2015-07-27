@@ -214,6 +214,24 @@ bool ComponentImplementationInfo::checkUsesDevices(ossie::Properties& _prf, CF::
     
                             double operand;
                             operand = strtod(args[0].c_str(), NULL);
+                            if (args[0].size() == 0) {
+                                std::ostringstream eout;
+                                eout << " invalid __MATH__ argument (argument empty);";
+                                throw ossie::PropertyMatchingError(eout.str());
+                            }
+                            if (not std::isdigit(args[0][0])) { // if the first character is not numeric, then cannot apply __MATH__
+                                std::ostringstream eout;
+                                eout << " invalid __MATH__ argument; '" << args[0] << "'";
+                                if (args[0][0] != '.') {
+                                    throw ossie::PropertyMatchingError(eout.str());
+                                }
+                                if (args[0].size() == 1) { // the string is only '.'
+                                    throw ossie::PropertyMatchingError(eout.str());
+                                }
+                                if (not std::isdigit(args[0][1])) { // the string starts with '.' but is not followed by a number
+                                    throw ossie::PropertyMatchingError(eout.str());
+                                }
+                            }
 
                             // See if there is a property in the component
                             LOG_TRACE(ComponentImplementationInfo, "Attempting to find matching property for " << args[1])

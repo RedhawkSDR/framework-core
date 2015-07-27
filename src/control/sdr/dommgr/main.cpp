@@ -335,6 +335,12 @@ int main(int argc, char* argv[])
                                                        (logfile_uri.empty()) ? NULL : logfile_uri.c_str(),
                                                        useLogCfgResolver
                                                        );
+
+        // set logging level for the DomainManager's logger
+        if ( DomainManager_servant ) {
+          DomainManager_servant->getLogger()->setLevel( ossie::logging::ConvertDebugToRHLevel(debugLevel) );
+        }
+
     } catch (const CORBA::Exception& ex) {
         LOG_ERROR(DomainManager, "Terminated with CORBA::" << ex._name() << " exception");
         exit(-1);

@@ -201,6 +201,8 @@ public:
 
     bool getUseLogConfigResolver() { return _useLogConfigUriResolver; };
 
+    rh_logger::LoggerPtr  getLogger() const { return __logger; };
+
 /////////////////////////////
 // Internal Helper Functions
 /////////////////////////////

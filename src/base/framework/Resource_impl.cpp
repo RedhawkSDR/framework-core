@@ -189,9 +189,7 @@ void Resource_impl::start_component(Resource_impl::ctor_type ctor, int argc, cha
 
     if (!skip_run) {
         // configure the  logging library
-        //std::cout << "Resource::Main debug_level:" << debug_level << std::endl;
         ossie::logging::Configure(logcfg_uri, debug_level, ctx);
-        //std::cout << "Resource debug_level:" << debug_level << std::endl;
     }
 
 

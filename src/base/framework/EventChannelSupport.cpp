@@ -547,11 +547,13 @@ CosEventChannelAdmin::EventChannel_ptr createEventChannel (const std::string& na
     // 
     // Our EventChannels will always be created with InsName
     //
-    LNINFO( "CreateEventChannel", " Request to create event channel:" << name.c_str() << " bind action:" << action );
+    LNINFO( "CreateEventChannel", " Request to create event channel:" << name.c_str() << " bind action:" << action ); 
+    std::string tname(name);
+    if ( nc_name != "" ) { tname=nc_name+"."+name;  }
     CosLifeCycle::Criteria criteria;
     criteria.length(1);
     criteria[0].name=CORBA::string_dup("InsName");
-    criteria[0].value<<=name.c_str();
+    criteria[0].value<<=tname.c_str();
 
     //
     // Create Event Channel Object.

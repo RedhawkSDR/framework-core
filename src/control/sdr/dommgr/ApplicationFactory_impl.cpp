@@ -2488,11 +2488,16 @@ void createHelper::loadAndExecuteComponents(
                 if (propid == "LOGGING_CONFIG_URI") {
 		  logcfg_prop = &execParameters[i];
 		  const char* tmpstr;
-		  logcfg_prop->value >>= tmpstr;
-		  LOG_TRACE(ApplicationFactory_impl, "Resource logging configuration provided, logcfg:" << tmpstr);
-		  logging_uri = string(tmpstr);
-		  alreadyHasLoggingConfigURI = true;
-		  break;
+                  if ( ossie::any::isNull(logcfg_prop->value) == true ) {
+                    LOG_WARN(ApplicationFactory_impl, "Missing value for LOGGING_CONFIG_URI, component: " << _baseNamingContext << "/" << component->getNamingServiceName() );
+                  }
+                  else {
+                    logcfg_prop->value >>= tmpstr;
+                    LOG_TRACE(ApplicationFactory_impl, "Resource logging configuration provided, logcfg:" << tmpstr);
+                    logging_uri = string(tmpstr);
+                    alreadyHasLoggingConfigURI = true;
+                  }
+                  break;
                 }
             }
 
@@ -2515,6 +2520,16 @@ void createHelper::loadAndExecuteComponents(
 		  logging_uri = logProperty->getValue();
                 } else {
                     LOG_TRACE(ApplicationFactory_impl, "DomainManager LOGGING_CONFIG_URI is not set");
+                }
+
+                rh_logger::LoggerPtr dom_logger = _appFact._domainManager->getLogger();
+                if ( dom_logger ) {
+                  rh_logger::LevelPtr dlevel = dom_logger->getLevel();
+                  if ( !dlevel ) dlevel = rh_logger::Logger::getRootLogger()->getLevel();
+                  CF::DataType prop;
+                  prop.id = "DEBUG_LEVEL";
+                  prop.value <<= static_cast<CORBA::Long>(ossie::logging::ConvertRHLevelToDebug( dlevel ));
+                  component->addExecParameter(prop);
                 }
 	    }
 

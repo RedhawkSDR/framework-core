@@ -249,6 +249,21 @@ def ConvertToLog4Level( newLevel ):
             level=logging.NOTSET
     return level
 
+
+def SupportedCFLevel( newLevel ):
+    level = True
+    if  newLevel != CF.LogLevels.OFF and \
+        newLevel != CF.LogLevels.FATAL and \
+        newLevel != CF.LogLevels.ERROR and \
+        newLevel != CF.LogLevels.WARN and \
+        newLevel != CF.LogLevels.INFO and \
+        newLevel != CF.LogLevels.DEBUG and \
+        newLevel != CF.LogLevels.TRACE and \
+        newLevel != CF.LogLevels.ALL :
+            level= False
+    return level
+
+
 def SetLevel( logid, debugLevel):
     SetLogLevel( logid, ConvertLogLevel(debugLevel))
 

@@ -863,7 +863,10 @@ class ComponentBase(object):
         A useful utility function that extracts specified property types from
         the PRF file and turns them into a _CF.PropertySet
         """
-      
+        
+        _displayNames = {}
+        _duplicateNames = {}
+        
         if _DEBUG == True:
             print "Component: _getPropertySet() kinds " + str(kinds)
             print "Component: _getPropertySet() modes " + str(modes)
@@ -897,7 +900,7 @@ class ComponentBase(object):
                     kindList.append(k.get_kindtype())
                 p = _prop_helpers.simpleProperty(id=prop.get_id(), valueType=propType, enum=enum, compRef=weakref.proxy(self), kinds=kindList,defValue=defValue, mode=prop.get_mode(), action=act)
                 id_clean = _prop_helpers._cleanId(prop)
-                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
+                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
                 propertySet.append(p)
         # Simple Sequences
         for prop in self._prf.get_simplesequence():
@@ -919,9 +922,7 @@ class ComponentBase(object):
                                                    defValue  = defValue, 
                                                    mode      = prop.get_mode())
                 id_clean = _prop_helpers._cleanId(prop)
-                p.clean_name = _prop_helpers.addCleanName(id_clean, 
-                                                          prop.get_id(), 
-                                                          self._refid)
+                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
                 propertySet.append(p)
 
         # Structures
@@ -939,7 +940,7 @@ class ComponentBase(object):
                             defValue = _convertType(propType, val)
                         id_clean = _prop_helpers._cleanId(simple)
                         # Add individual property
-                        id_clean = _prop_helpers.addCleanName(id_clean, simple.get_id(), self._refid)
+                        id_clean = _prop_helpers.addCleanName(id_clean, simple.get_id(), _displayNames, _duplicateNames)
                         members.append((simple.get_id(), propType, defValue, id_clean))
                         structDefValue[simple.get_id()] = defValue
                 
@@ -961,7 +962,7 @@ class ComponentBase(object):
                                                  defValue=structDefValue,
                                                  mode=prop.get_mode())
                 id_clean = _prop_helpers._cleanId(prop)
-                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
+                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
                 propertySet.append(p)
 
         # Struct Sequence
@@ -980,7 +981,7 @@ class ComponentBase(object):
                         id_clean = _prop_helpers._cleanId(simple)
                         # Adds struct member
                         members.append((simple.get_id(), propType, simpleDefValue, id_clean))
-                        _prop_helpers.addCleanName(id_clean, simple.get_id(), self._refid)
+                        _prop_helpers.addCleanName(id_clean, simple.get_id(), _displayNames, _duplicateNames)
                     
                     structSeqDefValue = None
                     structValues = prop.get_structvalue()
@@ -1007,7 +1008,7 @@ class ComponentBase(object):
                     kindList.append(k.get_kindtype())
                 p = _prop_helpers.structSequenceProperty(id=prop.get_id(), structID=prop.get_struct().get_id(), valueType=members, kinds=kindList, props=prop.get_struct().get_simple(), compRef=weakref.proxy(self), defValue=structSeqDefValue, mode=prop.get_mode())
                 id_clean = _prop_helpers._cleanId(prop)
-                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
+                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
                 propertySet.append(p)
 
         if _DEBUG == True:

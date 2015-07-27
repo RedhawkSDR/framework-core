@@ -29,7 +29,8 @@ namespace ossie {
 
         // Returns true if an Any has no value (i.e., type is null).
         inline bool isNull (const CORBA::Any& any) {
-            return (any.type()->kind() == CORBA::tk_null);
+          CORBA::TypeCode_var t=any.type();
+            return (t->kind() == CORBA::tk_null);
         }
 
         // Numeric conversion of Any types, using standard C++ rules

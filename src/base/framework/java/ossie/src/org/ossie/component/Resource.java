@@ -718,9 +718,9 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 
 
     /**
-     *  setLoggingContext
+     *  saveLoggingContext
      * 
-     *  Set the logging configuration and logging level for this resource.
+     *  Save the logging configuration and logging level for this resource.
      *
      * @param String  URL of the logging configuration file to load
      * @param int  oldstyle_loglevel used from command line startup of a resource
@@ -759,6 +759,16 @@ public abstract class Resource implements ResourceOperations, Runnable { // SUPP
 
 	if  ( oldstyle_loglevel > -1  ) {
 	    logLevel = logging.ConvertLogLevel(oldstyle_loglevel);
+	    try {
+                if ( logger != null ) {
+                    logger.setLevel( logging.ConvertLogLevelToLog4(oldstyle_loglevel) );
+                }
+                else {
+                    setLogLevel( logName, logging.ConvertLogLevel(oldstyle_loglevel) );
+                }
+            }
+	    catch( Exception e ){
+            }
 	}
 	else {
 	    // grab root logger's level

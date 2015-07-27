@@ -240,6 +240,14 @@ namespace ossie
 
 
     //
+    // ConvertDebugToRHLevel
+    //
+    // Convert from command line argument debug level to CF::Logging
+    //
+    rh_logger::LevelPtr ConvertDebugToRHLevel( int oldstyle_level );
+
+
+    //
     // ConvertRHLevelToDebug
     //
     // Convert from rh logger level to command line debug level

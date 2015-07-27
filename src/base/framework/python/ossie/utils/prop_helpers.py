@@ -214,28 +214,22 @@ def getPropNameDict(prf):
     return nameDict
 
 
-_displayNames = {}
-_duplicateNames = {}
 '''
 -Maps a properties clean, display and access name to its ID
 -Prevents duplicate entries within a component
 -Allows for get/set on components with invalid chars in ID
 '''
-def addCleanName(cleanName, id, compRefId):
-    if not _displayNames.has_key(compRefId):
-        _displayNames[compRefId] = {}
-        _duplicateNames[compRefId] = {}
-        
-    if not _displayNames[compRefId].has_key(cleanName):
-        _displayNames[compRefId][cleanName] = id
-        _duplicateNames[compRefId][cleanName] = 0
+def addCleanName(cleanName, id, _displayNames, _duplicateNames):
+    if not _displayNames.has_key(cleanName):
+        _displayNames[cleanName] = id
+        _duplicateNames[cleanName] = 0
         return cleanName
-    elif _displayNames[compRefId][cleanName] == id:
+    elif _displayNames[cleanName] == id:
         return cleanName
     else:
-        count = _duplicateNames[compRefId][cleanName] + 1
-        _displayNames[compRefId][cleanName + str(count)] = id
-        _duplicateNames[compRefId][cleanName] = count
+        count = _duplicateNames[cleanName] + 1
+        _displayNames[cleanName + str(count)] = id
+        _duplicateNames[cleanName] = count
         return cleanName + str(count)
     
 def _cleanId(prop):

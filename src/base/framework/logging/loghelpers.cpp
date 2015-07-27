@@ -128,7 +128,7 @@ namespace ossie {
         }
         _logcfg.factory=logcfg_factory;
 
-        std::cout << "ossie.logging: Found libossielogcfg.so for LOGGING_CONFIG_URI resolution." << std::endl;
+        //std::cout << "ossie.logging: Found libossielogcfg.so for LOGGING_CONFIG_URI resolution." << std::endl;
       }
       catch( std::exception &e){
       }
@@ -579,6 +579,17 @@ namespace ossie {
       if ( oldstyle_level == 5)  return CF::LogLevels::ALL;
       return CF::LogLevels::INFO;
     }
+
+    rh_logger::LevelPtr ConvertDebugToRHLevel ( const int oldstyle_level ) {
+      if ( oldstyle_level == 0 ) return rh_logger::Level::getFatal();
+      if ( oldstyle_level == 1 ) return rh_logger::Level::getError();
+      if ( oldstyle_level == 2 ) return rh_logger::Level::getWarn();
+      if ( oldstyle_level == 3 ) return rh_logger::Level::getInfo();
+      if ( oldstyle_level == 4 ) return rh_logger::Level::getDebug();
+      if ( oldstyle_level == 5)  return rh_logger::Level::getAll();
+      return rh_logger::Level::getInfo();
+    }
+
 
 
     void SetLevel( const std::string &logid, int debugLevel) {
