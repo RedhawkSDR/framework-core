@@ -23,45 +23,20 @@
 #include "GPP_base.h"
 #include <boost/shared_ptr.hpp>
 
-#include "reports/NicThroughputThresholdMonitor.h"
-#include "states/CpuState.h"
-#include "statistics/CpuUsageAccumulator.h"
+#include "utils/Updateable.h"
+#include "reports/ThresholdMonitor.h"
+#include "states/State.h"
+#include "statistics/Statistics.h"
+#include "statistics/CpuUsageStats.h"
 #include "reports/SystemMonitorReporting.h"
 #include "reports/CpuThresholdMonitor.h"
 #include "NicFacade.h"
 #include "ossie/Events.h"
 
-#define PROCESSOR_NAME "DCE:fefb9c66-d14a-438d-ad59-2cfd1adb272b"
-#define OS_NAME "DCE:4a23ad60-0b25-4121-a630-68803a498f75"
-#define OS_VERSION "DCE:0f3a9a37-a342-43d8-9b7f-78dc6da74192"
-
 class ThresholdMonitor;
 class NicFacade;
 
-struct system_monitor_struct {
-        system_monitor_struct ()
-	{
-	};
-	
-	CORBA::ULong physical_memory_free;
-	double idle_cpu_percent;
-};
 
-struct component_description_struct {
-    component_description_struct ()
-    {
-    };
-    std::string appName;
-    std::string identifier;
-};
-
-inline bool operator== (const component_description_struct& s1, const component_description_struct& s2) {
-    if (s1.appName!=s2.appName)
-        return false;
-    if (s1.identifier!=s2.identifier)
-        return false;
-    return true;
-};
 
 class GPP_i : public GPP_base
 {
@@ -72,8 +47,10 @@ class GPP_i : public GPP_base
         GPP_i(char *devMgr_ior, char *id, char *lbl, char *sftwrPrfl, CF::Properties capacities);
         GPP_i(char *devMgr_ior, char *id, char *lbl, char *sftwrPrfl, CF::Properties capacities, char *compDev);
         ~GPP_i();
+
         int serviceFunction();
         void initializeNetworkMonitor();
+        void initializeMemoryMonitor();
         void initializeCpuMonitor();
         void addThresholdMonitor( ThresholdMonitor* threshold_monitor );
         void send_threshold_event(const threshold_event_struct& message);
@@ -81,6 +58,11 @@ class GPP_i : public GPP_base
         void initialize() throw (CF::LifeCycle::InitializeError, CORBA::SystemException);
         bool allocate_loadCapacity(const double &value);
         void deallocate_loadCapacity(const double &value);
+        bool allocate_diskCapacity(const double &value);
+        void deallocate_diskCapacity(const double &value);
+        bool allocate_memCapacity(const int64_t &value);
+        void deallocate_memCapacity(const int64_t &value);
+
         CF::ExecutableDevice::ProcessID_Type execute (const char* name, const CF::Properties& options, const CF::Properties& parameters)
             throw (CORBA::SystemException, CF::Device::InvalidState, CF::ExecutableDevice::InvalidFunction, 
                    CF::ExecutableDevice::InvalidParameters, CF::ExecutableDevice::InvalidOptions, 
@@ -89,61 +71,165 @@ class GPP_i : public GPP_base
             throw (CORBA::SystemException, CF::ExecutableDevice::InvalidProcess, CF::Device::InvalidState);
         void updateThresholdMonitors();
         void calculateSystemMemoryLoading();
-        std::vector<int> getPids();
-        component_description_struct getComponentDescription(int pid);
         void sendChildNotification(const std::string &comp_id, const std::string &app_id);
         bool allocateCapacity_nic_allocation(const nic_allocation_struct &value);
         void deallocateCapacity_nic_allocation(const nic_allocation_struct &value);
         void deallocateCapacity (const CF::Properties& capacities) throw (CF::Device::InvalidState, CF::Device::InvalidCapacity, CORBA::SystemException);
         CORBA::Boolean allocateCapacity (const CF::Properties& capacities) throw (CF::Device::InvalidState, CF::Device::InvalidCapacity, CF::Device::InsufficientCapacity, CORBA::SystemException);
         void releaseObject() throw (CORBA::SystemException, CF::LifeCycle::ReleaseError);
-        void process_ODM(const CORBA::Any &data);
 
     protected:
+	struct component_description {
+	  std::string appName;
+	  std::string identifier;
+	};
+
+        struct LoadCapacity {
+          float max;
+          float measured;
+          float allocated;
+        };
+
+        //
+        // base execution unit for partitioning a host system
+        //
+        struct exec_socket : public Updateable {
+          int                              id;
+          CpuUsageStats::CpuList           cpus;
+          CpuUsageStats                    stats;
+          LoadCapacity                     load_capacity;
+          double                           idle_threshold;
+          double                           idle_cap_mod;
+
+        exec_socket() : idle_threshold(0.0), idle_cap_mod(0.0) {};
+
+          void update() {
+            stats.compute_statistics();
+          };
+
+          double get_idle_percent() const {
+            return stats.get_idle_percent();
+          }
+
+          double get_idle_average() const {
+            return stats.get_idle_average();
+          }
+
+          bool is_available() const {
+            return stats.get_idle_percent() > idle_threshold ;
+          };
+        };
+
+        typedef std::vector< exec_socket >      ExecPartitionList;
+
+
+	friend bool operator==( const component_description &, 
+				const component_description & );
+
+        std::vector<int> getPids();
+        component_description getComponentDescription(int pid);
+
+
+         void  set_resource_affinity( const CF::Properties& options,
+                                      const pid_t rsc_pid,
+                                      const char  *rsc_name,
+                                      const std::vector<int> &bl);           
+
+
+        void process_ODM(const CORBA::Any &data);
         void updateUsageState();
-        boost::shared_ptr<NicFacade> nic_facade;
-        typedef std::vector<boost::shared_ptr<State> > StateSequence;
-        typedef std::vector<boost::shared_ptr<Statistics> > StatisticsSequence;
-        typedef std::vector<boost::shared_ptr<Reporting> > ReportingSequence;
-        std::vector< boost::shared_ptr<ThresholdMonitor> > threshold_monitors;
-        boost::shared_ptr<CpuState> cpu_state;
-        system_monitor_struct system_monitor;
+
+	typedef boost::shared_ptr<ThresholdMonitor>           ThresholdMonitorPtr;
+        typedef std::vector< uint32_t >                       CpuList;
+        typedef std::vector< boost::shared_ptr<Updateable> >  UpdateableSequence;
+        typedef std::vector<boost::shared_ptr<State> >        StateSequence;
+        typedef std::vector<boost::shared_ptr<Statistics> >   StatisticsSequence;
+        typedef std::vector<boost::shared_ptr<Reporting> >    ReportingSequence;
+        typedef std::vector< ThresholdMonitorPtr >            MonitorSequence;
+        typedef boost::shared_ptr<SystemMonitor>              SystemMonitorPtr;
+        typedef std::map<int, component_description >         ProcessMap;
+        typedef std::vector< component_description >          ProcessList;
+
         void addPid(int pid, std::string appName, std::string identifier);
         void removePid(int pid);
-        void addReservation(const component_description_struct &component);
-        void removeReservation(const component_description_struct &component);
-        void TableReservation(const component_description_struct &component);
-        void RestoreReservation(const component_description_struct &component);
+        void addReservation(const component_description &component);
+        void removeReservation(const component_description &component);
+        void tableReservation(const component_description &component);
+        void restoreReservation(const component_description &component);
         void reservedChanged(const float *oldValue, const float *newValue);
         void establishModifiedThresholds();
-
-
         void sigchld_handler( int sig );
 
-        std::vector<component_description_struct> reservations;
-        std::vector<component_description_struct> tabled_reservations;
-        std::map<int, component_description_struct> pids;
-        boost::mutex pidLock;
+        ProcessList                                         reservations;
+        ProcessList                                         tabled_reservations;
+        ProcessMap                                          pids;
+        boost::mutex                                        pidLock;
 
-        StateSequence states;
-        StatisticsSequence statistics;
-        ReportingSequence reports;
+        NicFacadePtr                                        nic_facade;
+        MonitorSequence                                     threshold_monitors;
+        SystemMonitorPtr                                    system_monitor;
+        ExecPartitionList                                   execPartitions;
+        double                                              loadCapacity_counter;
         
-        std::string binary_location;
-        
-        thresholds_struct modified_thresholds;
-        
-        float idle_capacity_modifier;
+        UpdateableSequence                                  data_model;
+        thresholds_struct                                   modified_thresholds;
+        float                                               idle_capacity_modifier;
+        CpuList                                             wl_cpus;            // list of allowable cpus to run on .... empty == all, derived from affnity blacklist property and host machine
+        CpuList                                             bl_cpus;            // list of blacklist cpus to avoid
 
+        std::string                                         binary_location;    // path to this program.
+        
+        boost::posix_time::ptime                            time_mark;          // time marker for update
+        redhawk::events::SubscriberPtr                      odm_consumer;       // interface that receives ODM_Channel events
+        redhawk::events::ManagerPtr                         mymgr;              // interface to manage event channel access
 
-        boost::posix_time::ptime   time_mark;
-        
-        redhawk::events::SubscriberPtr odm_consumer;
-        redhawk::events::ManagerPtr mymgr;
-        
 
  private:
+
+        //
+        // setup execution partitions for launching components
+        // 
+        int   _setupExecPartitions( const CpuList &blacklist );
+
+        //
+        // apply specific affinity settings to a pid
+        //
+        int   _apply_affinity(  const pid_t rsc_pid, 
+                                const char *rsc_name,
+                                const std::string &affinity_class,
+                                const std::string &affinity_value,
+                                const CpuList &bl_cpus );
+        
+        //
+        // apply affinity settings for affinity struct property
+        //
+        int   _apply_affinity( const affinity_struct &affinity, const pid_t rsc_pid, const char *rsc_name  );
+
+        //
+        // get the next available partition to use for luanching resources
+        //
+        int   _get_deploy_on_partition();
+
+        //
+        // Check if execution partition for a NIC interface has enough processing capacity 
+        //
+        bool _check_exec_partition( const std::string &iface );
+
+        //
+        // Callback when affinity processing structure is changed
+        //
+        void _affinity_changed(const affinity_struct *ov, const affinity_struct *nv );
+
+        //
+        // Determine list of CPUs that are monitored
+        //
+        void _set_processor_monitor_list( const CpuList &cl );
+
+        //
+        // Common method called by all CTORs
+        //
         void _init();
+
 };
 
 #endif // GPP_IMPL_H

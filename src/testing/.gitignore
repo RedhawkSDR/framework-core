@@ -34,7 +34,16 @@ sdr/dom/components/ticket2093/cpp/ticket2093
 sdr/dom/components/PropertyChange_C1/cpp/PropertyChange_C1
 sdr/dom/components/TestCppOptionalProps/cpp/TestCppOptionalProps
 sdr/dom/components/foo/bar/comp/cpp/comp
+sdr/dom/components/C1/cpp/C1
+sdr/dom/components/C2/cpp/C2
 sdr/dom/domain/
 sdr/dom/mgr/DomainManager*
 sdr/runtests.log
 .pythonInstallFiles
+sdr/dev/nodes/test_affinity_node_socket/DeviceManager.dcd.xml
+sdr/dev/nodes/test_affinity_node_unlocked/DeviceManager.dcd.xml
+sdr/dom/components/C1/C1.spd.xml
+sdr/dom/waveforms/affinity_test1/affinity_test1.sad.xml
+sdr/dom/waveforms/affinity_test2/affinity_test2.sad.xml
+sdr/dom/waveforms/affinity_test3/affinity_test3.sad.xml
+

@@ -105,6 +105,11 @@ CORBA::ULongLong Value::toULongLong() const
     return ossie::any::toULongLong(*this);
 }
 
+bool Value::isNil() const
+{
+    return ossie::any::isNull(*this);
+}
+
 PropertyMap& Value::asProperties()
 {
     CF::Properties* props = 0;

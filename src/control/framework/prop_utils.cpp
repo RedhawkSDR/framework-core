@@ -627,3 +627,16 @@ CORBA::Any ossie::convertAnyToPropertyType(const CORBA::Any& value, const Struct
 {
     return CORBA::Any();
 }
+
+
+
+void ossie::convertComponentProperties( const std::vector< ossie::ComponentProperty*>&cp_props,
+                                 CF::Properties &cf_props ) 
+{
+  std::vector< ossie::ComponentProperty *>::const_iterator piter = cp_props.begin();
+  for ( ; piter != cp_props.end(); piter++ ) {
+    cf_props.length(cf_props.length()+1);
+    CF::DataType dt = ossie::convertPropertyRefToDataType( *piter );
+    cf_props[cf_props.length()-1] = dt;
+  }
+}

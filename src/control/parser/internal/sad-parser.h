@@ -74,6 +74,9 @@ namespace ossie {
                 ::sad::usesdevicedependencies_pimpl usesdevicedependencies_p;
                 ::sad::usesdevice_pimpl usesdevice_p;
                 ::sad::propertyref_pimpl propertyref_p;
+                ::sad::affinity_pimpl affinity_p;
+                ::sad::loggingconfig_pimpl loggingconfig_p;
+
 
                 // Connect the parsers together.
                 //
@@ -108,8 +111,17 @@ namespace ossie {
                 componentinstantiation_p.parsers (string_p,
                                                 componentproperties_p,
                                                 findcomponent_p,
+                                                  affinity_p,
+                                                  loggingconfig_p,
                                                 string_p,
                                                 string_p);
+
+                affinity_p.parsers(simpleref_p,
+                                   simplesequenceref_p,
+                                   structref_p,
+                                   structsequenceref_p);
+
+                loggingconfig_p.parsers(string_p);
 
                 componentproperties_p.parsers (simpleref_p,
                                             simplesequenceref_p,

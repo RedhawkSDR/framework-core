@@ -1,16 +1,37 @@
+/*
+ * This file is protected by Copyright. Please refer to the COPYRIGHT file
+ * distributed with this source distribution.
+ *
+ * This file is part of REDHAWK GPP.
+ *
+ * REDHAWK GPP is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * REDHAWK GPP is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see http://www.gnu.org/licenses/.
+ */
 #ifndef NIC_ACCUMULATOR_H_
 #define	NIC_ACCUMULATOR_H_
 
-#include "Statistics.h"
-
+#include <stdint.h>
 #include <vector>
 #include <string>
-
+#include <boost/shared_ptr.hpp>
 #include <boost/function.hpp>
 
-#include <stdint.h>
+#include "Statistics.h"
+#include "states/NicState.h"
 
-class NicState;
+class NicAccumulator;
+typedef boost::shared_ptr< NicAccumulator > NicAccumulatorPtr;
+
 
 class NicAccumulator : public Statistics
 {
@@ -20,8 +41,9 @@ public:
 
 public:
     NicAccumulator();
+    NicAccumulator( const NicStatePtr &nicState );
     
-    void add_nic( const boost::shared_ptr<const NicState>& nic_state );
+    void add_nic( const NicStatePtr& nic_state );
 
     void compute_statistics();
 
@@ -52,6 +74,8 @@ private:
     CurrentTimeFunction current_time_;
 };
 
+
+typedef boost::shared_ptr< NicAccumulator >  NicAccumulatorPtr;
 
 #endif	
 

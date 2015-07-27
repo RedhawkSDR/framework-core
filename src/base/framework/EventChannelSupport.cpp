@@ -445,10 +445,12 @@ namespace events {
     // Our EventChannels will always be created with InsName
     //
     RH_NL_INFO( "CreateEventChannel", " Request to create event channel:" << name.c_str() << " bind action:" << action );
+    std::string tname(name);
+    if ( nc_name != "" ) { tname=nc_name+"."+name;  }
     CosLifeCycle::Criteria criteria;
     criteria.length(1);
     criteria[0].name=CORBA::string_dup("InsName");
-    criteria[0].value<<=name.c_str();
+    criteria[0].value<<=tname.c_str();
 
     //
     // Create Event Channel Object.
@@ -717,7 +719,7 @@ namespace events {
 
     if ( CORBA::is_nil(supplier_admin) ) return;
     
-    RH_NL_DEBUG("PushEventSupplier", "Obtained SupplierAdmin." );
+    RH_NL_TRACE("PushEventSupplier", "Obtained SupplierAdmin." );
 
     tries=retries;
     do {
@@ -735,7 +737,7 @@ namespace events {
       tries--;
     } while ( tries );
 
-    RH_NL_DEBUG("PushEventSupplier", "Obtained ProxyPushConsumer." );
+    RH_NL_TRACE("PushEventSupplier", "Obtained ProxyPushConsumer." );
     if ( CORBA::is_nil(proxy) ) return;
 
     if ( supplier == NULL ) {      
@@ -910,7 +912,7 @@ namespace events {
 
     if ( CORBA::is_nil(consumer_admin) ) return;
     
-    RH_NL_DEBUG("PushEventConsumer", "Obtained ConsumerAdmin." );
+    RH_NL_TRACE("PushEventConsumer", "Obtained ConsumerAdmin." );
 
     tries=retries;
     do {
@@ -928,7 +930,7 @@ namespace events {
       tries--;
     } while ( tries );
 
-    RH_NL_DEBUG("PushEventConsumer", "Obtained ProxyPushConsumer." );
+    RH_NL_TRACE("PushEventConsumer", "Obtained ProxyPushConsumer." );
     if ( CORBA::is_nil(proxy) ) return;
 
     if  ( consumer == NULL ) {

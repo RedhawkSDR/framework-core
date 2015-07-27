@@ -26,8 +26,12 @@
 #include "ossie/logging/rh_logger.h"
 #include "ossie/logging/loghelpers.h"
 #include "ossie/EventChannelSupport.h"
+#include "ossie/Autocomplete.h"
 
-class Logging_impl: public virtual POA_CF::Logging
+class Logging_impl
+#ifdef BEGIN_AUTOCOMPLETE_IGNORE
+    : public virtual POA_CF::Logging
+#endif
 {
  public:
 

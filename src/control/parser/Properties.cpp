@@ -77,7 +77,7 @@ Properties::Properties()
     _prf.reset(new ossie::PRF());
 }
 
-Properties::Properties(std::istream& input) throw(ossie::parser_error) : _prf(0)
+Properties::Properties(std::istream& input) throw(ossie::parser_error) 
 {
     LOG_TRACE(Properties, "Constructing properties")
     load(input);
@@ -88,23 +88,23 @@ Properties::~Properties()
     LOG_TRACE(Properties, "Destruction for properties")
 }
 
-Properties& Properties::operator=(Properties other) {
-    // IMPORTANT, pass 'other' by value to avoid having to explictly make a copy
-    this->_prf = other._prf;
-    return *this;
+Properties& Properties::operator=(const Properties &other) {
+  _prf = other._prf;
+  return *this;
 }
 
 
 void Properties::load(std::istream& input) throw (ossie::parser_error) {
-    _prf = ossie::internalparser::parsePRF(input);
+  std::auto_ptr<ossie::PRF> t = ossie::internalparser::parsePRF(input);
+  _prf.reset(t.release());
 }
 
 void Properties::join(std::istream& input) throw (ossie::parser_error) {
     LOG_TRACE(Properties, "Loading property set")
-    std::auto_ptr<ossie::PRF> _joinedprf = ossie::internalparser::parsePRF(input);
+      std::auto_ptr<ossie::PRF> _joinedprf = ossie::internalparser::parsePRF(input);
     if (_prf.get() == 0) {
         LOG_TRACE(Properties, "No initial load, using join set for properties")
-        _prf = _joinedprf;
+        _prf.reset(_joinedprf.release());
     } else {
         LOG_TRACE(Properties, "Merging property sets")
         std::vector<const Property*>::iterator jp_iter;

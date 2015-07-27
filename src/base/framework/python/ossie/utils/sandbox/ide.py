@@ -190,7 +190,14 @@ class IDESandbox(Sandbox):
             del self.__components[name]
 
     def _isRegistered(self, name):
-        return name in self.__components
+        componentAlive = False
+        if name in self.__components:
+            componentAlive = True
+            try:
+                self.__component[name]._get_identifier()
+            except:
+                componentAlive = False
+        return componentAlive
 
     def _scanChalkboard(self):
         # Remember the names of known components, so that any that are no longer

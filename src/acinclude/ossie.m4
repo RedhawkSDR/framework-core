@@ -51,7 +51,6 @@ dnl Check that OSSIE is installed so we can compile against it
 AC_DEFUN([OSSIE_CHECK_OSSIE],
 [
 AC_REQUIRE([OSSIE_OSSIEHOME])
-AC_REQUIRE([GR_LIB64])
 AC_MSG_CHECKING([to see ossie is installed])
 if test -e $ossie_cv_ossie_home/lib${gr_libdir_suffix}/pkgconfig/ossie.pc; then
   PKG_CONFIG_PATH="${ossie_cv_ossie_home}/lib${gr_libdir_suffix}/pkgconfig:${PKG_CONFIG_PATH}"

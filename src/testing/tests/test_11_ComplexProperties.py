@@ -23,6 +23,9 @@ from _unitTestHelpers import scatest
 from ossie.cf import CF
 from omniORB import CORBA
 import numpy
+from _unitTestHelpers import runtestHelpers
+
+java_support = runtestHelpers.haveJavaSupport('../Makefile')
 
 class _DataTypeTest:
     def __init__(self, id, default, override, typecode):
@@ -242,8 +245,9 @@ class SandboxTest(scatest.CorbaTestCase, _TestVector, SetupCommon):
 
         # Create an instance of the test component in all 3 languages
         components = {"cpp"   : sb.launch("TestComplexProps", impl="cpp"),
-                      "python": sb.launch("TestComplexProps", impl="python"),
-                      "java"  : sb.launch("TestComplexProps", impl="java")}
+                      "python": sb.launch("TestComplexProps", impl="python")}
+        if java_support:
+            components["java"] = sb.launch("TestComplexProps", impl="java")
 
         sb.start()
 

@@ -258,6 +258,7 @@ class Resource(object):
         ## logging context for the resource
         ##
         self.logLevel = logging.INFO
+        self._logLevel = CF.LogLevels.INFO
         self.logConfig = ""
         self.loggingMacros = ossie.logger.GetDefaultMacros()
         ossie.logger.ResolveHostInfo( self.loggingMacros )
@@ -482,7 +483,7 @@ class Resource(object):
         if oldstyle_loglevel != None and oldstyle_loglevel > -1 :
             self.setLogLevel( self._logid, ossie.logger.ConvertLogLevel(oldstyle_loglevel) )
         else:
-            _logLevel = ossie.logger.ConvertLog4ToCFLevel( logging.getLogger(None).getEffectiveLevel() )
+            self._logLevel = ossie.logger.ConvertLog4ToCFLevel( logging.getLogger(None).getEffectiveLevel() )
 
 
     def saveLoggingContext(self, logcfg_url, oldstyle_loglevel, rscCtx ):
@@ -507,9 +508,10 @@ class Resource(object):
 
         # apply logging level if explicitly stated
         if oldstyle_loglevel != None and oldstyle_loglevel > -1 :
-            _logLevel = ossie.logger.ConvertLogLevel(oldstyle_loglevel)
+            self._logLevel = ossie.logger.ConvertLogLevel(oldstyle_loglevel)
+            self.setLogLevel( self._logid, ossie.logger.ConvertLogLevel(oldstyle_loglevel) )
         else:
-            _logLevel = ossie.logger.ConvertLog4ToCFLevel( logging.getLogger(None).getEffectiveLevel() )
+            self._logLevel = ossie.logger.ConvertLog4ToCFLevel( logging.getLogger(None).getEffectiveLevel() )
 
         # assign an event channel manager to the logging library
         ossie.logger.SetEventChannelManager( self._ecm )
@@ -524,34 +526,47 @@ class Resource(object):
     #########################################
     # CF::LogConfiguration
     def _get_log_level(self):
-        return self.logLevel
+        return self._logLevel
 
     def _set_log_level(self, newLogLevel ):
         self.log_level( newLogLevel )
 
     def log_level(self, newLogLevel=None ):
         if newLogLevel == None:
-            return self.logLevel
+            return self._logLevel
+
+        if ossie.logger.SupportedCFLevel(newLogLevel) == False:
+           return
+
         if self.logListenerCallback and callable(self.logListenerCallback.logLevelChanged):
-            self.logLevel = newLogLevel;
+            self._logLevel = newLogLevel
+            self.logLevel = ossie.logger.ConvertToLog4Level( newLogLevel )
             self.logListenerCallback.logLevelChanged(self._logid, newLogLevel)
         else:
             ossie.logger.SetLogLevel( self._logid, newLogLevel )
-            self.logLevel = newLogLevel
+            self._logLevel = newLogLevel
+            self.logLevel = ossie.logger.ConvertToLog4Level( newLogLevel )
 
     def setLogLevel(self, logid, newLogLevel ):
+
+        if ossie.logger.SupportedCFLevel(newLogLevel) == False:
+            return
+
         if self.logListenerCallback and callable(self.logListenerCallback.logLevelChanged):
-            self.logLevel = newLogLevel;
+            self._logLevel = newLogLevel
+            self.logLevel = ossie.logger.ConvertToLog4Level( newLogLevel )
             self.logListenerCallback.logLevelChanged(logid, newLogLevel)
         else:
             ossie.logger.SetLogLevel( logid, newLogLevel )
+            self._logLevel = newLogLevel
+            self.logLevel = ossie.logger.ConvertToLog4Level( newLogLevel )
 
     def getLogConfig(self):
         return self.logConfig
 
     def setLogConfig(self, new_log_config):
         if self.logListenerCallback and callable(self.logListenerCallback.logConfigChanged):
-            self.logConfig = new_log_config;
+            self.logConfig = new_log_config
             self.logListenerCallback.logConfigChanged(new_log_config)
         elif new_log_config:
             tcfg= ossie.logger.ConfigureWithContext( new_log_config, self.loggingMacros  )
@@ -711,6 +726,7 @@ class Resource(object):
         self._log.trace("configure(%s)", configProperties)
         self.propertySetAccess.acquire()
         notSet = []
+        error_message = ''
         for prop in configProperties:
             try:
                 if self._props.has_id(prop.id) and self._props.isConfigurable(prop.id):
@@ -723,6 +739,7 @@ class Resource(object):
                     self._log.warning("Tried to configure non-existent, readonly, or property with action not equal to external %s", prop.id)
                     notSet.append(prop)
             except Exception, e:
+                error_message += str(e)
                 self._log.exception("Unexpected exception.")
                 notSet.append(prop)
 
@@ -733,7 +750,7 @@ class Resource(object):
         elif len(notSet) > 0 and len(notSet) >= len(configProperties):
             self.propertySetAccess.release()
             self._log.warning("Configure failed with invalid configuration, %s", notSet)
-            raise CF.PropertySet.InvalidConfiguration("Failure", notSet)
+            raise CF.PropertySet.InvalidConfiguration("Failure: "+error_message, notSet)
         self.propertySetAccess.release()
         self._log.trace("configure(%s)", configProperties)
 

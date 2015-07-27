@@ -200,6 +200,7 @@ int main(int argc, char* argv[])
     std::string domainName;
     int debugLevel = 3;
     std::string dpath("");
+    std::string cpuBlackList("");
     std::string node_name("DEVICE_MANAGER");
     bool        useLogCfgResolver=false;
 
@@ -232,6 +233,8 @@ int main(int argc, char* argv[])
             logfile_uri = argv[ii];
         } else if (pupper == "NOLOGCFG") {
           useLogCfgResolver=false;
+        } else if (pupper == "CPUBLACKLIST") {
+          cpuBlackList=argv[ii];
         } else if (param == "DEBUG_LEVEL") {
             debugLevel = atoi(argv[ii]);
             if (debugLevel > 5) {
@@ -451,6 +454,7 @@ int main(int argc, char* argv[])
                                                        (logfile_uri.empty()) ? NULL : logfile_uri.c_str(),
                                                        un,
                                                        useLogCfgResolver,
+                                                       cpuBlackList.c_str(),
                                                        &internalShutdown_devMgr
                                                        );
         DeviceManager_servant->setExecparamProperties(execparams);

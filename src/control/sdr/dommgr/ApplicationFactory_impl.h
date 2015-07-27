@@ -165,6 +165,7 @@ private:
     // Tracks allocation IDs made during creation, and automates cleanup on
     // failure
     ScopedAllocations _allocations;
+    CF::Properties    _app_affinity;
 
     ossie::DeviceList _registeredDevices;
     ossie::DeviceList _executableDevices;
@@ -213,7 +214,7 @@ private:
     void _resolveImplementations(PlacementList::iterator comp, PlacementList& compList, std::vector<ossie::ImplementationInfo::List> &res_vec);
     void _removeUnmatchedImplementations(std::vector<ossie::ImplementationInfo::List> &res_vec);
     void _consolidateAllocations(const ossie::ImplementationInfo::List& implementations, CF::Properties& allocs);
-    void _evaluateMATHinRequest(CF::Properties &request, CF::Properties configureProperties);
+    void _evaluateMATHinRequest(CF::Properties &request, const CF::Properties &configureProperties);
     void _castRequestProperties(CF::Properties& allocationProperties, const std::vector<ossie::SPD::PropertyRef> &prop_refs, unsigned int offset=0);
     void _castRequestProperties(CF::Properties& allocationProperties, const std::vector<ossie::SoftwareAssembly::PropertyRef> &prop_refs,
             unsigned int offset=0);
@@ -250,6 +251,7 @@ private:
                           const std::vector<ossie::SoftpkgInfo*>& dependencies);
 
     void loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg);
+    void applyApplicationAffinityOptions();
 
     void attemptComponentExecution(
         const boost::filesystem::path&                                  executeName,

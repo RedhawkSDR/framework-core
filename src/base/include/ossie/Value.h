@@ -73,6 +73,7 @@ namespace redhawk {
         CORBA::ULong toULong() const;
         CORBA::LongLong toLongLong() const;
         CORBA::ULongLong toULongLong() const;
+        bool isNil() const;
         
         redhawk::PropertyMap& asProperties();
         const redhawk::PropertyMap& asProperties() const;

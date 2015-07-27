@@ -129,6 +129,7 @@ namespace ossie {
         }
         _logcfg.factory=logcfg_factory;
 
+        //std::cout << "ossie.logging: Found libossielogcfg.so for LOGGING_CONFIG_URI resolution." << std::endl;
       }
       catch( std::exception &e){
       }
@@ -533,6 +534,17 @@ namespace ossie {
       return std::string(xx);
     }
 
+    rh_logger::LevelPtr ConvertCanonicalLevelToRHLevel ( const std::string &txt_level ) {
+      if ( txt_level == "OFF" )   return rh_logger::Level::getOff();
+      if ( txt_level == "FATAL" ) return rh_logger::Level::getFatal();
+      if ( txt_level == "ERROR" ) return rh_logger::Level::getError();
+      if ( txt_level == "WARN" )  return rh_logger::Level::getWarn();
+      if ( txt_level == "INFO" )  return rh_logger::Level::getInfo();
+      if ( txt_level == "DEBUG" ) return rh_logger::Level::getDebug();
+      if ( txt_level == "TRACE")  return rh_logger::Level::getTrace();
+      if ( txt_level ==  "ALL" )  return rh_logger::Level::getAll();
+      return rh_logger::Level::getInfo();
+    };
 
     int ConvertRHLevelToCFLevel ( rh_logger::LevelPtr l4_level ) {
       if (l4_level == rh_logger::Level::getOff() )   return CF::LogLevels::OFF;
@@ -579,6 +591,17 @@ namespace ossie {
       if ( oldstyle_level == 5)  return CF::LogLevels::ALL;
       return CF::LogLevels::INFO;
     }
+
+    rh_logger::LevelPtr ConvertDebugToRHLevel ( const int oldstyle_level ) {
+      if ( oldstyle_level == 0 ) return rh_logger::Level::getFatal();
+      if ( oldstyle_level == 1 ) return rh_logger::Level::getError();
+      if ( oldstyle_level == 2 ) return rh_logger::Level::getWarn();
+      if ( oldstyle_level == 3 ) return rh_logger::Level::getInfo();
+      if ( oldstyle_level == 4 ) return rh_logger::Level::getDebug();
+      if ( oldstyle_level == 5)  return rh_logger::Level::getAll();
+      return rh_logger::Level::getInfo();
+    }
+
 
 
     void SetLevel( const std::string &logid, int debugLevel) {

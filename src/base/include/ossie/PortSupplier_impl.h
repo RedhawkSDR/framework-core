@@ -28,13 +28,16 @@
 #include "CF/cf.h"
 #include "Port_impl.h"
 #include "debug.h"
+#include "ossie/Autocomplete.h"
 
 /**
-The port supplier interface provides a method that supplies an object
-reference for a port.
+The port supplier provides specialized functionality to manage Ports
 */
 
-class PortSupplier_impl: public virtual POA_CF::PortSupplier
+class PortSupplier_impl
+#ifdef BEGIN_AUTOCOMPLETE_IGNORE
+        : public virtual POA_CF::PortSupplier
+#endif
 {
     ENABLE_LOGGING;
 

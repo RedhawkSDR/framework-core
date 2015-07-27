@@ -23,6 +23,7 @@
 #define LIFECYCLE_IMPL_H
 
 #include "CF/cf.h"
+#include "ossie/Autocomplete.h"
 
 
 /**
@@ -31,7 +32,10 @@ initialization and and releasing instantiated objects.
 
  */
 
-class LifeCycle_impl: public virtual POA_CF::LifeCycle
+class LifeCycle_impl
+#ifdef BEGIN_AUTOCOMPLETE_IGNORE
+    : public virtual POA_CF::LifeCycle
+#endif
 {
 public:
     LifeCycle_impl () {

@@ -63,4 +63,7 @@ namespace urn:mil:jpeojtrs:sca:sad {
     usesdevicedependencies "::std::vector<ossie::SoftwareAssembly::UsesDevice>";
     usesdevice "ossie::SoftwareAssembly::UsesDevice";
     propertyref "ossie::SoftwareAssembly::PropertyRef";
+    affinity " ossie::ComponentInstantiation::AffinityProperties ";
+    loggingconfig  " ossie::ComponentInstantiation::LoggingConfig ";
 }
+

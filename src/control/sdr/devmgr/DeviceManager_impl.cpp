@@ -35,6 +35,8 @@
 #include <ossie/prop_utils.h>
 #include <ossie/logging/loghelpers.h>
 #include <ossie/EventChannelSupport.h>
+#include <ossie/affinity.h>
+#include "spdSupport.h"
 #include "DeviceManager_impl.h"
 
 namespace fs = boost::filesystem;
@@ -458,6 +460,34 @@ void DeviceManager_impl::getCompositeDeviceIOR(
     }
 }
 
+CF::Properties DeviceManager_impl::getResourceOptions( const ossie::ComponentInstantiation& instantiation ){
+
+  CF::Properties   options;
+  CF::Properties   affinity_options;
+  const ossie::ComponentInstantiation::AffinityProperties c_props = instantiation.getAffinity();
+  if ( c_props.size() > 0  ){
+    LOG_DEBUG(DeviceManager_impl, "Converting AFFINITY properties, resource: " << instantiation.getUsageName());
+    ossie::convertComponentProperties( instantiation.getAffinity(), affinity_options );
+    // Pass all afinity settings under single options list
+    for ( uint32_t i=0; i < affinity_options.length(); i++ ) {
+      CF::DataType dt = affinity_options[i];
+      LOG_DEBUG(DeviceManager_impl, "Found Affinity Property: directive id:"  <<  dt.id << "/" <<  ossie::any_to_string( dt.value )) ;
+    }
+  }
+
+  // add affinity properties as subtree to a resource option's property set
+  if ( affinity_options.length() > 0 ) {
+    options.length(options.length()+1);
+    options[options.length()-1].id = CORBA::string_dup("AFFINITY"); 
+    options[options.length()-1].value <<= affinity_options;
+    LOG_DEBUG(DeviceManager_impl,"Extending Options property set with Affinity properties, nprops: " << affinity_options.length());
+  }
+  return options;
+}
+
+
+
+
 void DeviceManager_impl::getOverloadprops(
         std::map<std::string, std::string>& overloadprops, 
         const std::vector<ComponentProperty*>& instanceprops,
@@ -613,7 +643,7 @@ void DeviceManager_impl::createDeviceCacheLocation(
  * to be passed to execv.
  */
 void DeviceManager_impl::createDeviceExecStatement(
-        const char*                                   new_argv[], 
+        std::vector< std::string >&                   new_argv, 
         const ossie::ComponentPlacement&              componentPlacement,
         const std::string&                            componentType,
         std::map<std::string, std::string>*           pOverloadprops,
@@ -630,59 +660,43 @@ void DeviceManager_impl::createDeviceExecStatement(
         
     std::vector<ComponentProperty*>::const_iterator iprops_iter;
 
-    unsigned long new_argc = 0;
     std::string logcfg_path("");
     deviceMgrIOR = ossie::corba::objectToString(myObj);
     if (getenv("VALGRIND")) {
-        new_argv[new_argc] =  "/usr/local/bin/valgrind";
-        new_argc++;
-        std::string logFile = "--log-file=";
-        logFile += codeFilePath;
-        new_argv[new_argc] = (char*)logFile.c_str();
-        new_argc++;
-    }
-    new_argv[new_argc] = (char*)codeFilePath.c_str();
-    new_argc++;
-    new_argv[new_argc] = "DEVICE_MGR_IOR";
-    new_argc++;
-    new_argv[new_argc] = (char*)deviceMgrIOR.c_str();
-    new_argc++;
-    if (componentType == "device") {
-        new_argv[new_argc] = "PROFILE_NAME";
-        new_argc++;
-        new_argv[new_argc] = (char*)DCDParser.getFileNameFromRefId(componentPlacement.getFileRefId());
-        new_argc++;
-        new_argv[new_argc] = "DEVICE_ID";
-        new_argc++;
-        new_argv[new_argc] = (char*)instantiation.getID();
-        new_argc++;
-        new_argv[new_argc] = "DEVICE_LABEL";
-        new_argc++;
-        new_argv[new_argc] = (char*)usageName.c_str();
-        new_argc++;
-        if (componentPlacement.isCompositePartOf()) {
-            new_argv[new_argc] = "COMPOSITE_DEVICE_IOR";
-            new_argc++;
-            new_argv[new_argc] = (char*)compositeDeviceIOR.c_str();
-            new_argc++;
-        }
+      new_argv.push_back("/usr/local/bin/valgrind");
+      std::string logFile = "--log-file=";
+      logFile += codeFilePath;
+      new_argv.push_back(logFile );
 
-        if (IDM_IOR.size() > 0 ) {
-            new_argv[new_argc] = "IDM_CHANNEL_IOR";
-            new_argc++;
-            new_argv[new_argc] = (char*)IDM_IOR.c_str();
-            new_argc++;
-        }
-        logcfg_path= ossie::logging::GetDevicePath(_domainName, _label, usageName );
+    }
+    // argv[0] program executable
+    new_argv.push_back(codeFilePath);             
+
+    if (componentType == "device") {
+      new_argv.push_back("PROFILE_NAME");
+      new_argv.push_back(DCDParser.getFileNameFromRefId(componentPlacement.getFileRefId()));
+      new_argv.push_back( "DEVICE_ID");
+      new_argv.push_back(instantiation.getID());
+      new_argv.push_back( "DEVICE_LABEL");
+      new_argv.push_back(usageName);
+      if (componentPlacement.isCompositePartOf()) {
+          new_argv.push_back("COMPOSITE_DEVICE_IOR");
+          new_argv.push_back(compositeDeviceIOR);
+      }
+
+      if (IDM_IOR.size() > 0 ) {
+        new_argv.push_back("IDM_CHANNEL_IOR");
+        new_argv.push_back(IDM_IOR.c_str());
+      }
+      logcfg_path= ossie::logging::GetDevicePath(_domainName, _label, usageName );
     } else if (componentType == "service") {
       logcfg_path= ossie::logging::GetServicePath(_domainName, _label, usageName );
-      new_argv[new_argc] = "SERVICE_NAME";
-      new_argc++;
-      new_argv[new_argc] = (char*)usageName.c_str();
-      new_argc++;
+      new_argv.push_back( "SERVICE_NAME");
+      new_argv.push_back(usageName);
     }
 
-    logging_uri = "";
+    // get logging info if available
+    logging_uri = "";      
     for (iprops_iter = instanceprops.begin(); iprops_iter != instanceprops.end(); iprops_iter++) {
         if ((strcmp((*iprops_iter)->getID(), "LOGGING_CONFIG_URI") == 0)
                 && (dynamic_cast<const SimplePropertyRef*>(*iprops_iter) != NULL)) {
@@ -698,48 +712,63 @@ void DeviceManager_impl::createDeviceExecStatement(
 	logging_uri = log_cfg_resolver->get_uri(  logcfg_path );
         LOG_DEBUG(DeviceManager_impl, "Resolve LOGGING_CONFIG_URI:  key:" << logcfg_path << " value <" << logging_uri << ">" );
       }
-      if (logging_uri.empty() && !logging_config_prop->isNil()) {
-	logging_uri = logging_config_uri;
-      }
     }
 
-    std::string debug_level;
+    // if resource provides logging info then override all preferences
+    ossie::ComponentInstantiation::LoggingConfig  lcfg = instantiation.getLoggingConfig();
+    std::string debug_level("");
+    if ( lcfg.first != "" )  {
+      LOG_DEBUG(DeviceManager_impl, "Component Placement has LoggingConfig, RSC: " << usageName << " LOGGING URI/LEVEL  <" << lcfg.first << ">/" << lcfg.second );
+      logging_uri = lcfg.first;
+      debug_level = lcfg.second;
+    }
+    
+    // if we still do not have a URI then assigne the DeviceManager's logging config uri
+    if (logging_uri.empty() && !logging_config_prop->isNil()) {
+      logging_uri = logging_config_uri;
+    }
+
     if (!logging_uri.empty()) {
         if (logging_uri.substr(0, 4) == "sca:") {
             logging_uri += ("?fs=" + fileSysIOR);
         }
-        new_argv[new_argc] = "LOGGING_CONFIG_URI";
-        new_argc++;
-        new_argv[new_argc] = (char*)logging_uri.c_str();
-        new_argc++;
-	LOG_INFO(DeviceManager_impl, "RSC: " << usageName << " LOGGING PARAM:VALUE " << new_argv[new_argc-2] << ":" <<new_argv[new_argc-1] );
-    } else {
-        // Pass along the current debug level setting.
-        int level = ossie::logging::ConvertRHLevelToDebug(rh_logger::Logger::getRootLogger()->getLevel());
+        new_argv.push_back("LOGGING_CONFIG_URI");
+        new_argv.push_back(logging_uri);
+	LOG_DEBUG(DeviceManager_impl, "RSC: " << usageName << " LOGGING PARAM:VALUE " << new_argv[new_argv.size()-2] << ":" <<new_argv[new_argv.size()-1] );
+    } 
 
-        // Convert the numeric level directly into its ASCII equivalent.
-        debug_level.push_back(char(0x30 + level));
-        new_argv[new_argc++] = "DEBUG_LEVEL";
-        new_argv[new_argc++] = const_cast<char*>(debug_level.c_str());
+    int level;
+    if ( debug_level == "" )
+      // Pass along the current debug level setting.
+      level = ossie::logging::ConvertRHLevelToDebug(rh_logger::Logger::getRootLogger()->getLevel());
+    else {
+      level = ossie::logging::ConvertRHLevelToDebug( 
+                                                    ossie::logging::ConvertCanonicalLevelToRHLevel(debug_level) );
+      debug_level="";
     }
+
+    // Convert the numeric level directly into its ASCII equivalent.
+    debug_level.push_back(char(0x30 + level));
+    new_argv.push_back( "DEBUG_LEVEL");
+    new_argv.push_back(debug_level);
+    LOG_DEBUG(DeviceManager_impl, "DEBUG_LEVEL: arg: " << new_argv[new_argv.size()-2] << " value:"  << debug_level );
 
     std::string dpath;
     dpath = _domainName + "/" + _label;
-    new_argv[new_argc] = "DOM_PATH";
-    new_argc++;
-    new_argv[new_argc] = (char*)dpath.c_str();
-    new_argc++;
+    new_argv.push_back("DOM_PATH");
+    new_argv.push_back(dpath);
+    LOG_DEBUG(DeviceManager_impl, "DOM_PATH: arg: " << new_argv[new_argv.size()-2] << " value:"  << dpath);
     
     std::map<std::string, std::string>::iterator prop_iter;
     for (prop_iter = pOverloadprops->begin(); prop_iter != pOverloadprops->end(); prop_iter++) {
-        new_argv[new_argc] = (char*)prop_iter->first.c_str();
-        new_argc++;
-        new_argv[new_argc] = (char*)prop_iter->second.c_str();
-        new_argc++;                        
+      new_argv.push_back(prop_iter->first);
+      new_argv.push_back(prop_iter->second);
     }
 
-    // end the args with a NULL
-    new_argv[new_argc] = NULL;
+    // Move this to the end of the command-line to make it easier to read
+    new_argv.push_back("DEVICE_MGR_IOR");
+    new_argv.push_back(deviceMgrIOR);
+
 }                    
 
 DeviceManager_impl::ExecparamList DeviceManager_impl::createDeviceExecparams(
@@ -758,7 +787,6 @@ DeviceManager_impl::ExecparamList DeviceManager_impl::createDeviceExecparams(
     ExecparamList execparams;
     std::string logcfg_path("");
     deviceMgrIOR = ossie::corba::objectToString(myObj);
-    execparams.push_back(std::make_pair("DEVICE_MGR_IOR", deviceMgrIOR));
     if (componentType == "device") {
         execparams.push_back(std::make_pair("PROFILE_NAME", DCDParser.getFileNameFromRefId(componentPlacement.getFileRefId())));
         execparams.push_back(std::make_pair("DEVICE_ID", instantiation.getID()));
@@ -798,25 +826,42 @@ DeviceManager_impl::ExecparamList DeviceManager_impl::createDeviceExecparams(
 	logging_uri = log_cfg_resolver->get_uri( logcfg_path );
         LOG_INFO(DeviceManager_impl, "Resolve LOGGING_CONFIG_URI:  key:" << logcfg_path << " value <" << logging_uri << ">" );
       }
-      if (logging_uri.empty() && !logging_config_prop->isNil()) {
-	logging_uri = logging_config_uri;
-      }
     }
 
-    std::string debug_level;
+    // if resource provides logging info then override all preferences
+    ossie::ComponentInstantiation::LoggingConfig  lcfg = instantiation.getLoggingConfig();
+    std::string debug_level("");
+    if ( lcfg.first != "" )  {
+      LOG_DEBUG(DeviceManager_impl, "Component Placement: RSC: " << usageName << " LOGGING URI/LEVEL  <" << lcfg.first << ">/" << lcfg.second );
+      logging_uri = lcfg.first;
+      debug_level = lcfg.second;
+    }
+
+    if (logging_uri.empty() && !logging_config_prop->isNil()) {
+	logging_uri = logging_config_uri;
+    }
+
     if (!logging_uri.empty()) {
         if (logging_uri.substr(0, 4) == "sca:") {
             logging_uri += ("?fs=" + fileSysIOR);
         }
         execparams.push_back(std::make_pair("LOGGING_CONFIG_URI", logging_uri));
-    } else {
-        // Pass along the current debug level setting.
-        int level = ossie::logging::ConvertRHLevelToDebug(rh_logger::Logger::getRootLogger()->getLevel());
-        // Pass along the current debug level setting.
-        // Convert the numeric level directly into its ASCII equivalent.
-        debug_level.push_back(char(0x30 + level));
-        execparams.push_back(std::make_pair("DEBUG_LEVEL", debug_level));
     }
+
+    int level;
+    if ( debug_level == "" )
+      // Pass along the current debug level setting.
+      level = ossie::logging::ConvertRHLevelToDebug(rh_logger::Logger::getRootLogger()->getLevel());
+    else {
+      level = ossie::logging::ConvertRHLevelToDebug( 
+                                                    ossie::logging::ConvertCanonicalLevelToRHLevel(debug_level) );
+      debug_level="";
+    }
+
+    // Pass along the current debug level setting.
+    // Convert the numeric level directly into its ASCII equivalent.
+    debug_level.push_back(char(0x30 + level));
+    execparams.push_back(std::make_pair("DEBUG_LEVEL", debug_level));
 
     std::string dpath;
     dpath = _domainName + "/" + _label;
@@ -826,6 +871,9 @@ DeviceManager_impl::ExecparamList DeviceManager_impl::createDeviceExecparams(
     for (prop_iter = pOverloadprops->begin(); prop_iter != pOverloadprops->end(); prop_iter++) {
         execparams.push_back(*prop_iter);
     }
+    
+    // Move this to the end of the command-line to make it easier to read
+    execparams.push_back(std::make_pair("DEVICE_MGR_IOR", deviceMgrIOR));
 
     return execparams;
 }
@@ -891,7 +939,7 @@ void DeviceManager_impl::createDeviceThread(
         const std::string&                            compositeDeviceIOR,
         const std::vector<ComponentProperty*>&        instanceprops) {
  
-    LOG_TRACE(DeviceManager_impl, "Launching " << componentType << " file " 
+    LOG_DEBUG(DeviceManager_impl, "Launching " << componentType << " file " 
                                   << codeFilePath << " Usage name " 
                                   << instantiation.getUsageName());
     
@@ -905,6 +953,7 @@ void DeviceManager_impl::createDeviceThread(
         throw std::runtime_error("unable to find matching device implementation");
     }
     bool isSharedLibrary = (std::string(matchedDeviceImpl->getCodeType()) == "SharedLibrary");
+
     // Logic for persona devices
     // check is parent exists and if the code type is "SharedLibrary"
     if (componentPlacement.isCompositePartOf() && isSharedLibrary) {
@@ -924,6 +973,7 @@ void DeviceManager_impl::createDeviceThread(
                       "': DeployOnDevice must be an Executable Device:  Unable to narrow to Executable Device")
                 return;
         }
+
         //all conditions are met for a persona    
         // Load shared library into device using load mechanism
         LOG_DEBUG(DeviceManager_impl, "Loading '" << codeFilePath << "' to parent device: " << execDevice->identifier());
@@ -959,6 +1009,7 @@ void DeviceManager_impl::createDeviceThread(
         execDevice->execute(codeFilePath.c_str(), options, personaProps);
         LOG_DEBUG(DeviceManager_impl, "Execute complete");
     } else {
+
         int pid = fork();
         if (pid > 0) {
             // parent process: pid is the process ID of the child
@@ -1014,7 +1065,7 @@ void DeviceManager_impl::createDeviceThread(
           // switch to working directory
           chdir(devcache.c_str());
 
-          const char* new_argv[pOverloadprops->size() + 30];
+          std::vector< std::string > new_argv;
 
           createDeviceExecStatement(new_argv, 
                                     componentPlacement,
@@ -1028,8 +1079,35 @@ void DeviceManager_impl::createDeviceThread(
                                     compositeDeviceIOR,
                                     instanceprops) ;
 
+          // convert std:string to char * for execv
+          std::vector<char*> argv(new_argv.size() + 1, NULL);
+          for (std::size_t i = 0; i < new_argv.size(); ++i) {
+            LOG_TRACE(DeviceManager_impl, "ARG: " << i << " VALUE " << new_argv[i] );
+            argv[i] = const_cast<char*> (new_argv[i].c_str());
+          }
+
+
+          // honor affinity requests
+          try {
+	    CF::Properties options;
+            options = getResourceOptions( instantiation );
+            if ( redhawk::affinity::has_affinity(options) ){
+              if ( redhawk::affinity::is_disabled() ) {
+                LOG_WARN(DeviceManager_impl, "Affinity processing is disabled, unable to apply AFFINITY properties for resource: " << usageName );
+              }
+              else {
+                LOG_DEBUG(DeviceManager_impl, "Applying AFFINITY properties, resource: " << usageName );
+                redhawk::affinity::set_affinity( options, getpid(), cpu_blacklist );
+              }
+            }
+          }
+          catch( redhawk::affinity::AffinityFailed &e) {
+            LOG_WARN(DeviceManager_impl, "AFFINITY REQUEST FAILED, RESOURCE: " << usageName << ", REASON: " << e.what() );
+          }
+
           // now exec - we should not return from this
-          execv(new_argv[0], (char * const*) new_argv);
+          //execv(new_argv[0], (char * const*) new_argv);
+          execv(argv[0], &argv[0]);
 
           LOG_ERROR(DeviceManager_impl, new_argv[0] << " did not execute : " << strerror(errno));
           exit(-1);
@@ -1062,6 +1140,7 @@ DeviceManager_impl::DeviceManager_impl(
         const char*     _logconfig_uri, 
         struct utsname uname, 
         bool           useLogCfgResolver,
+        const char     *cpuBlackList,
         bool*          internalShutdown) :
     _registeredDevices()
 {
@@ -1100,6 +1179,15 @@ DeviceManager_impl::DeviceManager_impl(
                "",
                "external",
                "configure");
+
+    // translate cpuBlackList to cpu ids 
+    try {
+      cpu_blacklist = redhawk::affinity::get_cpu_list("cpu", cpuBlackList );
+    }
+    catch(...){
+      std::cerr << " Error processing cpu blacklist for this manager." << std::endl;
+    }
+    
     
     // this is hard-coded here because 1.10 and earlier Device Managers do not
     //  have this property in their prf
@@ -1136,7 +1224,7 @@ void DeviceManager_impl::postConstructor (
     PortableServer::ObjectId_var oid = poa->activate_object(fs_servant);
     fs_servant->_remove_ref();
     _fileSys = fs_servant->_this();
-
+    
     fileSysIOR = ossie::corba::objectToString(_fileSys);
 
     checkDeviceConfigurationProfile();
@@ -1695,300 +1783,263 @@ DeviceManager_impl::registeredServices ()throw (CORBA::SystemException)
     return result._retn();
 }
 
+
 void
 DeviceManager_impl::registerDevice (CF::Device_ptr registeringDevice)
 throw (CORBA::SystemException, CF::InvalidObjectReference)
 {
-    if (CORBA::is_nil (registeringDevice)) {
-        LOG_WARN(DeviceManager_impl, "Attempted to register NIL device")
-        throw (CF::InvalidObjectReference("[DeviceManager::registerDevice] Cannot register Device. registeringDevice is a nil reference."));
-    }
+  if (CORBA::is_nil (registeringDevice)) {
+    LOG_WARN(DeviceManager_impl, "Attempted to register NIL device")
+      throw (CF::InvalidObjectReference("[DeviceManager::registerDevice] Cannot register Device. registeringDevice is a nil reference."));
+  }
 
-    if (*_internalShutdown) // do not service a registration request if the Device Manager is shutting down
-        return;
+  if (*_internalShutdown) // do not service a registration request if the Device Manager is shutting down
+    return;
     
-    LOG_INFO(DeviceManager_impl, "Registering device " << ossie::corba::returnString(registeringDevice->label()) << " on Device Manager " << _label)
+  LOG_INFO(DeviceManager_impl, "Registering device " << ossie::corba::returnString(registeringDevice->label()) << " on Device Manager " << _label);
 
-    CORBA::String_var deviceLabel = registeringDevice->label();
+  CORBA::String_var deviceLabel = registeringDevice->label();
 
-    // This lock needs to be here because we add the device to
-    // the registeredDevices list at the top...therefore
-    // getting the registeredDevices attribute could
-    // show the device as registered before it actually gets
-    // registered.
-    //
-    // This lock should be after as may CORBA calls as possible
-    // (e.g., registeringDevice->label()) in case omniORB blocks
-    // due to a lack of threads (which would result in blocking
-    // the mutex lock, which would prevent shutdown from killing
-    // this).
-    boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
+  if ( deviceIsRegistered( registeringDevice ) == true ) {
+    std::ostringstream eout;
+    eout << "Device is already registred: "<< deviceLabel;
+    LOG_WARN(DeviceManager_impl, eout.str());
+    return;
+  }
+
+  // This lock needs to be here because we add the device to
+  // the registeredDevices list at the top...therefore
+  // getting the registeredDevices attribute could
+  // show the device as registered before it actually gets
+  // registered.
+  //
+  // This lock should be after as may CORBA calls as possible
+  // (e.g., registeringDevice->label()) in case omniORB blocks
+  // due to a lack of threads (which would result in blocking
+  // the mutex lock, which would prevent shutdown from killing
+  // this).
+  boost::recursive_mutex::scoped_lock lock(registeredDevicesmutex);
  
-    LOG_INFO(DeviceManager_impl, "Initializing device " << deviceLabel << " on Device Manager " << _label)
-    try {
-        registeringDevice->initialize();
-    } catch (CF::LifeCycle::InitializeError& ex) {
-        std::ostringstream eout;
-        eout << "Device "<< deviceLabel << " threw a CF::LifeCycle::InitializeError exception"<<". Device registration with Device Manager failed";
-        LOG_ERROR(DeviceManager_impl, eout.str())
-        throw(CF::InvalidObjectReference(eout.str().c_str()));
-    } catch ( std::exception& ex ) {
-        std::ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to initialize Device " << deviceLabel<<". Device registration with Device Manager failed";
-        LOG_ERROR(DeviceManager_impl, eout.str())
-        throw(CF::InvalidObjectReference(eout.str().c_str()));
-    } catch ( const CORBA::Exception& ex ) {
-        std::ostringstream eout;
-        eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to initialize Device " << deviceLabel<<". Device registration with Device Manager failed";
-        LOG_ERROR(DeviceManager_impl, eout.str())
-        throw(CF::InvalidObjectReference(eout.str().c_str()));
-    }
     
-    //Get properties from SPD
-    std::string spdFile = ossie::corba::returnString(registeringDevice->softwareProfile());
+  //Get properties from SPD
+  std::string spdFile = ossie::corba::returnString(registeringDevice->softwareProfile());
 
-    // Open the SPD file using the SCA FileSystem
-    LOG_TRACE(DeviceManager_impl, "Parsing Device SPD")
+  // Open the SPD file using the SCA FileSystem
+  LOG_TRACE(DeviceManager_impl, "Building Device Info From SPD File");
+  ossie::SpdSupport::ResourceInfo spdinfo;
+  try  {
+    ossie::SpdSupport::ResourceInfo::LoadResource(_fileSys, spdFile.c_str(), spdinfo);
+  }
+  catch(...) {
+    std::ostringstream eout;
+    eout << "Loading Device's SPD failed, device:" <<  ossie::corba::returnString(registeringDevice->label());
+    LOG_ERROR(DeviceManager_impl, eout.str());
+    throw(CF::InvalidObjectReference(eout.str().c_str()));
+  }
+  std::string spd_name = spdinfo.getName();
+  std::string spd_id = spdinfo.getID();
+  LOG_INFO(DeviceManager_impl, "Device LABEL: " << deviceLabel << "  SPD loaded: " << spd_name << "' - '" << spd_id );
 
-    SoftPkg SPDParser;
+  CF::Properties componentProperties;
+  DeviceManagerConfiguration DCDParser;
+  try {
+    File_stream _dcd(_fileSys, _deviceConfigurationProfile.c_str());
+    DCDParser.load(_dcd);
+    _dcd.close();
+  } catch ( std::exception& ex ) {
+    std::ostringstream eout;
+    eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to parse "<<_deviceConfigurationProfile;
+    LOG_ERROR(DeviceManager_impl, eout.str())
+      throw(CF::InvalidObjectReference(eout.str().c_str()));
+  } catch ( const CORBA::Exception& ex ) {
+    std::ostringstream eout;
+    eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to parse "<<_deviceConfigurationProfile;
+    LOG_ERROR(DeviceManager_impl, eout.str())
+      throw(CF::InvalidObjectReference(eout.str().c_str()));
+  } catch ( ... ) {
+    std::ostringstream eout;
+    eout << "[DeviceManager::registerDevice] Failed to parse DCD";
+    LOG_ERROR(DeviceManager_impl, eout.str())
+      throw(CF::InvalidObjectReference(eout.str().c_str()));
+  }
+
+  // get properties from device PRF that matches the registering device
+  std::string deviceid = ossie::corba::returnString(registeringDevice->identifier());
+  try {
+    const ComponentInstantiation& instantiation = DCDParser.getComponentInstantiationById(deviceid);
+    if (instantiation.getUsageName() != NULL)
+      std::string tmp_name = instantiation.getUsageName(); // this is here to get rid of a warning
+  } catch (std::out_of_range& e) {
+    std::ostringstream eout;
+    eout << "[DeviceManager::registerDevice] Failed to parse DCD";
+    LOG_ERROR(DeviceManager_impl, eout.str());
+    throw(CF::InvalidObjectReference(eout.str().c_str()));
+  } catch ( std::exception& ex ) {
+    std::ostringstream eout;
+    eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to parse "<<_deviceConfigurationProfile;
+    LOG_ERROR(DeviceManager_impl, eout.str());
+    throw(CF::InvalidObjectReference(eout.str().c_str()));
+  } catch ( const CORBA::Exception& ex ) {
+    std::ostringstream eout;
+    eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to parse "<<_deviceConfigurationProfile;
+    LOG_ERROR(DeviceManager_impl, eout.str());
+    throw(CF::InvalidObjectReference(eout.str().c_str()));
+  }
+
+  // override device properties in DCD file
+  const ComponentInstantiation& instantiation = DCDParser.getComponentInstantiationById(deviceid);
+  const std::vector<ComponentProperty*>& overrideProps = instantiation.getProperties();
+  // Check for any overrides from DCD componentproperites
+  for (unsigned int j = 0; j < overrideProps.size (); j++) {
+    LOG_TRACE(DeviceManager_impl, "Override  Properties prop id " << overrideProps[j]->getID());
+    spdinfo.overrideProperty( overrideProps[j] );
+  }
+
+  //
+  // call resource's initializeProperties method to handle any properties required for construction
+  //
+  if (spdinfo.isConfigurable ()) {
     try {
-        File_stream _spd(_fileSys, spdFile.c_str());
-        SPDParser.load(_spd, spdFile.c_str());
-        _spd.close();
-    } catch ( ossie::parser_error& e ) {
-        std::ostringstream eout;
-        eout << "[DeviceManager::registerDevice] Failed to parse SPD; " << e.what();
-        LOG_ERROR(DeviceManager_impl, eout.str())
-        throw(CF::InvalidObjectReference(eout.str().c_str()));
+      //
+      LOG_DEBUG(DeviceManager_impl, "Initialize properties for spd/device label: " << spd_name << "/" << deviceLabel);
+      const CF::Properties cprops = spdinfo.getNonNilConstructProperties();
+      for (unsigned int j = 0; j < cprops.length (); j++) {
+        LOG_DEBUG(DeviceManager_impl, "initializeProperties prop id " << cprops[j].id );
+      }
+      // Try to set the initial values for the component's properties
+      registeringDevice->initializeProperties(cprops);
+    } catch(CF::PropertySet::InvalidConfiguration& e) {
+      std::ostringstream eout;
+      eout << "Device '" << deviceLabel << "' - '" << spd_id << "' may not have been initialized correctly; "
+           << "Call to initializeProperties() resulted in InvalidConfiguration exception. Device registration with Device Manager failed";
+      LOG_ERROR(DeviceManager_impl, eout.str());
+      throw(CF::InvalidObjectReference(eout.str().c_str()));
+    } catch(CF::PropertySet::PartialConfiguration& e) {
+      std::ostringstream eout;
+      eout << "Device '" << deviceLabel << "' - '" << spd_id << "' may not have been configured correctly; "
+           << "Call to initializeProperties() resulted in PartialConfiguration exception.";
+      LOG_ERROR(DeviceManager_impl, eout.str());
+      throw(CF::InvalidObjectReference(eout.str().c_str()));
     } catch ( std::exception& ex ) {
-        std::ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to parse "<<spdFile;
-        LOG_ERROR(DeviceManager_impl, eout.str())
-        throw(CF::InvalidObjectReference(eout.str().c_str()));
+      std::ostringstream eout;
+      eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to initalizeProperties for  "<<deviceLabel<<". Device registration with Device Manager failed";
+      LOG_ERROR(DeviceManager_impl, eout.str());
+      throw(CF::InvalidObjectReference(eout.str().c_str()));
     } catch ( const CORBA::Exception& ex ) {
-        std::ostringstream eout;
-        eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to parse "<<spdFile;
-        LOG_ERROR(DeviceManager_impl, eout.str())
-        throw(CF::InvalidObjectReference(eout.str().c_str()));
+      std::ostringstream eout;
+      eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to initializeProperties for "<<deviceLabel<<". Device registration with Device Manager failed";
+      LOG_ERROR(DeviceManager_impl, eout.str());
+      throw(CF::InvalidObjectReference(eout.str().c_str()));
+    } catch( ... ) {
+      std::ostringstream eout;
+      eout << "Failed to initialize device properties: '";
+      eout << deviceLabel << "' with device id: '" << spd_id;
+      eout << "'initializeProperties' failed with Unknown Exception" << "Device registration with Device Manager failed ";
+      LOG_ERROR(DeviceManager_impl, eout.str());
+      throw(CF::InvalidObjectReference(eout.str().c_str()));
+    }
+  }
+
+  LOG_DEBUG(DeviceManager_impl, "Initializing device " << deviceLabel << " on Device Manager " << _label);
+  try {
+    registeringDevice->initialize();
+  } catch (CF::LifeCycle::InitializeError& ex) {
+    std::ostringstream eout;
+    eout << "Device "<< deviceLabel << " threw a CF::LifeCycle::InitializeError exception"<<". Device registration with Device Manager failed";
+    LOG_ERROR(DeviceManager_impl, eout.str());
+    throw(CF::InvalidObjectReference(eout.str().c_str()));
+  } catch ( std::exception& ex ) {
+    std::ostringstream eout;
+    eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to initialize Device " << deviceLabel<<". Device registration with Device Manager failed";
+    LOG_ERROR(DeviceManager_impl, eout.str());
+    throw(CF::InvalidObjectReference(eout.str().c_str()));
+  } catch ( const CORBA::Exception& ex ) {
+    std::ostringstream eout;
+    eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to initialize Device " << deviceLabel<<". Device registration with Device Manager failed";
+    LOG_ERROR(DeviceManager_impl, eout.str());
+    throw(CF::InvalidObjectReference(eout.str().c_str()));
+  }
+
+  //configure properties
+  try {  
+    LOG_DEBUG(DeviceManager_impl, "Configuring device " << deviceLabel << " on Device Manager " << _label);
+      const CF::Properties cprops  = spdinfo.getNonNilConfigureProperties();
+    LOG_TRACE(DeviceManager_impl, "Listing configuration properties");
+    for (unsigned int j=0; j<cprops.length(); j++) {
+      LOG_TRACE(DeviceManager_impl, "Prop id " << cprops[j].id );
+    }
+    registeringDevice->configure (cprops);
+  } catch (CF::PropertySet::PartialConfiguration& ex) {
+    std::ostringstream eout;
+    eout << "Device '" << deviceLabel << "' - '" << spd_id << "' may not have been configured correctly; "
+         << "Call to configure() resulted in PartialConfiguration exception.";
+    LOG_ERROR(DeviceManager_impl, eout.str())
+      throw(CF::InvalidObjectReference(eout.str().c_str()));
+  } catch (CF::PropertySet::InvalidConfiguration& ex) {
+    std::ostringstream eout;
+    eout << "Device '" << deviceLabel << "' - '" << spd_id << "' may not have been configured correctly; "
+         << "Call to configure() resulted in InvalidConfiguration exception. Device registration with Device Manager failed";
+    LOG_ERROR(DeviceManager_impl, eout.str());
+    throw(CF::InvalidObjectReference(eout.str().c_str()));
+  } catch ( std::exception& ex ) {
+    std::ostringstream eout;
+    eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to configure "<<deviceLabel<<". Device registration with Device Manager failed";
+    LOG_ERROR(DeviceManager_impl, eout.str());
+    throw(CF::InvalidObjectReference(eout.str().c_str()));
+  } catch ( const CORBA::Exception& ex ) {
+    std::ostringstream eout;
+    eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to configure "<<deviceLabel<<". Device registration with Device Manager failed";
+    LOG_ERROR(DeviceManager_impl, eout.str());
+    throw(CF::InvalidObjectReference(eout.str().c_str()));
+  }
+
+  // Register the device with the Device manager, unless it is already
+  // registered
+  if (!deviceIsRegistered (registeringDevice)) {
+    // if the device is not registered, then add it to the naming context
+    LOG_TRACE(DeviceManager_impl, "Binding device to name " << deviceLabel)
+      CosNaming::Name_var device_name = ossie::corba::stringToName(static_cast<char*>(deviceLabel));
+    try {
+      devMgrContext->bind(device_name, registeringDevice);
     } catch ( ... ) {
-        std::ostringstream eout;
-        eout << "[DeviceManager::registerDevice] Failed to parse SPD";
-        LOG_ERROR(DeviceManager_impl, eout.str())
-        throw(CF::InvalidObjectReference(eout.str().c_str()));
+      // there is already something bound to that name
+      // from the perspective of this framework implementation, the multiple names are not acceptable
+      // consider this a registered device
+      LOG_WARN(DeviceManager_impl, "Device is already registered");
+      return;
     }
+    increment_registeredDevices(registeringDevice);
+  } else {
+    LOG_WARN(DeviceManager_impl, "Device is already registered");
+    return;
+  }
 
-    if ( SPDParser.getPRFFile() ) {
-        LOG_TRACE(DeviceManager_impl, "[DeviceManager::registerDevice] opening PRF " << SPDParser.getPRFFile())
-
-
-        Properties PRFparser;
-        try {
-            File_stream prfStream(_fileSys, SPDParser.getPRFFile());
-            PRFparser.load(prfStream);
-            prfStream.close();
-        } catch ( ossie::parser_error& ex ) {
-            std::ostringstream eout;
-            eout << "[DeviceManager::registerDevice] Failed to parse PRF" << ex.what();
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        } catch( CF::InvalidFileName& ex ) {
-            std::ostringstream eout;
-            eout << "[DeviceManager::registerDevice] While opening PRF " << ex.msg;
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        } catch( CF::FileException& ex ) {
-            std::ostringstream eout;
-            eout << "[DeviceManager::registerDevice] While opening PRF " << ex.msg;
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        } catch ( std::exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to open "<<SPDParser.getPRFFile();
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        } catch ( const CORBA::Exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to open "<<SPDParser.getPRFFile();
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        } catch( ... ) {
-            std::ostringstream eout;
-            eout << "[DeviceManager::registerDevice] Unknown Exception While opening SPD";
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        }
-        
-        DeviceManagerConfiguration DCDParser;
-        try {
-            File_stream _dcd(_fileSys, _deviceConfigurationProfile.c_str());
-            DCDParser.load(_dcd);
-            _dcd.close();
-        } catch ( std::exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to parse "<<_deviceConfigurationProfile;
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        } catch ( const CORBA::Exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to parse "<<_deviceConfigurationProfile;
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        } catch ( ... ) {
-            std::ostringstream eout;
-            eout << "[DeviceManager::registerDevice] Failed to parse DCD";
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        }
-
-        // get properties from device PRF that matches the registering device
-        std::string deviceid = ossie::corba::returnString(registeringDevice->identifier());
-        try {
-            const ComponentInstantiation& instantiation = DCDParser.getComponentInstantiationById(deviceid);
-            if (instantiation.getUsageName() != NULL)
-                std::string tmp_name = instantiation.getUsageName(); // this is here to get rid of a warning
-        } catch (std::out_of_range& e) {
-            std::ostringstream eout;
-            eout << "[DeviceManager::registerDevice] Failed to parse DCD";
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        } catch ( std::exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to parse "<<_deviceConfigurationProfile;
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        } catch ( const CORBA::Exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to parse "<<_deviceConfigurationProfile;
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        }
-
-        // now see if any of those properties have been overridden in the componentinstantiation
-        const std::vector<const Property*>& prfSimpleProp = PRFparser.getConfigureProperties ();
-        CF::Properties componentProperties;
-
-        for (unsigned int i = 0; i < prfSimpleProp.size (); i++) {
-            // Only add the property if it's not readonly
-            if (std::string(prfSimpleProp[i]->getMode()) != "readonly") {
-                componentProperties.length (componentProperties.length() + 1);
-                componentProperties[componentProperties.length() - 1] = convertPropertyToDataType(prfSimpleProp[i]);
-            }
-        }
-
-        const ComponentInstantiation& instantiation = DCDParser.getComponentInstantiationById(deviceid);
-        const std::vector<ComponentProperty*>& overrideProps = instantiation.getProperties();
-        if (overrideProps.size() > 0) {
-            for (unsigned int i = 0; i < prfSimpleProp.size (); i++) {
-                CF::DataType prop = convertPropertyToDataType(prfSimpleProp[i]);
-                //LOG_TRACE(DeviceManager_impl, "Checking for override of " << prfSimpleProp[i]->toString() << " with mode: " << std::string(prfSimpleProp[i]->getMode()));
-                // Check for any overrides from DCD componentproperites
-                for (unsigned int j = 0; j < overrideProps.size (); j++) {
-                    std::string propid = static_cast<char*>(prop.id);
-                    std::string refid(overrideProps[j]->getID());
-
-                    LOG_TRACE(DeviceManager_impl, "Comparing DCD component instantiation ID " << propid << " to " << refid);
-                    if (refid == propid) {
-                        // only store property if it has a mode of ['readwrite' or 'writeonly']
-                        if (std::string(prfSimpleProp[i]->getMode()) == "readonly") {
-                            LOG_WARN(DeviceManager_impl, 
-                                     "Ignoring DCD override of property '" 
-                                        << prfSimpleProp[i]->getName() << "' - '" 
-                                        << prfSimpleProp[i]->getID() << "' " 
-                                        << "in file '" 
-                                        << _deviceConfigurationProfile << "'; "
-                                        << "device property is readonly")
-                        } else {
-                            LOG_TRACE(DeviceManager_impl, "override value with " << *overrideProps[j]);
-                            prop = overridePropertyValue(prfSimpleProp[i], overrideProps[j]);
-                        }
-                    }
-                }
-                // Only add the property if it's not readonly
-                if (std::string(prfSimpleProp[i]->getMode()) != "readonly") {
-                    for (unsigned int j=0; j<componentProperties.length(); j++) {
-                        if (!strcmp(prfSimpleProp[i]->getID(),componentProperties[j].id)) {
-                            componentProperties[j] = prop;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        //configure properties
-        LOG_TRACE(DeviceManager_impl, "Configuring device")
-        try {
-            CF::Properties configureProperties = ossie::getNonNilConfigureProperties(componentProperties);
-            registeringDevice->configure (configureProperties);
-        } catch (CF::PropertySet::PartialConfiguration& ex) {
-            std::ostringstream eout;
-            eout << "Device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "' may not have been configured correctly; "
-                                      << "Call to configure() resulted in PartialConfiguration exception.";
-            LOG_ERROR(DeviceManager_impl, eout.str())
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        } catch (CF::PropertySet::InvalidConfiguration& ex) {
-            std::ostringstream eout;
-            eout << "Device '" << SPDParser.getSoftPkgName() << "' - '" << SPDParser.getSoftPkgID() << "' may not have been configured correctly; "
-                                      << "Call to configure() resulted in InvalidConfiguration exception. Device registration with Device Manager failed";
-            LOG_ERROR(DeviceManager_impl, eout.str());
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        } catch ( std::exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following standard exception occurred: "<<ex.what()<<" while attempting to configure "<<SPDParser.getSoftPkgName()<<". Device registration with Device Manager failed";
-            LOG_ERROR(DeviceManager_impl, eout.str());
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        } catch ( const CORBA::Exception& ex ) {
-            std::ostringstream eout;
-            eout << "The following CORBA exception occurred: "<<ex._name()<<" while attempting to configure "<<SPDParser.getSoftPkgName()<<". Device registration with Device Manager failed";
-            LOG_ERROR(DeviceManager_impl, eout.str());
-            throw(CF::InvalidObjectReference(eout.str().c_str()));
-        }
-    }
-
-    // Register the device with the Device manager, unless it is already
-    // registered
-    if (!deviceIsRegistered (registeringDevice)) {
-        // if the device is not registered, then add it to the naming context
-        LOG_TRACE(DeviceManager_impl, "Binding device to name " << deviceLabel)
-        CosNaming::Name_var device_name = ossie::corba::stringToName(static_cast<char*>(deviceLabel));
-        try {
-            devMgrContext->bind(device_name, registeringDevice);
-        } catch ( ... ) {
-            // there is already something bound to that name
-            // from the perspective of this framework implementation, the multiple names are not acceptable
-            // consider this a registered device
-            LOG_WARN(DeviceManager_impl, "Device is already registered")
-            return;
-        }
-        increment_registeredDevices(registeringDevice);
-    } else {
-        LOG_WARN(DeviceManager_impl, "Device is already registered")
-        return;
-    }
-
-    // If this Device Manager is registered with a Domain Manager, register
-    // the new device with the Domain Manager
-    if (_adminState == DEVMGR_REGISTERED) { 
-        try {
-            LOG_INFO(DeviceManager_impl, "Registering device " << deviceLabel << " on Domain Manager")
-            _dmnMgr->registerDevice (registeringDevice, myObj);
-        } catch( CF::DomainManager::RegisterError& e ) {
-            LOG_ERROR(DeviceManager_impl, "Failed to register device to domain manager due to: " << e.msg);
-        } catch ( std::exception& ex ) {
-            LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while attempting to register with the Domain Manager")
+  // If this Device Manager is registered with a Domain Manager, register
+  // the new device with the Domain Manager
+  if (_adminState == DEVMGR_REGISTERED) { 
+    try {
+      LOG_INFO(DeviceManager_impl, "Registering device " << deviceLabel << " on Domain Manager");
+      _dmnMgr->registerDevice (registeringDevice, myObj);
+    } catch( CF::DomainManager::RegisterError& e ) {
+      LOG_ERROR(DeviceManager_impl, "Failed to register device to domain manager due to: " << e.msg);
+    } catch ( std::exception& ex ) {
+      LOG_ERROR(DeviceManager_impl, "The following standard exception occurred: "<<ex.what()<<" while attempting to register with the Domain Manager")
         } catch( const CORBA::Exception& e ) {
-            LOG_ERROR(DeviceManager_impl, "Failed to register device to domain manager due to: " << e._name());
-        }
-    } else {
-        LOG_WARN(DeviceManager_impl, "Skipping DomainManager registerDevice because the device manager isn't registered")
+      LOG_ERROR(DeviceManager_impl, "Failed to register device to domain manager due to: " << e._name());
     }
+  } else {
+    LOG_WARN(DeviceManager_impl, "Skipping DomainManager registerDevice because the device manager isn't registered")
+      }
 
-    LOG_TRACE(DeviceManager_impl, "Done registering device " << deviceLabel)
+  LOG_TRACE(DeviceManager_impl, "Done registering device " << deviceLabel);
 
-//The registerDevice operation shall write a FAILURE_ALARM log record to a
-//DomainManagers Log, upon unsuccessful registration of a Device to the DeviceManagers
-//registeredDevices.
+  //The registerDevice operation shall write a FAILURE_ALARM log record to a
+  //DomainManagers Log, upon unsuccessful registration of a Device to the DeviceManagers
+  //registeredDevices.
 }
+
+
+
 
 //This function returns TRUE if the input serviceName is contained in the _registeredServices list attribute
 bool DeviceManager_impl::serviceIsRegistered (const char* serviceName)

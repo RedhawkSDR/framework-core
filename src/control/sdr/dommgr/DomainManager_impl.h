@@ -35,6 +35,8 @@
 #include <ossie/PropertySet_impl.h>
 #include <ossie/Runnable.h>
 #include <ossie/Events.h>
+#include <ossie/logging/loghelpers.h>
+#include <ossie/FileManager_impl.h>
 
 #include "PersistenceStore.h"
 #include "connectionSupport.h"
@@ -223,6 +225,10 @@ public:
     void setLastDeviceUsedForDeployment(const std::string& identifier);
 
     bool getUseLogConfigResolver() { return _useLogConfigUriResolver; };
+    
+    void closeAllOpenFileHandles();
+
+    rh_logger::LoggerPtr  getLogger() const { return __logger; };
 
 /////////////////////////////
 // Internal Helper Functions
@@ -343,6 +349,11 @@ private:
     CORBA::ULong     componentBindingTimeout;
     std::string      redhawk_version;
     bool             _useLogConfigUriResolver;
+    void _exit(int __status) {
+        ossie::logging::Terminate();            //no more logging....
+        exit(__status);
+    };
+    FileManager_impl* fileMgr_servant;
 };                                            /* END CLASS DEFINITION DomainManager */
 
 

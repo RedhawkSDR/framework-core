@@ -25,11 +25,13 @@
 #ifndef __COMPONENT_PROFILE_H__
 #define __COMPONENT_PROFILE_H__
 
-#include "ossie/ossieparser.h"
 #include <vector>
 #include <map>
 #include <string>
 #include <memory>
+#include "ossie/ossieparser.h"
+#include "ossie/affinity.h"
+
 
 namespace ossie {
     /**
@@ -125,12 +127,16 @@ namespace ossie {
      */
     class ComponentInstantiation {
     public:
+      typedef std::pair<std::string,std::string>  LoggingConfig;
+      typedef std::vector< ComponentProperty * >  AffinityProperties;
+
         std::string instantiationId;
         ossie::optional_value<std::string> namingservicename;
         ossie::optional_value<std::string> usageName;
         std::vector<ComponentProperty*> properties;
         std::string _startOrder;
-
+        AffinityProperties affinityProperties;
+        LoggingConfig loggingConfig;
     public:
         ComponentInstantiation();
 
@@ -148,6 +154,10 @@ namespace ossie {
         const char* getUsageName() const;
 
         const std::vector<ComponentProperty*>& getProperties() const;
+
+        const LoggingConfig &getLoggingConfig() const;
+
+        const AffinityProperties &getAffinity() const;
 
         bool isNamingService() const;
 

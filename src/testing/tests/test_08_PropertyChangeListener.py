@@ -31,6 +31,9 @@ import CosEventChannelAdmin, CosEventChannelAdmin__POA
 from ossie.cf import StandardEvent
 from ossie.events import ChannelManager
 from ossie.utils import redhawk
+from _unitTestHelpers import runtestHelpers
+
+java_support = runtestHelpers.haveJavaSupport('../Makefile')
 
 class PropertyChangeListener_Receiver(CF__POA.PropertyChangeListener):
     def __init__(self):
@@ -76,7 +79,10 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
 
         self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", self._domMgr)
         self.assertNotEqual(self._devBooter, None)
-        self._domMgr.installApplication("/waveforms/PropertyChangeListener/PropertyChangeListener.sad.xml")
+        if java_support:
+            self._domMgr.installApplication("/waveforms/PropertyChangeListener/PropertyChangeListener.sad.xml")
+        else:
+            self._domMgr.installApplication("/waveforms/PropertyChangeListenerNoJava/PropertyChangeListenerNoJava.sad.xml")
         appFact = self._domMgr._get_applicationFactories()[0]
         self.assertNotEqual(appFact, None)
         app = appFact.create(appFact._get_name(), [], [])
@@ -138,7 +144,10 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
 
         self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", self._domMgr)
         self.assertNotEqual(self._devBooter, None)
-        self._domMgr.installApplication("/waveforms/PropertyChangeListener/PropertyChangeListener.sad.xml")
+        if java_support:
+            self._domMgr.installApplication("/waveforms/PropertyChangeListener/PropertyChangeListener.sad.xml")
+        else:
+            self._domMgr.installApplication("/waveforms/PropertyChangeListenerNoJava/PropertyChangeListenerNoJava.sad.xml")
         appFact = self._domMgr._get_applicationFactories()[0]
         self.assertNotEqual(appFact, None)
         app = appFact.create(appFact._get_name(), [], [])
@@ -196,6 +205,8 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
 
 
     def test_PropertyChangeListener_JAVA(self):
+        if not java_support:
+            return
         self.localEvent = threading.Event()
         self.eventFlag = False
 

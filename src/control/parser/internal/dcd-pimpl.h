@@ -264,12 +264,59 @@ namespace dcd
     virtual void
     id (const ::std::string&);
 
+    virtual void
+      affinity (const ossie::ComponentInstantiation::AffinityProperties &);
+
+    virtual void
+      loggingconfig (const ossie::ComponentInstantiation::LoggingConfig &);
+
     virtual ::ossie::ComponentInstantiation
     post_componentinstantiation ();
 
     private:
     std::auto_ptr<ossie::ComponentInstantiation> componentInstantiation;
   };
+
+  class affinity_pimpl: public virtual affinity_pskel
+  {
+    public:
+    virtual void
+    pre ();
+
+    virtual void
+    simpleref (ossie::SimplePropertyRef*);
+
+    virtual void
+    simplesequenceref (ossie::SimpleSequencePropertyRef*);
+
+    virtual void
+    structref (ossie::StructPropertyRef*);
+
+    virtual void
+    structsequenceref (ossie::StructSequencePropertyRef*);
+
+    ossie::ComponentInstantiation::AffinityProperties
+    post_affinity ();
+
+    private:
+    ossie::ComponentInstantiation::AffinityProperties affinityProperties;
+  };
+
+
+  class loggingconfig_pimpl: public virtual loggingconfig_pskel, xml_schema::string_pimpl
+  {
+    public:
+
+    virtual void pre ();
+
+    virtual void level (const ::std::string&);
+
+    virtual ossie::ComponentInstantiation::LoggingConfig post_loggingconfig ();
+    
+    private:
+    ossie::ComponentInstantiation::LoggingConfig  info;
+  };
+
 
   class componentproperties_pimpl: public virtual componentproperties_pskel
   {

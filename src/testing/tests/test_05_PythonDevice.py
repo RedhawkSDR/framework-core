@@ -25,7 +25,7 @@ from ossie.cf import CF
 from omniORB import any
 from ossie.utils import sb
 
-class JavaDeviceTest(scatest.CorbaTestCase):
+class PythonDeviceTest(scatest.CorbaTestCase):
 
     def test_BasicDevice(self):
         dev = sb.launch('sdr/dev/devices/alloc_test/alloc_test.spd.xml')

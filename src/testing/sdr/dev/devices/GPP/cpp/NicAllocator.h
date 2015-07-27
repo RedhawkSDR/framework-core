@@ -1,14 +1,35 @@
+/*
+ * This file is protected by Copyright. Please refer to the COPYRIGHT file
+ * distributed with this source distribution.
+ *
+ * This file is part of REDHAWK GPP.
+ *
+ * REDHAWK GPP is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * REDHAWK GPP is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see http://www.gnu.org/licenses/.
+ */
 #ifndef NIC_ALLOCATOR_H_
 #define NIC_ALLOCATOR_H_
-
-#include "struct_props.h"
-
-#include <boost/function.hpp>
-
 #include <map>
 #include <stdexcept>
+#include <boost/function.hpp>
+#include <boost/shared_ptr.hpp>
+#include "struct_props.h"
+#include "states/NicState.h"
 
-class NicState;
+class NicAllocator;
+
+typedef boost::shared_ptr < NicAllocator > NicAllocatorPtr;
+
 
 struct DeviceThroughputCapacity
 {
@@ -32,7 +53,7 @@ public:
     };
     
 public:
-    typedef std::map<std::string, boost::shared_ptr<NicState> > AllocatableNics;
+    typedef std::map<std::string, NicStatePtr >  AllocatableNics;
     typedef std::map<std::string, nic_allocation_struct> Allocations;
     typedef std::map<std::string, DeviceThroughputCapacity> DeviceThroughputCapacities;
     typedef boost::function< double (const std::string&) > CurrentThroughputFunction;
@@ -73,5 +94,7 @@ private:
     Allocations allocations_;
     DeviceThroughputCapacities device_throughput_capacities_;
 };
+
+
 
 #endif

@@ -54,12 +54,34 @@ class LocalProcess(object):
                     (signal.SIGKILL, 0))
 
     def __init__(self, command, arguments, environment=None, stdout=None):
+        self.__terminateRequested = False
         self.__command = command
+        self.__arguments = arguments
         log.debug('%s %s', command, ' '.join(arguments))
         self.__process = Popen([command]+arguments, executable=command,
                                cwd=os.getcwd(), env=environment,
                                stdout=stdout, stderr=subprocess.STDOUT,
                                preexec_fn=os.setpgrp)
+        self.__tracker = threading.Thread(target=self.monitorChild)
+        self.__tracker.daemon = True
+        self.__tracker.start()
+    
+    def monitorChild(self):
+        pid = self.__process.pid
+        try:
+          self.__process.communicate()[0]
+          if self.__terminateRequested:
+              return
+          for idx in range(len(self.__arguments)):
+              if self.__arguments[idx] == 'NAME_BINDING':
+                  if len(self.__arguments)>=idx+1:
+                      print 'Component '+self.__arguments[idx+1]+' (pid='+str(pid)+') has died'
+                  else:
+                      print 'Component with process id '+str(pid)+'has died'
+        except:
+            if self.__terminateRequested:
+                return
+            print 'Component with process id '+str(pid)+'has died'
 
     def terminate(self):
         for sig, timeout in self.STOP_SIGNALS:
@@ -77,6 +99,9 @@ class LocalProcess(object):
                 break
         self.__process.wait()
         self.__process = None
+    
+    def requestTermination(self):
+        self.__terminateRequested = True
     
     def command(self):
         return self.__command

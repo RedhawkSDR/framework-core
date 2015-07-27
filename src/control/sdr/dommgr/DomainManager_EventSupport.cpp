@@ -226,16 +226,20 @@ void DomainManager_impl::disconnectDomainManagementChannels() {
     if ( _eventChannelMgr ) {
       RH_NL_DEBUG("DomainManager", "Disconnect Domain Mananagment Event Channels. " );
       try {
-        _odm_publisher->disconnect();
-        _odm_publisher.reset();
+        if ( _odm_publisher ) {
+          _odm_publisher->disconnect();
+          _odm_publisher.reset();
+        }
       }
       catch(...){ 
         RH_NL_ERROR("DomainManager", "Error disconnecting from  ODM Channel. ");
       }
 
       try {
-        _idm_subscriber->disconnect();
-        _idm_subscriber.reset();
+        if ( _idm_subscriber ) {
+          _idm_subscriber->disconnect();
+          _idm_subscriber.reset();
+        }
       }
       catch(...){ 
         RH_NL_ERROR("DomainManager", "Error disconnecting from IDM Channel. ");
@@ -380,18 +384,22 @@ void DomainManager_impl::destroyEventChannels()
     if ( _eventChannelMgr ) {
       RH_NL_DEBUG("DomainManager", "Delete Domain Mananagment Event Channels. " );
       try {
-      RH_NL_DEBUG("DomainManager", "Disconnect ODM CHANNEL. " );
-        _odm_publisher->disconnect();
-        _odm_publisher.reset();
+        RH_NL_DEBUG("DomainManager", "Disconnect ODM CHANNEL. " );
+        if ( _odm_publisher ) {
+          _odm_publisher->disconnect();
+          _odm_publisher.reset();
+        }
       }
       catch(...){ 
         RH_NL_ERROR("DomainManager", "Error Destroying ODM Channel. ");
       }
 
       try {
-      RH_NL_DEBUG("DomainManager", "Disconnect IDM CHANNEL. " );
-        _idm_subscriber->disconnect();
-        _idm_subscriber.reset();
+        RH_NL_DEBUG("DomainManager", "Disconnect IDM CHANNEL. " );
+        if ( _idm_subscriber ) {
+          _idm_subscriber->disconnect();
+          _idm_subscriber.reset();
+        }
       }
       catch(...){ 
         RH_NL_ERROR("DomainManager", "Error Destroying IDM Channel. ");

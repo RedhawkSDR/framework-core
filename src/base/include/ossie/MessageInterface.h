@@ -42,6 +42,10 @@
 
 class MessageConsumerPort;
 
+#ifdef BEGIN_AUTOCOMPLETE_IGNORE
+    /**
+     * \cond INTERNAL
+     */
 class Consumer_i : public virtual POA_CosEventChannelAdmin::ProxyPushConsumer {
     public:
         Consumer_i(MessageConsumerPort *_parent);
@@ -71,14 +75,28 @@ class SupplierAdmin_i : public virtual POA_CosEventChannelAdmin::SupplierAdmin {
         unsigned int instance_counter;
     
 };
+    /**
+     * \endcond
+     */
+#endif
 
-class MessageConsumerPort : public Port_Provides_base_impl, public virtual POA_ExtendedEvent::MessageEvent {
+class MessageConsumerPort : public Port_Provides_base_impl
+#ifdef BEGIN_AUTOCOMPLETE_IGNORE
+, public virtual POA_ExtendedEvent::MessageEvent
+#endif
+{
     ENABLE_LOGGING
 
 public:
     MessageConsumerPort (std::string port_name);
     virtual ~MessageConsumerPort (void) { };
 
+    /**
+     * Register a callback function
+     * @param id The message id that this callback is intended to support
+     * @param target A pointer to the object that owns the callback function
+     * @param func The function that implements the callback
+     */
     template <class Class, class MessageStruct>
     void registerMessage (const std::string& id, Class* target, void (Class::*func)(const std::string&, const MessageStruct&))
     {
@@ -183,7 +201,11 @@ protected:
   Message producer
 ************************************************************************************/
 
-class MessageSupplierPort : public Port_Uses_base_impl, public virtual POA_CF::Port {
+class MessageSupplierPort : public Port_Uses_base_impl
+#ifdef BEGIN_AUTOCOMPLETE_IGNORE
+, public virtual POA_CF::Port
+#endif
+{
 
 public:
     MessageSupplierPort (std::string port_name);
@@ -198,6 +220,7 @@ public:
     CosEventChannelAdmin::ProxyPushConsumer_ptr removeConsumer(std::string consumer_id);
     void extendConsumers(std::string consumer_id, CosEventChannelAdmin::ProxyPushConsumer_ptr proxy_consumer);
 
+    /// Send a single message
     template <typename Message>
     void sendMessage(const Message& message) {
         const Message* begin(&message);
@@ -205,11 +228,13 @@ public:
         sendMessages(begin, end);
     }
 
+    /// Send a sequence of messages
     template <class Sequence>
     void sendMessages(const Sequence& messages) {
         sendMessages(messages.begin(), messages.end());
     }
     
+    /// Send a set of messages from an iterable set
     template <typename Iterator>
     void sendMessages(Iterator first, Iterator last)
     {

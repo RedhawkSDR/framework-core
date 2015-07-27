@@ -91,7 +91,6 @@ void Device_impl::initResources (char* devMgr_ior, char* _id,
     this->_devMgr = NULL;
 }                          
 
-
 Device_impl::Device_impl (char* devMgr_ior, char* _id, char* lbl, char* sftwrPrfl) : Resource_impl(_id)
 {
     LOG_TRACE(Device_impl, "Constructing Device")
@@ -147,13 +146,10 @@ Device_impl::Device_impl (char* devMgr_ior, char* _id, char* lbl, char* sftwrPrf
     LOG_TRACE(Device_impl, "Done Constructing Device")
 }
 
-
-//const CF::DeviceManager_ptr  Device_impl::getDeviceManager() const {
 const CF::DeviceManager_ptr Device_impl::getDeviceManager() const {
   if ( _devMgr ) return _devMgr->getRef();
   return CF::DeviceManager::_nil();
 }
-
 
 
 void  Device_impl::postConstruction (std::string &profile, 
@@ -245,18 +241,17 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
         LOG_DEBUG(Device_impl, "Done Releasing Device")
     }
 
-    RH_NL_DEBUG("Device", "Clean up IDM_CHANNEL.");
+    RH_NL_DEBUG("Device", "Clean up IDM_CHANNEL. DEV-ID:"  << _identifier );
     if ( idm_publisher )  idm_publisher.reset();
     delete this->_devMgr;
     this->_devMgr=NULL;
     Resource_impl::releaseObject();
 }
 
-
 Device_impl::~Device_impl ()
 {
 
-  RH_NL_TRACE("Device", "DTOR START");
+  RH_NL_TRACE("Device", "DTOR START  DEV-ID:"  << _identifier );
 
   RH_NL_DEBUG("Device", "Clean up event channel allocations");
   if ( idm_publisher ) idm_publisher.reset();
@@ -265,10 +260,9 @@ Device_impl::~Device_impl ()
       delete this->_devMgr;
    }
 
-  RH_NL_TRACE("Device", "DTOR END");
+  RH_NL_TRACE("Device", "DTOR END  DEV-ID:"  << _identifier );
 
 }
-
 
 /* Alternate implementation*/
 CORBA::Boolean Device_impl::allocateCapacity (const CF::Properties& capacities)
@@ -994,7 +988,7 @@ void Device_impl::connectIDMChannel( const std::string &idm_channel_ior ) {
   else {
 
     try {
-      RH_NL_INFO("Device", "Getting EventManager.... DEV-ID:" << _identifier );
+      RH_NL_DEBUG("Device", "Getting EventManager.... DEV-ID:" << _identifier );
       redhawk::events::ManagerPtr evt_mgr = redhawk::events::Manager::GetManager( this );
       
       if ( evt_mgr ) {
@@ -1010,7 +1004,6 @@ void Device_impl::connectIDMChannel( const std::string &idm_channel_ior ) {
   }
 
 }
-
 
 void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa, int argc, char* argv[])
 {
@@ -1055,6 +1048,7 @@ void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa,
             log_dpath = argv[++i];
         } else if (strcmp("SKIP_RUN", argv[i]) == 0){
             skip_run = true;
+            i++;             // skip flag has bogus argument need to skip over so execparams is processed correctly
         } else if (i > 0) {  // any other argument besides the first one is part of the execparams
             std::string paramName = argv[i];
             execparams[paramName] = argv[++i];
@@ -1140,7 +1134,13 @@ void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa,
     std::string tmp_devMgr_ior = devMgr_ior;
     std::string tmp_profile = profile;
     std::string nic = "";
-    device->postConstruction( tmp_profile, tmp_devMgr_ior, idm_channel_ior, nic, sig_fd);
+    try {
+      device->postConstruction( tmp_profile, tmp_devMgr_ior, idm_channel_ior, nic, sig_fd);
+    }
+    catch( CF::InvalidObjectReference &ex ) {
+      LOG_FATAL(Device_impl, "Device " << label << ", Failed initialization and registration, terminating execution");
+      exit(EXIT_FAILURE);
+    }
 
     if (skip_run) {
         return;

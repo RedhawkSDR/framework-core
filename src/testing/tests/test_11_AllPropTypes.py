@@ -24,6 +24,9 @@ from _unitTestHelpers import scatest
 from ossie.cf import CF
 from omniORB import CORBA
 import struct
+from _unitTestHelpers import runtestHelpers
+
+java_support = runtestHelpers.haveJavaSupport('../Makefile')
 
 class TestAllTypes(scatest.CorbaTestCase):
     def setUp(self):
@@ -59,7 +62,9 @@ class TestAllTypes(scatest.CorbaTestCase):
                 pass
 
     def test_AllPropTypes(self):
-        languages = ['Cpp', 'Python', 'Java']
+        languages = ['Cpp', 'Python']
+        if java_support:
+            languages.append('Java')
         for lang in languages:
             self.launchApplication(lang)
             self.preconditions()

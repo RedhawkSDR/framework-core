@@ -23,15 +23,16 @@
 #define TESTABLEOBJECT_IMPL_H
 
 #include "CF/cf.h"
+#include "ossie/Autocomplete.h"
 
 /**
-
-The testable object interface provides a means to perform stand alone testing
-of an SCA component. This function is useful for built in test (BIT)
-operations.
+The testable object provides a stub for the standardization of tests
 */
 
-class TestableObject_impl: public virtual POA_CF::TestableObject
+class TestableObject_impl
+#ifdef BEGIN_AUTOCOMPLETE_IGNORE
+    : public virtual POA_CF::TestableObject
+#endif
 {
 public:
     TestableObject_impl () { }

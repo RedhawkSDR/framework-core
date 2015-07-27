@@ -32,6 +32,9 @@ import sys
 import time
 import copy
 import ossie.utils.bulkio.bulkio_helpers as _bulkio_helpers
+from _unitTestHelpers import runtestHelpers
+
+java_support = runtestHelpers.haveJavaSupport('../Makefile')
 
 def _initSourceAndSink(dataFormat):
 
@@ -972,6 +975,8 @@ class SBTestTest(scatest.CorbaTestCase):
         comp.endpoints = [{}]
 
     def test_Services(self):
+        if not java_support:
+            return
         service = sb.launch(sb.getSDRROOT() + '/dev/services/BasicService_java/BasicService_java.spd.xml')
         comp = sb.launch('ServiceComponent')
         comp.connect(service)
@@ -1197,7 +1202,8 @@ class SBTestTest(scatest.CorbaTestCase):
         try:
             sb.api("TestCppProps")
             sb.api("SimpleDevice")
-            sb.api("BasicService_java")
+            if java_support:
+                sb.api("BasicService_java")
         except:
             self.fail("sb.api(<objectName>) failure")
 

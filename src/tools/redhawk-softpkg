@@ -109,12 +109,17 @@ def getClasspath(spdfile, implId):
     return walkDependencies(spdfile, implId, getImplClasspath)
 
 def main(args):
-    opts, args = getopt.getopt(args, '', ['impls', 'exists', 'pkgconfigpath', 'localfile', 'entrypoint', 'softpkgdeps', 'classpath'])
+    opts, args = getopt.getopt(args, '', ['impls', 'exists', 'pkgconfigpath', 'localfile', 'entrypoint', 'softpkgdeps', 'classpath', 'name'])
 
     try:
         filename = args[0]
     except:
         raise ValueError('No SPD file given')
+    
+    try:
+        sdrroot = os.environ['SDRROOT']
+    except:
+        raise ValueError('SDRROOT is not set')
 
     # Check for implementation specifier (/path/to/file.spd.xml:XXXX)
     implId = None
@@ -165,6 +170,9 @@ def main(args):
         elif key == '--classpath':
             classpath = getClasspath(spdfile, implId)
             print ':'.join(classpath)
+        elif key == '--name':
+            name = spd.get_name()
+            print name
 
 
 if __name__ == '__main__':

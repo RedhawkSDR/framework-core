@@ -1,23 +1,44 @@
+/*
+ * This file is protected by Copyright. Please refer to the COPYRIGHT file
+ * distributed with this source distribution.
+ *
+ * This file is part of REDHAWK GPP.
+ *
+ * REDHAWK GPP is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * REDHAWK GPP is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see http://www.gnu.org/licenses/.
+ */
 #ifndef NIC_FACADE_H_
 #define NIC_FACADE_H_
-
-#include "NicInterfaceFilter.h"
-#include "states/State.h"
-#include "statistics/Statistics.h"
-#include "reports/Reporting.h"
-#include "struct_props.h"
-
-#include <boost/shared_ptr.hpp>
 
 #include <string>
 #include <vector>
 #include <map>
+#include <boost/shared_ptr.hpp>
 
-class NicState;
+#include "NicInterfaceFilter.h"
+#include "NicAllocator.h"
+#include "states/NicState.h"
+#include "reports/Reporting.h"
+#include "struct_props.h"
+
+
 class NicAccumulator;
-class NicAllocator;
 
-class NicFacade : public State, public Statistics, public Reporting
+class NicFacade;
+typedef boost::shared_ptr< NicFacade > NicFacadePtr;
+
+
+class NicFacade : public Reporting
 {
 public:
     NicFacade( const double& max_throughput_percent,
@@ -44,7 +65,7 @@ private:
     std::vector<std::string> poll_nic_interfaces() const;
     boost::shared_ptr<NicState> get_or_insert_nic_state( const std::string& interface );
     bool has_nic_accumulator( const std::string& device ) const;
-    void add_nic_accumulator( boost::shared_ptr<NicAccumulator> nic_accumulator );
+    void add_nic_accumulator( const NicStatePtr &nic_state );
     
     void write_filtered_nic_interfaces_reporting_data();
     void write_reporting_data();

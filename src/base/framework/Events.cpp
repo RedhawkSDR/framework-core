@@ -265,7 +265,7 @@ namespace events {
   public:
 
     virtual ~EM_Publisher() {
-      RH_NL_TRACE("EM_Publisher", "DTOR START");
+      RH_NL_TRACE("EM_Publisher", "DTOR START ch:" << _creg.reg.channel_name << " reg:" << _creg.reg.reg_id );
       // unregister the object with the Manager
       _ecm._unregister( _creg, this );
       RH_NL_TRACE("EM_Publisher", "DTOR END");
@@ -356,7 +356,7 @@ namespace events {
   void  Manager::Terminate() {
 
     // release all Publishers and Subscribers
-    RH_NL_INFO("redhawk::events::Manager",  "Terminate all EventChannels");
+    RH_NL_DEBUG("redhawk::events::Manager",  "Terminate all EventChannels");
     if ( Manager::_Manager ) _Manager->_terminate();
   }
 
@@ -514,7 +514,7 @@ namespace events {
     SCOPED_LOCK(_mgr_lock);
     _allow = false;
 
-    RH_NL_INFO("redhawk::events::Manager",  " Resource: " << _obj_id << ", Terminate All Registrations.: " << _registrations.size() );
+    RH_NL_DEBUG("redhawk::events::Manager",  " Resource: " << _obj_id << ", Terminate All Registrations.: " << _registrations.size() );
     Registrations::iterator iter = _registrations.begin();
       for ( ; iter != _registrations.end();  iter++ ) {
 
@@ -523,7 +523,7 @@ namespace events {
 	if ( ossie::corba::objectExists(_ecm) ) {
 	  try {
 	    // unregister from the Domain
-            RH_NL_INFO("redhawk::events::Manager",  "Unregister REG=ID:" << creg.reg.reg_id );
+            RH_NL_DEBUG("redhawk::events::Manager",  "Unregister REG=ID:" << creg.reg.reg_id );
 	    _ecm->unregister( creg.reg );
 	  }
 	  catch(...) {
@@ -536,22 +536,26 @@ namespace events {
       // need to cleanup Publisher memory
       _registrations.clear();
 
+      RH_NL_DEBUG("redhawk::events::Manager",  "Delete subscribers.....");
       Subscribers::iterator siter = _subscribers.begin();
       for ( ; siter != _subscribers.end(); siter++ ) {
         if ( *siter ) delete *siter;
-        _subscribers.erase(siter);
       }
+      _subscribers.clear();
 
+
+      RH_NL_DEBUG("redhawk::events::Manager",  "Delete publishers.....");
       Publishers::iterator piter = _publishers.begin();
       for ( ; piter != _publishers.end(); piter++ ) {
         if ( *piter ) delete *piter;
-        _publishers.erase(piter);
       }
+      _publishers.clear();
       
+      RH_NL_DEBUG("redhawk::events::Manager",  "Deleted.... publishers.....");
       // if we have any subscribers or publishers left then disconnect and delete those instances
-    _ecm = CF::EventChannelManager::_nil();
+      _ecm = CF::EventChannelManager::_nil();
 
-    RH_NL_INFO("redhawk::events::Manager",  "Terminate Completed.");
+    RH_NL_DEBUG("redhawk::events::Manager",  "Terminate Completed.");
 
   }
 
@@ -744,11 +748,11 @@ namespace events {
       _disconnectReceiver = new DefaultReceiver(*this);
 
      try {
-       RH_NL_DEBUG("Publisher", "::connect pushing Suppiler servant to POA ." );
+       RH_NL_TRACE("Publisher", "::connect pushing Suppiler servant to POA ." );
         PortableServer::POA_ptr poa = _disconnectReceiver->_default_POA();
         if (!CORBA::is_nil(poa) )  {
           PortableServer::ObjectId_var oid = poa->servant_to_id(_disconnectReceiver);
-          RH_NL_DEBUG("Publisher", "::connect activiting Suppiler servant." );
+          RH_NL_TRACE("Publisher", "::connect activiting Suppiler servant." );
           poa->activate_object_with_id( oid, _disconnectReceiver );
           _disconnectReceiver->_remove_ref();
         }
@@ -819,7 +823,7 @@ namespace events {
 
      if ( CORBA::is_nil(supplier_admin) ) return retval;
     
-     RH_NL_DEBUG("Publisher", "Obtained SupplierAdmin." );
+     RH_NL_TRACE("Publisher", "Obtained SupplierAdmin." );
 
      tries=retries;
      do {
@@ -838,7 +842,7 @@ namespace events {
      } while ( tries );
    }
 
-   RH_NL_DEBUG("Publisher", "::connect Checking for proxy." );
+   RH_NL_TRACE("Publisher", "::connect Checking for proxy." );
    if ( CORBA::is_nil(proxy) ) return retval;
 
    ossie::events::EventPublisherSupplier_var sptr =  ossie::events::EventPublisherSupplier::_nil();

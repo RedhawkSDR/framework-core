@@ -401,6 +401,17 @@ public class logging {
 	return CF.LogLevels.INFO;
     };
 
+
+    public static Level ConvertLogLevelToLog4( int oldstyle_level ) {
+	if ( oldstyle_level == 0 ) return Level.FATAL;
+	if ( oldstyle_level == 1 ) return Level.ERROR;
+	if ( oldstyle_level == 2 ) return Level.WARN;
+	if ( oldstyle_level == 3 ) return Level.INFO;
+	if ( oldstyle_level == 4 ) return Level.DEBUG;
+	if ( oldstyle_level == 5)  return Level.ALL;
+	return Level.INFO;
+    };
+
     public static void SetLevel( String  logid, int oldstyle_level ) {
         SetLogLevel( logid, ConvertLogLevel(oldstyle_level) );
     };

@@ -42,14 +42,15 @@
 #endif
 
 #include <errno.h>
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include "ossie/ExecutableDevice_impl.h"
 #include "ossie/prop_helpers.h"
+#include "ossie/affinity.h"
 
 
-//vector<CF::ExecutableDevice::ProcessID_Type> ExecutableDevice_impl::PID;
 PREPARE_LOGGING(ExecutableDevice_impl)
-
 
 /* ExecutableDevice_impl ****************************************
     - constructor 1: no capacities defined
@@ -174,6 +175,38 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::execute (const char*
     CF::ExecutableDevice::ProcessID_Type pid = do_execute(name, options, parameters, prepend_args);
     return pid;
 }
+
+
+
+void ExecutableDevice_impl::set_resource_affinity( const CF::Properties& options, const pid_t rsc_pid, const char*rsc_name, const redhawk::affinity::CpuList &blacklist ) {
+   //
+   // check if affinity namespaced options exists...
+   //   
+   try {
+     if ( redhawk::affinity::has_affinity( options ) ) {
+         LOG_DEBUG(ExecutableDevice_impl, "Has Affinity....ExecDevice/Resource:" << label() << "/" << rsc_name);
+       if ( redhawk::affinity::is_disabled() ) {
+         LOG_WARN(ExecutableDevice_impl, "Resource has affinity directives but processing disabled, ExecDevice/Resource:" << 
+                  label() << "/" << rsc_name);
+       }
+       else {
+         LOG_DEBUG(ExecutableDevice_impl, "Calling set resource affinity....ExecDevice/Resource:" <<
+                  label() << "/" << rsc_name);
+         redhawk::affinity::set_affinity( options, rsc_pid, blacklist );
+       }
+     }
+     else {
+         LOG_TRACE(ExecutableDevice_impl, "No Affinity Found....ExecDevice/Resource:" << label() << "/" << rsc_name);
+     }
+   }
+   catch( redhawk::affinity::AffinityFailed &e) {
+     LOG_WARN(ExecutableDevice_impl, "AFFINITY REQUEST FAILED: " << e.what() );
+     throw;
+   }
+
+
+}
+
 /* execute *****************************************************************
     - executes a process on the device
 ************************************************************************* */
@@ -258,10 +291,6 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
     for (CORBA::ULong i = 0; i < parameters.length(); ++i) {
         LOG_DEBUG(ExecutableDevice_impl, "id=" << ossie::corba::returnString(parameters[i].id) << " value=" << ossie::any_to_string(parameters[i].value));
         CORBA::TypeCode_var atype = parameters[i].value.type();
-        if (atype->kind() != CORBA::tk_string) {
-            LOG_WARN(ExecutableDevice_impl, "Received a non string exec param for " << parameters[i].id);
-        }
-
         args.push_back(ossie::corba::returnString(parameters[i].id));
         args.push_back(ossie::any_to_string(parameters[i].value));
     }
@@ -282,16 +311,32 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
     int pid = fork();
 
     if (pid == 0) {
-
+      
+      // reset mutex in child...
+      pthread_mutex_init(load_execute_lock.native_handle(),0);
+      
         // Run executable
         int num_retries = 5;
         int returnval = 0;
         while(true)
         {
-            returnval = execv(path.c_str(), &argv[0]);
+          // set affinity preference before exec
+          try {
+            LOG_DEBUG(ExecutableDevice_impl, "Calling set resource affinity....exec:" << name << " options=" << options.length() );
+            set_resource_affinity( options, getpid(), name );
+          }
+          catch( redhawk::affinity::AffinityFailed &ex ) {
+            LOG_ERROR(ExecutableDevice_impl, "Unable to satisfy affinity request for: " << name << " Reason: " << ex.what() );
+            errno=EPERM<<2;
+            returnval=-1;
+            ossie::corba::OrbShutdown(true);
+            exit(returnval);
+          }
 
-            num_retries--;
-            if( num_retries <= 0 || errno!=ETXTBSY)
+          returnval = execv(path.c_str(), &argv[0]);
+
+          num_retries--;
+          if( num_retries <= 0 || errno!=ETXTBSY)
                 break;
 
             // Only retry on "text file busy" error
@@ -299,9 +344,12 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
             usleep(100000);
         }
 
-        if( returnval )
+        if( returnval ) {
             LOG_ERROR(ExecutableDevice_impl, "Error when calling execv() (cmd=" << path << " errno=" << errno << " msg=\"" << strerror(errno) << "\")");
+            ossie::corba::OrbShutdown(true);
+        }
 
+        LOG_DEBUG(ExecutableDevice_impl, "Exiting FAILED subprocess:" << returnval );
         exit(returnval);
     }
     else if (pid < 0 ){
@@ -364,11 +412,9 @@ ExecutableDevice_impl::terminate (CF::ExecutableDevice::ProcessID_Type processId
     waitpid(processId, &status, 0);
 }
 
-
 void  ExecutableDevice_impl::configure (const CF::Properties& capacities)
 throw (CF::PropertySet::PartialConfiguration, CF::PropertySet::
        InvalidConfiguration, CORBA::SystemException)
 {
     Device_impl::configure(capacities);
 }
-

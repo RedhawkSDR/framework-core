@@ -115,6 +115,8 @@ ComponentInstantiation::ComponentInstantiation(const ComponentInstantiation& oth
     _startOrder = other._startOrder;
     usageName = other.usageName;
     namingservicename = other.namingservicename;
+    affinityProperties  = other.affinityProperties;
+    loggingConfig  = other.loggingConfig;
     std::vector<ComponentProperty*>::const_iterator i;
     for (i = other.properties.begin(); i != other.properties.end(); ++i) {
         properties.push_back((*i)->clone());
@@ -128,6 +130,8 @@ ComponentInstantiation& ComponentInstantiation::operator=(ComponentInstantiation
     namingservicename = other.namingservicename;
     properties.resize(other.properties.size());
     properties.swap(other.properties);
+    affinityProperties  = other.affinityProperties;
+    loggingConfig  = other.loggingConfig;
     return *this;
 }
 
@@ -170,6 +174,16 @@ const char* ComponentInstantiation::getFindByNamingServiceName() const {
         return 0;
     }
 }
+
+
+const ComponentInstantiation::AffinityProperties &ComponentInstantiation::getAffinity() const {
+  return affinityProperties;
+}
+
+const ComponentInstantiation::LoggingConfig &ComponentInstantiation::getLoggingConfig() const {
+  return loggingConfig;
+}
+
 
 //
 // ComponentPlacement

@@ -222,11 +222,11 @@ class Device(resource.Resource):
         This should be called by the process that instantiates the device.
         """
         if self._devmgr:
-            self._log.info("Registering Device")
+            self._log.info("Registering Device:" + str(self._label) )
             self._register()
 
         if self._compositeDevice:
-            self._log.info("Adding device to parent")
+            self._log.info("Adding Device:" + str(self._label)  + " to parent" )
             deviceAdded = False
             while not deviceAdded:
                 try:

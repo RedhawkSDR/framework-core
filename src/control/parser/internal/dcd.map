@@ -54,4 +54,6 @@ namespace urn:mil:jpeojtrs:sca:dcd {
     componentinstantiationref "::std::string";
     devicethatloadedthiscomponentref "::std::string";
     deviceusedbythiscomponentref "::std::pair<std::string, std::string>";
+    affinity " ossie::ComponentInstantiation::AffinityProperties ";
+    loggingconfig  " ossie::ComponentInstantiation::LoggingConfig ";
 }

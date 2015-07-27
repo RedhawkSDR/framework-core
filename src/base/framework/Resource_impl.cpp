@@ -47,7 +47,6 @@ Resource_impl::Resource_impl (const char* _uuid, const char *label) :
 {
 }
 
-
 Resource_impl::~Resource_impl () {
   if (this->_domMgr != NULL)
     delete this->_domMgr;

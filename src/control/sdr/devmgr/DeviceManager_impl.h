@@ -49,7 +49,7 @@ class DeviceManager_impl:
     ENABLE_LOGGING
 
 public:
-  DeviceManager_impl (const char*, const char*, const char*, const char*, struct utsname uname, bool, bool *);
+  DeviceManager_impl (const char*, const char*, const char*, const char*, struct utsname uname, bool, const char *, bool *);
 
     ~DeviceManager_impl ();
     char* deviceConfigurationProfile ()
@@ -152,6 +152,7 @@ private:
     std::string _deviceConfigurationProfile;
     std::string _fsroot;
     std::string _cacheroot;
+    redhawk::affinity::CpuList cpu_blacklist;
 
     std::string _domainName;
     std::string _domainManagerName;
@@ -235,6 +236,8 @@ private:
         const std::vector<ossie::ComponentProperty*>& instanceprops,
         const ossie::Properties&                      deviceProperties);
 
+    CF::Properties getResourceOptions( const ossie::ComponentInstantiation& instantiation);
+
     bool loadScdToParser(
         ossie::ComponentDescriptor& scdParser, 
         const ossie::SoftPkg&       _SPDParser);
@@ -251,7 +254,7 @@ private:
         const ossie::ComponentInstantiation& instantiation);
 
     void createDeviceExecStatement(
-        const char*                                   new_argv[], 
+        std::vector< std::string >&                   new_argv,
         const ossie::ComponentPlacement&              componentPlacement,
         const std::string&                            componentType,
         std::map<std::string, std::string>*           pOverloadprops,

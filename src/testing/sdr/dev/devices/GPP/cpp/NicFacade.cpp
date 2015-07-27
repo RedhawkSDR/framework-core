@@ -1,3 +1,22 @@
+/*
+ * This file is protected by Copyright. Please refer to the COPYRIGHT file
+ * distributed with this source distribution.
+ *
+ * This file is part of REDHAWK GPP.
+ *
+ * REDHAWK GPP is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * REDHAWK GPP is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see http://www.gnu.org/licenses/.
+ */
 #include "NicFacade.h"
 
 #include "states/NicState.h"
@@ -26,63 +45,66 @@ NicFacade::NicFacade( const double& max_throughput_percent,
                       std::vector<nic_metrics_struct_struct>& nic_metrics_reporting_data,
                       std::vector<nic_allocation_status_struct_struct>& nic_allocation_status_reporting_data ):
 nic_interface_filter_(nic_interface_regexes, nic_states_, filtered_nic_states_),
-nic_allocator_( new NicAllocator(filtered_nic_states_, max_throughput_percent, boost::bind(&NicFacade::get_throughput_by_device_bps, this, _1) ) ),
 filtered_nic_interfaces_reporting_data_(filtered_nic_interfaces_reporting_data),
 reporting_data_(reporting_data),
 nic_metrics_reporting_data_(nic_metrics_reporting_data),
 nic_allocation_status_reporting_data_(nic_allocation_status_reporting_data)
 {
-    initialize();
+  // find all interface devices for this host...
+  initialize();
+
+  // build allocator list for the nics that we would be watching.
+  nic_allocator_ = boost::shared_ptr< NicAllocator >(new NicAllocator(filtered_nic_states_, max_throughput_percent, boost::bind(&NicFacade::get_throughput_by_device_bps, this, _1) ));
+
 }
 
 void 
 NicFacade::initialize()
 {
-    std::vector<std::string> interfaces( poll_nic_interfaces() );
-    for( std::vector<std::string>::const_iterator i=interfaces.begin(); i!=interfaces.end(); ++i )
+  std::vector<std::string> interfaces( poll_nic_interfaces() );
+  for( std::vector<std::string>::const_iterator i=interfaces.begin(); i!=interfaces.end(); ++i )
     {
-        const std::string& parsedInterface( *i );
+      const std::string& parsedInterface( *i );
                 
-        boost::shared_ptr<NicState> nic_state = get_or_insert_nic_state( parsedInterface );
+      boost::shared_ptr<NicState> nic_state = get_or_insert_nic_state( parsedInterface );
 
-        if( !has_nic_accumulator(nic_state->get_device()) )
+      if( !has_nic_accumulator(nic_state->get_device()) )
         {
-            // Add new NicAccumulator
-//            LOG_DEBUG(dynamicGPP_i, __FUNCTION__ << ": Adding NicAccumulator (" << nic_state->get_device() << ")" );
-            boost::shared_ptr<NicAccumulator> nic_accumulator( new NicAccumulator() );
-            nic_accumulator->add_nic( nic_state );
-            add_nic_accumulator( nic_accumulator );
+          RH_NL_DEBUG( "GPP", __FUNCTION__ << ": Adding NicAccumulator (" << nic_state->get_device() << ")" );
+          add_nic_accumulator( nic_state );
             
-//            // Add new NicThroughputThresholdMonitor
-//            LOG_INFO(dynamicGPP_i, __FUNCTION__ << ": Adding interface (" << nic_state->get_device() << ")" );
-//            addThresholdMonitor( new NicThroughputThresholdMonitor(_identifier, nic_state->get_device(), &thresholds.nic_usage, boost::bind(&dynamicGPP_i::getThroughputByInterface, this, nic_state->get_device()) ) );
+          //            // Add new NicThroughputThresholdMonitor
+          //(dynamicGPP_i, __FUNCTION__ << ": Adding interface (" << nic_state->get_device() << ")" );
+          //            addThresholdMonitor( new NicThroughputThresholdMonitor(_identifier, nic_state->get_device(), &thresholds.nic_usage, boost::bind(&dynamicGPP_i::getThroughputByInterface, this, nic_state->get_device()) ) );
         }
     }
     
-    nic_interface_filter_.filter();
+  nic_interface_filter_.filter();
 }
 
 std::vector<std::string> 
 NicFacade::poll_nic_interfaces() const
 {
-    std::vector<std::string> interfaces;
-	boost::filesystem::path p("/sys/class/net");
-	boost::filesystem::directory_iterator end_iter;
+  std::vector<std::string> interfaces;
+  boost::filesystem::path p("/sys/class/net");
+  boost::filesystem::directory_iterator end_iter;
 
-	for(boost::filesystem::directory_iterator iter(p); iter != end_iter; ++iter) 
+  for(boost::filesystem::directory_iterator iter(p); iter != end_iter; ++iter) 
     {
-		if(boost::filesystem::is_directory(iter->status())) 
+      if(boost::filesystem::is_directory(iter->status())) 
         {
-			boost::filesystem::path test_file( iter->path().string() + "/statistics/rx_bytes" );
+          std::ostringstream tmp;
+          tmp << BOOST_PATH_STRING(iter->path());
+          boost::filesystem::path test_file( tmp.str() + "/statistics/rx_bytes" );
 
-			if(boost::filesystem::is_regular_file(test_file)) 
+          if(boost::filesystem::is_regular_file(test_file)) 
             {
-                interfaces.push_back( BOOST_PATH_STRING(iter->path().filename()) );
+              interfaces.push_back( BOOST_PATH_STRING(iter->path().filename()) );
             }
         }
     }
     
-    return interfaces;
+  return interfaces;
 }
 
 boost::shared_ptr<NicState>
@@ -91,8 +113,8 @@ NicFacade::get_or_insert_nic_state( const std::string& interface )
     std::map<std::string, boost::shared_ptr<NicState> >::iterator i = nic_states_.find(interface);
     if( nic_states_.end() == i )
     {
-//        LOG_DEBUG(dynamicGPP_i, __FUNCTION__ << ": Adding NicState (" << interface << ")" );
-        i = nic_states_.insert( std::make_pair(interface, new NicState(interface)) ).first;
+      RH_NL_DEBUG( "GPP", __FUNCTION__ << ": Adding NicState (" << interface << ")" );
+      i = nic_states_.insert( std::make_pair(interface, new NicState(interface)) ).first;
     }
     return i->second;
 }
@@ -104,16 +126,16 @@ NicFacade::has_nic_accumulator( const std::string& device ) const
 }
         
 void 
-NicFacade::add_nic_accumulator( boost::shared_ptr<NicAccumulator> nic_accumulator )
+NicFacade::add_nic_accumulator( const NicStatePtr &nic_state )
 {
-    BOOST_ASSERT( !nic_accumulator->get_device().empty() );
-    nic_accumulators_.insert( std::make_pair(nic_accumulator->get_device(), nic_accumulator) );
+  NicAccumulatorPtr nic_accumulator( new NicAccumulator(nic_state) );
+  BOOST_ASSERT( !nic_accumulator->get_device().empty() );
+  nic_accumulators_.insert( std::make_pair(nic_accumulator->get_device(), nic_accumulator) );
 }
 
 bool
 NicFacade::allocate_capacity( const nic_allocation_struct& alloc )
 {
-    nic_interface_filter_.filter();
     bool success = nic_allocator_->allocate_capacity(alloc);
     write_nic_allocation_status_reporting_data();
     return success;
@@ -129,8 +151,6 @@ NicFacade::deallocate_capacity( const nic_allocation_struct& alloc )
 void 
 NicFacade::update_state()
 {
-    nic_interface_filter_.filter();
-    
     for( NicStates::iterator i=nic_states_.begin(); i!=nic_states_.end(); ++i )
     {
         i->second->update_state();
@@ -149,6 +169,13 @@ NicFacade::compute_statistics()
 void 
 NicFacade::report()
 {
+  // update state counters
+  update_state();
+
+  // update stats
+  compute_statistics();
+
+  // update 
     write_filtered_nic_interfaces_reporting_data();
     write_reporting_data();
     write_nic_metrics_reporting_data();

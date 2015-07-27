@@ -71,14 +71,14 @@ typedef  ossie::corba::Iterator< CF::EventChannelManager::EventRegistrant,
     _use_fqn(use_fqn),
     _allow_es_resolve(allow_es)
   {
-    ECM_DEBUG("CTOR", "Creating EventChannel Manager ");
+    ECM_TRACE("CTOR", "Creating EventChannel Manager ");
 
     if ( domainManager ) _domain_context = domainManager->getDomainManagerName();
 
-    ECM_DEBUG("CTOR", "Initializing EventChannel Manager ... ");
+    ECM_TRACE("CTOR", "Initializing EventChannel Manager ... ");
     try {
        _getEventChannelFactory();  
-       ECM_DEBUG("CTOR", "Establish Event Channel Factory Reference ... ");
+       ECM_TRACE("CTOR", "Establish Event Channel Factory Reference ... ");
     }
     catch(...){
     }
@@ -362,10 +362,10 @@ ossie::events::EventChannel_ptr EventChannelManager::create( const std::string &
         if ( _allow_es_resolve == false ) {
           // set next search method to require use of NS
           require_ns=true;
-          ECM_INFO("EventChannelManager", "Event Channel: "<< channel_name << " exists,  requiring NamingService resolution.");
+          ECM_DEBUG("EventChannelManager", "Event Channel: "<< channel_name << " exists,  requiring NamingService resolution.");
         }
         else {
-          ECM_INFO("EventChannelManager", "Event Channel: "<< channel_name << " exists,  using EventService resolution.");
+          ECM_DEBUG("EventChannelManager", "Event Channel: "<< channel_name << " exists,  using EventService resolution.");
         }
       }
     }
@@ -374,7 +374,7 @@ ossie::events::EventChannel_ptr EventChannelManager::create( const std::string &
     // try and resolve with naming service (if enabled)
     //
     if ( require_ns ) {
-      ECM_DEBUG( "_createChannel", " Checking NamingService for:" << fqn );
+      ECM_TRACE( "_createChannel", " Checking NamingService for:" << fqn );
       event_channel = _resolve_ns( cname, fqn, _domain_context );
 
       // if NamingService is enable and we require its use, but channel evaluation failed
@@ -396,14 +396,14 @@ ossie::events::EventChannel_ptr EventChannelManager::create( const std::string &
       throw (CF::EventChannelManager::OperationFailed());      
     }
 
-    ECM_DEBUG("create", 
+    ECM_TRACE("create", 
             "ADD Channel Registration, Event Channel: "<< channel_name << " fqn:" << fqn );
     ChannelRegistrationPtr reg  __attribute__((unused)) = _addChannelRegistration( channel_name, fqn, event_channel, autoRelease ); 
 
     //
     // return pointer the channel... we maintain a separate copy
     //
-    ECM_DEBUG("create", "Completed create Event Channel: "<< channel_name );
+    ECM_TRACE("create", "Completed create Event Channel: "<< channel_name );
     return event_channel._retn();
   }
 
@@ -464,10 +464,10 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
         if ( _allow_es_resolve == false ) {
           // set next search method to require use of NS
           require_ns=true;
-          ECM_INFO("EventChannelManager", "Event Channel: "<< channel_name << " exists,  requiring NamingService resolution.");
+          ECM_DEBUG("EventChannelManager", "Event Channel: "<< channel_name << " exists,  requiring NamingService resolution.");
         }
         else {
-          ECM_INFO("EventChannelManager", "Event Channel: "<< channel_name << " exists,  using EventService resolution.");
+          ECM_DEBUG("EventChannelManager", "Event Channel: "<< channel_name << " exists,  using EventService resolution.");
         }
       }
     }
@@ -476,9 +476,9 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
     // try and resolve with naming service (if enabled)
     //
     if ( _use_naming_service &&  CORBA::is_nil(event_channel) ) {
-      ECM_DEBUG( "restore", " Rebind Exiting Channel to:" << fqn );
+      ECM_TRACE( "restore", " Rebind Exiting Channel to:" << fqn );
       if ( ossie::corba::Bind( fqn, savedChannel, _domain_context ) != 0 ) {
-        ECM_DEBUG( "restore", " Checking NamingService for:" << fqn );
+        ECM_TRACE( "restore", " Checking NamingService for:" << fqn );
         event_channel = _resolve_ns( cname, fqn, _domain_context );
         // if NamingService is enable and we require its use, but channel evaluation failed
         if ( CORBA::is_nil(event_channel) && require_ns) {
@@ -510,7 +510,7 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
     //
     // return pointer the channel... we maintain a separate copy
     //
-    ECM_INFO("restore", "Completed create Event Channel: "<< channel_name );
+    ECM_DEBUG("restore", "Completed create Event Channel: "<< channel_name );
   }
 
 
@@ -523,7 +523,7 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
 	    CF::EventChannelManager::ServiceUnavailable )
   {
 
-    ECM_INFO("registerResource", "REQUEST REGISTRATION , REG-ID:" << request.reg_id << " CHANNEL:" << request.channel_name );
+    ECM_DEBUG("registerResource", "REQUEST REGISTRATION , REG-ID:" << request.reg_id << " CHANNEL:" << request.channel_name );
     SCOPED_LOCK(_mgrlock);
 
     // get the event channel factory... throws ServiceUnavailable
@@ -578,7 +578,7 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
     ECM_DEBUG("register", "NEW REGISTRATION FOR:" << ior );
     creg->registrants.insert( RegRecord( regid, ior ) );
 
-    ECM_INFO("registerResource", "NEW REGISTRATION REG-ID:" << regid << " CHANNEL:" << channel_name );
+    ECM_DEBUG("registerResource", "NEW REGISTRATION REG-ID:" << regid << " CHANNEL:" << channel_name );
 
     //
     // Release memory to the caller....they will clean up
@@ -599,13 +599,13 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
   {
     SCOPED_LOCK(_mgrlock);
 
-    ECM_INFO("unregister", "REQUEST TO UNREGISTER, REG-ID:" << reg.reg_id  << " CHANNEL:" << reg.channel_name);
+    ECM_DEBUG("unregister", "REQUEST TO UNREGISTER, REG-ID:" << reg.reg_id  << " CHANNEL:" << reg.channel_name);
     // get the event channel factory... throw ServiceUnavailable
     _getEventChannelFactory();
 
     _unregister(reg);
 
-    ECM_INFO("unregister", "UNREGISTER COMPLETED, REG-ID:" << reg.reg_id  << " CHANNEL:" << reg.channel_name);
+    ECM_DEBUG("unregister", "UNREGISTER COMPLETED, REG-ID:" << reg.reg_id  << " CHANNEL:" << reg.channel_name);
   }
 
 
@@ -639,7 +639,7 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
       }
 
       if ( creg->registrants.size()==0 and creg->release ) {
-        ECM_INFO("EventChannelManager", "NO MORE REGISTRATIONS, (AUTO-RELEASE IS ON), DELETING CHANNEL:" << cname  );        
+        ECM_DEBUG("EventChannelManager", "NO MORE REGISTRATIONS, (AUTO-RELEASE IS ON), DELETING CHANNEL:" << cname  );        
         _deleteChannelRegistration(cname);
       }
     }
@@ -656,7 +656,7 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
 
     SCOPED_LOCK(_mgrlock);
     uint64_t size = _channels.size();
-    ECM_DEBUG( "listChannels", " listChannel context " << this << ", how_many " << how_many << ", size " << size );
+    ECM_TRACE( "listChannels", " listChannel context " << this << ", how_many " << how_many << ", size " << size );
 
     // create copy of entire table...
     ossie::events::EventChannelInfoList* all = new ossie::events::EventChannelInfoList(size);
@@ -692,7 +692,7 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
 
     // get number of registrants to 
     uint64_t size = reg->nregistrants();
-    ECM_DEBUG( "listRegistrants", " list channel registrants context " << this << ", how_many " << how_many << ", size " << size );
+    ECM_TRACE( "listRegistrants", " list channel registrants context " << this << ", how_many " << how_many << ", size " << size );
 
     // create copy of entire table...
     ossie::events::EventRegistrantList* all = new ossie::events::EventRegistrantList(size);
@@ -743,7 +743,7 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
     }
 
 
-    ECM_DEBUG("_getFQN", "CHANNEL:" << cname << " FQN:" << fqn);
+    ECM_TRACE("_getFQN", "CHANNEL:" << cname << " FQN:" << fqn);
     return fqn; 
 
   }
@@ -753,9 +753,9 @@ void EventChannelManager::_getEventChannelFactory ()
     throw  ( CF::EventChannelManager::ServiceUnavailable )
   {
 
-    ECM_DEBUG("_getEventChannelFactory", " .. Checking ORB Context");
+    ECM_TRACE("_getEventChannelFactory", " .. Checking ORB Context");
     if ( CORBA::is_nil(_orbCtx.orb) == true ) {
-      ECM_DEBUG("_getEventChannelFactory", " ... ORB Context is invalid...");
+      ECM_TRACE("_getEventChannelFactory", " ... ORB Context is invalid...");
       throw (CF::EventChannelManager::ServiceUnavailable() );
     }
 
@@ -765,7 +765,7 @@ void EventChannelManager::_getEventChannelFactory ()
       // First, check for an initial reference in the omniORB configuration; if it cannot be
       // resolved in this manner, look it up via the naming service.
       CORBA::Object_var factoryObj;
-      ECM_DEBUG("_getEventChannelFactory", " ... Get EventChannelFactory...");
+      ECM_TRACE("_getEventChannelFactory", " ... Get EventChannelFactory...");
       try {
 	  factoryObj = _orbCtx.namingServiceCtx->resolve_str("EventChannelFactory");
       } catch (const CosNaming::NamingContext::NotFound&) {
@@ -778,7 +778,7 @@ void EventChannelManager::_getEventChannelFactory ()
 	try {
 	  if (!factoryObj->_non_existent()) {
 	    _event_channel_factory = CosLifeCycle::GenericFactory::_narrow(factoryObj);
-            ECM_DEBUG("_getEventChannelFactory", "Resolved EventChannelFactory in NameService");
+            ECM_TRACE("_getEventChannelFactory", "Resolved EventChannelFactory in NameService");
 	  }
 	} catch (const CORBA::TRANSIENT&) {
 	  ECM_WARN( "_getEventChannelEvent", "Could not contact EventChannelFactory");
@@ -835,7 +835,7 @@ void EventChannelManager::_getEventChannelFactory ()
     //
     // Create Event Channel Object.
     //
-    ECM_DEBUG( "_createChannel", " Create CHANNEL:" << cname << " AS FQN:"  << fqn );
+    ECM_TRACE( "_createChannel", " Create CHANNEL:" << cname << " AS FQN:"  << fqn );
 
     CORBA::Object_var obj;
     try {
@@ -850,16 +850,16 @@ void EventChannelManager::_getEventChannelFactory ()
       if(ex.invalid_criteria.length()>0) {
 	int j;
 	for (  j=0; (unsigned int)j < ex.invalid_criteria.length(); j++ ) { 
-	  ECM_DEBUG( "_createChannel", "--- Criteria Name: " << ex.invalid_criteria[j].name );
+	  ECM_TRACE( "_createChannel", "--- Criteria Name: " << ex.invalid_criteria[j].name );
 	  if ( j == 0 ) {
 	    const char * xx;
 	    ex.invalid_criteria[j].value >>= xx;
-	    ECM_DEBUG( "_createChannel", "--- Criteria Value : " << xx );
+	    ECM_TRACE( "_createChannel", "--- Criteria Value : " << xx );
 	  }
 	  else {
 	    CORBA::ULong xx;
 	    ex.invalid_criteria[j].value >>= xx;
-	    ECM_DEBUG( "_createChannel", "--- Criteria Value : " << xx );
+	    ECM_TRACE( "_createChannel", "--- Criteria Value : " << xx );
 	  }
 	}
       }
@@ -877,13 +877,13 @@ void EventChannelManager::_getEventChannelFactory ()
     }
 
     try {
-      ECM_DEBUG( "_createChannel", " action - Narrow EventChannel" );
+      ECM_TRACE( "_createChannel", " action - Narrow EventChannel" );
       event_channel = ossie::events::EventChannel::_narrow(obj);
     }
     catch( CORBA::Exception &ex ) {
       ECM_ERROR( "Create Event Channel", " Create failed, CHANNEL:" << cname << " REASON: Failed to narrow to EventChannel");
     }
-    ECM_DEBUG( "_createChannel", " created event channel " << cname );
+    ECM_TRACE( "_createChannel", " created event channel " << cname );
 
     if ( _use_naming_service ){
       try {
@@ -895,7 +895,7 @@ void EventChannelManager::_getEventChannelFactory ()
       }
     }
 
-    ECM_DEBUG( "_createChannel", " completed create event channel : " << cname );
+    ECM_TRACE( "_createChannel", " completed create event channel : " << cname );
     return event_channel._retn();
   }
 
@@ -913,12 +913,12 @@ ossie::events::EventChannel_ptr EventChannelManager::_resolve_ns( const std::str
   // try to resolve using channel name as InitRef  and resolve_initial_references
   //
   try {
-    ECM_DEBUG( "_resolve_ns", " : Trying InitRef Lookup " << fqn);
+    ECM_TRACE( "_resolve_ns", " : Trying InitRef Lookup " << fqn);
     CORBA::Object_var obj = _orbCtx.orb->resolve_initial_references(fqn.c_str());
     if ( CORBA::is_nil(obj) == false ){
       event_channel = ossie::events::EventChannel::_narrow(obj);
       found =true;
-      ECM_DEBUG( "_resolve_ns", " : FOUND EXISTING (InitRef), Channel " << cname );
+      ECM_TRACE( "_resolve_ns", " : FOUND EXISTING (InitRef), Channel " << cname );
     }
   }catch (const CORBA::Exception& e) {
     ECM_DEBUG( "_resolve_ns", "  Unable to lookup with InitRef:" << fqn << ",  CORBA RETURNED(" << e._name() << ")" );
@@ -937,7 +937,7 @@ ossie::events::EventChannel_ptr EventChannelManager::_resolve_ns( const std::str
       CosNaming::NamingContext_ptr context = ossie::corba::ResolveNamingContextPath( nc_name );
       if ( !CORBA::is_nil(context) ) {
         CORBA::Object_var obj = context->resolve(boundName);
-        ECM_DEBUG( "_resolve_ns", " : FOUND EXISTING (NamingService - domain/domain.channel), Channel/FQN " << cname  << "/" << fqn );
+        ECM_TRACE( "_resolve_ns", " : FOUND EXISTING (NamingService - domain/domain.channel), Channel/FQN " << cname  << "/" << fqn );
         event_channel = ossie::events::EventChannel::_narrow(obj);
         found = true;
       }
@@ -956,7 +956,7 @@ ossie::events::EventChannel_ptr EventChannelManager::_resolve_ns( const std::str
       CosNaming::NamingContext_ptr context = ossie::corba::ResolveNamingContextPath( nc_name );
       if ( !CORBA::is_nil(context) ) {
         CORBA::Object_var obj = context->resolve(boundName);
-        ECM_DEBUG( "_resolve_ns", " : FOUND EXISTING (NamingService - domaincontext/channel ), Channel/FQN " << cname  << "/" << fqn );
+        ECM_TRACE( "_resolve_ns", " : FOUND EXISTING (NamingService - domaincontext/channel ), Channel/FQN " << cname  << "/" << fqn );
         event_channel = ossie::events::EventChannel::_narrow(obj);
         found = true;
       }
@@ -976,7 +976,7 @@ ossie::events::EventChannel_ptr EventChannelManager::_resolve_ns( const std::str
       CosNaming::NamingContext_ptr context = ossie::corba::ResolveNamingContextPath("");
       if ( !CORBA::is_nil(context) ) {
         CORBA::Object_var obj = context->resolve(boundName);
-        ECM_DEBUG( "_resolve_ns", " : FOUND EXISTING (NamingService - root context/dommain.channel), Channel/FQN " << cname  << "/" << fqn );
+        ECM_TRACE( "_resolve_ns", " : FOUND EXISTING (NamingService - root context/dommain.channel), Channel/FQN " << cname  << "/" << fqn );
         event_channel = ossie::events::EventChannel::_narrow(obj);
         found = true;
       }
@@ -1015,19 +1015,19 @@ ossie::events::EventChannel_ptr  EventChannelManager::_resolve_es ( const std::s
     // 
     os << "corbaloc::localhost:11169/"<< fqn;
     tname=os.str();
-    ECM_DEBUG( "_resolve_es"," : Trying corbaloc resolution " << tname );
+    ECM_TRACE( "_resolve_es"," : Trying corbaloc resolution " << tname );
     CORBA::Object_var obj = _orbCtx.orb->string_to_object(tname.c_str());
     if ( !CORBA::is_nil(obj) ) {
       event_channel = ossie::events::EventChannel::_narrow(obj);
       if ( CORBA::is_nil(event_channel) == false ){
-        ECM_DEBUG( "_resolve_es", " : FOUND EXISTING (corbaloc), Channel " << tname );
+        ECM_TRACE( "_resolve_es", " : FOUND EXISTING (corbaloc), Channel " << tname );
       }
       else {
-        ECM_DEBUG( "_resolve_es", " : RESOLVE FAILED VIA (corbaloc), Channel " << tname );
+        ECM_TRACE( "_resolve_es", " : RESOLVE FAILED VIA (corbaloc), Channel " << tname );
       }
     }
     else {
-      ECM_DEBUG( "_resolve_es", " : SEARCH FOR Channel " << tname << " FAILED");
+      ECM_TRACE( "_resolve_es", " : SEARCH FOR Channel " << tname << " FAILED");
     }
   }catch (const CORBA::Exception& e) {
     if (!suppress)  ECM_WARN( "Event Service Lookup", 
@@ -1180,8 +1180,8 @@ EventChannelManager::ChannelRegistrationPtr EventChannelManager::_addChannelRegi
                                                                                           bool autoRelease ) 
 {
 
-  ECM_DEBUG("_addChannelRegistration", "Created ChannelRegistrationRecord, Event Channel/FQN : "<< cname << "/" << fqn );
-  ECM_DEBUG("_addChannelRegistration", "Created ChannelRegistrationRecord, Event Channel : "<< channel << "/" << autoRelease );
+  ECM_TRACE("_addChannelRegistration", "Created ChannelRegistrationRecord, Event Channel/FQN : "<< cname << "/" << fqn );
+  ECM_TRACE("_addChannelRegistration", "Created ChannelRegistrationRecord, Event Channel : "<< channel << "/" << autoRelease );
 
   ChannelRegistrationTable::iterator   itr = _channels.find( cname );
   ChannelRegistrationPtr ret=NULL;
@@ -1193,13 +1193,13 @@ EventChannelManager::ChannelRegistrationPtr EventChannelManager::_addChannelRegi
     _channels[cname].channel = ossie::events::EventChannel::_duplicate(channel);
     _channels[cname].release = autoRelease;
     ret = &(_channels[cname]);
-    ECM_DEBUG("_addChannelRegistration", "Created ChannelRegistrationRecord, Event Channel/FQN : "<< cname << "/" << fqn );
-    ECM_DEBUG("addChannelRegistration", "    ChannelRecord: name:" << _channels[cname].channel_name );
-    ECM_DEBUG("addChannelRegistration", "    ChannelRecord: fqn:" << _channels[cname].fqn );
-    ECM_DEBUG("addChannelRegistration", "    ChannelRecord: release:" << _channels[cname].release );
-    ECM_DEBUG("addChannelRegistration", "    ChannelRecord: registrants:" << _channels[cname].registrants.size());
-    ECM_DEBUG("addChannelRegistration", "    ChannelRecord: channel:" << _channels[cname].channel);
-    ECM_DEBUG("_addChannelRegistration", "Registration Table Size: "<< _channels.size() );
+    ECM_TRACE("_addChannelRegistration", "Created ChannelRegistrationRecord, Event Channel/FQN : "<< cname << "/" << fqn );
+    ECM_TRACE("addChannelRegistration", "    ChannelRecord: name:" << _channels[cname].channel_name );
+    ECM_TRACE("addChannelRegistration", "    ChannelRecord: fqn:" << _channels[cname].fqn );
+    ECM_TRACE("addChannelRegistration", "    ChannelRecord: release:" << _channels[cname].release );
+    ECM_TRACE("addChannelRegistration", "    ChannelRecord: registrants:" << _channels[cname].registrants.size());
+    ECM_TRACE("addChannelRegistration", "    ChannelRecord: channel:" << _channels[cname].channel);
+    ECM_TRACE("_addChannelRegistration", "Registration Table Size: "<< _channels.size() );
   }
   return ret;
 }

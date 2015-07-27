@@ -144,6 +144,16 @@ class BasicUsesDevice(CF__POA.Device):
             self._devmgr.unregisterDevice(self._this())
     except:
        raise CF.LifeCycle.ReleaseError()
+
+  # CF::PropertySet
+  def initializeProperties(self, ctorProperties):
+    self._log.debug("BasicUsesDevice.initializeProperties(%s)", ctorProperties)
+    for prop in ctorProperties:
+        if not self.props.has_key(prop.id):
+            self.props[prop.id] = CF.DataType(id=prop.id, value=prop.value)
+        else:
+            self.props[prop.id].value = prop.value
+    self._log.debug("BasicUsesDevice initializeProperties %s", self.props)
   
   # CF::PropertySet
   def query(self, configProperties):

@@ -42,3 +42,7 @@ May 2015
 - UI support for new property 'kind' when editing PRF
 - Ports have been give their own tab in the SPD editor; allows editing the new description field
 
+June 2015
+- GPP performs affinity (NUMA balancing) on the deployed waveform
+- Comments added to assist in Doxygen generation
+- Preprocessor directives added to limit the scope of visible items on code content assist

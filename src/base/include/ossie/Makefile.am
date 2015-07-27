@@ -33,6 +33,7 @@ pkginclude_HEADERS = AggregateDevice_impl.h \
              TestableObject_impl.h \
              LifeCycle_impl.h \
              ossieSupport.h \
+             affinity.h \
              prop_helpers.h \
              debug.h \
              FileStream.h \
@@ -56,7 +57,8 @@ pkginclude_HEADERS = AggregateDevice_impl.h \
              concurrent.h \
              callback.h \
              signalling.h \
-             OptionalProperty.h
+             OptionalProperty.h \
+             Autocomplete.h
 
 nobase_pkginclude_HEADERS = internal/equals.h \
 	     logging/rh_logger.h \

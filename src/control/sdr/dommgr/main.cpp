@@ -65,6 +65,15 @@ void signal_catcher( int sig )
     }
 }
 
+void usr_signal_catcher( int sig )
+{
+    if (sig == SIGUSR1) {
+        if (DomainManager_servant) {
+            DomainManager_servant->closeAllOpenFileHandles();
+        }
+    }
+}
+
 static void raise_limit(int resource, const char* name, const rlim_t DEFAULT_MAX=1024)
 {
     struct rlimit limit;
@@ -267,6 +276,17 @@ int old_main(int argc, char* argv[])
     sa.sa_flags = 0;
     sigemptyset(&sa.sa_mask);
 
+    struct sigaction fp_sa;
+    fp_sa.sa_handler = usr_signal_catcher;
+    fp_sa.sa_flags = 0;
+    sigemptyset(&fp_sa.sa_mask);
+
+    // Associate SIGUSR1 to signal_catcher interrupt handler
+    if (sigaction(SIGUSR1, &fp_sa, NULL) == -1) {
+        LOG_ERROR(DomainManager, "sigaction(SIGUSR1): " << strerror(errno));
+        return(EXIT_FAILURE);
+    }
+
     // Associate SIGINT to signal_catcher interrupt handler
     if (sigaction(SIGINT, &sa, NULL) == -1) {
         LOG_ERROR(DomainManager, "sigaction(SIGINT): " << strerror(errno));
@@ -351,6 +371,12 @@ int old_main(int argc, char* argv[])
                                                        (logfile_uri.empty()) ? NULL : logfile_uri.c_str(),
                                                        useLogCfgResolver
                                                        );
+
+        // set logging level for the DomainManager's logger
+        if ( DomainManager_servant ) {
+          DomainManager_servant->getLogger()->setLevel( ossie::logging::ConvertDebugToRHLevel(debugLevel) );
+        }
+
     } catch (const CORBA::Exception& ex) {
         LOG_ERROR(DomainManager, "Terminated with CORBA::" << ex._name() << " exception");
         return(-1);
@@ -426,8 +452,8 @@ int old_main(int argc, char* argv[])
 
         LOG_INFO(DomainManager, "Requesting ORB shutdown");
         ossie::corba::OrbShutdown(true);
-        ossie::logging::Terminate();
-        LOG_INFO(DomainManager, "Goodbye!");
+        LOG_INFO(DomainManager, "Farewell!");
+        ossie::logging::Terminate();            //no more logging....
     } catch (const CORBA::Exception& ex) {
         LOG_FATAL(DomainManager, "Terminated with CORBA::" << ex._name() << " exception");
         return(-1);
@@ -442,14 +468,12 @@ int old_main(int argc, char* argv[])
         ossie::corba::OrbShutdown(true);
         return(-1);
     }
-    LOG_DEBUG(DomainManager, "Farewell!");
 
     return 0;
 }
 
 int main(int argc, char* argv[]) {
-  //std::cout << " DomainManager pid=" << getpid() << std::endl;
   int status = old_main(argc, argv);
-  ossie::logging::Terminate();
+  if ( status < 0 ) ossie::logging::Terminate(); 
   exit(status);
 }

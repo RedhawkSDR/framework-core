@@ -187,7 +187,7 @@ if __name__ == "__main__":
         default=3)
     
     (options, args) = parser.parse_args()
-
+    
     scatest.DEBUG_NODEBOOTER = options.gdb
     scatest.GDB_CMD_FILE = options.gdbfile
 
@@ -195,6 +195,21 @@ if __name__ == "__main__":
         files = runtestHelpers.getUnitTestFiles("tests")
     else:
         files = args
+
+    java_support = runtestHelpers.haveJavaSupport('../Makefile')
+    log4cxx_support = runtestHelpers.haveLoggingSupport('../Makefile')
+    if not java_support:
+        if 'tests/test_05_JavaDevice.py' in files:
+            files.remove('tests/test_05_JavaDevice.py')
+        if 'tests/test_08_MessagingJava.py' in files:
+            files.remove('tests/test_08_MessagingJava.py')
+        if 'tests/test_11_JavaProperties.py' in files:
+            files.remove('tests/test_11_JavaProperties.py')
+    if not log4cxx_support:
+        if 'tests/test_02_logging_config.py' in files:
+            files.remove('tests/test_02_logging_config.py')
+        if 'tests/test_15_LoggingConfig.py' in files:
+            files.remove('tests/test_15_LoggingConfig.py')
 
     if os.environ.has_key('OSSIEUNITTESTSLOGCONFIG'):
         ans = raw_input("OSSIEUNITTESTSLOGCONFIG already exists as %s. Do you want to continue [Y]/N? " % os.environ[OSSIEUNITTESTSLOGCONFIG]).upper()

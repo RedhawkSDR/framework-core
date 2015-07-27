@@ -33,6 +33,7 @@ libossiecf_la_SOURCES = AggregateDevice_impl.cpp \
                         LoadableDevice_impl.cpp \
                         TestableObject_impl.cpp \
                         helperFunctions.cpp \
+                        affinity.cpp \
                         Port_impl.cpp \
                         FileStream.cpp \
                         POACreator.cpp \

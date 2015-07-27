@@ -1,3 +1,22 @@
+/*
+ * This file is protected by Copyright. Please refer to the COPYRIGHT file
+ * distributed with this source distribution.
+ *
+ * This file is part of REDHAWK GPP.
+ *
+ * REDHAWK GPP is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * REDHAWK GPP is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see http://www.gnu.org/licenses/.
+ */
 #ifndef GPP_IMPL_BASE_H
 #define GPP_IMPL_BASE_H
 
@@ -37,7 +56,7 @@ class GPP_base : public ExecutableDevice_impl, protected ThreadedComponent
         bool useScreen;
         double loadCapacity;
         CORBA::Long mcastnicIngressCapacity;
-        CORBA::Long memCapacity;
+        CORBA::LongLong memCapacity;
         double loadCapacityPerCore;
         float reserved_capacity_per_component;
         short processor_cores;
@@ -51,6 +70,9 @@ class GPP_base : public ExecutableDevice_impl, protected ThreadedComponent
         std::vector<nic_allocation_status_struct_struct> nic_allocation_status;
         std::vector<nic_metrics_struct_struct> nic_metrics;
         std::vector<interfaces_struct> networkMonitor;
+        std::string processor_monitor_list;
+        affinity_struct affinity;
+        CORBA::ULong threshold_cycle_time;
 
         // Ports
         PropertyEventSupplier *propEvent;

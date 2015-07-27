@@ -26,14 +26,12 @@
 
 PREPARE_LOGGING(Service_impl)
 
-
 void Service_impl::initResources (char* devMgr_ior, char* name)
 {
     _name = name;
     _devMgr_ior = devMgr_ior;
     initialConfiguration = true;
 }                          
-
 
 Service_impl::Service_impl (char* devMgr_ior, char* _name) :
     component_running_mutex(),
@@ -89,7 +87,6 @@ void Service_impl::terminateService ()
 {
     // code generator fills this function in the implementation
 }
-
 
 Service_impl::~Service_impl ()
 {

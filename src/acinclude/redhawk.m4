@@ -83,31 +83,49 @@ AC_DEFUN([_RH_SOFTPKG_FLAGS],
   AC_SUBST([SOFTPKG_LIBS])
 ])
 
-# RH_SOFTPKG_CXX(SPDFILE, [IMPLEMENTATION])
+# RH_SOFTPKG_CXX(SPDFILE, [IMPLEMENTATION],[MIN-VERSION],[MAX-VERSION])
 #
 # Check that a C++ soft package is installed, and add its build flags to the
 # current set
 # -----------------------------------------------------------------------------
 AC_DEFUN([RH_SOFTPKG_CXX],
 [
-  AC_REQUIRE([OSSIE_SDRROOT])
-  rh_softpkg_name=`basename $1 .spd.xml`
+  export_sdrroot=false
+  AS_IF([test "x${ossie_cv_sdr_root}" = "x"], [
+    export_sdrroot=true
+  ])
+  AC_REQUIRE([OSSIE_SDRROOT_IGNORE_PREFIX])
+  AS_IF([test "${export_sdrroot} != false"], [
+    export SDRROOT=${ossie_cv_sdr_root}
+  ])
   rh_softpkg_spd="${ossie_cv_sdr_root}/dom$1"
+  rh_softpkg_name=`redhawk-softpkg --name $rh_softpkg_spd`
+  rh_softpkg_version_check=""
+  AS_IF([test "x$3" != "x"], [
+    rh_softpkg_version_check=" >= $3"
+  ])
+  AS_IF([test "x$4" != "x"], [
+    rh_softpkg_version_check=" < $4"
+  ])
+  
   AS_IF([test "x$2" != "x"], [
     rh_softpkg_spd="$rh_softpkg_spd:$2"
-    AC_MSG_CHECKING([for C++ soft package library $1 ($2)])
+    AC_MSG_CHECKING([for C++ soft package library $rh_softpkg_name$rh_softpkg_version_check ($2)])
   ], [
-    AC_MSG_CHECKING([for C++ soft package library $1])
+    AC_MSG_CHECKING([for C++ soft package library $rh_softpkg_name$rh_softpkg_version_check])
   ])
-
+  
   # Save the prior pkg-config path
   rh_pkg_config_path_saved="$PKG_CONFIG_PATH"
   rh_softpkg_dir=`redhawk-softpkg --pkgconfigpath $rh_softpkg_spd`
   PKG_CONFIG_PATH="$rh_softpkg_dir:$rh_softpkg_pkg_config_path:$PKG_CONFIG_PATH"
 
-  PKG_CHECK_EXISTS([$rh_softpkg_name],
-                   [AC_MSG_RESULT([yes])],
-                   [AC_MSG_FAILURE([$rh_softpkg_name not found])])
+  PKG_CHECK_EXISTS([$rh_softpkg_name $rh_softpkg_version_check],[
+    AC_MSG_RESULT([yes])
+  ],[
+    AC_MSG_RESULT([no])
+    AC_MSG_ERROR([$rh_softpkg_name$rh_softpkg_version_check not found])
+  ])
 
   # Restore the pkg-config path
   PKG_CONFIG_PATH="$rh_pkg_config_path_saved"
@@ -125,9 +143,16 @@ AC_DEFUN([RH_SOFTPKG_CXX],
 # -----------------------------------------------------------------------------
 AC_DEFUN([RH_SOFTPKG_JAVA],
 [
-  AC_REQUIRE([OSSIE_SDRROOT])
-  rh_softpkg_name=`basename $1 .spd.xml`
+  export_sdrroot=false
+  AS_IF([test "x${ossie_cv_sdr_root}" = "x"], [
+    export_sdrroot=true
+  ])
+  AC_REQUIRE([OSSIE_SDRROOT_IGNORE_PREFIX])
+  AS_IF([test "${export_sdrroot} != false"], [
+    export SDRROOT=${ossie_cv_sdr_root}
+  ])
   rh_softpkg_spd="$1"
+  rh_softpkg_name=`redhawk-softpkg --name $rh_softpkg_spd`
   AS_IF([test "x$2" != "x"], [
     rh_softpkg_spd="$rh_softpkg_spd:$2"
     AC_MSG_CHECKING([for Java soft package library $1 ($2)])

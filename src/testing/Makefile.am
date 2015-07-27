@@ -56,6 +56,8 @@ SUBDIRS = sdr/dev/devices/ExecutableDevice \
           sdr/dom/components/java_comp/java \
           sdr/dom/components/TestLoggingAPI/cpp \
           sdr/dom/components/ECM_CPP/cpp \
+          sdr/dom/components/C1/cpp \
+          sdr/dom/components/C2/cpp \
           sdr/dom/components/PropertyChange_C1/cpp \
           sdr/dom/components/Property_CPP/cpp \
           sdr/dom/components/foo/bar/comp/cpp \

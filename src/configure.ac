@@ -56,7 +56,6 @@ AC_PROG_MAKE_SET
 AC_PROG_LIBTOOL
 PKG_PROG_PKG_CONFIG
 AC_HEADER_SYS_WAIT
-GR_LIB64
 
 AC_CORBA_ORB
 
@@ -118,6 +117,22 @@ fi
 AC_CHECK_HEADER([xsd/cxx/config.hxx], [], [AC_MSG_ERROR([missing XSD headers])])
 AC_CHECK_PROG([XMLCATALOG], [xmlcatalog], [xmlcatalog], [no])
 AM_CONDITIONAL(HAVE_XMLCATALOG, test $XMLCATALOG != "no")
+
+# add numa support to affinity module                                
+AC_ARG_ENABLE([affinity], AS_HELP_STRING([--enable-affinity], [Enable numa affinity processing]))
+   AC_MSG_CHECKING([Adding support for numa affinity processing])
+if test "x$enable_affinity" = "xyes"; then
+   dnl  determine if numa library support is available
+   AC_SUBST(OSSIE_AFFINITY, "yes")
+   AC_MSG_RESULT([yes])
+else
+  AC_MSG_RESULT([no])
+fi
+
+if test "x$enable_affinity" = "xyes"; then
+   AC_CHECK_LIB( numa, numa_available )
+fi
+
 
 # Find a Posix-compliant sed
 # We attempt to use AC_PROG_SED, but it's only available in autoconf >= 2.59b
@@ -341,6 +356,8 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dom/components/TestLoggingAPI/cpp/Makefile \
                 testing/sdr/dom/components/cpp_comp/cpp/Makefile \
                 testing/sdr/dom/components/TestLoggingAPI/java/Makefile \
+                testing/sdr/dom/components/C1/cpp/Makefile \
+                testing/sdr/dom/components/C2/cpp/Makefile \
                 testing/sdr/dom/components/ECM_CPP/cpp/Makefile \
                 testing/sdr/dom/components/ECM_JAVA/java/Makefile \
                 testing/sdr/dom/components/PropertyChange_C1/cpp/Makefile \

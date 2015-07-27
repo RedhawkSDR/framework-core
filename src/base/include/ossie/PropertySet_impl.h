@@ -32,13 +32,14 @@
 #include "ossie/debug.h"
 #include "ossie/PropertyInterface.h"
 #include "ossie/ProcessThread.h"
+#include "ossie/Autocomplete.h"
 #include "CF/cf.h"
 
-/**
-Figure out how to describe this interface.
-*/
 
-class PropertySet_impl: public virtual POA_CF::PropertySet
+class PropertySet_impl
+#ifdef BEGIN_AUTOCOMPLETE_IGNORE
+    : public virtual POA_CF::PropertySet
+#endif
 {
     ENABLE_LOGGING;
 
@@ -171,6 +172,9 @@ protected:
         addPropertyChangeListener(std::string(id), target, func);
     }
 
+    /**
+     * Set a callback function to be invoked on an object other than the property owner whenever the given property changes
+     */
     template <typename T, typename Target, typename Func>
     void addPropertyListener (T& value, Target target, Func func)
     {
@@ -181,6 +185,9 @@ protected:
         }
     }
 
+    /**
+     * Set a callback function to be invoked whenever the given property changes
+     */
     template <typename T, typename Func>
     void addPropertyListener (T& value, Func func)
     {

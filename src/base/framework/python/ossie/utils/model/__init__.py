@@ -902,7 +902,10 @@ class QueryableBase(object):
         A useful utility function that extracts specified property types from
         the PRF file and turns them into a _CF.PropertySet
         """
-      
+        
+        _displayNames = {}
+        _duplicateNames = {}
+        
         if _DEBUG == True:
             print "Component: _getPropertySet() kinds " + str(kinds)
             print "Component: _getPropertySet() modes " + str(modes)
@@ -936,7 +939,7 @@ class QueryableBase(object):
                     kindList.append(k.get_kindtype())
                 p = _prop_helpers.simpleProperty(id=prop.get_id(), valueType=propType, enum=enum, compRef=weakref.proxy(self), kinds=kindList,defValue=defValue, mode=prop.get_mode(), action=act)
                 id_clean = _prop_helpers._cleanId(prop)
-                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
+                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
                 propertySet.append(p)
         # Simple Sequences
         for prop in self._prf.get_simplesequence():
@@ -958,9 +961,7 @@ class QueryableBase(object):
                                                    defValue  = defValue, 
                                                    mode      = prop.get_mode())
                 id_clean = _prop_helpers._cleanId(prop)
-                p.clean_name = _prop_helpers.addCleanName(id_clean, 
-                                                          prop.get_id(), 
-                                                          self._refid)
+                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
                 propertySet.append(p)
 
         # Structures
@@ -979,7 +980,7 @@ class QueryableBase(object):
                                 defValue = _convertType(propType, val)
                             id_clean = _prop_helpers._cleanId(prop)
                             # Add individual property
-                            id_clean = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
+                            id_clean = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
                             members.append((prop.get_id(), propType, defValue, id_clean))
                             structDefValue[prop.get_id()] = defValue
                         elif isinstance(prop, _parsers.prf.simpleSequence):
@@ -991,7 +992,7 @@ class QueryableBase(object):
                                 defValue = None
                             id_clean = _prop_helpers._cleanId(prop)
                             # Add individual property
-                            id_clean = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
+                            id_clean = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
                             members.append((prop.get_id(), propType, defValue, id_clean))
                             structDefValue[prop.get_id()] = defValue
                 
@@ -1013,7 +1014,7 @@ class QueryableBase(object):
                                                  defValue=structDefValue,
                                                  mode=structProp.get_mode())
                 id_clean = _prop_helpers._cleanId(structProp)
-                p.clean_name = _prop_helpers.addCleanName(id_clean, structProp.get_id(), self._refid)
+                p.clean_name = _prop_helpers.addCleanName(id_clean, structProp.get_id(), _displayNames, _duplicateNames)
                 propertySet.append(p)
 
         # Struct Sequence
@@ -1033,7 +1034,7 @@ class QueryableBase(object):
                             id_clean = _prop_helpers._cleanId(prp)
                             # Add struct member
                             members.append((prp.get_id(), propType, defValue, id_clean))
-                            _prop_helpers.addCleanName(id_clean, prp.get_id(), self._refid)
+                            _prop_helpers.addCleanName(id_clean, prp.get_id(), _displayNames, _duplicateNames)
                         elif isinstance(prp, _parsers.prf.simpleSequence):
                             vals = prp.get_values()
                             if vals:
@@ -1043,7 +1044,7 @@ class QueryableBase(object):
                             id_clean = _prop_helpers._cleanId(prp)
                             # Adds struct member
                             members.append((prp.get_id(), propType, defValue, id_clean))
-                            _prop_helpers.addCleanName(id_clean, prp.get_id(), self._refid)
+                            _prop_helpers.addCleanName(id_clean, prp.get_id(), _displayNames, _duplicateNames)
                     
                     structSeqDefValue = None
                     structValues = prop.get_structvalue()
@@ -1078,7 +1079,7 @@ class QueryableBase(object):
                     kindList.append(k.get_kindtype())
                 p = _prop_helpers.structSequenceProperty(id=prop.get_id(), structID=prop.get_struct().get_id(), valueType=members, kinds=kindList, props=prop.get_struct().get_props(), compRef=weakref.proxy(self), defValue=structSeqDefValue, mode=prop.get_mode())
                 id_clean = _prop_helpers._cleanId(prop)
-                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), self._refid)
+                p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
                 propertySet.append(p)
 
         if _DEBUG == True:

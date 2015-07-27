@@ -213,6 +213,8 @@ namespace ossie
         ENABLE_LOGGING
 
     public:
+      typedef ossie::ComponentInstantiation::AffinityProperties AffinityProperties;
+      typedef ossie::ComponentInstantiation::LoggingConfig    LoggingConfig;
 
         ComponentInfo (const std::string& spdFileName);
         ~ComponentInfo ();
@@ -225,6 +227,9 @@ namespace ossie
         void setIsAssemblyController(bool isAssemblyController);
         void setIsScaCompliant(bool isScaCompliant);
         void setNicAssignment(std::string nic);
+        void setAffinity( const AffinityProperties &affinity );
+        void mergeAffinityOptions( const CF::Properties &new_affinity );
+        void setLoggingConfig( const LoggingConfig &logcfg );
         void addResolvedSoftPkgDependency(const std::string &dep);
         std::vector<std::string> getResolvedSoftPkgDependencies();
 
@@ -254,12 +259,18 @@ namespace ossie
         const std::string getNicAssignment();
 
         bool isAssignedToDevice() const;
+        CF::Properties containsPartialStructConfig();
+        CF::Properties containsPartialStructConstruct();
+        CF::Properties iteratePartialStruct(CF::Properties &props);
+        bool checkStruct(CF::Properties &props);
 
         CF::Properties getNonNilConfigureProperties();
         CF::Properties getNonNilConstructProperties();
         CF::Properties getConfigureProperties();
         CF::Properties getConstructProperties();
         CF::Properties getOptions();
+        CF::Properties getAffinityOptions();
+        CF::Properties getAffinityOptionsWithAssignment();
         CF::Properties getExecParameters();
 
         CF::Resource_ptr getResourcePtr();
@@ -285,11 +296,15 @@ namespace ossie
         std::string namingServiceName;
         std::string nicAssignment;
 
+        ossie::Properties _affinity_prf;
+        LoggingConfig    loggingConfig;
+
         CF::Properties configureProperties;
         CF::Properties ctorProperties;
         CF::Properties options;
         CF::Properties factoryParameters;
         CF::Properties execParameters;
+        CF::Properties affinityOptions;
         
         std::vector<std::string> resolved_softpkg_dependencies;
 

@@ -20,11 +20,14 @@
 
 import unittest, os, signal, time
 from _unitTestHelpers import scatest
+from _unitTestHelpers import runtestHelpers
 from omniORB import URI, any, CORBA
 from ossie.cf import CF
 import commands
 import CosNaming
 import tempfile
+
+java_support = runtestHelpers.haveJavaSupport('../Makefile')
 
 def getChildren(parentPid):
     process_listing = commands.getoutput('ls /proc').split('\n')
@@ -764,6 +767,8 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         self._test_BasicService('test_BasicService_node', 'BasicService1')
 
     def test_JavaService(self):
+        if not java_support:
+            return
         self._test_BasicService('test_BasicService_java_node', 'BasicService_java_1')
 
     def _test_BasicService(self, node, expected_name):

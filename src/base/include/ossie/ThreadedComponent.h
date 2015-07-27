@@ -21,6 +21,7 @@
 #ifndef OSSIE_THREADEDCOMPONENT_H
 #define OSSIE_THREADEDCOMPONENT_H
 #include "ossie/ProcessThread.h"
+#include "ossie/Autocomplete.h"
 
 enum {
     NOOP   = 0,
@@ -47,10 +48,10 @@ protected:
     // Stops the processing thread, if necessary
     bool stopThread ();
 
-    // Returns the current delay between calls to service function after a NOOP
+    /// Returns the current delay between calls to service function after a NOOP
     float getThreadDelay ();
 
-    // Changes the delay between calls to service function after a NOOP
+    /// Changes the delay between calls to service function after a NOOP
     void setThreadDelay (float delay);
 
     ossie::ProcessThread* serviceThread;

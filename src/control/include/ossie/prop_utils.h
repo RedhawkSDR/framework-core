@@ -69,6 +69,10 @@ namespace ossie
     CORBA::Any convertAnyToPropertyType(const CORBA::Any& value, const SimpleSequenceProperty* prop);
     CORBA::Any convertAnyToPropertyType(const CORBA::Any& value, const StructProperty* prop);
     CORBA::Any convertAnyToPropertyType(const CORBA::Any& value, const StructSequenceProperty* prop);
+
+    void convertComponentProperties( const std::vector< ossie::ComponentProperty*>&cp_props,
+                                     CF::Properties &cf_props );
+
 }
 
 #endif

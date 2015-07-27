@@ -395,6 +395,30 @@ CF::File_ptr FileSystem_impl::create (const char* fileName) throw (CORBA::System
     return fileServant._retn();
 }
 
+void FileSystem_impl::closeAllFiles() {
+    LOG_TRACE(FileSystem_impl, "Closing all open file handles");
+    std::vector<std::string> iors;
+    {
+        boost::mutex::scoped_lock lock(fileIORCountAccess);
+        for (IORTable::iterator iortable_iter = fileOpenIOR.begin();iortable_iter != fileOpenIOR.end();iortable_iter++) {
+            iors.push_back(iortable_iter->second[0]); 
+        }
+    }
+    std::vector<std::string>::iterator iors_iter = iors.begin();
+    while (iors_iter != iors.end()) {
+        try {
+            CORBA::Object_var obj = ossie::corba::stringToObject(iors_iter->c_str());
+            CF::File_var open_file = CF::File::_narrow(obj);
+            std::cout<<"(1)"<<std::endl;
+            open_file->close();
+            std::cout<<"(2s)"<<std::endl;
+        } catch ( ... ) {
+            // the file may not be there anymore
+        }
+        iors_iter++;
+    }
+}
+
 void FileSystem_impl::incrementFileIORCount(std::string &fileName, std::string &fileIOR) {
     boost::mutex::scoped_lock lock(fileIORCountAccess);
     fileOpenIOR[fileName].push_back(fileIOR);

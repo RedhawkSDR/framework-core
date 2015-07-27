@@ -1,3 +1,22 @@
+/*
+ * This file is protected by Copyright. Please refer to the COPYRIGHT file
+ * distributed with this source distribution.
+ *
+ * This file is part of REDHAWK GPP.
+ *
+ * REDHAWK GPP is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * REDHAWK GPP is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see http://www.gnu.org/licenses/.
+ */
 #include "NicAllocator.h"
 #include "states/NicState.h"
 
@@ -17,23 +36,28 @@ allocatable_nics_(allocatable_nics),
 max_throughput_percent_(max_throughput_percent),
 current_throughput_(current_throughput)
 {
-
+  //std::cout << " NicAllocator allocatable nics....." << allocatable_nics.size() << std::endl;
+  AllocatableNics::const_iterator iter=allocatable_nics.begin();
+  //for(; iter!=allocatable_nics.end(); iter++ ) std::cout << " Allocatable Nic " << iter->second->get_interface() << std::endl;
 }
 
 bool
 NicAllocator::allocate_capacity( const nic_allocation_struct& input_alloc )
 {
+    //    std::cout << "Checking  Allocation identifier " << input_alloc.identifier << std::endl;
     validate_allocation(input_alloc);
-    
+    //    std::cout << "Validate  Allocation identifier " << input_alloc.identifier << std::endl;    
     // Lookup and merge any previous allocation
     nic_allocation_struct alloc;
     double delta_alloc_throughput(get_throughput(input_alloc));
+    //std::cout << "Validate  Allocation identifier " << input_alloc.identifier << std::endl;    
     Allocations::iterator alloc_lookup = allocations_.find(input_alloc.identifier);
     if( alloc_lookup != allocations_.end() )
     {
         alloc = alloc_lookup->second;
         delta_alloc_throughput -= get_throughput(alloc);
     }
+
     MergeAllocationStructs(alloc, input_alloc);
     
     AllocatableNics::const_iterator iter;
@@ -42,7 +66,7 @@ NicAllocator::allocate_capacity( const nic_allocation_struct& input_alloc )
         const NicState& nic( *iter->second );
         DeviceThroughputCapacity& nic_throughput_capacity( lookup_nic_throughput_capacity( nic ) );
         double current_throughput = current_throughput_( nic.get_device() );
-        
+
         if( allocatable_by_is_addressable(alloc, nic) &&
             allocatable_by_multicast_support(alloc, nic) &&
             allocatable_by_interface(alloc, nic) &&
@@ -150,7 +174,7 @@ NicAllocator::allocatable_by_interface( const nic_allocation_struct& alloc, cons
 bool
 NicAllocator::allocatable_by_data_rate( double delta_alloc_throughput, const DeviceThroughputCapacity& capacity, double current_throughput ) const
 {
-    //std::cout << __FUNCTION__ << ": { delta_alloc_throughput: " << delta_alloc_throughput << ", current_throughput: " << current_throughput << ", capacity: { device: " << capacity.device << ", maximum_throughput: " << capacity.maximum_throughput << ", allocated_throughput: " << capacity.allocated_throughput << " } }" << std::endl;
+  RH_NL_TRACE( "GPP", __FUNCTION__ << ": { delta_alloc_throughput: " << delta_alloc_throughput << ", current_throughput: " << current_throughput << ", capacity: { device: " << capacity.device << ", maximum_throughput: " << capacity.maximum_throughput << ", allocated_throughput: " << capacity.allocated_throughput << " } }" );
     double requested_throughput = capacity.allocated_throughput + delta_alloc_throughput;
     double adjusted_max_throughput = capacity.maximum_throughput * max_throughput_percent_ / 100.0;
     

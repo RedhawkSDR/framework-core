@@ -111,6 +111,9 @@ class LocalMixin(object):
         proc, ref = launchFactory.execute(self._spd, self._impl, execparams, self._debugger, self._window, self._timeout)
         self._process = proc
         return ref
+    
+    def _requestTermination(self):
+        self._process.requestTermination()
 
     def _getExecparams(self):
         return {}
@@ -143,6 +146,7 @@ class LocalSandboxComponent(SandboxComponent, LocalMixin):
 
     def releaseObject(self):
         try:
+            self._requestTermination()
             super(LocalSandboxComponent,self).releaseObject()
         except:
             # Tolerate exceptions (e.g., the object has already been released)

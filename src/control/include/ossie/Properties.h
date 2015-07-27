@@ -20,7 +20,6 @@
 
 #ifndef __PROPERTIES_H__
 #define __PROPERTIES_H__
-
 #include<vector>
 #include<map>
 #include<string>
@@ -29,6 +28,7 @@
 #include<ostream>
 #include<cassert>
 #include<sstream>
+#include <boost/shared_ptr.hpp>
 
 #include "ossie/CF/cf.h"
 #include "ossie/debug.h"
@@ -370,7 +370,7 @@ namespace ossie {
         
         Properties(std::istream& input) throw(ossie::parser_error);
 
-        Properties& operator=(Properties other);
+        Properties& operator=( const Properties &other);
 
         virtual ~Properties();
 
@@ -412,7 +412,7 @@ namespace ossie {
         {}
 
     private:
-        std::auto_ptr<ossie::PRF> _prf;
+	boost::shared_ptr<ossie::PRF> _prf;
     };
 
 }

@@ -69,7 +69,6 @@ CosEventChannelAdmin::ProxyPullConsumer_ptr SupplierAdmin_i::obtain_pull_consume
     return CosEventChannelAdmin::ProxyPullConsumer::_nil();
 };
     
-
 MessageConsumerPort::MessageConsumerPort(std::string port_name) : Port_Provides_base_impl(port_name) {
     supplier_admin = new SupplierAdmin_i(this);
 }

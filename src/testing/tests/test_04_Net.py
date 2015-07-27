@@ -10,6 +10,9 @@ from ossie.utils.sandbox.launcher import LocalProcess
 from ossie import parsers
 from ossie.utils.sandbox.naming import NamingContextStub
 from ossie.utils import sb
+from _unitTestHelpers import runtestHelpers
+
+java_support = runtestHelpers.haveJavaSupport('../Makefile')
 
 def getChildren(parentPid):
     process_listing = commands.getoutput('ls /proc').split('\n')
@@ -105,6 +108,8 @@ class AwarenessTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applications()), 0)
 
     def test_javaCompNet(self):
+        if not java_support:
+            return
         nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
         nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")

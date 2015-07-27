@@ -72,6 +72,8 @@ public:
         throw (CF::InvalidFileName, CF::FileException, CORBA::SystemException);
 
     std::string getLocalPath(const char* fileName);
+    
+    void closeAllFiles();
 
 protected:
     CORBA::ULongLong getSize () const;

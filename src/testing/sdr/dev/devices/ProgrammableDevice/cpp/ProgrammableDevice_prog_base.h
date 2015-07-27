@@ -257,9 +257,6 @@ class ProgrammableDevice_prog_base : public ProgrammableDevice_base
             _personaMap[personaId] = persona;
             _processMap[++_processIdIncrement] = personaId;
 
-            // Update the device manager with the new device
-            _deviceManager->registerDevice(persona->_this());
-
             LOG_DEBUG(ProgrammableDevice_prog_base, __FUNCTION__ <<
                     ": Persona '" << personaId << "' has been successfully instantiated");
 

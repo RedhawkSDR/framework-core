@@ -22,33 +22,43 @@ import unittest
 from _unitTestHelpers import scatest
 from omniORB import CORBA, any
 from ossie.cf import CF
+from _unitTestHelpers import runtestHelpers
+
+java_support = runtestHelpers.haveJavaSupport('../Makefile')
 
 class DeviceExceptionsTest(object):
     def test_InvalidPropertyException(self):
-        bad_prop = CF.DataType(id='bad_cap', value=any.to_any('foo'))
-        self.assertRaises(CF.Device.InvalidCapacity, self._device.allocateCapacity, [bad_prop])
-        self._device.start()
-        self.assertRaises(CF.Device.InvalidCapacity, self._device.deallocateCapacity, [bad_prop])
+        if java_support:
+            bad_prop = CF.DataType(id='bad_cap', value=any.to_any('foo'))
+            self.assertRaises(CF.Device.InvalidCapacity, self._device.allocateCapacity, [bad_prop])
+            self._device.start()
+            self.assertRaises(CF.Device.InvalidCapacity, self._device.deallocateCapacity, [bad_prop])
+        else:
+            pass
 
     def test_InvalidStateException(self):
-        test_prop = CF.DataType('test_cap', value=any.to_any('foo'))
+        if java_support:
+            test_prop = CF.DataType('test_cap', value=any.to_any('foo'))
 
-        self._device._set_adminState(CF.Device.LOCKED)
-        self.assertRaises(CF.Device.InvalidState, self._device.allocateCapacity, [test_prop])
-        self.assertRaises(CF.Device.InvalidState, self._device.deallocateCapacity, [test_prop])
+            self._device._set_adminState(CF.Device.LOCKED)
+            self.assertRaises(CF.Device.InvalidState, self._device.allocateCapacity, [test_prop])
+            self.assertRaises(CF.Device.InvalidState, self._device.deallocateCapacity, [test_prop])
 
-        self._device._set_adminState(CF.Device.SHUTTING_DOWN)
-        self.assertRaises(CF.Device.InvalidState, self._device.allocateCapacity, [test_prop])
+            self._device._set_adminState(CF.Device.SHUTTING_DOWN)
+            self.assertRaises(CF.Device.InvalidState, self._device.allocateCapacity, [test_prop])
 
-        self._device._set_adminState(CF.Device.UNLOCKED)
+            self._device._set_adminState(CF.Device.UNLOCKED)
+        else:
+            pass
 
 
 class JavaDeviceExceptionsTest(DeviceExceptionsTest, scatest.CorbaTestCase):
     def setUp(self):
         domBooter, self._domMgr = self.launchDomainManager()
-        devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node_java/DeviceManager.dcd.xml")
-        self.assertEqual(len(self._devMgr._get_registeredDevices()), 1)
-        self._device = self._devMgr._get_registeredDevices()[0]
+        if java_support:
+            devBooter, self._devMgr = self.launchDeviceManager("/nodes/issue_111_node_java/DeviceManager.dcd.xml")
+            self.assertEqual(len(self._devMgr._get_registeredDevices()), 1)
+            self._device = self._devMgr._get_registeredDevices()[0]
 
 class CppDeviceExceptionsTest(DeviceExceptionsTest, scatest.CorbaTestCase):
     def setUp (self):

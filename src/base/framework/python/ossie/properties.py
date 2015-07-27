@@ -831,6 +831,12 @@ class _property(object):
             return self.get(obj)
 
     def _configure(self, obj, value, disableCallbacks=False ):
+        if self._complex:
+            if type(value) == list:
+                for idx in range(len(value)):
+                    value[idx] = _toPyComplex(value[idx],'')
+            else:
+                value = _toPyComplex(value,'')
         # Try the implicit callback, then fall back
         # to the automatic attribute
         if self.fval != None and not self.fval(obj, value):
@@ -1627,8 +1633,23 @@ class PropertyStorage:
         oldvalue = prop.get(self.__resource)
         prop.configure(self.__resource, value, operator, disableCallbacks=disableCallbacks)
         newvalue = prop.get(self.__resource)
+        if (prop._complex):
+            if oldvalue != None:
+                if type(oldvalue) == list:
+                    for idx in range(len(oldvalue)):
+                        oldvalue[idx] = _toPyComplex(oldvalue[idx],'')
+                else:
+                    oldvalue = _toPyComplex(oldvalue,'')
+            if newvalue != None:
+                if type(newvalue) == list:
+                    for idx in range(len(newvalue)):
+                        newvalue[idx] = _toPyComplex(newvalue[idx],'')
+                else:
+                    newvalue = _toPyComplex(newvalue,'')
         if disableCallbacks: return
-        if id_ in self._changeListeners:
+        if id_ in self._changeListeners and oldvalue != newvalue:
+            if self._changeListeners[id_].func_code.co_argcount != 4:
+                raise CF.PropertySet.InvalidConfiguration(msg='callback function '+self._changeListeners[id_].func_name+' has the wrong number of arguments',invalidProperties=prop)
             self._changeListeners[id_](id_, oldvalue, newvalue)
         for callback in self._genericListeners:
             callback(id_, oldvalue, newvalue)

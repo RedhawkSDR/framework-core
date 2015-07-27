@@ -25,9 +25,9 @@
 #include <vector>
 
 #include <ossie/exceptions.h>
-
-#include "connectionSupport.h"
 #include "applicationSupport.h"
+#include "connectionSupport.h"
+
 
 namespace ossie {
 

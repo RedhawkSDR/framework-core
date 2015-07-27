@@ -163,6 +163,28 @@ abstract public class Logging {
 
 
     /**
+     *  setLogger
+     * 
+     *  Override the default resource logger and name..
+     *
+     * @param logging.Logger  logger to use 
+     * @param String          name of the logger 
+     */
+    public void setLogger( Logger logger, String logName ) {
+       if  ( logger != null ) {
+            // retain handle to underlying classes logger so we can configure 
+            // as needed
+           _logger = logger;
+        }
+        else {
+            _logger = Logger.getLogger(logName);
+        }
+
+	this.logName=logName;
+    }
+
+
+    /**
      *  setLoggingMacros
      * 
      *  Use the logging resource context class to set any logging macro definitions.
@@ -272,7 +294,17 @@ abstract public class Logging {
 	}
 
 	if  ( oldstyle_loglevel > -1  ) {
-	    logLevel = logging.ConvertLogLevel(oldstyle_loglevel);
+            logLevel = logging.ConvertLogLevel(oldstyle_loglevel);
+            try {
+                if ( _logger != null ) {
+                    _logger.setLevel( logging.ConvertLogLevelToLog4(oldstyle_loglevel) );
+                }
+                else {
+                    setLogLevel( logName, logging.ConvertLogLevel(oldstyle_loglevel) );
+                }
+            }
+            catch( Exception e ){
+            }
 	}
 	else {
 	    // grab root logger's level
@@ -514,6 +546,5 @@ abstract public class Logging {
         CF.LogEvent[] seq = new CF.LogEvent[0]; 
 	return seq;
     }
-
 
 }

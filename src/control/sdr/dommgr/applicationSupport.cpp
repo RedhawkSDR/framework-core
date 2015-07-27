@@ -32,9 +32,9 @@
 #include <ossie/DeviceManagerConfiguration.h>
 #include <ossie/prop_utils.h>
 #include <ossie/CorbaUtils.h>
-
 #include "applicationSupport.h"
 #include "PersistenceStore.h"
+#include "ossie/PropertyMap.h"
 
 using namespace ossie;
 
@@ -601,6 +601,15 @@ ComponentInfo::ComponentInfo(const std::string& spdFileName) :
 {
     nicAssignment = "";
     resolved_softpkg_dependencies.resize(0);
+    // load common affinity property definitions 
+    try {
+      std::stringstream os(redhawk::affinity::get_property_definitions());
+      LOG_TRACE(ComponentInfo, "affinity definitions: " << os.str());
+      _affinity_prf.load(os);
+    }
+    catch(...){
+      LOG_WARN(ComponentInfo, "Error loading affinity definitions from library." );
+    }
 }
 
 ComponentInfo::~ComponentInfo ()
@@ -657,6 +666,35 @@ void ComponentInfo::setIsScaCompliant(bool _isScaCompliant)
 void ComponentInfo::setNicAssignment(std::string nic) {
     nicAssignment = nic;
 };
+
+
+void ComponentInfo::setAffinity( const AffinityProperties &affinity_props )
+{
+  
+  for (unsigned int i = 0; i < affinity_props.size(); ++i) {
+    ossie::ComponentProperty* propref = affinity_props[i];
+    std::string propId = propref->getID();
+    LOG_DEBUG(ComponentInfo, "Affinity property id = " << propId);
+    const Property* prop = _affinity_prf.getProperty(propId);
+    // Without a prop, we don't know how to convert the strings to the property any type
+    if (prop == NULL) {
+      LOG_WARN(ComponentInfo, "ignoring attempt to override property " << propId << " that does not exist in component");
+      continue;
+    }
+
+    // add property
+    CF::DataType dt = overridePropertyValue(prop, propref);
+    addProperty( dt, affinityOptions );
+  }
+
+}
+
+
+void ComponentInfo::setLoggingConfig( const LoggingConfig  &logcfg )
+{
+  loggingConfig = logcfg;
+}
+
 
 void ComponentInfo::addFactoryParameter(CF::DataType dt)
 {
@@ -815,6 +853,73 @@ bool ComponentInfo::isAssignedToDevice() const
     return assignedDevice;
 }
 
+bool ComponentInfo::checkStruct(CF::Properties &props)
+{
+    redhawk::PropertyMap& tmpProps = redhawk::PropertyMap::cast(props);
+    int state = 0; // 1 set, -1 nil
+    for (redhawk::PropertyMap::iterator tmpP = tmpProps.begin(); tmpP != tmpProps.end(); tmpP++) {
+        if (tmpProps[ossie::corba::returnString(tmpP->id)].isNil()) {
+            if (state == 0) {
+                state = -1;
+            } else {
+                if (state == 1) {
+                    return true;
+                }
+            }
+        } else {
+            if (state == 0) {
+                state = 1;
+            } else {
+                if (state == -1) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+CF::Properties ComponentInfo::iteratePartialStruct(CF::Properties &props)
+{
+    CF::Properties retval;
+    redhawk::PropertyMap& configProps = redhawk::PropertyMap::cast(props);
+    for (redhawk::PropertyMap::iterator cP = configProps.begin(); cP != configProps.end(); cP++) {
+        const ossie::Property* prop = this->prf.getProperty(ossie::corba::returnString(cP->id));
+        if (dynamic_cast<const ossie::StructProperty*>(prop)) {
+            CF::Properties* tmp;
+            if (!(cP->value >>= tmp))
+                continue;
+            if (this->checkStruct(*tmp))
+                return *tmp;
+        } else if (dynamic_cast<const ossie::StructSequenceProperty*>(prop)) {
+            CORBA::AnySeq* anySeqPtr;
+            if (!(cP->value >>= anySeqPtr)) {
+                continue;
+            }
+            CORBA::AnySeq& anySeq = *anySeqPtr;
+            for (CORBA::ULong ii = 0; ii < anySeq.length(); ++ii) {
+                CF::Properties* tmp;
+                if (!(anySeq[ii] >>= tmp))
+                    continue;
+                if (this->checkStruct(*tmp))
+                    return *tmp;
+            }
+        } else {
+            continue;
+        }
+    }
+    return retval;
+}
+
+CF::Properties ComponentInfo::containsPartialStructConfig() {
+    return this->iteratePartialStruct(configureProperties);
+}
+
+CF::Properties ComponentInfo::containsPartialStructConstruct()
+{
+    return this->iteratePartialStruct(ctorProperties);
+}
+
 CF::Properties ComponentInfo::getNonNilConfigureProperties()
 {
     return ossie::getNonNilConfigureProperties(configureProperties);
@@ -824,6 +929,49 @@ CF::Properties ComponentInfo::getNonNilConstructProperties()
 {
     return ossie::getNonNilProperties(ctorProperties);
 }
+
+CF::Properties ComponentInfo::getAffinityOptionsWithAssignment()
+{
+  // Add affinity setting first...
+  CF::Properties affinity_options;
+  for ( uint32_t i=0; i < affinityOptions.length(); i++ ) {
+      affinity_options.length(affinity_options.length()+1);
+      affinity_options[affinity_options.length()-1] = affinityOptions[i];
+      CF::DataType dt = affinityOptions[i];
+      RH_NL_DEBUG("DomainManager", "ComponentInfo getAffinityOptionsWithAssignment ... Affinity Property: directive id:"  <<  dt.id << "/" <<  ossie::any_to_string( dt.value )) ;
+  }
+
+  // add nic allocations to affinity list 
+  if ( nicAssignment != "" ) {
+      affinity_options.length(affinity_options.length()+1);
+      affinity_options[affinity_options.length()-1].id = CORBA::string_dup("nic");  
+      affinity_options[affinity_options.length()-1].value <<= nicAssignment.c_str(); 
+      RH_NL_DEBUG("DomainManager", "ComponentInfo getAffinityOptionsWithAssignment ... NIC AFFINITY: pol/value "  <<  "nic"  << "/" << nicAssignment );
+  }      
+
+  return affinity_options;
+
+}
+
+
+CF::Properties ComponentInfo::getAffinityOptions()
+{
+  return affinityOptions;
+}
+
+
+void ComponentInfo::mergeAffinityOptions( const CF::Properties &new_affinity )
+{
+  // for each new affinity setting apply settings to component's affinity options
+  const redhawk::PropertyMap &newmap = redhawk::PropertyMap::cast(new_affinity);
+  redhawk::PropertyMap &currentAffinity = redhawk::PropertyMap::cast(affinityOptions);
+  redhawk::PropertyMap::const_iterator iter = newmap.begin();
+  for ( ; iter != newmap.end(); iter++ ) {
+    std::string id = iter->getId();
+    currentAffinity[id]=newmap[id];
+  }
+}
+
 
 CF::Properties ComponentInfo::getConfigureProperties()
 {
@@ -835,6 +983,7 @@ CF::Properties ComponentInfo::getConstructProperties()
 {
     return ctorProperties;
 }
+
 
 CF::Properties ComponentInfo::getOptions()
 {
@@ -853,6 +1002,48 @@ CF::Properties ComponentInfo::getOptions()
         }
     }
 
+    // Add affinity settings under AFFINITY property directory
+    CF::Properties affinity_options;
+    for ( uint32_t i=0; i < affinityOptions.length(); i++ ) {
+      affinity_options.length(affinity_options.length()+1);
+      affinity_options[affinity_options.length()-1] = affinityOptions[i];
+      CF::DataType dt = affinityOptions[i];
+      RH_NL_DEBUG("DomainManager", "ComponentInfo - Affinity Property: directive id:"  <<  dt.id << "/" <<  ossie::any_to_string( dt.value )) ;
+    }
+
+    // add nic allocations to affinity list 
+    if ( nicAssignment != "" ) {
+      std::string id = "nic";
+      const redhawk::PropertyMap &tmap = redhawk::PropertyMap::cast( affinityOptions );
+      if ( !tmap.contains(id) ) {
+        // missing nic directive... add to map
+        affinity_options.length(affinity_options.length()+1);
+        affinity_options[affinity_options.length()-1].id = CORBA::string_dup("nic");  
+        affinity_options[affinity_options.length()-1].value <<= nicAssignment.c_str(); 
+      }
+      else {
+        std::string nic_iface = tmap[id].toString();
+        if ( nic_iface != nicAssignment ) {
+          // nic_iface is differnet add this 
+          affinity_options.length(affinity_options.length()+1);
+          affinity_options[affinity_options.length()-1].id = CORBA::string_dup("nic");  
+          affinity_options[affinity_options.length()-1].value <<= nicAssignment.c_str(); 
+        }
+      }
+      RH_NL_DEBUG("DomainManager", "ComponentInfo - NIC AFFINITY: pol/value "  <<  "nic"  << "/" << nicAssignment );
+    }      
+
+    if ( affinity_options.length() > 0 ) {
+      options.length(options.length()+1);
+      options[options.length()-1].id = CORBA::string_dup("AFFINITY"); 
+      options[options.length()-1].value <<= affinity_options;
+      RH_NL_DEBUG("DomainManager", "ComponentInfo - Extending options, adding Affinity Properties ...set length: " << affinity_options.length());
+    }
+
+    RH_NL_TRACE("DomainManager", "ComponentInfo - getOptions.... length: " << options.length());
+    for ( uint32_t i=0; i < options.length(); i++ ) {
+      RH_NL_TRACE("DomainManager", "ComponentInfo - getOptions id:"  <<  options[i].id << "/" <<  ossie::any_to_string( options[i].value )) ;
+    }
     return options;
 }
 

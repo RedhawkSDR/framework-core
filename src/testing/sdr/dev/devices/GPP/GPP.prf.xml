@@ -1,4 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+This file is protected by Copyright. Please refer to the COPYRIGHT file
+distributed with this source distribution.
+
+This file is part of REDHAWK GPP.
+
+REDHAWK GPP is free software: you can redistribute it and/or modify it under
+the terms of the GNU Lesser General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+REDHAWK GPP is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+details.
+
+You should have received a copy of the GNU Lesser General Public License along
+with this program.  If not, see http://www.gnu.org/licenses/.
+-->
 <!DOCTYPE properties PUBLIC "-//JTRS//DTD SCA V2.2.2 PRF//EN" "properties.dtd">
 <properties>
   <simple id="DCE:cdc5ee18-7ceb-4ae6-bf4c-31f983179b4d" mode="readonly" name="device_kind" type="string">
@@ -179,7 +198,7 @@ Optional</description>
     <kind kindtype="allocation"/>
     <action type="external"/>
   </simple>
-  <simple id="DCE:8dcef419-b440-4bcf-b893-cab79b6024fb" mode="readwrite" name="memCapacity" type="long" complex="false">
+  <simple id="DCE:8dcef419-b440-4bcf-b893-cab79b6024fb" mode="readwrite" name="memCapacity" type="longlong" complex="false">
     <description>Amount of RAM in the GPP not allocated to an application</description>
     <units>MiB</units>
     <kind kindtype="allocation"/>
@@ -252,17 +271,25 @@ THRESHOLD_NOT_EXCEEDED:  The measured value no longer exceeds the configured thr
     <simple id="cpu_idle" type="float">
       <value>10</value>
       <units>%</units>
+      <kind kindtype="property"/>
+      <kind kindtype="configure"/>
+      <action type="external"/>
     </simple>
-    <simple id="mem_free" mode="readwrite" type="long">
+    <simple id="mem_free" mode="readwrite" type="longlong">
       <value>100</value>
       <units>MB</units>
+      <kind kindtype="property"/>
       <kind kindtype="configure"/>
       <action type="external"/>
     </simple>
     <simple id="nic_usage" type="long">
       <value>900</value>
       <units>MB/s</units>
+      <kind kindtype="property"/>
+      <kind kindtype="configure"/>
+      <action type="external"/>
     </simple>
+    <configurationkind kindtype="property"/>
     <configurationkind kindtype="configure"/>
   </struct>
   <simple id="DCE:3bf07b37-0c00-4e2a-8275-52bd4e391f07" mode="readwrite" name="loadCapacityPerCore" type="double">
@@ -287,4 +314,71 @@ THRESHOLD_NOT_EXCEEDED:  The measured value no longer exceeds the configured thr
     <kind kindtype="configure"/>
     <action type="external"/>
   </simple>
+  
+  <struct id="affinity" mode="readwrite">
+    <simple id="affinity::exec_directive_value" mode="readwrite" name="exec_directive_value" type="string" optional="false">
+      <description>The context specification for the exec_directive_class.   See numa library manpage for socket(numa node) and cpu list specifications.  For cgroup/cpuset option then a pre-existing cgroup name is required.</description>
+      <kind kindtype="property"/>
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <simple id="affinity::exec_directive_class" mode="readwrite" name="exec_directive_class" type="string" optional="false">
+      <description>The classification of the affinity policy to apply.</description>
+      <enumerations>
+        <enumeration label="socket" value="socket"/>
+        <enumeration label="nic" value="nic"/>
+        <enumeration label="cpu" value="cpu"/>
+        <enumeration label="cgroup" value="cgroup"/>
+      </enumerations>
+      <kind kindtype="property"/>
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <simple id="affinity::force_override" mode="readwrite" name="force_override" type="boolean" optional="false">
+      <description>determines if the specified affinity policy (exec_directive_value, exec_directive_class) is inherited by RH resources started from this GPP.</description>
+      <value>false</value>
+      <kind kindtype="property"/>
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <simple id="affinity::blacklist_cpus" mode="readwrite" name="blacklist_cpus" type="string">
+      <description>list of cpu ids to black list when making affinity requests. see numa library manpage for cpu list specifications. </description>
+      <value></value>
+      <kind kindtype="property"/>
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <simple id="affinity::deploy_per_socket" mode="readwrite" name="deploy_per_socket" type="boolean">
+      <description>If no affinity specification is provide during deployment, then enabling this will deploy resources on next available processor socket. (force_override will ignore this)</description>
+      <value>false</value>
+      <kind kindtype="property"/>
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <simple id="affinity::disabled" mode="readwrite" name="disabled" type="boolean">
+      <description>controls if affinity requests are processed by the GPP.</description>
+      <value>true</value>
+      <kind kindtype="property"/>
+      <kind kindtype="configure"/>
+      <action type="external"/>
+    </simple>
+    <configurationkind kindtype="property"/>
+    <configurationkind kindtype="configure"/>
+  </struct>
+
+  <simple id="processor_monitor_list" mode="readonly" type="string">
+    <description>list of cpu ids that are being monitored for loadavg and idle utilization.</description>
+    <kind kindtype="configure"/>
+    <action type="external"/>
+  </simple>
+
+  <simple id="threshold_cycle_time" mode="readwrite" name="threshold_cycle_time" type="ulong">
+    <description>cycle time between updates of metric capture, calculations and threshold evaluations.</description>
+    <value>500</value>
+    <units>milliseconds</units>
+    <kind kindtype="property"/>
+    <kind kindtype="configure"/>
+    <action type="external"/>
+  </simple>
+
 </properties>

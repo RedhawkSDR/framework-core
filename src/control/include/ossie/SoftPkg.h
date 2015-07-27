@@ -47,6 +47,11 @@ namespace ossie {
 
         class PropertyRef : public DependencyRef {
             public:
+                PropertyRef() :
+                    property(NULL)
+                {
+                }
+
                 PropertyRef(ComponentProperty* prop) :
                     property(prop)
                 {

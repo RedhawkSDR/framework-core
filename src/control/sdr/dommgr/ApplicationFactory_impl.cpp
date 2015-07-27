@@ -1345,7 +1345,7 @@ void createHelper::allocateComponent(ossie::ComponentInfo*  component,
         const UsesDeviceInfo::List &implUsesDevVec = impl->getUsesDevices();
         
         if (!allocateUsesDevices(component->getIdentifier(), implUsesDevVec, configureProperties, implAllocatedDevices, implAllocations)) {
-            LOG_TRACE(ApplicationFactory_impl, "Unable to satisfy 'usesdevice' dependencies for component "
+            LOG_DEBUG(ApplicationFactory_impl, "Unable to satisfy 'usesdevice' dependencies for component "
                       << component->getIdentifier() << " implementation " << impl->getId());
             continue;
         }
@@ -1356,7 +1356,7 @@ void createHelper::allocateComponent(ossie::ComponentInfo*  component,
         ossie::AllocationResult response = allocateComponentToDevice(component, impl, assignedDeviceId, appIdentifier);
         
         if (response.first.empty()) {
-            LOG_TRACE(ApplicationFactory_impl, "Unable to allocate device for component "
+            LOG_DEBUG(ApplicationFactory_impl, "Unable to allocate device for component "
                       << component->getIdentifier() << " implementation " << impl->getId());
             continue;
         }
@@ -1370,7 +1370,7 @@ void createHelper::allocateComponent(ossie::ComponentInfo*  component,
         
         if (!resolveSoftpkgDependencies(impl, node)) {
             component->clearSelectedImplementation();
-            LOG_TRACE(ApplicationFactory_impl, "Unable to resolve softpackage dependencies for component "
+            LOG_DEBUG(ApplicationFactory_impl, "Unable to resolve softpackage dependencies for component "
                       << component->getIdentifier() << " implementation " << impl->getId());
             continue;
         }
@@ -1495,7 +1495,7 @@ bool createHelper::allocateUsesDevices(const std::string& componentIdentifier,
     }
 }
 
-void createHelper::_evaluateMATHinRequest(CF::Properties &request, CF::Properties configureProperties)
+void createHelper::_evaluateMATHinRequest(CF::Properties &request, const CF::Properties &configureProperties)
 {
     for (unsigned int math_prop=0; math_prop<request.length(); math_prop++) {
         CF::Properties *tmp_prop;
@@ -1525,6 +1525,24 @@ void createHelper::_evaluateMATHinRequest(CF::Properties &request, CF::Propertie
                 }
 
                 double operand = strtod(args[0].c_str(), NULL);
+                if (args[0].size() == 0) {
+                    std::ostringstream eout;
+                    eout << " invalid __MATH__ argument (argument empty);";
+                    throw ossie::PropertyMatchingError(eout.str());
+                }
+                if (not std::isdigit(args[0][0])) { // if the first character is not numeric, then cannot apply __MATH__
+                    std::ostringstream eout;
+                    eout << " invalid __MATH__ argument; '" << args[0] << "'";
+                    if (args[0][0] != '.') {
+                        throw ossie::PropertyMatchingError(eout.str());
+                    }
+                    if (args[0].size() == 1) { // the string is only '.'
+                        throw ossie::PropertyMatchingError(eout.str());
+                    }
+                    if (not std::isdigit(args[0][1])) { // the string starts with '.' but is not followed by a number
+                        throw ossie::PropertyMatchingError(eout.str());
+                    }
+                }
 
                 // See if there is a property in the component
                 const CF::DataType* matchingCompProp = 0;
@@ -1616,13 +1634,20 @@ ossie::AllocationResult createHelper::allocateComponentToDevice( ossie::Componen
     this->_castRequestProperties(allocationProperties, prop_refs);
     this->_evaluateMATHinRequest(allocationProperties, component->getConfigureProperties());
     
+    LOG_TRACE(ApplicationFactory_impl, "alloc prop size " << allocationProperties.size() );
+    redhawk::PropertyMap::iterator iter=allocationProperties.begin();
+    for( ; iter != allocationProperties.end(); iter++){
+      LOG_TRACE(ApplicationFactory_impl, "alloc prop: " << iter->id  <<" value:" <<  ossie::any_to_string(iter->value) );
+    }
+    
     redhawk::PropertyMap::iterator nic_alloc = allocationProperties.find("nic_allocation");
     std::string alloc_id;
     if (nic_alloc != allocationProperties.end()) {
         redhawk::PropertyMap& substr = nic_alloc->getValue().asProperties();
         alloc_id = substr["nic_allocation::identifier"].toString();
         if (alloc_id.empty()) {
-            substr["nic_allocation::identifier"] = ossie::generateUUID();
+          alloc_id = ossie::generateUUID();
+          substr["nic_allocation::identifier"] = alloc_id;
         }
     }
     
@@ -1638,11 +1663,16 @@ ossie::AllocationResult createHelper::allocateComponentToDevice( ossie::Componen
                 std::string identifier = struct_prop["nic_allocation_status::identifier"].toString();
                 if (identifier == alloc_id) {
                     const std::string interface = struct_prop["nic_allocation_status::interface"].toString();
+                    LOG_DEBUG(ApplicationFactory_impl, "Allocation NIC assignment: " << interface );
                     component->setNicAssignment(interface);
                     redhawk::PropertyType nic_execparam;
                     nic_execparam.id = "NIC";
                     nic_execparam.setValue(interface);
                     component->addExecParameter(nic_execparam);
+
+                    // RESOLVE - need SAD file directive to control this behavior.. i.e if promote_nic_to_affinity==true...
+                    // for now add nic assignment as application affinity to all components deployed by this device
+                    _app_affinity = component->getAffinityOptionsWithAssignment();
                 }
             }
         }
@@ -1818,6 +1848,9 @@ void createHelper::getRequiredComponents()
         }
     
         newComponent->setUsageName(instance.getUsageName());
+        newComponent->setAffinity( instance.getAffinity() );
+        newComponent->setLoggingConfig( instance.getLoggingConfig() );
+
         const std::vector<ComponentProperty*>& ins_prop = instance.getProperties();
 
         for (unsigned int i = 0; i < ins_prop.size(); ++i) {
@@ -1988,6 +2021,8 @@ void createHelper::loadDependencies(ossie::ComponentInfo& component,
 void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg)
 {
     LOG_TRACE(ApplicationFactory_impl, "Loading and Executing " << _requiredComponents.size() << " components");
+    // apply application affinity options to required components
+    applyApplicationAffinityOptions();
 
     for (unsigned int rc_idx = 0; rc_idx < _requiredComponents.size (); rc_idx++) {
         ossie::ComponentInfo* component = _requiredComponents[rc_idx];
@@ -2097,11 +2132,6 @@ void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg
 
             // Add the required parameters specified in SR:163
             // Naming Context IOR, Name Binding, and component identifier
-            CF::DataType ncior;
-            ncior.id = "NAMING_CONTEXT_IOR";
-            ncior.value <<= ossie::corba::objectToString(_appReg);
-            component->addExecParameter(ncior);
-
             CF::DataType ci;
             ci.id = "COMPONENT_IDENTIFIER";
             ci.value <<= component->getIdentifier();
@@ -2133,11 +2163,16 @@ void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg
                 if (propid == "LOGGING_CONFIG_URI") {
 		  logcfg_prop = &execParameters[i];
 		  const char* tmpstr;
-		  logcfg_prop->value >>= tmpstr;
-		  LOG_TRACE(ApplicationFactory_impl, "Resource logging configuration provided, logcfg:" << tmpstr);
-		  logging_uri = string(tmpstr);
-		  alreadyHasLoggingConfigURI = true;
-		  break;
+                  if ( ossie::any::isNull(logcfg_prop->value) == true ) {
+                    LOG_WARN(ApplicationFactory_impl, "Missing value for LOGGING_CONFIG_URI, component: " << _baseNamingContext << "/" << component->getNamingServiceName() );
+                  }
+                  else {
+                    logcfg_prop->value >>= tmpstr;
+                    LOG_TRACE(ApplicationFactory_impl, "Resource logging configuration provided, logcfg:" << tmpstr);
+                    logging_uri = string(tmpstr);
+                    alreadyHasLoggingConfigURI = true;
+                  }
+                  break;
                 }
             }
 
@@ -2161,6 +2196,16 @@ void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg
                 } else {
                     LOG_TRACE(ApplicationFactory_impl, "DomainManager LOGGING_CONFIG_URI is not set");
                 }
+
+                rh_logger::LoggerPtr dom_logger = _appFact._domainManager->getLogger();
+                if ( dom_logger ) {
+                  rh_logger::LevelPtr dlevel = dom_logger->getLevel();
+                  if ( !dlevel ) dlevel = rh_logger::Logger::getRootLogger()->getLevel();
+                  CF::DataType prop;
+                  prop.id = "DEBUG_LEVEL";
+                  prop.value <<= static_cast<CORBA::Long>(ossie::logging::ConvertRHLevelToDebug( dlevel ));
+                  component->addExecParameter(prop);
+                }
 	    }
 
 	    // if we have a uri but no property, add property to component's exec param list
@@ -2168,6 +2213,7 @@ void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg
 	      CF::DataType prop;
 	      prop.id = "LOGGING_CONFIG_URI";
 	      prop.value <<= logging_uri.c_str();
+              LOG_DEBUG(ApplicationFactory_impl, "logcfg_prop == NULL " << prop.id << " / " << logging_uri );
 	      component->addExecParameter(prop);
 	    }
 
@@ -2182,8 +2228,14 @@ void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg
                 CORBA::Any loguri;
                 loguri <<= logging_uri.c_str();
                 // this overrides all instances of the property called LOGGING_CONFIG_URI
+                LOG_TRACE(ApplicationFactory_impl, "override ....... uri " << logging_uri );
                 component->overrideProperty("LOGGING_CONFIG_URI", loguri);
 	    }
+            // Add the Naming Context IOR to make it easier to parse the command line
+            CF::DataType ncior;
+            ncior.id = "NAMING_CONTEXT_IOR";
+            ncior.value <<= ossie::corba::objectToString(_appReg);
+            component->addExecParameter(ncior);
 
             fs::path executeName;
             if ((implementation->getCodeType() == CF::LoadableDevice::EXECUTABLE) && (implementation->getEntryPoint().size() == 0)) {
@@ -2228,7 +2280,14 @@ void createHelper::attemptComponentExecution (
         for (unsigned int p=0;p!=dep_seq.length();p++) {
             dep_seq[p]=CORBA::string_dup(resolved_softpkg_deps[p].c_str());
         }
-        tempPid = execdev->executeLinked(executeName.string().c_str(), component->getOptions(), component->getExecParameters(), dep_seq);
+
+        // get Options list
+        CF::Properties cop = component->getOptions(); 
+        for (unsigned int i = 0; i < cop.length(); ++i) {
+            LOG_TRACE(ApplicationFactory_impl, " RESOURCE OPTION: " << cop[i].id << " " << ossie::any_to_string(cop[i].value))
+        }
+
+        tempPid = execdev->executeLinked(executeName.string().c_str(), cop, component->getExecParameters(), dep_seq);
     } catch( CF::InvalidFileName& _ex ) {
         ostringstream eout;
         eout << "InvalidFileName when calling 'execute' on device with device id: '" << component->getAssignedDeviceId() << "' for component: '";
@@ -2308,6 +2367,44 @@ void createHelper::attemptComponentExecution (
         _application->setComponentPid(component->getIdentifier(), tempPid);
     }
 }
+
+
+void createHelper::applyApplicationAffinityOptions() {
+
+  if ( _app_affinity.length() > 0  ) {
+    // log deployments with application affinity 
+    for ( uint32_t i=0; i < _app_affinity.length(); i++ ) {
+      CF::DataType dt = _app_affinity[i];
+      LOG_INFO(ApplicationFactory_impl, " Applying Application Affinity: directive id:"  <<  dt.id << "/" <<  ossie::any_to_string( dt.value )) ;
+    }
+    
+    //
+    // Promote NIC affinity for all components deployed on the same device
+    //
+    boost::shared_ptr<ossie::DeviceNode> deploy_on_device;
+    for (unsigned int rc_idx = 0; rc_idx < _requiredComponents.size (); rc_idx++) {
+      ossie::ComponentInfo * comp =  _requiredComponents[rc_idx];
+      if ( comp->getNicAssignment() != "" ) {
+        deploy_on_device = comp->getAssignedDevice();
+      }
+    }
+
+    if ( deploy_on_device ) {
+      for (unsigned int rc_idx = 0; rc_idx < _requiredComponents.size (); rc_idx++) {
+        ossie::ComponentInfo* component = _requiredComponents[rc_idx];
+        boost::shared_ptr<ossie::DeviceNode> dev= component->getAssignedDevice();
+        // for matching device deployments then apply nic affinity settings
+        if ( dev->identifier == deploy_on_device->identifier ) {
+          component->mergeAffinityOptions( _app_affinity );
+        }
+      }
+    }
+
+  }
+
+}
+    
+
 
 void createHelper::waitForComponentRegistration()
 {
@@ -2398,6 +2495,16 @@ void createHelper::initializeComponents()
         //
         LOG_DEBUG(ApplicationFactory_impl, "Initialize properties for component " << componentId);
         if (component->isResource () && component->isConfigurable ()) {
+          CF::Properties partialStruct = component->containsPartialStructConstruct();
+          if (partialStruct.length() != 0) {
+            ostringstream eout;
+            eout << "Failed to 'configure' Assembly Controller: '";
+            eout << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId() << "' ";
+            eout << " in waveform '"<< _waveformContextName<<"';";
+            eout <<  "This component contains structure"<<partialStruct[0].id<<" with a mix of defined and nil values.";
+            LOG_ERROR(ApplicationFactory_impl, eout.str());
+            throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EIO, eout.str().c_str());
+          }
           try {
             // Try to set the initial values for the component's properties
             resource->initializeProperties(component->getNonNilConstructProperties());
@@ -2521,6 +2628,16 @@ void createHelper::configureComponents()
             }
 
             if (component->isResource () && component->isConfigurable ()) {
+                CF::Properties partialStruct = component->containsPartialStructConfig();
+                if (partialStruct.length() != 0) {
+                    ostringstream eout;
+                    eout << "Failed to 'configure' Assembly Controller: '";
+                    eout << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId() << "' ";
+                    eout << " in waveform '"<< _waveformContextName<<"';";
+                    eout <<  "This component contains structure"<<partialStruct[0].id<<" with a mix of defined and nil values.";
+                    LOG_ERROR(ApplicationFactory_impl, eout.str());
+                    throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EIO, eout.str().c_str());
+                }
                 try {
                     // try to configure the component
                     _rsc->configure (component->getNonNilConfigureProperties());
@@ -2602,6 +2719,16 @@ void createHelper::configureComponents()
             }
             
             if (component->isResource () && component->isConfigurable ()) {
+                CF::Properties partialStruct = component->containsPartialStructConfig();
+                if (partialStruct.length() != 0) {
+                    ostringstream eout;
+                    eout << "Failed to 'configure' Assembly Controller: '";
+                    eout << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId() << "' ";
+                    eout << " in waveform '"<< _waveformContextName<<"';";
+                    eout <<  "This component contains structure"<<partialStruct[0].id<<" with a mix of defined and nil values.";
+                    LOG_ERROR(ApplicationFactory_impl, eout.str());
+                    throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EIO, eout.str().c_str());
+                }
                 try {
                     // try to configure the component
                     _rsc->configure (component->getNonNilConfigureProperties());

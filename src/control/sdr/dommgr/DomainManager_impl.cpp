@@ -94,7 +94,7 @@ DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpa
                 "readonly", "", "external", "configure");
 
     // Create file manager and register with the parent POA.
-    FileManager_impl* fileMgr_servant = new FileManager_impl (_rootpath);
+    fileMgr_servant = new FileManager_impl (_rootpath);
     std::string fileManagerId = _domainName + "/FileManager";
     PortableServer::ObjectId_var oid = ossie::corba::activatePersistentObject(poa, fileMgr_servant, fileManagerId);
     fileMgr_servant->_remove_ref();
@@ -121,7 +121,7 @@ DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpa
         inc = ossie::corba::InitialNamingContext();
     } catch ( ... ) {
         LOG_FATAL(DomainManager_impl, "Unable to find Naming Service; make sure that it is configured correctly and running.");
-        exit(EXIT_FAILURE);
+        _exit(EXIT_FAILURE);
     }
     try {
         rootContext = inc->bind_new_context (base_context);
@@ -133,11 +133,11 @@ DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpa
             cleanupDomainNamingContext(rootContext);
         } catch (CORBA::Exception& e) {
             LOG_FATAL(DomainManager_impl, "Stopping domain manager; error cleaning up context for domain due to: " << e._name());
-            exit(EXIT_FAILURE);
+            _exit(EXIT_FAILURE);
         }
     } catch ( ... ) {
         LOG_FATAL(DomainManager_impl, "Stopping domain manager; error creating new context for domain " << this->_domainName.c_str())
-        exit(EXIT_FAILURE);
+        _exit(EXIT_FAILURE);
     }
 
     //
@@ -156,7 +156,7 @@ DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpa
 
     } catch ( ... ) {
         LOG_FATAL(DomainManager_impl, "Stopping domain manager; EventChannelManager - EventChannelFactory unavailable" )
-        exit(EXIT_FAILURE);
+        _exit(EXIT_FAILURE);
     }
 
 
@@ -179,26 +179,26 @@ void DomainManager_impl::parseDMDProfile()
         dmdStream.close();
     } catch (const parser_error& e) {
         LOG_FATAL(DomainManager_impl, "Stopping domain manager; error parsing domain manager configuration " <<  _domainManagerProfile << "; " << e.what())
-        exit(EXIT_FAILURE);
+        _exit(EXIT_FAILURE);
     } catch (const std::ios_base::failure& e) {
         LOG_FATAL(DomainManager_impl, "Stopping domain manager; IO error reading domain manager configuration; " << e.what())
-        exit(EXIT_FAILURE);
+        _exit(EXIT_FAILURE);
     } catch( CF::InvalidFileName& _ex ) {
         LOG_FATAL(DomainManager_impl, "Stopping domain manager; invalid domain manager configuration file name; " << _ex.msg)
-        exit(EXIT_FAILURE);
+        _exit(EXIT_FAILURE);
     } catch( CF::FileException& _ex ) {
         LOG_FATAL(DomainManager_impl, "Stopping domain manager; file error while opening domain manager configuration; " << _ex.msg)
-        exit(EXIT_FAILURE);
+        _exit(EXIT_FAILURE);
     } catch ( std::exception& ex ) {
         std::ostringstream eout;
         eout << "The following standard exception occurred: "<<ex.what()<<" while loading domain manager configuration from " << _domainManagerProfile;
         LOG_FATAL(DomainManager_impl, eout.str())
-        exit(EXIT_FAILURE);
+        _exit(EXIT_FAILURE);
     } catch ( CORBA::Exception& ex ) {
         std::ostringstream eout;
         eout << "The following CORBA exception occurred: "<<ex._name()<<" while loading domain manager configuration from " << _domainManagerProfile;
         LOG_FATAL(DomainManager_impl, eout.str())
-        exit(EXIT_FAILURE);
+        _exit(EXIT_FAILURE);
     }
 
     _identifier = configuration.getID();
@@ -614,6 +614,9 @@ void DomainManager_impl::shutdown (int signal)
     boost::recursive_mutex::scoped_lock lock(stateAccess);
     db.close();
 
+    // stop any incoming requests while we shut down....
+    PortableServer::POAManager_var mgr = ossie::corba::RootPOA()->the_POAManager();
+    mgr->discard_requests(0);
 
     PortableServer::ObjectId_var oid;
 
@@ -1252,14 +1255,14 @@ void DomainManager_impl::_local_registerDevice (CF::Device_ptr registeringDevice
     TRACE_ENTER(DomainManager_impl)
     boost::recursive_mutex::scoped_lock lock(stateAccess);
 
-//Verify they are not a nil reference
+    //Verify they are not a nil reference
     if (CORBA::is_nil (registeringDevice)
             || CORBA::is_nil (registeredDeviceMgr)) {
         throw (CF::InvalidObjectReference
                ("[DomainManager::registerDevice] Cannot register Device. Either Device or DeviceMgr is a nil reference."));
     }
 
-//Verify that input is a registered DeviceManager
+    //Verify that input is a registered DeviceManager
     if (!deviceMgrIsRegistered (registeredDeviceMgr)) {
         throw CF::DomainManager::DeviceManagerNotRegistered ();
     }
@@ -1283,10 +1286,10 @@ void DomainManager_impl::_local_registerDevice (CF::Device_ptr registeringDevice
         }
     }
 
-//Add registeringDevice and its attributes to domain manager
+    //Add registeringDevice and its attributes to domain manager
     storeDeviceInDomainMgr (registeringDevice, registeredDeviceMgr);
 
-//Check the DCD for connections and establish them
+    //Check the DCD for connections and establish them
     try {
         LOG_TRACE(DomainManager_impl, "Establishing Service Connections");
         _connectionManager.deviceRegistered(devId.c_str());
@@ -1498,6 +1501,12 @@ bool DomainManager_impl::serviceIsRegistered (const char* serviceName)
 
     TRACE_EXIT(DomainManager_impl);
     return (service != _registeredServices.end());
+}
+
+void DomainManager_impl::closeAllOpenFileHandles()
+{
+    LOG_INFO(DomainManager_impl, "Received SIGUSR1. Closing all open file handles");
+    this->fileMgr_servant->closeAllFiles();
 }
 
 

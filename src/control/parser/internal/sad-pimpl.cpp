@@ -311,12 +311,90 @@ namespace sad
     componentInstantiation->instantiationId = id;
   }
 
+  void componentinstantiation_pimpl::
+  affinity (const ossie::ComponentInstantiation::AffinityProperties & affinityProperties)
+  {
+    LOG_TRACE(sad_parser, "affinity properties")
+    assert(componentInstantiation.get() != 0);
+    componentInstantiation->affinityProperties= affinityProperties;
+  }
+
+  void componentinstantiation_pimpl::loggingconfig ( const ossie::ComponentInstantiation::LoggingConfig & log_cfg )
+  {
+    assert(componentInstantiation.get() != 0);
+    componentInstantiation->loggingConfig = log_cfg;
+  }
+
+
   ::ossie::ComponentInstantiation componentinstantiation_pimpl::
   post_componentinstantiation ()
   {
     assert(componentInstantiation.get() != 0);
     return *componentInstantiation;
   }
+
+  void affinity_pimpl::
+  pre ()
+  {
+    affinityProperties.clear();
+  }
+
+  void affinity_pimpl::
+  simpleref (ossie::SimplePropertyRef* simpleref)
+  {
+    assert(simpleref != 0);
+    LOG_TRACE(sad_parser, "Adding simpleref ")
+    affinityProperties.push_back(simpleref);
+  }
+
+  void affinity_pimpl::
+  simplesequenceref (ossie::SimpleSequencePropertyRef* simplesequenceref)
+  {
+    assert(simplesequenceref != 0);
+    LOG_TRACE(sad_parser, "Adding simplesequenceref")
+    affinityProperties.push_back(simplesequenceref);
+  }
+
+  void affinity_pimpl::
+  structref (ossie::StructPropertyRef* structref)
+  {
+    assert(structref != 0);
+    LOG_TRACE(sad_parser, "Adding structref")
+    affinityProperties.push_back(structref);
+  }
+
+  void affinity_pimpl::
+  structsequenceref (ossie::StructSequencePropertyRef* structsequenceref)
+  {
+    assert(structsequenceref != 0);
+    LOG_TRACE(sad_parser, "Adding structsequenceref")
+    affinityProperties.push_back(structsequenceref);
+  }
+
+  ossie::ComponentInstantiation::AffinityProperties affinity_pimpl::post_affinity ()
+  {
+    return affinityProperties;
+  }
+
+  //
+  // loggingconfig_pimpl
+  //
+  void loggingconfig_pimpl::pre ()
+  {
+    info = ossie::ComponentInstantiation::LoggingConfig("","");
+  }
+
+  void loggingconfig_pimpl::level ( const ::std::string &v )
+  {
+    info.second=v;
+  }
+
+  ossie::ComponentInstantiation::LoggingConfig  loggingconfig_pimpl::post_loggingconfig ( )
+  {
+    info.first = this->post_string();
+    return info;
+  }
+
 
   // componentproperties_pimpl
   //

@@ -25,6 +25,9 @@ from omniORB import URI
 import CosNaming
 import CosEventChannelAdmin
 from ossie.utils import sb
+from _unitTestHelpers import runtestHelpers
+
+java_support = runtestHelpers.haveJavaSupport('../Makefile')
 
 class CppLoggingConfig(scatest.CorbaTestCase):
     def setUp(self):
@@ -164,8 +167,8 @@ class CppLoggingConfig(scatest.CorbaTestCase):
         c_cfg=self.comp.ref.stop()
 
 
-
-class JavaLoggingConfig(scatest.CorbaTestCase):
+if java_support:
+  class JavaLoggingConfig(scatest.CorbaTestCase):
     def setUp(self):
         self.cname = "TestLoggingAPI"
         self.comp = sb.launch(self.cname, impl="java" )

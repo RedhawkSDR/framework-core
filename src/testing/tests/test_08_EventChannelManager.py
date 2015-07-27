@@ -25,7 +25,9 @@ from ossie.cf import CF
 from ossie.properties import *
 import threading
 import time
+from _unitTestHelpers import runtestHelpers
 
+java_support = runtestHelpers.haveJavaSupport('../Makefile')
 
 class EventChannelManager(scatest.CorbaTestCase):
     def setUp(self):
@@ -122,6 +124,8 @@ class EventChannelManager(scatest.CorbaTestCase):
 
 
     def test_ECM_JavaComponent(self):
+        if not java_support:
+            return
         self.localEvent = threading.Event()
         self.eventFlag = False
 
