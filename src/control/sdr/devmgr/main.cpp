@@ -121,7 +121,7 @@ static void raise_limit(int resource, const char* name, const rlim_t DEFAULT_MAX
 }
 
 
-/**
+/*
   sigprocessor
   
   Called from controlling SimpleThread object that will check the file descriptor created by
@@ -388,9 +388,10 @@ int main(int argc, char* argv[])
     mgr->hold_requests(1);
 
     // Install our own adapter to create POAs as needed.
-    ossie::corba::POACreator activator_servant;
-    PortableServer::AdapterActivator_var activator = activator_servant._this();
+    ossie::corba::POACreator *activator_servant = new ossie::corba::POACreator();
+    PortableServer::AdapterActivator_var activator = activator_servant->_this();
     root_poa->the_activator(activator);
+    activator->_remove_ref();
 
     // Re-activate the root POA manager.
     mgr->activate();

@@ -37,7 +37,7 @@ REDHAWK_CPP_NAMESPACE_BEGIN
 
 typedef   CORBA::Object_ptr             RH_Object;
 
-/**
+/*
 
   redhawk.events -- Namespace for event processing within a REDHAWK domain.  
 
@@ -440,7 +440,7 @@ namespace events {
 
     typedef boost::shared_ptr< Subscriber::DataArrivedListener >    DataArrivedListenerPtr;
 
-    /**
+    /*
      * Allow for member functions to receive connect/disconnect notifications
      */
     template <class T>
@@ -616,7 +616,7 @@ namespace events {
 
 
 
-};    /// end of events namespace
+};    // end of events namespace
 
 
 REDHAWK_CPP_NAMESPACE_END

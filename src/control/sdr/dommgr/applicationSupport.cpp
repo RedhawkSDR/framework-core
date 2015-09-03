@@ -55,7 +55,7 @@ static void addProperty(const CF::DataType& dt, CF::Properties& prop)
 }
 
 ////////////////////////////////////////////////////
-/**
+/*
  * UsesDeviceInfo member function definitions
  */
 UsesDeviceInfo::UsesDeviceInfo(const std::string& _id, const std::string& _type, const std::vector<ossie::SPD::PropertyRef>& _properties) :
@@ -114,7 +114,7 @@ void UsesDeviceInfo::clearAssignedDeviceId()
 }
 
 ////////////////////////////////////////////////////
-/**
+/*
  * UsesDeviceContext member function definitions
  */
 PREPARE_LOGGING(UsesDeviceContext);
@@ -155,7 +155,7 @@ const UsesDeviceInfo* UsesDeviceContext::getUsesDeviceById(const std::string& id
 
 
 ////////////////////////////////////////////////////
-/**
+/*
  * ImplementationInfo member function definitions
  */
 PREPARE_LOGGING(ImplementationInfo);
@@ -484,7 +484,7 @@ const UsesDeviceInfo* SoftpkgInfo::getUsesDeviceById(const std::string& id) cons
 }
 
 ////////////////////////////////////////////////////
-/**
+/*
  * ComponentInfo member function definitions
  */
 PREPARE_LOGGING(ComponentInfo);
@@ -1059,7 +1059,7 @@ CF::Resource_ptr ComponentInfo::getResourcePtr()
 
 
 ////////////////////////////////////////////////////
-/**
+/*
  * ApplicationInfo member function definitions
  */
 PREPARE_LOGGING(ApplicationInfo);

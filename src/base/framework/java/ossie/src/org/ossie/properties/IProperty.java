@@ -35,6 +35,13 @@ public interface IProperty  {
     public void configure(Any value);
     
     /**
+     * Update the value of this property from an Any without triggering a callback.
+     *
+     * @return
+     */
+    public void configureNoCallbacks(Any value);
+    
+    /**
      * Update the value of the property without callbacks
      */
     public void construct(Any value );

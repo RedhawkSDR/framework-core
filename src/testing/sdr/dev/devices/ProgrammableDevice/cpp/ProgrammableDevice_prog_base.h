@@ -278,7 +278,7 @@ class ProgrammableDevice_prog_base : public ProgrammableDevice_base
             processIter = _processMap.find(processId);
             if (processIter != _processMap.end()) {
 
-                /// Search for the persona that related to the found personaId
+                // Search for the persona that related to the found personaId
                 personaIter = _personaMap.find(processIter->second);
                 if (personaIter != _personaMap.end()) {
                     _deviceManager->unregisterDevice(personaIter->second->_this());

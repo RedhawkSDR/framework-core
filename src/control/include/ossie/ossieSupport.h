@@ -24,7 +24,7 @@
 
 #include <string>
 
-/**
+/*
 The ossieSupport namespace contains useful functions used throughout the
 OSSIE framework. The classes in this namespace are also useful for SCA
 component developers.

@@ -361,7 +361,8 @@ class Property(object):
             if i.clean_name == prop.id_:
                 for k in prop.get_configurationkind():
                     kinds.append(k.get_kindtype())
-                if i.members[_cleanId(sprop)]._enums != None:
+                if i.members[_cleanId(sprop)].__dict__.has_key("_enums"):
+                  if i.members[_cleanId(sprop)]._enums != None:
                     enums = i.members[_cleanId(sprop)]._enums
                 if self.mode != "writeonly":
                     values = i.members[_cleanId(sprop)]
@@ -398,13 +399,14 @@ class Property(object):
             for prop in self.compRef._prf.get_struct():
                 if prop.id_ == self.id:
                     first = True
-                    for simple in prop.get_simple():
-                        defVal,value, type, kinds,enums = self._getStructsSimpleProps(simple,prop)
-                        structTable.append(simple.get_id(),type,str(defVal),str(value),enums)
+                    for sprop in prop.get_props():
+                      if sprop.__class__==_parsers.prf.simple:
+                        defVal,value, type, kinds,enums = self._getStructsSimpleProps(sprop,prop)
+                        structTable.append(sprop.get_id(),type,str(defVal),str(value),enums)
                         if first:
                             print "% -*s %s" % (17,"Kinds: ", ', '.join(kinds))
                             first = False
-                    for sprop in prop.get_simplesequence():
+                      if sprop.__class__==_parsers.prf.simpleSequence:
                         defVal,values,type,kinds,enums = self._getStructsSimpleSeqProps(sprop, prop)
                         structTable.append(sprop.get_id(),type,defVal,values,enums)
                         if first:

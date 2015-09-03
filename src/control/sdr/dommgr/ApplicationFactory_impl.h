@@ -277,7 +277,7 @@ private:
     void _cleanupFailedCreate();
     Application_impl* _application;
 
-    /** Implements the ConnectionManager functions
+    /* Implements the ConnectionManager functions
      *  - Makes this class compatible with the ConnectionManager
      */
     // ComponentLookup interface

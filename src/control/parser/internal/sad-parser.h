@@ -110,9 +110,9 @@ namespace ossie {
 
                 componentinstantiation_p.parsers (string_p,
                                                 componentproperties_p,
+                                                affinity_p,
+                                                loggingconfig_p,
                                                 findcomponent_p,
-                                                  affinity_p,
-                                                  loggingconfig_p,
                                                 string_p,
                                                 string_p);
 

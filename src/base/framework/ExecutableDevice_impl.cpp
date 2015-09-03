@@ -20,6 +20,7 @@
 
 
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <algorithm>
 #include <sys/types.h>
@@ -48,7 +49,7 @@
 #include "ossie/ExecutableDevice_impl.h"
 #include "ossie/prop_helpers.h"
 #include "ossie/affinity.h"
-
+#include "logging/rh_logger_stdout.h"
 
 PREPARE_LOGGING(ExecutableDevice_impl)
 
@@ -179,6 +180,7 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::execute (const char*
 
 
 void ExecutableDevice_impl::set_resource_affinity( const CF::Properties& options, const pid_t rsc_pid, const char*rsc_name, const redhawk::affinity::CpuList &blacklist ) {
+
    //
    // check if affinity namespaced options exists...
    //   
@@ -307,31 +309,50 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
         argv[i] = const_cast<char*> (args[i].c_str());
     }
 
+    rh_logger::LevelPtr  lvl = ExecutableDevice_impl::__logger->getLevel();
+
     // fork child process
     int pid = fork();
 
     if (pid == 0) {
-      
+
+      int num_retries = 5;
+      int returnval = 0;
+
+      //
+      // log4cxx will cause dead locks between fork and execv, use the stdout logger object, this will only replace the new process'
+      // ExecutableDevice's logger object till execv envoked.
+      //
+      ExecutableDevice_impl::__logger = rh_logger::StdOutLogger::getRootLogger();
+      ExecutableDevice_impl::__logger->setLevel(lvl);
+      // set affinity logger method so we do not use log4cxx during affinity processing routine
+      redhawk::affinity::set_affinity_logger( ExecutableDevice_impl::__logger ) ;
+      LOG_DEBUG(ExecutableDevice_impl, " Calling set resource affinity....exec:" << name << " options=" << options.length());
+
+      // set affinity preference before exec
+      try {
+        LOG_DEBUG(ExecutableDevice_impl, " Calling set resource affinity....exec:" << name << " options=" << options.length());
+        set_resource_affinity( options, getpid(), name );
+      }
+      catch( redhawk::affinity::AffinityFailed &ex ) {
+        LOG_WARN(ExecutableDevice_impl, "Unable to satisfy affinity request for: " << name << " Reason: " << ex.what() );
+        errno=EPERM<<2;
+        returnval=-1;
+        ossie::corba::OrbShutdown(true);
+        exit(returnval);
+      }
+      catch( ... ) {
+        LOG_WARN(ExecutableDevice_impl,  "Unhandled exception during affinity processing for resource: " << name  );
+        ossie::corba::OrbShutdown(true);
+        exit(returnval);
+      }
+
       // reset mutex in child...
       pthread_mutex_init(load_execute_lock.native_handle(),0);
       
-        // Run executable
-        int num_retries = 5;
-        int returnval = 0;
-        while(true)
+      // Run executable
+      while(true)
         {
-          // set affinity preference before exec
-          try {
-            LOG_DEBUG(ExecutableDevice_impl, "Calling set resource affinity....exec:" << name << " options=" << options.length() );
-            set_resource_affinity( options, getpid(), name );
-          }
-          catch( redhawk::affinity::AffinityFailed &ex ) {
-            LOG_ERROR(ExecutableDevice_impl, "Unable to satisfy affinity request for: " << name << " Reason: " << ex.what() );
-            errno=EPERM<<2;
-            returnval=-1;
-            ossie::corba::OrbShutdown(true);
-            exit(returnval);
-          }
 
           returnval = execv(path.c_str(), &argv[0]);
 
@@ -339,9 +360,9 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
           if( num_retries <= 0 || errno!=ETXTBSY)
                 break;
 
-            // Only retry on "text file busy" error
-            LOG_WARN(ExecutableDevice_impl, "execv() failed, retrying... (cmd=" << path << " msg=\"" << strerror(errno) << "\" retries=" << num_retries << ")");
-            usleep(100000);
+          // Only retry on "text file busy" error
+          LOG_WARN(ExecutableDevice_impl, "execv() failed, retrying... (cmd=" << path << " msg=\"" << strerror(errno) << "\" retries=" << num_retries << ")");
+          usleep(100000);
         }
 
         if( returnval ) {
@@ -385,7 +406,7 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
         }
     }
 
-    LOG_DEBUG(ExecutableDevice_impl, "Execute success: " << path);
+    LOG_DEBUG(ExecutableDevice_impl, "Execute success: name:" << name << " : "<< path);
 
     return pid;
 }

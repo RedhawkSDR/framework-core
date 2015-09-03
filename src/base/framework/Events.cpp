@@ -527,7 +527,7 @@ namespace events {
 	    _ecm->unregister( creg.reg );
 	  }
 	  catch(...) {
-	    /// log error
+	    // log error
             RH_NL_ERROR("redhawk::events::Manager",  "Unregister ERROR REG=ID:" << creg.reg.reg_id );
 	  }
 	}
@@ -630,7 +630,7 @@ namespace events {
               _ecm->unregister( reg.reg );
             }
             catch(...) {
-              /// log error
+              // log error
               RH_NL_ERROR("redhawk::events::Manager", "UNREGISTER FAILED, REG-ID:" << regid << " CHANNEL:" << reg.reg.channel_name );
             }
             
@@ -716,7 +716,7 @@ namespace events {
 
 
 
-  /**
+  /*
 
      redhawk::events::Publisher
 
@@ -972,7 +972,7 @@ int Publisher::disconnect(const int retries,  const int retry_wait )
   ///////////////////////////////////////////////////////////////////////////
   ///////////////////////////////////////////////////////////////////////////
 
-  /**
+  /*
 
      redhawk::events::Supplier
 
@@ -988,7 +988,7 @@ int Publisher::disconnect(const int retries,  const int retry_wait )
     }
   };
 
-  /**
+  /*
    * Wrap Callback functions as ConnectionEventListener objects
    */
   class StaticDataArrivedListener : public Subscriber::DataArrivedListener  {

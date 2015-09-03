@@ -71,6 +71,9 @@ class EC_PropertyChangeListener  implements PCL_Listener {
                 logger.debug( "Creating Publisher interface ..." );
                 pub = new Publisher( ec );
             }
+            else {
+                throw new Exception();
+            }
         }
         catch( Throwable t ) {
             throw new Exception();
@@ -82,7 +85,7 @@ class EC_PropertyChangeListener  implements PCL_Listener {
         String uuid = UUID.randomUUID().toString();
         PropertyChangeEvent evt = new PropertyChangeEvent( uuid,
                                                            prec.regId,
-                                                           "TBD",
+                                                           prec.rscId,
                                                            props);
 
         final Any any = ORB.init().create_any();
@@ -122,7 +125,7 @@ class INF_PropertyChangeListener implements PCL_Listener {
         String uuid = UUID.randomUUID().toString();
         PropertyChangeEvent evt = new PropertyChangeEvent( uuid,
                                                            prec.regId,
-                                                           "TBD",
+                                                           prec.rscId,
                                                            props);
 
         int retval=0;
@@ -154,6 +157,8 @@ public class PropertyChangeRec {
 
     public String                                    regId=null;
 
+    public String                                    rscId="UNK_RSC_ID";
+
     public org.omg.CORBA.Object                      listener=null;
         
     public PCL_Listener                              pcl=null;
@@ -165,11 +170,13 @@ public class PropertyChangeRec {
     public  Hashtable<String, PCL_Callback >         props=null;
 
     public PropertyChangeRec( org.omg.CORBA.Object obj,          // remote listener .. EventChannel or PropertyChangeListener
+                              final String   inRscId,            // resource that provides the event conditionals
                               float interval,                    // in seconds
                               ArrayList<String> pids,            // set of Property Ids to monitor
                               Hashtable<String, IProperty> propSet ) {
 
         regId = UUID.randomUUID().toString();
+        rscId = inRscId;
         listener = obj;
         reportInterval = (int)(interval*1000.0f);
         Logger.getLogger("PropertyChangeRec").trace(" ... RPT Interval:" + reportInterval  );

@@ -53,7 +53,7 @@ namespace ossie {
     // exact same boost::bind call).
 
     namespace detail {
-        /**
+        /*
          * Member function invoker class; forces the compiler to apply argument
          * type conversion so that incompatible method signatures yield useful
          * error messages.
@@ -61,7 +61,7 @@ namespace ossie {
         template <class Signature>
         class invoker;
 
-        /**
+        /*
          * Template specialization for one-argument invoker.
          */
         template <class R, class A1>
@@ -74,7 +74,7 @@ namespace ossie {
             }
         };
 
-        /**
+        /*
          * Template specialization for one-argument invoker returning void.
          */
         template <class A1>
@@ -87,7 +87,7 @@ namespace ossie {
             }
         };
 
-        /**
+        /*
          * Template specialization for two-argument invoker.
          */
         template <class R, class A1, class A2>
@@ -100,7 +100,7 @@ namespace ossie {
             }
         };
 
-        /**
+        /*
          * Template specialization for two-argument invoker returning void.
          */
         template <class A1, class A2>
@@ -114,7 +114,7 @@ namespace ossie {
         };
     };
 
-    /**
+    /*
      * Utility function to bind a member function and an instance of a class
      * together for use with a boost::function.
      *
@@ -126,7 +126,7 @@ namespace ossie {
         result = boost::bind(func, target);
     }
 
-    /**
+    /*
      * Utility function to bind a member function and an instance of a class
      * together for use with a boost::function. Using this function, versus
      * using boost::bind directly, checks for compatibility with the function
@@ -142,7 +142,7 @@ namespace ossie {
         result = boost::bind(&invoker_type::template invoke<Target,Func>, target, func, _1);
     }
 
-    /**
+    /*
      * Utility function to bind a member function and an instance of a class
      * together for use with a boost::function. Using this function, versus
      * using boost::bind directly, checks for compatibility with the function
@@ -158,7 +158,7 @@ namespace ossie {
         result = boost::bind(&invoker_type::template invoke<Target,Func>, target, func, _1, _2);
     }
 
-    /**
+    /*
      * The notification_base class contains the common members and methods to
      * implement arbitrary N-argument notifications.
      */
@@ -168,7 +168,7 @@ namespace ossie {
     public:
         typedef boost::function<Signature> func_type;
 
-        /**
+        /*
          * Register the callable 'func' to be called when this notification is
          * triggered.
          *
@@ -198,27 +198,27 @@ namespace ossie {
         std::list<func_type> _M_listeners;
     };
 
-    /**
+    /*
      * Generic notification class, templatized on the function signature.
      */
     template <class Signature>
     class notification;
 
-    /**
+    /*
      * Template specialization of zero-argument notifications.
      */
     template <class R>
     class notification<R()> : public notification_base<R()>
     {
     public:
-        /**
+        /*
          * Trigger the notification. All registered listeners will be called.
          */
         void operator() () {
             call_each(this->_M_listeners.begin(), this->_M_listeners.end());
         }
 
-        /**
+        /*
          * Register the member function 'func' to be called on the instance
          * 'target' when this notification is triggered.
          *
@@ -232,7 +232,7 @@ namespace ossie {
             super::add(boost::bind(func, target));
         }
 
-        /**
+        /*
          * Remove the member function 'func' on the instance 'target' from
          * further notifications. The pair must have been registered together
          * in a prior call to add().
@@ -254,14 +254,14 @@ namespace ossie {
         }
     };
 
-    /**
+    /*
      * Template specialization of one-argument notifications.
      */
     template <class R, class A1>
     class notification<R(A1)> : public notification_base<R(A1)>
     {
     public:
-        /**
+        /*
          * Trigger the notification. All registered listeners will be called
          * with argument arg1.
          */
@@ -269,7 +269,7 @@ namespace ossie {
             call_each(this->_M_listeners.begin(), this->_M_listeners.end(), arg1);
         }
 
-        /**
+        /*
          * Register the member function 'func' to be called on the instance
          * 'target' when this notification is triggered.
          *
@@ -283,7 +283,7 @@ namespace ossie {
             super::add(boost::bind(&invoker_type::template invoke<Target,Func>, target, func, _1));
         }
 
-        /**
+        /*
          * Remove the member function 'func' on the instance 'target' from
          * further notifications. The pair must have been registered together
          * in a prior call to add().
@@ -306,14 +306,14 @@ namespace ossie {
         }
     };
 
-    /**
+    /*
      * Template specialization of two-argument notifications.
      */
     template <class R, class A1, class A2>
     class notification<R(A1,A2)> : public notification_base<R(A1,A2)>
     {
     public:
-        /**
+        /*
          * Trigger the notification. All registered listeners will be called
          * with arguments arg1 and arg2.
          */
@@ -322,7 +322,7 @@ namespace ossie {
         }
 
 
-        /**
+        /*
          * Register the member function 'func' to be called on the instance
          * 'target' when this notification is triggered.
          *
@@ -336,7 +336,7 @@ namespace ossie {
             super::add(boost::bind(&invoker_type::template invoke<Target,Func>, target, func, _1, _2));
         }
 
-        /**
+        /*
          * Remove the member function 'func' on the instance 'target' from
          * further notifications. The pair must have been registered together
          * in a prior call to add().

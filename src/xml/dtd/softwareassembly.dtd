@@ -67,9 +67,9 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 <!ELEMENT componentinstantiation
 	( usagename?
 	, componentproperties?
-	, findcomponent?
         , affinity?
         , loggingconfig?
+	, findcomponent?
 	)>
 <!ATTLIST componentinstantiation
 	id		ID 	#REQUIRED

@@ -165,8 +165,9 @@ public class PropertyChange_J1 extends PropertyChange_J1_base {
      */
     protected int serviceFunction() {
         logger.trace("serviceFunction() example log message");
-
-        return NOOP;
+	prop1.setValue( prop1.getValue() + 1.0);
+	prop2.setValue( prop2.getValue() + 1);
+        return FINISH;
     }
 
     /**

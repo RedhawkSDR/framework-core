@@ -160,7 +160,8 @@ PropertyChange_C1_i::~PropertyChange_C1_i()
 int PropertyChange_C1_i::serviceFunction()
 {
     LOG_TRACE(PropertyChange_C1_i, "serviceFunction() example log message");
-    
-    return NOOP;
+    prop1 = prop1 + 1.0;
+    prop2 = prop2 + 1;
+    return FINISH;
 }
 

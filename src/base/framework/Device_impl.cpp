@@ -325,8 +325,8 @@ bool Device_impl::allocateCapacityLegacy (const CF::Properties& capacities)
     
     CF::Properties currentCapacities;
 
-    bool extraCap = false;  /// Flag to check remaining extra capacity to allocate
-    bool foundProperty;     /// Flag to indicate if the requested property was found
+    bool extraCap = false;  // Flag to check remaining extra capacity to allocate
+    bool foundProperty;     // Flag to indicate if the requested property was found
 
     if (!isBusy ()) {
         // The try is just a formality in this case
@@ -1115,7 +1115,7 @@ void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa,
         exit(EXIT_FAILURE);
     }
 
-    /** Ignore SIGInterrupt because when you CTRL-C the node
+    /* Ignore SIGInterrupt because when you CTRL-C the node
         booter we don't want the device to die, and it's the shells responsibility
         to send CTRL-C to all foreground processes (even children) */
     signal(SIGINT, SIG_IGN);

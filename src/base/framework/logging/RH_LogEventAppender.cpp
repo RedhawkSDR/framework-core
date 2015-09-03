@@ -298,4 +298,4 @@ int RH_LogEventAppender::connect_() {
   return retval;
 }
 
-#endif   ///   HAVE_LOG4CXX
+#endif   //   HAVE_LOG4CXX

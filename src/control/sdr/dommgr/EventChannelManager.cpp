@@ -589,7 +589,7 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
 
 
 
-  /**
+  /*
      Unregister from an event channel and invalidates the context
   */
   void EventChannelManager::unregister( const ossie::events::EventRegistration &reg ) 
@@ -609,7 +609,7 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
   }
 
 
-  /**
+  /*
      Unregister from an event channel and invalidates the context
   */
   void EventChannelManager::_unregister( const ossie::events::EventRegistration &reg ) 
@@ -719,7 +719,7 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
   //
   std::string EventChannelManager::_getFQN( const std::string &cname, const std::string &nc_name  ) {
 
-    /// return a fully qualified channel name that can be used outside of the domain
+    // return a fully qualified channel name that can be used outside of the domain
     std::string fqn(cname);
     if ( _use_fqn ) {
 #ifndef CPPUNIT_TEST
@@ -924,7 +924,7 @@ ossie::events::EventChannel_ptr EventChannelManager::_resolve_ns( const std::str
     ECM_DEBUG( "_resolve_ns", "  Unable to lookup with InitRef:" << fqn << ",  CORBA RETURNED(" << e._name() << ")" );
   }
 
-  /**
+  /*
    * try and resolve channel as follows..
    *      get context for nc_name... resolve( fully qualified name (domain.channel) )
    *      get context for nc_name... resolve( channel name )
@@ -1038,7 +1038,7 @@ ossie::events::EventChannel_ptr  EventChannelManager::_resolve_es ( const std::s
 }
 
 
-  /**
+  /*
      Check the registration database exists for the specified channel
      
      @returns false - channel or registration was not found
@@ -1057,7 +1057,7 @@ bool EventChannelManager::_regIdExists( const std::string &cname, const std::str
 }
 
 
-  /**
+  /*
      Check the registration database if a specified publisher is registered
      
      @returns false - channel or registration was not found
@@ -1091,7 +1091,7 @@ bool EventChannelManager::_regIdExists( const std::string &cname, const std::str
   }
 
 
-  /**
+  /*
      check if channel name is registered
   */
   bool EventChannelManager::_channelExists( const std::string &cname ) {
@@ -1118,7 +1118,7 @@ bool EventChannelManager::_regIdExists( const std::string &cname, const std::str
     return ( count > 0 );
   }
 
-  /**
+  /*
    */
   std::string EventChannelManager::_generateRegId() 
   {
@@ -1133,7 +1133,7 @@ bool EventChannelManager::_regIdExists( const std::string &cname, const std::str
   }
 
 
-/**
+/*
  */
   bool EventChannelManager::_validateChannelName( const std::string &cname ) {
     if ( cname.find(":") == std::string::npos ) {
@@ -1145,7 +1145,7 @@ bool EventChannelManager::_regIdExists( const std::string &cname, const std::str
   }     
 
 
-  /**
+  /*
    */
   EventChannelManager::ChannelRegistrationPtr  EventChannelManager::_getChannelRegistration( const std::string &cname ) {
 
@@ -1207,7 +1207,7 @@ EventChannelManager::ChannelRegistrationPtr EventChannelManager::_addChannelRegi
 
 
 
-  /**
+  /*
    
    */
   void EventChannelManager::_deleteChannelRegistration( const std::string &cname ) {

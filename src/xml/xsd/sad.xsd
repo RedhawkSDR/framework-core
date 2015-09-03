@@ -76,9 +76,9 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 		<xs:sequence>
 			<xs:element name="usagename" type="xs:string" minOccurs="0" ecore:name="usageName"/>
 			<xs:element name="componentproperties" type="componentproperties" minOccurs="0" ecore:name="componentProperties"/>
-			<xs:element name="findcomponent" type="findcomponent" minOccurs="0" ecore:name="findComponent"/>
 		        <xs:element name="affinity" minOccurs="0" maxOccurs="1"  type="affinity"/>
 		        <xs:element name="loggingconfig" maxOccurs="1" minOccurs="0" type="loggingconfig"/>
+			<xs:element name="findcomponent" type="findcomponent" minOccurs="0" ecore:name="findComponent"/>
 		</xs:sequence>
 
 		<xs:attribute name="id" use="required" type="xs:string"/>

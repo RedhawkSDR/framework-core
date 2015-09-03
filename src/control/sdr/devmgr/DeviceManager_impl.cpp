@@ -92,7 +92,7 @@ void DeviceManager_impl::checkDeviceConfigurationProfile(){
     }
 }
 
-/**
+/*
  * Get Device Manager attributes (deviceConfigurationProfile, identifier and label)
  * from DCD file.
  */
@@ -230,7 +230,7 @@ bool DeviceManager_impl::loadSPD(
     return true;
 }
 
-/**
+/*
  * Record the mapping of the component instantiation id to the matched 
  * implementation id.  The scope is needed to remain consistent with the 
  * scoped lock protection for the map.
@@ -282,7 +282,7 @@ bool DeviceManager_impl::getCodeFilePath(
     return true;
 }
 
-/**
+/*
  * Call rootContext->bind_new_context and handle any exceptions.
  */
 void DeviceManager_impl::bindNamingContext() {
@@ -311,7 +311,7 @@ void DeviceManager_impl::bindNamingContext() {
     }
 }
 
-/**
+/*
  * Populate devmgrspdparser by parsing contents of DCDParser.
  *
  * Handle any exceptions associated with loading the SPD to the 
@@ -352,7 +352,7 @@ void DeviceManager_impl::parseSpd(
     }
 }
 
-/**
+/*
  * Populates _domainManagerName by calling getDomainManagerReference.
  *
  * If an exception is thrown by getDomainManagerReference, this method will 
@@ -578,7 +578,7 @@ bool DeviceManager_impl::loadScdToParser(
     return success;
 }
 
-/** 
+/* 
  * Get the type, which should be either "device" or 
  * "service" ("executabledevice" and "loadabledevice" are 
  * considered "device"s).  If the type is neither "device" nor
@@ -638,7 +638,7 @@ void DeviceManager_impl::createDeviceCacheLocation(
     }
 }
 
-/**
+/*
  * Populate new_argv, which is a list of character strings
  * to be passed to execv.
  */
@@ -1200,7 +1200,7 @@ DeviceManager_impl::DeviceManager_impl(
     this->_dmnMgr = CF::DomainManager::_nil();
 }
 
-/**
+/*
  * Parsing constructor
  *
  * Parse the device manager configuration files.
@@ -1265,7 +1265,7 @@ void DeviceManager_impl::postConstructor (
         IDM_IOR.clear();
       }
       else {
-        /// try fallback method
+        // try fallback method
         idm_registration->channel = ossie::events::connectToEventChannel(rootContext, "IDM_Channel");
         if (CORBA::is_nil(idm_registration->channel)) {
           LOG_INFO(DeviceManager_impl, "IDM channel not found. Continuing without using the IDM channel");
@@ -2800,7 +2800,7 @@ void DeviceManager_impl::clean_registeredDevices()
     killPendingDevices(SIGKILL, 0);
 }
 
-/**
+/*
  * Return a device node if the pid was found in either the _pendingDevices or
  * in the _registeredDevices.
  */

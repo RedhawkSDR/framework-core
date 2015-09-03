@@ -57,14 +57,14 @@ public:
 
     ExecutableDevice_impl();
     ExecutableDevice_impl(ExecutableDevice_impl&);
-    /// Execute a Component with the associated soft packages as modifiers for its environment
+    // Execute a Component with the associated soft packages as modifiers for its environment
     CF::ExecutableDevice::ProcessID_Type executeLinked (const char* name, const CF::Properties& options,
                                                   const CF::Properties& parameters, const CF::StringSequence& deps) throw (CF::ExecutableDevice::ExecuteFail,
                                                           CF::InvalidFileName, CF::ExecutableDevice::InvalidOptions,
                                                           CF::ExecutableDevice::InvalidParameters,
                                                           CF::ExecutableDevice::InvalidFunction, CF::Device::InvalidState,
                                                           CORBA::SystemException);
-    /// Perform the actual Component forking
+    // Perform the actual Component forking
     CF::ExecutableDevice::ProcessID_Type do_execute (const char* name, const CF::Properties& options,
                                                   const CF::Properties& parameters, const std::vector<std::string> prepend_args) throw (CF::ExecutableDevice::ExecuteFail,
                                                           CF::InvalidFileName, CF::ExecutableDevice::InvalidOptions,
@@ -72,15 +72,15 @@ public:
                                                           CF::ExecutableDevice::InvalidFunction, CF::Device::InvalidState,
                                                           CORBA::SystemException);
 
-    /// Terminate a process
+    // Terminate a process
     void terminate (CF::ExecutableDevice::ProcessID_Type processId) throw
     (CF::Device::InvalidState, CF::ExecutableDevice::InvalidProcess,
      CORBA::SystemException);
 
 protected:
-    /// Parse the command-line arguments to retrieve the name of the Component that is to be launched
+    // Parse the command-line arguments to retrieve the name of the Component that is to be launched
     static std::string get_component_name_from_exec_params(const CF::Properties& params);
-    /// Retrieve the name of the Component from its profile
+    // Retrieve the name of the Component from its profile
     static std::string component_name_from_profile_name(const std::string& profile_name);
     
     // process affinity options

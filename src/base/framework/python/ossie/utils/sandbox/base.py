@@ -22,6 +22,7 @@ import os
 import logging
 import copy
 import warnings as _warnings
+import time
 
 from ossie import parsers
 from ossie.cf import CF
@@ -193,6 +194,22 @@ class Sandbox(object):
         # Services don't get initialized or configured
         if comptype == 'service':
             return comp
+        
+        # wait till object is in the run loop.... if not then raise...
+        try:
+           retries=3
+           while retries > 0 :
+             try:
+               comp.ref._non_existent()
+               retries = 0
+             except:
+                retries -= 1
+                if retries == 0:
+                   raise
+                time.sleep(.001)
+        except:
+             log.exception('Failure in component to resolve')
+
 
         if property is not None:
             initvals = copy.deepcopy(comp._propRef)
@@ -239,7 +256,7 @@ class SandboxComponent(ComponentBase):
             if prop.defValue is None:
                 continue
             self._configRef[str(prop.id)] = prop.defValue
-        for prop in self._getPropertySet(kinds=('property',), modes=('readwrite', 'writeonly'), includeNil=False):
+        for prop in self._getPropertySet(kinds=('property',), modes=('readwrite', 'writeonly', 'readonly'), includeNil=False):
             if prop.defValue is None:
                 continue
             self._propRef[str(prop.id)] = prop.defValue

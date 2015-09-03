@@ -50,7 +50,7 @@ class File_buffer : public std::streambuf
 class File_stream : public std::istream
 {
     public:
-        /**
+        /*
          * Open a stream given a SCA FileSystem and a path on the file system, this is the preferred constructor.
          *
          * Opening a stream using this constructor will ensure that the SCA file get's closed automatically
@@ -66,7 +66,7 @@ class File_stream : public std::istream
             }
         }
 
-        /**
+        /*
          * Open a stream given a SCA File.
          *
          * Note: the caller is responsible for closing the provided file. 

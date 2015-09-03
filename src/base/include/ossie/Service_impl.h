@@ -112,7 +112,7 @@ public:
             exit(EXIT_FAILURE);
         }
 
-        /** Ignore SIGInterrupt because when you CTRL-C the node
+        /* Ignore SIGInterrupt because when you CTRL-C the node
         booter we don't want the device to die, and it's the shells responsibility
         to send CTRL-C to all foreground processes (even children) */
         signal(SIGINT, SIG_IGN);
@@ -128,7 +128,7 @@ public:
         ossie::corba::OrbShutdown(true);
     }
 
-    /// Get the file path for the logging configuration file
+    // Get the file path for the logging configuration file
     static std::string getLogConfig(const char* devmgr_ior, const char* log_config, std::string& devmgr_label) {
         // connect to the device manager and copy the log config file to the local directory
 
@@ -196,7 +196,7 @@ public:
     }
 
 protected:
-    /// Enumerated type for comparison
+    // Enumerated type for comparison
     enum AnyComparisonType {
         FIRST_BIGGER,
         SECOND_BIGGER,
@@ -209,12 +209,12 @@ protected:
     CF::DeviceManager_ptr _deviceManager;
     bool initialConfiguration;
     CF::Properties originalCap;
-    /// Service instance name
+    // Service instance name
     std::string _name;
 
-    /// Determine whether the contents of the argument are 0
+    // Determine whether the contents of the argument are 0
     Service_impl::AnyComparisonType compareAnyToZero (CORBA::Any& first);
-    /// Determine whether the contents of different arguments
+    // Determine whether the contents of different arguments
     Service_impl::AnyComparisonType compareAnys (CORBA::Any& first, CORBA::Any& second);
 
 public:
@@ -226,14 +226,14 @@ public:
     virtual void registerServiceWithDevMgr ();
     virtual void run ();
     virtual void halt ();
-    /// Function that is called as the Service terminates
+    // Function that is called as the Service terminates
     virtual void terminateService ();
     
-    /// Return the container with a reference to the Device Manager hosting the Service
+    // Return the container with a reference to the Device Manager hosting the Service
     redhawk::DeviceManagerContainer* getDeviceManager() {
         return this->_devMgr;
     }
-    /// Return the container with a reference to the Domain Manager that hosts the Service
+    // Return the container with a reference to the Domain Manager that hosts the Service
     redhawk::DomainManagerContainer* getDomainManager() {
         return this->_domMgr;
     }

@@ -891,6 +891,11 @@ class DataSource(_SourceBase):
              complexData = False,
              SRIKeywords = [],
              loop        = None):
+        """
+        Push an arbitrary data vector
+      
+        note: sampleRate = 1/xdelta on the SRI
+        """
 
         # Detect whether or not any of the data is of type complex
         _complexData = _checkComplex(data)

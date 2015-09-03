@@ -31,7 +31,7 @@ This file defines the structures that hold the output of the parsed XML files.
 #include "ossie/debug.h"
 
 namespace ossie {
-    /**
+    /*
      *
      */
     class DomainManagerConfiguration
@@ -61,7 +61,7 @@ namespace ossie {
         std::string _domainManagerSoftPkg;
     };
 
-    /**
+    /*
      *
      */
     class Properties
@@ -90,7 +90,7 @@ namespace ossie {
     {
     }
 
-    /**
+    /*
      *
      */
     class Property
@@ -161,7 +161,7 @@ namespace ossie {
         std::vector<std::string> _kinds; // For struct and structsequence this vector must be of length 1
     };
 
-    /**
+    /*
      *
      */
     class AbstractSimpleProperty : public Property

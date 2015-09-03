@@ -31,7 +31,7 @@
 namespace redhawk {
 
     namespace detail {
-        /**
+        /*
          * Tests whether the sorted ranges [first1, last1) and [first2, last2)
          * intersect.
          */
@@ -52,7 +52,7 @@ namespace redhawk {
         }
     }
 
-    /**
+    /*
      * A generic class to support waiting for a set of related events, such as
      * input data becoming available.
      *
@@ -69,14 +69,14 @@ namespace redhawk {
         typedef IdType id_type;
         typedef std::set<id_type> signal_set;
 
-        /**
+        /*
          * Create a new signal.
          */
         signal()
         {
         }
 
-        /**
+        /*
          * Scope-based class for managing waiting on events from a parent
          * signal.
          *
@@ -96,7 +96,7 @@ namespace redhawk {
          */
         class waiter {
         public:
-            /**
+            /*
              * Create a new waiter associated with parent, that expires after
              * timeout seconds.
              *
@@ -119,7 +119,7 @@ namespace redhawk {
                 _M_parent->_M_remove_waiter(this);
             }
 
-            /**
+            /*
              * Notify this waiter that a signal was received. If signal_id is
              * not being ignored, wait() will return true.
              */
@@ -130,7 +130,7 @@ namespace redhawk {
                 _M_cond.notify_all();
             }
 
-            /**
+            /*
              * Wait until a signal has been received. Returns true if a signal
              * was received since the last call to wait(), or false if this
              * waiter has been interrupted or the timeout expired.
@@ -147,7 +147,7 @@ namespace redhawk {
                 return wait(signal_set());
             }
 
-            /**
+            /*
              * Wait until a signal from the set signal_ids has been received.
              * Returns true if such a signal was received since the last call
              * to wait(), or false if this waiter has been interrupted or the
@@ -176,7 +176,7 @@ namespace redhawk {
                 return result;
             }
 
-            /**
+            /*
              * Wakes up this waiter. Any current or future calls to wait() will
              * immediately return false.
              */
@@ -231,7 +231,7 @@ namespace redhawk {
             boost::posix_time::ptime _M_timeout;
         };
 
-        /**
+        /*
          * Notify all waiters that a signal has been received. Any waiters that
          * are blocked and not filtering signal_id will return.
          */
@@ -243,7 +243,7 @@ namespace redhawk {
             }
         }
 
-        /**
+        /*
          * Interrupt all waiters, causing them to return immediately.
          */
         void interrupt()

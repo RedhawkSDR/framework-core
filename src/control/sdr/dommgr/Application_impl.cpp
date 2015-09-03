@@ -603,11 +603,96 @@ throw (CF::UnknownProperties, CORBA::SystemException)
 char *Application_impl::registerPropertyListener( CORBA::Object_ptr listener, const CF::StringSequence &prop_ids, const CORBA::Float interval)
   throw(CF::UnknownProperties, CF::InvalidObjectReference)
 {
-  return (char *)NULL;
+
+  SCOPED_LOCK( releaseObjectLock );
+
+  LOG_TRACE(Application_impl, "Number of Properties to Register: " << prop_ids.length() );
+  typedef   std::map< CF::Resource_ptr, std::vector< std::string > > CompRegs;
+  CompRegs comp_regs;
+
+  for (unsigned int i = 0; i < prop_ids.length(); ++i) {
+        // Gets external ID for property mapping
+        const std::string extId(prop_ids[i]);
+
+        if (_properties.count(extId)) {
+          CF::Resource_ptr comp = _properties[extId].second;          
+          std::string prop_id = _properties[extId].first;          
+          LOG_TRACE(Application_impl, "  ---> Register ExternalID: " << extId << " Comp/Id " << 
+                ossie::corba::returnString(comp->identifier()) << "/" << prop_id);
+          comp_regs[ comp ].push_back( prop_id ); 
+          
+        } else if (!CORBA::is_nil(assemblyController)) {
+          comp_regs[ assemblyController ].push_back( extId ) ;
+        }
+  }
+
+  CompRegs::iterator reg_iter = comp_regs.begin();
+  PropertyChangeRecords   pc_recs;
+  try {
+    
+    for ( ; reg_iter != comp_regs.end(); reg_iter++ ) {
+
+      CF::StringSequence reg_ids;
+      reg_ids.length( reg_iter->second.size() );
+      for ( uint32_t i=0; i < reg_iter->second.size(); i++ ) reg_ids[i] = reg_iter->second[i].c_str();
+      
+      std::string reg_id = ossie::corba::returnString( reg_iter->first->registerPropertyListener( listener, reg_ids, interval ) );
+      LOG_TRACE(Application_impl, "Component-->PropertyChangeRegistryRegistry  comp/id " << 
+                ossie::corba::returnString(reg_iter->first->identifier()) << "/" << reg_id );
+      pc_recs.push_back( PropertyChangeRecord( reg_id, reg_iter->first ) );
+
+    }
+
+  }
+  catch (...) {
+    
+    LOG_WARN(Application_impl, "PropertyChangeListener registration failed against Application: " << _identifier );
+    PropertyChangeRecords::iterator iter = pc_recs.begin(); 
+    try {
+      iter->comp->unregisterPropertyListener( iter->reg_id.c_str() );
+    }
+    catch(...) {
+    }
+    
+    throw;
+  }
+
+  // save off registrations when we unregister
+  std::string regid = ossie::generateUUID();
+  _propertyChangeRegistrations[ regid ] = pc_recs;
+  return CORBA::string_dup(regid.c_str() );
 }
-void Application_impl::unregisterPropertyListener( const char *reg_id )  
-      throw(CF::InvalidIdentifier)
+
+void Application_impl::unregisterPropertyListener( const char *reg_id ) 
+  throw (CF::InvalidIdentifier)
 {
+
+  SCOPED_LOCK( releaseObjectLock );
+
+  if ( _propertyChangeRegistrations.count( reg_id ) == 0 )  {
+    throw CF::InvalidIdentifier();
+  }
+  else {
+    
+    PropertyChangeRecords::iterator iter = _propertyChangeRegistrations[reg_id].begin();
+    PropertyChangeRecords::iterator end = _propertyChangeRegistrations[reg_id].end();
+
+    for( ; iter != end; iter++ ) {
+      try {
+        PropertyChangeRecord &rec = *iter;
+        if ( CORBA::is_nil(rec.comp) == false ) {
+          rec.comp->unregisterPropertyListener( rec.reg_id.c_str() ) ;
+        }
+      }
+      catch(...){
+        LOG_WARN(Application_impl, "Unregister PropertyChangeListener operation failed. app/reg_id: " << _identifier << "/" << reg_id );
+      }
+    }
+    
+    _propertyChangeRegistrations.erase( reg_id );
+    
+  }
+
 }
 
 void Application_impl::initialize ()
@@ -1017,6 +1102,7 @@ bool Application_impl::waitForComponents (std::set<std::string>& identifiers, in
 
     boost::mutex::scoped_lock lock(_registrationMutex);
     while (!_checkRegistrations(identifiers)) {
+      LOG_DEBUG(Application_impl, "Waiting for components....APP:" << _identifier << "  list " << identifiers.size() );
         if (!_registrationCondition.timed_wait(lock, end)) {
             break;
         }
@@ -1046,9 +1132,11 @@ void Application_impl::registerComponent (CF::Resource_ptr resource)
 {
     const std::string componentId = ossie::corba::returnString(resource->identifier());
     const std::string softwareProfile = ossie::corba::returnString(resource->softwareProfile());
-    ossie::ApplicationComponent* comp = findComponent(componentId);
+
 
     boost::mutex::scoped_lock lock(_registrationMutex);
+    ossie::ApplicationComponent* comp = findComponent(componentId);
+
     if (!comp) {
         LOG_WARN(Application_impl, "Unexpected component '" << componentId
                  << "' registered with application '" << _appName << "'");
@@ -1063,6 +1151,8 @@ void Application_impl::registerComponent (CF::Resource_ptr resource)
                  << " does not match expected profile " << comp->softwareProfile);
         comp->softwareProfile = softwareProfile;
     }
+
+    LOG_TRACE(Application_impl, "REGISTERING Component '" << componentId << "' software profile " << softwareProfile << " pid:" << comp->processId );
     comp->componentObject = CORBA::Object::_duplicate(resource);
     _registrationCondition.notify_all();
 }

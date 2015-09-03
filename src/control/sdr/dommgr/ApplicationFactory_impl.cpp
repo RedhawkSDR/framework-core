@@ -85,7 +85,7 @@ void ScopedAllocations::deallocate()
 
 
 
-/** Rotates a device list to put the device with the given identifier first
+/* Rotates a device list to put the device with the given identifier first
  */
 static void rotateDeviceList(DeviceList& devices, const std::string& identifier)
 {
@@ -352,7 +352,7 @@ ApplicationFactory_impl::~ApplicationFactory_impl ()
 {
 }
 
-/**
+/*
  * Check to make sure assemblyController was initialized if it was SCA compliant
  */
 void createHelper::_checkAssemblyController(
@@ -883,7 +883,7 @@ void createHelper::setUpExternalProperties(Application_impl* application)
     }
 }
 
-/** Creates and instance of the application.
+/* Creates and instance of the application.
  *  - Assigns components to devices
  *      - First based on user-provided DAS if one is passed in
  *        (deviceAssignments)
@@ -1287,7 +1287,7 @@ CF::AllocationManager::AllocationResponseSequence* createHelper::allocateUsesDev
     return this->_allocationMgr->allocate(request);
 }
                                                           
-/** Check all allocation dependencies for a particular component and assign it to a device.
+/* Check all allocation dependencies for a particular component and assign it to a device.
  *  - Check component's overall usesdevice dependencies
  *  - Allocate capacity on usesdevice(s)
  *  - Find and implementation that has it's implementation-specific usesdevice dependencies satisfied
@@ -1589,7 +1589,7 @@ void createHelper::_evaluateMATHinRequest(CF::Properties &request, const CF::Pro
     }
 }
 
-/** Perform allocation/assignment of a particular component to the device.
+/* Perform allocation/assignment of a particular component to the device.
  *  - First do allocation/assignment based on user provided DAS
  *  - If not specified in DAS, then iterate through devices looking for a device that satisfies
  *    the allocation properties
@@ -1760,7 +1760,7 @@ ossie::ImplementationInfo* createHelper::resolveDependencyImplementation(ossie::
     return 0;
 }
 
-/** Create a vector of all the components for the SAD associated with this App Factory
+/* Create a vector of all the components for the SAD associated with this App Factory
  *  - Get component information from the SAD and store in _requiredComponents vector
  */
 void createHelper::getRequiredComponents()
@@ -1869,7 +1869,7 @@ void createHelper::getRequiredComponents()
     TRACE_EXIT(ApplicationFactory_impl);
 }
 
-/** Given a device id, returns a CORBA pointer to the device
+/* Given a device id, returns a CORBA pointer to the device
  *  - Gets a CORBA pointer for a device from a given id
  */
 CF::Device_ptr createHelper::find_device_from_id(const char* device_id)
@@ -1901,7 +1901,7 @@ const ossie::DeviceNode& createHelper::find_device_node_from_id(const char* devi
     throw(std::exception());
 }
 
-/** Given a component instantiation id, returns the associated ossie::ComponentInfo object
+/* Given a component instantiation id, returns the associated ossie::ComponentInfo object
  *  - Gets the ComponentInfo class instance for a particular component instantiation id
  */
 ossie::ComponentInfo* createHelper::findComponentByInstantiationId(const std::string& identifier)
@@ -1915,7 +1915,7 @@ ossie::ComponentInfo* createHelper::findComponentByInstantiationId(const std::st
     return 0;
 }
 
-/** Given a waveform/application name, return a unique waveform naming context
+/* Given a waveform/application name, return a unique waveform naming context
  *  - Returns a unique waveform naming context
  *  THIS FUNCTION IS NOT THREAD SAFE
  */
@@ -1963,7 +1963,7 @@ string ApplicationFactory_impl::getWaveformContextName(string name )
 
 }
 
-/** Given a waveform/application-specific context, return the full waveform naming context
+/* Given a waveform/application-specific context, return the full waveform naming context
  *  - Returns a full context path for the waveform
  */
 string ApplicationFactory_impl::getBaseWaveformContext(string waveform_context)
@@ -2015,7 +2015,7 @@ void createHelper::loadDependencies(ossie::ComponentInfo& component,
     }
 }
 
-/** Perform 'load' and 'execute' operations to launch component on the assigned device
+/* Perform 'load' and 'execute' operations to launch component on the assigned device
  *  - Actually loads and executes the component on the given device
  */
 void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg)
@@ -2441,7 +2441,7 @@ void createHelper::waitForComponentRegistration()
     }
 }
 
-/** Initializes the components
+/* Initializes the components
  *  - Make sure internal lists are up to date
  *  - Ensure components have started and are bound to Naming Service
  *  - Initialize each component
@@ -2489,6 +2489,15 @@ void createHelper::initializeComponents()
         }
 
         component->setResourcePtr(resource);
+
+        int initAttempts=3;
+        while ( initAttempts > 0 ) {
+            initAttempts--;
+            if ( ossie::corba::objectExists(resource) == true ) { initAttempts = 0; continue; }
+            LOG_DEBUG(ApplicationFactory_impl, "Retrying component ping............ comp:" << component->getIdentifier() << " waveform: " << _waveformContextName);
+            usleep(1000);
+        }
+
 
         //
         // call resource's initializeProperties method to handle any properties required for construction
@@ -2775,7 +2784,7 @@ void createHelper::configureComponents()
     }
 }
 
-/** Connect the components
+/* Connect the components
  *  - Connect the components
  */
 void createHelper::connectComponents(std::vector<ConnectionNode>& connections, string base_naming_context)
@@ -2870,7 +2879,7 @@ void createHelper::_cleanupFailedCreate()
     } CATCH_LOG_WARN(ApplicationFactory_impl, "Could not destroy naming context");
 }
 
-/** Given a component instantiation id, returns the associated CORBA Resource pointer
+/* Given a component instantiation id, returns the associated CORBA Resource pointer
  *  - Gets the Resource pointer for a particular component instantiation id
  */
 CF::Resource_ptr createHelper::lookupComponentByInstantiationId(const std::string& identifier)
@@ -2883,7 +2892,7 @@ CF::Resource_ptr createHelper::lookupComponentByInstantiationId(const std::strin
     return CF::Resource::_nil();
 }
 
-/** Given a component instantiation id, returns the associated CORBA Device pointer
+/* Given a component instantiation id, returns the associated CORBA Device pointer
  *  - Gets the Device pointer for a particular component instantiation id
  */
 CF::Device_ptr createHelper::lookupDeviceThatLoadedComponentInstantiationId(const std::string& componentId)
@@ -2906,7 +2915,7 @@ CF::Device_ptr createHelper::lookupDeviceThatLoadedComponentInstantiationId(cons
 }
 
 
-/** Given a component instantiation id and uses id, returns the associated CORBA Device pointer
+/* Given a component instantiation id and uses id, returns the associated CORBA Device pointer
  *  - Gets the Device pointer for a particular component instantiation id and uses id
  */
 CF::Device_ptr createHelper::lookupDeviceUsedByComponentInstantiationId(const std::string& componentId, const std::string& usesId)

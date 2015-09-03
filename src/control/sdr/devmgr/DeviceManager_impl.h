@@ -356,7 +356,7 @@ private:
 
     std::map<std::string, std::string> _componentImplMap;
 
-    /// Registration record for Domain's IDM_Channel 
+    // Registration record for Domain's IDM_Channel 
     ossie::events::EventChannelReg_var   idm_registration;
     std::string                          IDM_IOR;
 

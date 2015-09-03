@@ -31,13 +31,13 @@ public:
     Component(const char* _uuid, const char *label);
     virtual ~Component();
     void setAdditionalParameters(std::string &softwareProfile, std::string &application_registrar_ior, std::string &nic);
-    /**
+    /*
      * Return a pointer to the Application that the Resource is deployed on 
      */
     redhawk::ApplicationContainer* getApplication() {
         return this->_app;
     }
-    /**
+    /*
      * Return the network information that was allocated to this Component (if applicable)
      */
     redhawk::NetworkContainer* getNetwork() {

@@ -160,7 +160,7 @@ bool ossie::compare_anys(const CORBA::Any& a, const CORBA::Any& b, std::string& 
     return result;
 }
 
-/**
+/*
  * Convert a string in the format A+jB to a CORBA::Any.
  *
  * Type corresponds to the type of the real/imag members of the CF::complex
@@ -194,7 +194,7 @@ CORBA::Any ossie::convertComplexStringToAny(std::string value) {
     return result;
 }
 
-/**
+/*
  * Performs __MATH__ operations.
  *
  * Note: not supported for tk_struct, including complex values.
@@ -327,7 +327,7 @@ CORBA::Any ossie::calculateDynamicProp(double operand, CORBA::Any& prop, std::st
     return result;
 }
 
-/**
+/*
  * Convert a string in the form of A+jB to a CORBA::Any.
  *
  * This method differs from stringToSimpleAny in that the data type to
@@ -367,7 +367,7 @@ CORBA::Any ossie::stringToComplexAny(std::string value, std::string structName) 
     return result;
 }
 
-/**
+/*
  * Convert from a string to a simple CORBA::Any.
  *
  * The data type must be one of the simple, built-in CORBA::TCKinds (e.g., _tk_float).
@@ -411,7 +411,7 @@ CORBA::Any ossie::stringToSimpleAny(std::string value, CORBA::TCKind kind) {
     return result;
 }
 
-/**
+/*
  * Convert from a string to a CORBA::Any for simple and complex types.
  *
  * Simple types are indexed by typeCode kind, while complex types are indexed
@@ -492,7 +492,7 @@ CORBA::Any ossie::strings_to_any(const std::vector<std::string>& values, CORBA::
     return result;
 }
 
-/**
+/*
  * Convert a CORBA::Any to a string in the format A+jB.
  *
  * CFComplexType corresponds to the type of the CF::complexStruct (e.g.,
@@ -935,7 +935,7 @@ CORBA::StringSeq* ossie::strings_to_string_sequence(const std::vector<std::strin
     return result._retn();
 }
 
-/**
+/*
  * Get the TypeCode kind based on a string.  Note that complex
  * types are not supported, as the TypeCode kind for all complex
  * types is tk_struct.  For complex types, use getTypeCode and
@@ -1028,7 +1028,7 @@ CORBA::TypeCode_ptr ossie::getTypeCode(std::string type) {
     return kind;
 }
 
-/**
+/*
  * Convert from a kind to a CORBA TypeCode.
  *
  * The structName argument is provided because kind needs to be further described to map to a specific type code

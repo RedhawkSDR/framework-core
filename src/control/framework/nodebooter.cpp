@@ -65,7 +65,7 @@ static pid_t devPid = 0;
 
 typedef std::map<std::string, std::string> ExecParams;
 
-/**
+/*
  * Iterate through all of the implementations and find the first implementation
  * that matches the operating system and processor requirements specified in
  * deviceProps.
@@ -93,7 +93,7 @@ const ossie::SPD::Implementation* matchImplementation (
     return 0;
 }
 
-/**
+/*
  * If filePath is absolute (i.e., starts with "/"), return:
  *
  *      sdrroot/filePath
@@ -119,7 +119,7 @@ std::string getLocalPath (
     return localPath.string();
 }
 
-/**
+/*
  * Iterate through the properties tagged as execparams; add simple, execparam
  * properties with default values to execParams.
  */

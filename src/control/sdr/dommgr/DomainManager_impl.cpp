@@ -161,7 +161,7 @@ DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpa
 
 
 
-/// \todo lookup and install any services specified in the DMD
+// \todo lookup and install any services specified in the DMD
 
     LOG_TRACE(DomainManager_impl, "Looking for ApplicationFactories POA");
     appFact_poa = poa->find_POA("ApplicationFactories", 1);

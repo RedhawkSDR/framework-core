@@ -91,7 +91,7 @@ public:
     MessageConsumerPort (std::string port_name);
     virtual ~MessageConsumerPort (void) { };
 
-    /**
+    /*
      * Register a callback function
      * @param id The message id that this callback is intended to support
      * @param target A pointer to the object that owns the callback function
@@ -142,7 +142,7 @@ protected:
     
     SupplierAdmin_i *supplier_admin;
     
-    /**
+    /*
      * Abstract interface for message callbacks.
      */
     class MessageCallback
@@ -156,7 +156,7 @@ protected:
     };
 
 
-    /**
+    /*
      * Concrete class for member function property change callbacks.
      */
     template <class Class, class M>
@@ -220,7 +220,7 @@ public:
     CosEventChannelAdmin::ProxyPushConsumer_ptr removeConsumer(std::string consumer_id);
     void extendConsumers(std::string consumer_id, CosEventChannelAdmin::ProxyPushConsumer_ptr proxy_consumer);
 
-    /// Send a single message
+    // Send a single message
     template <typename Message>
     void sendMessage(const Message& message) {
         const Message* begin(&message);
@@ -228,13 +228,13 @@ public:
         sendMessages(begin, end);
     }
 
-    /// Send a sequence of messages
+    // Send a sequence of messages
     template <class Sequence>
     void sendMessages(const Sequence& messages) {
         sendMessages(messages.begin(), messages.end());
     }
     
-    /// Send a set of messages from an iterable set
+    // Send a set of messages from an iterable set
     template <typename Iterator>
     void sendMessages(Iterator first, Iterator last)
     {

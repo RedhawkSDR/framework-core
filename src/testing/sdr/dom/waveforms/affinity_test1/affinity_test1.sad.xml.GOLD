@@ -11,13 +11,13 @@
       <componentfileref refid="C2_5fb7296e-b543-43fc-bc14-88a9299b458b"/>
       <componentinstantiation id="C2_1" startorder="1">
         <usagename>C2_1</usagename>
-        <findcomponent>
-          <namingservice name="C2_1"/>
-        </findcomponent>
         <affinity>
           <simpleref refid="affinity::exec_directive_class" value="cpu" />
           <simpleref refid="affinity::exec_directive_value" value="XXX5XXX"/>
         </affinity>
+        <findcomponent>
+         <namingservice name="C2_1"/>
+        </findcomponent>
       </componentinstantiation>
     </componentplacement>
   </partitioning>

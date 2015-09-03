@@ -41,7 +41,10 @@
 
 #include "CF/ExtendedEvent.h"
 #include <COS/CosEventChannelAdmin.hh>
-/**
+#include "PropertyMonitor.h"
+
+
+/*
  *
  */
 class PropertyInterface
@@ -51,7 +54,7 @@ public:
     {
     }
     
-    /**
+    /*
      * By default, the PropertyWrapper will ignore Nil values set via setValue()
      * and will never return Nil values in response to getValue()
      *
@@ -78,7 +81,7 @@ public:
                    const std::string& _units, const std::string& _action, const std::string& _kinds);
 
     virtual void getValue (CORBA::Any& a) = 0;
-    virtual void setValue (const CORBA::Any& a) = 0;
+    virtual void setValue (const CORBA::Any& a, bool callbacks=true) = 0;
     virtual short compare (const CORBA::Any& a) = 0;
     virtual void increment (const CORBA::Any& a) = 0;
     virtual void decrement (const CORBA::Any& a) = 0;
@@ -127,7 +130,7 @@ protected:
 
 };
 
-/**
+/*
  * 
  */
 template <typename T>
@@ -154,7 +157,7 @@ public:
         }
     }
 
-    virtual void setValue (const CORBA::Any& any)
+    virtual void setValue (const CORBA::Any& any, bool callbacks=true)
     {
         // Save existing value and create a pointer to it, which accounts for
         // nil values
@@ -178,8 +181,10 @@ public:
         const value_type* newValue = toPointer(value_);
 
         // Check if the value has changed; if it has, fire the callback(s).
-        if (!this->equals(oldValue, newValue)) {
-            valueChanged(oldValue, newValue);
+        if (callbacks) {
+            if (!this->equals(oldValue, newValue)) {
+                valueChanged(oldValue, newValue);
+            }
         }
     }
 
@@ -191,7 +196,7 @@ public:
         return value_;
     }
 
-    virtual void setValue (const value_type& newValue)
+    virtual void setValue (const value_type& newValue, bool callbacks=true)
     {
         if (configure_) {
             configure_(newValue);
@@ -483,7 +488,7 @@ typedef PropertyWrapper<std::complex<CORBA::Long> >      ComplexLongProperty;
 typedef PropertyWrapper<std::complex<CORBA::LongLong> >  ComplexLongLongProperty;
 typedef PropertyWrapper<std::complex<CORBA::ULongLong> > ComplexULongLongProperty;
 
-/**
+/*
  * 
  */
 template <typename T>
@@ -494,7 +499,7 @@ public:
     typedef std::vector<T> value_type;
     typedef PropertyWrapper<value_type> super;
 
-    virtual void setValue (const CORBA::Any& newValue)
+    virtual void setValue (const CORBA::Any& newValue, bool callbacks=true)
     {
         if (ossie::any::isNull(newValue)) {
             // Nil values should clear the sequence
@@ -697,9 +702,7 @@ private:
 
 };
 
-/************************************************************************************
-  PropertyChange producer
-************************************************************************************/
+
 
 class PropertyEventSupplier : public Port_Uses_base_impl, public virtual POA_CF::Port {
 

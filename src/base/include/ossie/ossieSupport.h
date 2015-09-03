@@ -43,7 +43,7 @@ namespace ossie
 
     namespace helpers {
 
-      /**
+      /*
          is_jarfile 
      
          Helper method to test if a file is valid jar file in lue of "file" command

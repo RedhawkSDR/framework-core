@@ -70,7 +70,7 @@ class LocalProcess(object):
         pid = self.__process.pid
         try:
           self.__process.communicate()[0]
-          if self.__terminateRequested:
+          if self.__terminateRequested or self.__process.returncode == 0:
               return
           for idx in range(len(self.__arguments)):
               if self.__arguments[idx] == 'NAME_BINDING':
@@ -79,7 +79,7 @@ class LocalProcess(object):
                   else:
                       print 'Component with process id '+str(pid)+'has died'
         except:
-            if self.__terminateRequested:
+            if self.__terminateRequested or self.__process.returncode == 0:
                 return
             print 'Component with process id '+str(pid)+'has died'
 

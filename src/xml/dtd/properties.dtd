@@ -42,7 +42,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 	id	ID							#REQUIRED
 	type	( boolean	| char	| double | float
 		| short	| long	| longlong | objref | octet
-		| string	| ulong	| ushort )		#REQUIRED
+		| string	| ulong | ulonglong	| ushort )		#REQUIRED
 	name	CDATA							#IMPLIED
 	complex ( false | true ) "false"
 	optional ( false | true ) "false"
@@ -88,8 +88,8 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 <!ATTLIST simplesequence
 	id	ID						#REQUIRED
 	type  ( boolean | char   | double | float
-	      | short  | long   | objref | octet
-	      | string | ulong  | ushort )		#REQUIRED
+	      | short  | long | longlong   | objref | octet
+	      | string | ulong | ulonglong | ushort )		#REQUIRED
 	name	CDATA						#IMPLIED
 	complex ( false | true ) "false"
 	optional ( false | true ) "false"

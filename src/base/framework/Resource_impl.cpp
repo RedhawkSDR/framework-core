@@ -127,7 +127,7 @@ CORBA::Boolean Resource_impl::started () throw (CORBA::SystemException)
 
 void Resource_impl::initialize () throw (CF::LifeCycle::InitializeError, CORBA::SystemException)
 {
-  startPropertyChangeMonitor();
+  startPropertyChangeMonitor(_identifier);
   if (!_initialized) {
       _initialized = true;
       try {

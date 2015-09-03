@@ -85,7 +85,7 @@ private:
 
 };
 
-
+std::string PropertySet_impl::PropertyChangeRec::RSC_ID("UNK_RSC_ID");
 
 PREPARE_LOGGING(PropertySet_impl);
 
@@ -99,14 +99,20 @@ PropertySet_impl::PropertySet_impl ():
 
 PropertySet_impl::~PropertySet_impl ()
 {
-    // Clean up all property wrappers created by descendents.
-    for (std::vector<PropertyInterface*>::iterator ii = ownedWrappers.begin(); ii != ownedWrappers.end(); ++ii) {
-        delete *ii;
-    }
 
     // clean up property change listener context
     _propChangeThread.stop();
     _propChangeThread.release();
+
+   // Clean up all property wrappers created by descendents.
+    for (std::vector<PropertyInterface*>::iterator ii = ownedWrappers.begin(); ii != ownedWrappers.end(); ++ii) {
+        delete *ii;
+    }
+
+    // Clean up all property wrappers created by descendents.
+    for ( PropertyMonitorTable::iterator ii = _propMonitors.begin(); ii != _propMonitors.end(); ++ii) {
+      delete ii->second;
+    }
     
 
     // Clean up all property callback functors.
@@ -156,7 +162,7 @@ throw (CF::PropertySet::AlreadyInitialized, CF::PropertySet::PartialConfiguratio
         if (property && property->isProperty()) {
             LOG_TRACE(PropertySet_impl, "Constructor property: " << property->id);
             try {
-                property->setValue(ctorProps[ii].value);
+                property->setValue(ctorProps[ii].value, false);
             } catch (std::exception& e) {
                 LOG_ERROR(PropertySet_impl, "Setting property " << property->id << ", " << property->name << " failed.  Cause: " << e.what());
                 ossie::corba::push_back(invalidProperties, ctorProps[ii]);
@@ -407,6 +413,7 @@ char *PropertySet_impl::registerPropertyListener( CORBA::Object_ptr listener, co
   PropertyChangeRec rec;
   std::string reg_id = ossie::generateUUID();
   rec.regId = reg_id;
+  rec.rscId = PropertyChangeRec::RSC_ID;
   rec.listener = listener;
   long  sec=0;
   long  fsec=500;
@@ -582,14 +589,16 @@ void PropertySet_impl::setPropertyCallback (const std::string& id, PropertyCallb
 
 
 
-void PropertySet_impl::startPropertyChangeMonitor() 
+void PropertySet_impl::startPropertyChangeMonitor(const std::string &rsc_id ) 
 {
   // start thread when first registration happens
+  PropertyChangeRec::RSC_ID = rsc_id;
+  if ( rsc_id == "" )   PropertyChangeRec::RSC_ID = "UNK_RSC_ID";
   return;
 }
 
 
-void PropertySet_impl::stopPropertyChangeMonitor() 
+void PropertySet_impl::stopPropertyChangeMonitor()
 {
   _propChangeThread.stop();
 }
@@ -612,32 +621,45 @@ int PropertySet_impl::_propertyChangeServiceFunction()
       PropertyChangeRec *rec = &(iter->second);
       LOG_DEBUG(PropertySet_impl, "Change Listener ... reg_id/interval :" << rec->regId << "/" << rec->reportInterval.total_milliseconds());
 
+      PropertyReportTable::iterator rpt_iter = rec->props.begin();
+      // check all registered properties for changes
+      for( ; rpt_iter != rec->props.end() && _propChangeThread.threadRunning(); rpt_iter++) {
+	// check if property changed
+	LOG_DEBUG(PropertySet_impl, "   Property/set :" << rpt_iter->first << "/" << rpt_iter->second->isSet());
+	try{
+	  if ( _propMonitors[rpt_iter->first]->isChanged() ) {
+	    rpt_iter->second->recordChanged();
+	    LOG_DEBUG(PropertySet_impl, "   Recording Change Property/set :" << rpt_iter->first << "/" << rpt_iter->second->isChanged());
+	  }
+	}
+	catch(...) {}
+      }
+
       // determine if time has expired
       boost::posix_time::time_duration dur = rec->expiration - now;
       LOG_DEBUG(PropertySet_impl, "   Check for expiration, dur=" << dur.total_milliseconds() );
       if ( dur.total_milliseconds()  <= 0 )  {
         CF::Properties  rpt_props;
         CORBA::ULong idx = 0;
-	PropertyReportTable::iterator id_iter = rec->props.begin();
+	PropertyReportTable::iterator rpt_iter = rec->props.begin();
         // check all registered properties for changes
-	for( ; id_iter != rec->props.end() && _propChangeThread.threadRunning(); id_iter++) {
-	  // check if property changed
-	  LOG_DEBUG(PropertySet_impl, "   Property/set :" << id_iter->first << "/" << id_iter->second->isSet());
-	  if (id_iter->second->isSet() ) {
+	for( ; rpt_iter != rec->props.end() && _propChangeThread.threadRunning(); rpt_iter++) {
+	  LOG_DEBUG(PropertySet_impl, "   Sending Change Property/set :" << rpt_iter->first << "/" << rpt_iter->second->isChanged());
+	  if (rpt_iter->second->isChanged() ) {
                 
 	    // add to reporting change list
 	    idx = rpt_props.length();
 	    rpt_props.length( idx+1 );
-	    rpt_props[idx].id     = CORBA::string_dup(id_iter->first.c_str());
-	    LOG_DEBUG(PropertySet_impl, "   Getting getValue from property....prop: " << id_iter->first << " reg_id:" << rec->regId );
-	    PropertyInterface *property = getPropertyFromId(id_iter->first);
+	    rpt_props[idx].id     = CORBA::string_dup(rpt_iter->first.c_str());
+	    LOG_DEBUG(PropertySet_impl, "   Getting getValue from property....prop: " << rpt_iter->first << " reg_id:" << rec->regId );
+	    PropertyInterface *property = getPropertyFromId(rpt_iter->first);
 	    if ( property ) {
-	      LOG_DEBUG(PropertySet_impl, "   Getting getValue from property....prop: " << id_iter->first << " reg_id:" << rec->regId );
+	      LOG_DEBUG(PropertySet_impl, "   Getting getValue from property....prop: " << rpt_iter->first << " reg_id:" << rec->regId );
 	      property->getValue( rpt_props[idx].value );
 	    }
             
             // reset change indicator for next reporting cycle
-	    id_iter->second->reset();
+	    rpt_iter->second->reset();
 	  }
 
 	}
@@ -654,6 +676,10 @@ int PropertySet_impl::_propertyChangeServiceFunction()
 	// reset reporting interval..
 	rec->expiration = boost::posix_time::microsec_clock::local_time() + rec->reportInterval;
 	dur = rec->reportInterval;
+      }
+
+      if ( _propChangeRegistry.size() > 0 ) {
+	for( PropertyMonitorTable::iterator ii=_propMonitors.begin(); ii != _propMonitors.end();  ii++) ii->second->reset();
       }
       
       // determine delay interval based on shortest remaining duration interval
@@ -697,7 +723,7 @@ int  PropertySet_impl::EC_PropertyChangeListener::notify( PropertyChangeRec *rec
   std::string uuid = ossie::generateUUID();
   evt.evt_id = CORBA::string_dup( uuid.c_str() );
   evt.reg_id = CORBA::string_dup( rec->regId.c_str());
-  evt.resource_id = CORBA::string_dup( "TBD" );
+  evt.resource_id = CORBA::string_dup( rec->rscId.c_str() );
   evt.properties = changes;
   try {
     RH_NL_DEBUG("EC_PropertyChangeListener", "Send change event reg/id:" << rec->regId << "/" << uuid );
@@ -730,7 +756,7 @@ int PropertySet_impl::INF_PropertyChangeListener::notify( PropertyChangeRec *rec
   std::string uuid = ossie::generateUUID();
   evt.evt_id = CORBA::string_dup( uuid.c_str() );
   evt.reg_id = CORBA::string_dup( rec->regId.c_str());
-  evt.resource_id = CORBA::string_dup( "TBD" );
+  evt.resource_id = CORBA::string_dup( rec->rscId.c_str() );
   evt.properties = changes;
   try {
     RH_NL_DEBUG("INF_PropertyChangeListener", "Send change event reg/id:" << rec->regId << "/" << uuid );

@@ -30,7 +30,7 @@
 #include "debug.h"
 #include "ossie/Autocomplete.h"
 
-/**
+/*
 The port supplier provides specialized functionality to manage Ports
 */
 
@@ -44,7 +44,7 @@ class PortSupplier_impl
 public:
     PortSupplier_impl ();
 
-    /// Return an object reference for the named port.
+    // Return an object reference for the named port.
     CORBA::Object* getPort (const char*) throw (CF::PortSupplier::UnknownPort, CORBA::SystemException);
 	CF::PortSupplier::PortInfoSequence* getPortSet ();
 

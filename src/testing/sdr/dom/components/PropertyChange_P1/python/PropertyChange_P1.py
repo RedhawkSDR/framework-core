@@ -101,7 +101,9 @@ class PropertyChange_P1_i(PropertyChange_P1_base):
 
         # TODO fill in your code here
         self._log.trace("process() example log message")
-        return NOOP
+        self.prop1 = self.prop1 + 1.0
+        self.prop2 = self.prop2 + 1
+        return FINISH
 
   
 if __name__ == '__main__':

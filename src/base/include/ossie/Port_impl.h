@@ -136,15 +136,15 @@ public:
     void setActiveStatus(bool active_flag);
     void releasePort();
     std::vector< std::pair<class PortType::_var_type, std::string> > get_ports();
-    /// Return whether this Port is connected to another Port
+    // Return whether this Port is connected to another Port
     bool isActive();
-    /// Return the Port name
+    // Return the Port name
     std::string getName();
 
 protected:
-    /// Pointer to the Component or Device that owns this Port
+    // Pointer to the Component or Device that owns this Port
     ComponentType* parent;
-    /// Vector of all outgoing connections
+    // Vector of all outgoing connections
     std::vector < std::pair<class PortType::_var_type, std::string> > outPorts;
     bool active;
     std::string name;
@@ -229,7 +229,7 @@ class Port_Provides_impl
 public:
     Port_Provides_impl(ComponentType* _parent, std::string port_name);
     ~Port_Provides_impl();
-    /// Return this Port's name
+    // Return this Port's name
     std::string getName();
 
 protected:
@@ -288,25 +288,25 @@ public:
     {
     }
 
-    /// Return the Port name
+    // Return the Port name
     virtual std::string getName ()
     {
         return name;
     }
 
-    /// Return the Port description
+    // Return the Port description
     virtual std::string getDescription ()
     {
 		return description;
     }
 
-    /// Return the interface that this Port supports
+    // Return the interface that this Port supports
     virtual std::string getRepid () const
     {
 		return "IDL:CORBA/Object:1.0";
     }
 
-    /// Return the direction (uses/provides) for this Port
+    // Return the direction (uses/provides) for this Port
     virtual std::string getDirection() const 
     {
         return "Direction";
@@ -343,13 +343,13 @@ public:
         active = active_flag;
     }
 
-    /// Return true if this Port is connected to another Port
+    // Return true if this Port is connected to another Port
     virtual bool isActive()
     {
         return active;
     }
 
-    /// Return the direction (uses/provides) for this Port
+    // Return the direction (uses/provides) for this Port
     virtual std::string getDirection () const 
     {
         return "Uses";	
@@ -373,7 +373,7 @@ public:
     {
     }
 
-    /// Return the direction (uses/provides) for this Port
+    // Return the direction (uses/provides) for this Port
     virtual std::string getDirection () const 
     {
         return "Provides";	

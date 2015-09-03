@@ -59,7 +59,7 @@ namespace ossie
     };
     typedef std::list<ApplicationComponent> ComponentList;
 
-    /**
+    /*
      *
      */
     class UsesDeviceInfo
@@ -89,7 +89,7 @@ namespace ossie
         std::string assignedDeviceId;
     };
 
-    /** Base class to contain data for components and implementations
+    /* Base class to contain data for components and implementations
      *  - Used to store information about about UsesDevice relationships
      *    since these are handled the same for both components and
      *    component implementations.
@@ -113,7 +113,7 @@ namespace ossie
 
     class SoftpkgInfo;
 
-    /** Base class to contain data for implementations
+    /* Base class to contain data for implementations
      *  - Used to store information about about implementations
      */
     class ImplementationInfo : public UsesDeviceContext
@@ -205,7 +205,7 @@ namespace ossie
         ImplementationInfo* _selectedImplementation; // Implementation selected to run on assigned device.
     };
 
-    /** Base class to contain data for components
+    /* Base class to contain data for components
      *  - Used to store information about about components
      */
     class ComponentInfo : public SoftpkgInfo
@@ -312,7 +312,7 @@ namespace ossie
 
     };
 
-    /**
+    /*
      * Class to store information for device assignment support
      */
     class DeviceAssignmentInfo
@@ -323,7 +323,7 @@ namespace ossie
         CF::Device_var  device;
     };
 
-    /** Base class to contain data for applications
+    /* Base class to contain data for applications
      *  - Used to store information about about:
      *       -> ExternalPorts
      *       -> External Properties

@@ -39,7 +39,7 @@ namespace ossie {
 
     class ComponentProperty;
 
-    /**
+    /*
      * Abstract data structure that represents a property. 
      */
     class Property
@@ -104,7 +104,7 @@ namespace ossie {
         virtual void override(const ComponentProperty* newValue) = 0;
     };
 
-    /**
+    /*
      * 
      */
     class SimpleProperty : public Property
@@ -157,7 +157,7 @@ namespace ossie {
 	std::string optional;
     };
 
-    /**
+    /*
      *
      */
     class SimpleSequenceProperty : public Property
@@ -208,7 +208,7 @@ namespace ossie {
 	std::string optional;
     };
 
-    /**
+    /*
      *
      */
     class StructProperty : public Property
@@ -258,7 +258,7 @@ namespace ossie {
         std::vector<Property*> value;
     };
 
-    /**
+    /*
      *
      */
     class StructSequenceProperty : public Property
@@ -305,7 +305,7 @@ namespace ossie {
         return out;
     }
 
-    /**
+    /*
      *
      */
     class PRF
@@ -358,7 +358,7 @@ namespace ossie {
 
     };
 
-    /**
+    /*
      * Helper class that deals with PRF files.
      */
     class Properties
@@ -390,19 +390,19 @@ namespace ossie {
 
         const std::vector<const Property*>& getFactoryParamProperties() const;
 
-        /**
+        /*
          * Load the contents of a PRF from an input stream
          */
         void load(std::istream& input) throw (ossie::parser_error);
 
-        /**
+        /*
          * Join the contents of another PRF along with this one.
          * This will override values for any properties with the same id
          */
         void join(std::istream& input) throw (ossie::parser_error);
         void join(ossie::Properties& props) throw (ossie::parser_error);
 
-        /**
+        /*
          * Overrides properties with values from another source
          */
         void override(const std::vector<ossie::ComponentProperty*>& values);

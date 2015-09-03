@@ -32,32 +32,32 @@
 typedef std::multimap<std::string, std::string, std::less<std::string>, std::allocator<std::pair<std::string, std::string> > >
 copiedFiles_type;
 
-/**
+/*
  * EnvironmentPathParser provides operations to read, write, and modify
  * environment path strings (e.g. LD_LIBRARY_PATH).
  */
 class EnvironmentPathParser
 {
 public:
-    /**
+    /*
      * Constructor from std::string.  Extracts paths from path.
      * @param path Path string in the format PATH1:PATH2:PATH3
      */
     EnvironmentPathParser( const std::string& path="" );
     
-    /**
+    /*
      * Constructor from const char*.  Supports NULL pointers, as returned from
      * getenv() on unknown environment variable.
      * @param path Path string in the format PATH1:PATH2:PATH3
      */
     EnvironmentPathParser( const char* path );
 
-    /// Update the path with a string
+    // Update the path with a string
     void from_string( const std::string& path );
-    /// Return a string version of the path
+    // Return a string version of the path
     std::string to_string() const;
     
-    /// Prepend the given path argument to the current path
+    // Prepend the given path argument to the current path
     void merge_front( const std::string& path );
     
 private:
@@ -67,21 +67,21 @@ private:
 
 class sharedLibraryStorage {
 public:
-    /// Set the filename for the shared library
+    // Set the filename for the shared library
     void setFilename(std::string _filename) {
         filename = _filename;
     }
-    /// Define the path modification for the given filename
+    // Define the path modification for the given filename
     void addModification(const std::string _path_to_modify, const std::string &_path_modification) {
         modifications.push_back(std::make_pair(_path_to_modify, _path_modification));
     };
-    /// Filename for the shared package
+    // Filename for the shared package
     std::string filename;
-    /// Set of path modifications that apply
+    // Set of path modifications that apply
     std::vector<std::pair<std::string,std::string> > modifications;
 };
 
-/** 
+/* 
  *  This class stores the current LD_LIBRARY_PATH, PYTHONPATH, CLASSPATH, and OCTAVE_PATH
  *  when it is instantiated. It can then be used to restore the system settings
  */
@@ -106,7 +106,7 @@ public:
             octave_path.clear();
     };
     
-    /**
+    /*
      *  Set the system LD_LIBRARY_PATH, PYTHONPATH, CLASSPATH, and OCTAVE_PATH
      *  to what they were when this class was instantiated
      */
@@ -120,7 +120,7 @@ public:
     std::string ld_lib_path, pythonpath, classpath, octave_path;
 };
 
-/** 
+/* 
  *  This class stores the current LD_LIBRARY_PATH, PYTHONPATH, CLASSPATH, and OCTAVE_PATH
  *  when it is instantiated and restores it when it is destroyed
  */
@@ -174,46 +174,46 @@ public:
     throw (CF::PropertySet::PartialConfiguration,
            CF::PropertySet::InvalidConfiguration, CORBA::SystemException);
 
-    /// Externally visible function call to load a file
+    // Externally visible function call to load a file
     void  load (CF::FileSystem_ptr fs, const char* fileName,
           CF::LoadableDevice::LoadType loadKind)
     throw (CF::LoadableDevice::LoadFail, CF::InvalidFileName,
            CF::LoadableDevice::InvalidLoadKind, CF::Device::InvalidState,
            CORBA::SystemException);
-    /// Internal operation that loads the file
+    // Internal operation that loads the file
     void do_load (CF::FileSystem_ptr fs, const char* fileName, CF::LoadableDevice::LoadType loadKind)
     throw (CF::LoadableDevice::LoadFail, CF::InvalidFileName,
            CF::LoadableDevice::InvalidLoadKind, CF::Device::InvalidState,
            CORBA::SystemException);
 
-    /// Externally visible function call to unload a file
+    // Externally visible function call to unload a file
     void  unload (const char* fileName)
     throw (CF::InvalidFileName, CF::Device::InvalidState,
            CORBA::SystemException);
-    /// Internal operation that unloads the file
+    // Internal operation that unloads the file
     void do_unload (const char* fileName) 
     throw (CF::InvalidFileName, CF::Device::InvalidState,
            CORBA::SystemException);
 
-    /// Check to see if a particular file has already been loaded
+    // Check to see if a particular file has already been loaded
     bool isFileLoaded (const char* fileName);
 
-    /// Set the transfer size when loading files
+    // Set the transfer size when loading files
     void setTransferSize( uint64_t  xfersize ){
       if ( xfersize > 0 ) transferSize=xfersize;
     }
 
 protected:
 
-    /// Increment the loadedFiles counter
+    // Increment the loadedFiles counter
     void incrementFile (std::string);
-    /// Decrement the loadedFiles counter
+    // Decrement the loadedFiles counter
     void decrementFile (std::string);
-    /// Map that keeps track of how many times a file was loaded
+    // Map that keeps track of how many times a file was loaded
     std::map<std::string, int> loadedFiles;
-    /// Data structure that keeps track of the type of file that was loaded
+    // Data structure that keeps track of the type of file that was loaded
     std::map<std::string, CF::FileSystem::FileType> fileTypeTable;
-    /// Map that keeps track of the files that have been copied
+    // Map that keeps track of the files that have been copied
     copiedFiles_type copiedFiles;
     boost::recursive_mutex load_execute_lock;
     void update_ld_library_path (CF::FileSystem_ptr fs, const char* fileName, CF::LoadableDevice::LoadType loadKind) throw (CORBA::SystemException, CF::Device::InvalidState, CF::LoadableDevice::InvalidLoadKind, CF::InvalidFileName, CF::LoadableDevice::LoadFail);
@@ -223,7 +223,7 @@ protected:
     envStateContainer initialState;
     void update_path(sharedLibraryStorage &packageDescription);
     void update_selected_paths(std::vector<sharedLibraryStorage> &paths);
-    /// Transfer size when loading files
+    // Transfer size when loading files
     CORBA::LongLong           transferSize;          // block transfer size when loading files
 
  private:

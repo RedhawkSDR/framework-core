@@ -34,7 +34,7 @@ PREPARE_LOGGING(SimpleSequenceProperty)
 PREPARE_LOGGING(StructProperty)
 PREPARE_LOGGING(StructSequenceProperty)
 
-/**
+/*
  * PRF class
  */
 void PRF::addProperty(const Property* p) throw (ossie::parser_error)
@@ -69,7 +69,7 @@ void PRF::addProperty(const Property* p) throw (ossie::parser_error)
     }
 }
 
-/**
+/*
  * Properties class
  */
 Properties::Properties()
@@ -237,7 +237,7 @@ const std::vector<const Property*>& Properties::getFactoryParamProperties() cons
     return _prf->_factoryProperties;
 }
 
-/**
+/*
  * Property class
  */
 Property::~Property()
@@ -439,7 +439,7 @@ std::string Property::mapPrimitiveToComplex(const std::string& type) const
     return newType;
 }
 
-/**
+/*
  * SimpleProperty class
  */
 SimpleProperty::SimpleProperty(const std::string& id, 
@@ -469,7 +469,7 @@ Property(id, name, mode, action, kinds), value(value), _complex(complex_), optio
     }
 }
 
-/**
+/*
  * A constructor that does not require the specification of 
  * whether or not the property is complex.  If complexity
  * is not specified, the property is assumed to be primitive.
@@ -555,7 +555,7 @@ const Property* SimpleProperty::clone() const {
 }
 
 
-/**
+/*
  * SimpleSequenceProperty class
  */
 SimpleSequenceProperty::SimpleSequenceProperty(
@@ -586,7 +586,7 @@ SimpleSequenceProperty::SimpleSequenceProperty(
     }
 }
 
-/**
+/*
  * A constructor that does not require the specification of 
  * whether or not the property is complex.  If complexity
  * is not specified, the property is assumed to be primitive.
@@ -672,7 +672,7 @@ const Property* SimpleSequenceProperty::clone() const {
     return new SimpleSequenceProperty(id, name, type, mode, action, kinds, values, _complex, optional);
 }
 
-/**
+/*
  * StructProperty class
  */
 StructProperty::~StructProperty()
@@ -732,7 +732,7 @@ const Property* StructProperty::getField(const std::string& fieldId) const {
     return 0;
 }
 
-/**
+/*
  * StructSequenceProperty class
  */
 StructSequenceProperty::~StructSequenceProperty()

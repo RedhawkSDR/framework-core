@@ -25,7 +25,7 @@
 #include "CF/cf.h"
 #include "ossie/Autocomplete.h"
 
-/**
+/*
 The testable object provides a stub for the standardization of tests
 */
 
@@ -37,7 +37,7 @@ class TestableObject_impl
 public:
     TestableObject_impl () { }
 
-    /// Run the test specified by TestID with the values supplied in testValues.
+    // Run the test specified by TestID with the values supplied in testValues.
     void runTest (CORBA::ULong TestID, CF::Properties& testValues)
     throw (CF::UnknownProperties, CF::TestableObject::UnknownTest,
            CORBA::SystemException);

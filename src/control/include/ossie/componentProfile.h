@@ -18,7 +18,7 @@
  * along with this program.  If not, see http://www.gnu.org/licenses/.
  */
 
-/**
+/*
  * This file provides the data-structure classes that are shared between
  * the SoftwareAssembly and the DeviceManagerConfiguration.
  */
@@ -34,7 +34,7 @@
 
 
 namespace ossie {
-    /**
+    /*
      *
      */
     class ComponentFile {
@@ -49,7 +49,7 @@ namespace ossie {
         const char* getID() const;
     };
 
-    /**
+    /*
      *
      */
     class ComponentProperty {
@@ -72,7 +72,7 @@ namespace ossie {
         return out;
     }
 
-    /**
+    /*
      *
      */
     class SimplePropertyRef : public ComponentProperty {
@@ -86,7 +86,7 @@ namespace ossie {
         virtual const std::string asString() const;
     };
 
-    /**
+    /*
      *
      */
     class SimpleSequencePropertyRef : public ComponentProperty {
@@ -100,7 +100,7 @@ namespace ossie {
         virtual const std::string asString() const;
     };
 
-    /**
+    /*
      *
      */
     class StructPropertyRef : public ComponentProperty {
@@ -111,7 +111,7 @@ namespace ossie {
         virtual const std::string asString() const;
     };
 
-    /**
+    /*
      *
      */
     class StructSequencePropertyRef : public ComponentProperty {
@@ -122,7 +122,7 @@ namespace ossie {
             virtual const std::string asString() const;
     };
 
-    /**
+    /*
      *
      */
     class ComponentInstantiation {
@@ -164,7 +164,7 @@ namespace ossie {
         const char* getFindByNamingServiceName() const;
     };
 
-    /**
+    /*
      *
      */
     class ComponentPlacement {
@@ -195,7 +195,7 @@ namespace ossie {
         bool isDomainManager() const;
     };
 
-    /**
+    /*
      *
      */
     class FindBy
@@ -252,7 +252,7 @@ namespace ossie {
 
     };
 
-    /**
+    /*
      *
      */
     class Port
@@ -377,7 +377,7 @@ namespace ossie {
 
     };
 
-    /**
+    /*
      *
      */
     class UsesPort : public Port
@@ -391,7 +391,7 @@ namespace ossie {
 
     };
 
-    /**
+    /*
      *
      */
     class ProvidesPort : public Port
@@ -404,7 +404,7 @@ namespace ossie {
         };
     };
 
-    /**
+    /*
      *
      */
     class ComponentSupportedInterface : public Port
@@ -417,7 +417,7 @@ namespace ossie {
         }
     };
 
-    /**
+    /*
      *
      */
     class Connection {

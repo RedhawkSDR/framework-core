@@ -87,8 +87,6 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
         self.assertNotEqual(appFact, None)
         app = appFact.create(appFact._get_name(), [], [])
         self.assertNotEqual(app, None)
-        app.start()
-        time.sleep(1)
 
         ps=None
         c=None
@@ -103,6 +101,9 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
         myl = PropertyChangeListener_Receiver()
         t=float(0.5)
         regid=ps.registerPropertyListener( myl._this(), ['prop1'],t)
+        app.start()
+        time.sleep(1)
+
 
         # assign 3 changed values
         c.prop1 = 100.0
@@ -113,14 +114,14 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
         time.sleep(.6)   # wait for listener to receive notice
         
         # now check results
-        self.assertEquals(myl.count,3)
+        self.assertEquals(myl.count,4)
 
         # change unmonitored property
         c.prop2 = 100
         time.sleep(.6)   # wait for listener to receive notice
 
         # now check results
-        self.assertEquals(myl.count,3)
+        self.assertEquals(myl.count,4)
 
         # unregister
         ps.unregisterPropertyListener( regid )
@@ -129,7 +130,7 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
         time.sleep(.6)   # wait for listener to receive notice
         
         # now check results, should be same... 
-        self.assertEquals(myl.count,3)
+        self.assertEquals(myl.count,4)
 
         self.assertRaises( CF.InvalidIdentifier,
             ps.unregisterPropertyListener, regid )
@@ -152,8 +153,6 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
         self.assertNotEqual(appFact, None)
         app = appFact.create(appFact._get_name(), [], [])
         self.assertNotEqual(app, None)
-        app.start()
-        time.sleep(1)
 
         ps=None
         c=None
@@ -168,6 +167,8 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
         myl = PropertyChangeListener_Receiver()
         t=float(0.5)
         regid=ps.registerPropertyListener( myl._this(), ['prop1'],t)
+        app.start()
+        time.sleep(1)
 
         # assign 3 changed values
         c.prop1 = 100.0
@@ -178,14 +179,14 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
         time.sleep(.6)   # wait for listener to receive notice
         
         # now check results
-        self.assertEquals(myl.count,3)
+        self.assertEquals(myl.count,4)
 
         # change unmonitored property
         c.prop2 = 100
         time.sleep(.6)   # wait for listener to receive notice
 
         # now check results
-        self.assertEquals(myl.count,3)
+        self.assertEquals(myl.count,4)
 
         # unregister
         ps.unregisterPropertyListener( regid )
@@ -194,7 +195,7 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
         time.sleep(.6)   # wait for listener to receive notice
         
         # now check results, should be same... 
-        self.assertEquals(myl.count,3)
+        self.assertEquals(myl.count,4)
 
         self.assertRaises( CF.InvalidIdentifier,
             ps.unregisterPropertyListener, regid )
@@ -217,8 +218,6 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
         self.assertNotEqual(appFact, None)
         app = appFact.create(appFact._get_name(), [], [])
         self.assertNotEqual(app, None)
-        app.start()
-        time.sleep(1)
 
         ps=None
         c=None
@@ -234,6 +233,9 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
         t=float(0.5)
         regid=ps.registerPropertyListener( myl._this(), ['prop1'],t)
 
+        app.start()
+        time.sleep(1)
+
         # assign 3 changed values
         c.prop1 = 100.0
         time.sleep(.6)   # wait for listener to receive notice
@@ -243,14 +245,14 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
         time.sleep(.6)   # wait for listener to receive notice
         
         # now check results
-        self.assertEquals(myl.count,3)
+        self.assertEquals(myl.count,4)
 
         # change unmonitored property
         c.prop2 = 100
         time.sleep(.6)   # wait for listener to receive notice
 
         # now check results
-        self.assertEquals(myl.count,3)
+        self.assertEquals(myl.count,4)
 
         # unregister
         ps.unregisterPropertyListener( regid )
@@ -259,11 +261,85 @@ class PropertyChangeListenerTest(scatest.CorbaTestCase):
         time.sleep(.6)   # wait for listener to receive notice
         
         # now check results, should be same... 
-        self.assertEquals(myl.count,3)
+        self.assertEquals(myl.count,4)
 
         self.assertRaises( CF.InvalidIdentifier,
             ps.unregisterPropertyListener, regid )
                            
 
         app.releaseObject()
+
+
+    def test_PropertyChangeListener_APP(self):
+        self.localEvent = threading.Event()
+        self.eventFlag = False
+
+        self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", self._domMgr)
+        self.assertNotEqual(self._devBooter, None)
+        self._domMgr.installApplication("/waveforms/PropertyChangeListener/PropertyChangeListener.sad.xml")
+        appFact = self._domMgr._get_applicationFactories()[0]
+        self.assertNotEqual(appFact, None)
+        app = appFact.create(appFact._get_name(), [], [])
+        self.assertNotEqual(app, None)
+
+        ps=None
+        c=None
+        d=redhawk.attach(scatest.getTestDomainName())
+        a=d.apps[0]
+        # component with external property
+        c=filter( lambda c : c.name == 'PropertyChange_C1', a.comps )[0]
+        # assembly controller
+        c2=filter( lambda c : c.name == 'PropertyChange_P1', a.comps )[0]
+        self.assertNotEqual(a,None)
+        self.assertNotEqual(c,None)
+        self.assertNotEqual(c2,None)
+        ps = a.ref._narrow(CF.PropertySet)
+        self.assertNotEqual(ps,None)
+        
+        # create listener interface
+        myl = PropertyChangeListener_Receiver()
+        t=float(0.5)
+        regid=ps.registerPropertyListener( myl._this(), ['prop1', 'app_prop1'],t)
+        app.start()
+        time.sleep(1)
+
+
+        # assign 3 changed values
+        c.prop1 = 100.0
+        c2.prop1 = 100.0
+        time.sleep(.6)   # wait for listener to receive notice
+        c.prop1 = 200.0
+        c2.prop1 = 100.0
+        time.sleep(.6)   # wait for listener to receive notice
+        c.prop1 = 300.0
+        c2.prop1 = 100.0
+        time.sleep(.6)   # wait for listener to receive notice
+        
+        # now check results
+        self.assertEquals(myl.count,8)
+
+        # change unmonitored property
+        c.prop2 = 100
+        c2.prop2 = 100
+        time.sleep(.6)   # wait for listener to receive notice
+
+        # now check results
+        self.assertEquals(myl.count,8)
+
+        # unregister
+        ps.unregisterPropertyListener( regid )
+
+        c.prop1 = 100.0
+        c2.prop1 = 100.0
+        time.sleep(.6)   # wait for listener to receive notice
+        
+        # now check results, should be same... 
+        self.assertEquals(myl.count,8)
+
+        self.assertRaises( CF.InvalidIdentifier,
+            ps.unregisterPropertyListener, regid )
+                           
+
+        app.releaseObject()
+
 

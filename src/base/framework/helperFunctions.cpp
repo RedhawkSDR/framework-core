@@ -52,7 +52,7 @@ namespace ossie {
 
   namespace helpers {
   
-  /**
+  /*
      is_jarfile 
      
      Helper method to test if parameter is a valid jar file in lue of "file" command
@@ -75,7 +75,7 @@ namespace ossie {
         uint8_t tbuf[mlen];
         r_fs.read( (char *)tbuf, mlen );
         retval=memcmp( tbuf, java_m1, mlen);
-        /// check file contents against magic number sequence
+        // check file contents against magic number sequence
         if ( retval != 0 ) {
           retval = memcmp( tbuf, java_m2, mlen);
           if ( retval != 0 ) retval=1;

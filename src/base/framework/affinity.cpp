@@ -14,7 +14,6 @@
 #include "ossie/affinity.h"
 #include "ossie/debug.h"
 
-
 //
 // Predfined Property Settings for Affinity requests 
 //
@@ -75,6 +74,8 @@ namespace  redhawk {
     //
     static   SetAffinityFunc     _affinity_override_func = NULL;
 
+    static  rh_logger::LoggerPtr  _affinity_logger = rh_logger::Logger::getLogger("redhawk::affinity");
+
 
     //
     // get root directory of mount point for CGROUP processing
@@ -110,8 +111,8 @@ namespace  redhawk {
     //
     bool is_disabled() {
       bool retval=false;
-      if ( std::getenv("REDHAWK_DISABLE_AFFINITY") != NULL  || !_affinity_enabled ) {
-        RH_NL_DEBUG("redhawk::affinity", "Affinity processing is disabled.");
+      if ( !_affinity_enabled  || std::getenv("REDHAWK_DISABLE_AFFINITY") != NULL ) {
+        //RH_DEBUG(_affinity_logger, "Affinity processing is disabled.");
         retval=true;
       }
       return retval;
@@ -124,7 +125,17 @@ namespace  redhawk {
       _affinity_enabled = onoff;
     }
 
-    
+    //
+    // set affinity logger
+    //
+    void set_affinity_logger( rh_logger::LoggerPtr newLogger) {
+      _affinity_logger = newLogger;
+    }
+
+    rh_logger::LoggerPtr get_affinity_logger() {
+      return _affinity_logger;
+    }
+
     void set_nic_promotion( const bool onoff ) {
       _promote_nic_to_socket = onoff;
     }
@@ -138,7 +149,7 @@ namespace  redhawk {
     }
 
 
-    /**
+    /*
        identify_cpus 
 
        From a specified network interface determine the list of CPUs that service interrupts
@@ -151,14 +162,14 @@ namespace  redhawk {
       std::string pintr("/proc/interrupts");
       std::ifstream in(pintr.c_str(), std::ifstream::in );
       if ( in.fail() ) {
-        RH_NL_ERROR("redhawk::affinity", "Unable to access /proc/interrupts");
+        RH_ERROR(_affinity_logger, "Unable to access /proc/interrupts");
         return cpus;
       }
 
       std::string line;
       while( std::getline( in, line ) ) {
         // check if the device is our interface
-        RH_NL_TRACE("redhawk::affinity", "Processing /proc/interrupts.... line:" << line);
+        RH_TRACE(_affinity_logger, "Processing /proc/interrupts.... line:" << line);
         if ( line.rfind(iface) != std::string::npos ) {
           std::istringstream iss(line);
           int parts=0;
@@ -171,7 +182,7 @@ namespace  redhawk {
               int icnt;
               iss >> icnt;
               if ( icnt > 0 ) {
-                RH_NL_TRACE("redhawk::affinity", "identify cpus: Adding CPU : " << parts-1);
+                RH_TRACE(_affinity_logger, "identify cpus: Adding CPU : " << parts-1);
                 cpus.push_back(parts-1);
               }
 	    }
@@ -183,7 +194,7 @@ namespace  redhawk {
 
       CpuList::iterator citer=cpus.begin();
       for (; citer != cpus.end(); citer++) {
-        RH_NL_DEBUG("redhawk::affinity", "identified CPUS iface/cpu ...:" << iface << "/" << *citer);
+        RH_DEBUG(_affinity_logger, "identified CPUS iface/cpu ...:" << iface << "/" << *citer);
       }
     
       return cpus;
@@ -200,12 +211,12 @@ namespace  redhawk {
 #if HAVE_LIBNUMA
         int soc=-1;
         for( int i=0; i < (int)cpulist.size();i++ ) {
-          RH_NL_DEBUG("redhawk::affinity", "Finding (processor socket) for NIC:" << iface << " socket :" << numa_node_of_cpu(cpulist[i]) );
+          RH_DEBUG(_affinity_logger, "Finding (processor socket) for NIC:" << iface << " socket :" << numa_node_of_cpu(cpulist[i]) );
           if ( std::count( bl.begin(), bl.end(), cpulist[i] ) != 0 ) continue;
 
           soc = numa_node_of_cpu(cpulist[i]);
           if ( soc != psoc && psoc != -1 && !findFirst ) {
-            RH_NL_WARN("redhawk::affinity", "More than 1 socket servicing NIC:" << iface);
+            RH_WARN(_affinity_logger, "More than 1 socket servicing NIC:" << iface);
             psoc=-1;
             break;
           }
@@ -221,7 +232,7 @@ namespace  redhawk {
 
     }  
 
-    /**
+    /*
         Return list of cpus either associated with a node (i.e. processor socket), or 
         from properly formatted string support by numa library parse methods
      */
@@ -283,21 +294,18 @@ namespace  redhawk {
       return cpu_list;
     }
 
-    /**
+    /*
        Determine if a CF Properties set has affinity namespaced properties
      */
     bool has_affinity( const CF::Properties& options ) {
       bool retval=false;
 
-      if ( is_disabled() ) {
-        return retval;
-      }
-
-      RH_NL_TRACE("redhawk::affinity", "Options List options..." << options.length() );
+      RH_TRACE(_affinity_logger, "Affinity Options,  list size:" << options.length() );
       for (uint32_t i = 0; i < options.length(); ++i) {
         const std::string id=(const char *)options[i].id;
-        RH_NL_TRACE("redhawk::affinity", "Options List has AFFINITY options..." << id << "/" << ossie::any_to_string(options[i].value));        if ( boost::istarts_with(id, redhawk::affinity::AFFINITY_ID ) == true ) {
-          RH_NL_TRACE("redhawk::affinity", "Options List has AFFINITY options..." << id << "/" << ossie::any_to_string(options[i].value));
+        RH_TRACE(_affinity_logger, "Affinity Options - option..." << id << "/" << ossie::any_to_string(options[i].value));        
+        if ( boost::istarts_with(id, redhawk::affinity::AFFINITY_ID ) == true ) {
+          RH_TRACE(_affinity_logger, "Affinity Option - AFFINITY options..." << id << "/" << ossie::any_to_string(options[i].value));
           retval=true;
           break;
         }
@@ -331,8 +339,8 @@ namespace  redhawk {
       for ( ; iter != affinity_map.end(); iter++ ) {
         
         if ( iter->getId() == "affinity::exec_directive_class" ) {
-          RH_NL_TRACE("redhawk::affinity", "has_nic_affinity affinity::exec_directive_class ...:" << affinity_map["affinity::exec_directive_class"].toString() );
-          RH_NL_TRACE("redhawk::affinity", "has_nic_affinity affinity::exec_directive_value ...:" << affinity_map["affinity::exec_directive_value"].toString() );
+          RH_TRACE(_affinity_logger, "has_nic_affinity affinity::exec_directive_class ...:" << affinity_map["affinity::exec_directive_class"].toString() );
+          RH_TRACE(_affinity_logger, "has_nic_affinity affinity::exec_directive_value ...:" << affinity_map["affinity::exec_directive_value"].toString() );
           try {
             pol = affinity_map["affinity::exec_directive_class"].toString();
             if ( pol == "nic" ) {
@@ -347,7 +355,7 @@ namespace  redhawk {
         if ( iter->getId() == "nic" ) {
           retval = true;
           break;
-          RH_NL_DEBUG("redhawk::affinity", "has_nic_affinity (oldstyle) nic ..:"  );
+          RH_DEBUG(_affinity_logger, "has_nic_affinity (oldstyle) nic ..:"  );
         }
 
       }
@@ -356,22 +364,11 @@ namespace  redhawk {
     }
 
 
-    /**
-       Called from waveform and node deployers that pass in affinity directives via a
-       CF::Properties set
-
-       Translates the CF::Properties to a affinity directives, then call set_affinity with this dictionary
-
-     */
-    int set_affinity( const CF::Properties& options, const pid_t pid, const CpuList &blacklist ) 
+    AffinityDirectives convert_properties(const CF::Properties& options ) 
       throw (AffinityFailed)
     {
       AffinityDirectives spec;
 
-      if ( is_disabled() ) {
-        return 0;
-      }
-      
       const redhawk::PropertyMap ops(options);
       std::string aid  = AFFINITY_ID;
       if ( ops.contains(aid) == false ) {
@@ -387,8 +384,8 @@ namespace  redhawk {
       for ( ; iter != affinity_map.end(); iter++ ) {
         
         if ( iter->getId() == "affinity::exec_directive_class" ) {
-          RH_NL_TRACE("redhawk::affinity", "set_affinity affinity::exec_directive_class ...:" << affinity_map["affinity::exec_directive_class"].toString() );
-          RH_NL_TRACE("redhawk::affinity", "set_affinity affinity::exec_directive_value ...:" << affinity_map["affinity::exec_directive_value"].toString() );
+          RH_TRACE(_affinity_logger, "set_affinity affinity::exec_directive_class ...:" << affinity_map["affinity::exec_directive_class"].toString() );
+          RH_TRACE(_affinity_logger, "set_affinity affinity::exec_directive_value ...:" << affinity_map["affinity::exec_directive_value"].toString() );
           try {
             pol.first = affinity_map["affinity::exec_directive_class"].toString();
             pol.second = affinity_map["affinity::exec_directive_value"].toString();
@@ -402,7 +399,7 @@ namespace  redhawk {
           pol.first = "nic";
           pol.second = affinity_map["nic"].toString();
           spec.push_back( pol );
-          RH_NL_DEBUG("redhawk::affinity", "set_affinity (oldstyle) nic ..:" << pol.first << "/" << pol.second );
+          RH_DEBUG(_affinity_logger, "set_affinity (oldstyle) nic ..:" << pol.first << "/" << pol.second );
         }
 
       }
@@ -410,14 +407,14 @@ namespace  redhawk {
       if ( affinity_map.contains("socket") ) {
         pol.first = "socket";
         pol.second = affinity_map["socket"].toString();
-        RH_NL_DEBUG("redhawk::affinity", "set_affinity. processor socket ..:" << pol.first << "/" << pol.second );
+        RH_DEBUG(_affinity_logger, "set_affinity. processor socket ..:" << pol.first << "/" << pol.second );
         spec.push_back( pol );
       }
 
       if ( affinity_map.contains("cpu") ) {
         pol.first = "cpu";
         pol.second = affinity_map["cpu"].toString();
-        RH_NL_DEBUG("redhawk::affinity", "set_affinity. cpu ..:" << pol.first << "/" << pol.second );
+        RH_DEBUG(_affinity_logger, "set_affinity. cpu ..:" << pol.first << "/" << pol.second );
         spec.push_back( pol );
       }
 
@@ -430,9 +427,31 @@ namespace  redhawk {
       if ( affinity_map.contains("cgroup") ) {
         pol.first = "cgroup";
         pol.second = affinity_map["cgroup"].toString();
-        RH_NL_DEBUG("redhawk::affinity", "set_affinity. cgroup ..:" << pol.first << "/" << pol.second );
+        RH_DEBUG(_affinity_logger, "set_affinity. cgroup ..:" << pol.first << "/" << pol.second );
         spec.push_back( pol );
       }
+
+      return spec;
+    }
+
+
+    /*
+       Called from waveform and node deployers that pass in affinity directives via a
+       CF::Properties set
+
+       Translates the CF::Properties to a affinity directives, then call set_affinity with this dictionary
+
+     */
+    int set_affinity( const CF::Properties& options, const pid_t pid, const CpuList &blacklist ) 
+      throw (AffinityFailed)
+    {
+      AffinityDirectives spec;
+
+      if ( is_disabled() ) {
+        return 0;
+      }
+      
+      spec = convert_properties( options );
 
       return set_affinity(spec, pid, blacklist );
     }
@@ -448,13 +467,13 @@ namespace  redhawk {
 
       CpuList::const_iterator citer=blacklist.begin();
       for (; citer != blacklist.end(); citer++) {
-        RH_NL_DEBUG("redhawk::affinity", "BlackList ...:" << *citer);
+        RH_DEBUG(_affinity_logger, "BlackList ...:" << *citer);
       }
 
       AffinityDirectives::const_iterator piter = spec.begin();
       for ( int cnt=0; piter != spec.end(); piter++, cnt++ ) {
         AffinityDirective affinity_spec = *piter;
-        RH_NL_DEBUG("redhawk::affinity", " cnt:" << cnt << " Processing Affinity pid: " << pid << " " << affinity_spec.first << ":" << affinity_spec.second );
+        RH_DEBUG(_affinity_logger, " cnt:" << cnt << " Processing Affinity pid: " << pid << " " << affinity_spec.first << ":" << affinity_spec.second );
 
 #ifdef HAVE_LIBNUMA
         //
@@ -476,11 +495,11 @@ namespace  redhawk {
               }
 
               for( int i=0; i < (int)cpulist.size();i++ ) {
-                RH_NL_DEBUG("redhawk::affinity", "Setting NIC (processor socket select) available socket :" << numa_node_of_cpu(cpulist[i]) );
+                RH_DEBUG(_affinity_logger, "Setting NIC (processor socket select) available socket :" << numa_node_of_cpu(cpulist[i]) );
                 numa_bitmask_setbit(node_mask, numa_node_of_cpu(cpulist[i]) );
               }
 
-              RH_NL_DEBUG("redhawk::affinity", "Setting NIC (processor socket select) affinity constraint: :" << iface );
+              RH_DEBUG(_affinity_logger, "Setting NIC (processor socket select) affinity constraint: :" << iface );
               numa_bind(node_mask);
               numa_bitmask_free(node_mask);
             }
@@ -515,7 +534,7 @@ namespace  redhawk {
                 std::ostringstream os;
                 os << numa_node_of_cpu( cpuid );
                 CpuList tlist = get_cpu_list( "socket", os.str() );
-                RH_NL_INFO("redhawk::affinity", "Promoting NIC affinity to PID:" << pid << " SOCKET:" << os.str() );
+                RH_INFO(_affinity_logger, "Promoting NIC affinity to PID:" << pid << " SOCKET:" << os.str() );
 
                 cpulist.clear();
                 for( int i=0; i < (int)tlist.size();i++ ) {
@@ -539,12 +558,12 @@ namespace  redhawk {
                 for( int i=0; i < (int)cpulist.size();i++ ) {
                   // check if cpu id is blacklisted
                   if ( std::count( blacklist.begin(), blacklist.end(), cpulist[i] ) == 0  ) {
-                    RH_NL_DEBUG("redhawk::affinity", "Setting NIC (cpu select) available :" << cpulist[i] );
+                    RH_DEBUG(_affinity_logger, "Setting NIC (cpu select) available :" << cpulist[i] );
                     numa_bitmask_setbit(cpu_mask, cpulist[i]);
                   }
                 }
 
-                RH_NL_DEBUG("redhawk::affinity", "Setting NIC (cpu select) affinity constraint: :" << iface );
+                RH_DEBUG(_affinity_logger, "Setting NIC (cpu select) affinity constraint: :" << iface );
                 if ( numa_sched_setaffinity( pid, cpu_mask) ) {
                   std::ostringstream e;
                   e << "Binding to NIC with cpu affinity, nic=" << iface;
@@ -553,7 +572,7 @@ namespace  redhawk {
                 numa_bitmask_free(cpu_mask);
               }
               else {
-                RH_NL_WARN("redhawk::affinity", "Setting NIC (cpu select), no cpu available all blacklisted :" << iface );
+                RH_WARN(_affinity_logger, "Setting NIC (cpu select), no cpu available all blacklisted :" << iface );
                 std::ostringstream e;
                 e << "Binding to NIC, no cpus available all blacklisted :" << iface;
                 throw AffinityFailed(e.str());
@@ -561,7 +580,7 @@ namespace  redhawk {
             }
           }
           else {
-            RH_NL_WARN("redhawk::affinity", "Setting NIC, unable to set directive:" << iface );
+            RH_WARN(_affinity_logger, "Setting NIC, unable to set directive:" << iface );
             std::ostringstream e;
             e << "Binding to NIC, unable to set directive, cannot determine socket or cpu list from interrupt mapping, directive:" << iface;
             throw AffinityFailed(e.str());
@@ -579,7 +598,7 @@ namespace  redhawk {
           // plain  node binding if no cpus are listed.
           if ( blacklist.size() == 0 ) {
             // bind to node... let system scheduler do its magic
-            RH_NL_DEBUG("redhawk::affinity", "Setting PROCESSOR SOCKET affinity to constraint :" << nodestr );
+            RH_DEBUG(_affinity_logger, "Setting PROCESSOR SOCKET affinity to constraint :" << nodestr );
             numa_bind( node_mask );
           }
           else { // remove blacklisted cpus from node binding
@@ -599,11 +618,11 @@ namespace  redhawk {
             // check if cpu id is blacklisted
             CpuList::const_iterator biter = blacklist.begin();
             for ( ; biter != blacklist.end() ; biter++ ) {
-              RH_NL_DEBUG("redhawk::affinity", "Setting PROCESSOR SOCKET (cpu select) blacklist :" << *biter );
+              RH_DEBUG(_affinity_logger, "Setting PROCESSOR SOCKET (cpu select) blacklist :" << *biter );
               numa_bitmask_clearbit(cpu_mask, *biter);
             }
 
-            RH_NL_DEBUG("redhawk::affinity", "Setting PROCESSOR SOCKET (cpu select) affinity, pid/constraint:" << pid << "/" << nodestr );
+            RH_DEBUG(_affinity_logger, "Setting PROCESSOR SOCKET (cpu select) affinity, pid/constraint:" << pid << "/" << nodestr );
             if ( numa_sched_setaffinity( pid, cpu_mask) ) {
               std::ostringstream e;
               e << "Binding to PROCESSOR SOCKET with blacklisted cpus, node=" << nodestr;
@@ -627,11 +646,11 @@ namespace  redhawk {
           // apply black list 
           CpuList::const_iterator biter = blacklist.begin();
           for ( ; biter != blacklist.end() ; biter++ ) {
-              RH_NL_DEBUG("redhawk::affinity", "Setting CPU affinity, blacklist :" << *biter );
+              RH_DEBUG(_affinity_logger, "Setting CPU affinity, blacklist :" << *biter );
             numa_bitmask_clearbit(cpu_mask, *biter);
           }
 
-          RH_NL_DEBUG("redhawk::affinity", "Setting CPU affinity to constraint :" << cpustr );
+          RH_DEBUG(_affinity_logger, "Setting CPU affinity to constraint :" << cpustr );
           if ( numa_sched_setaffinity( pid, cpu_mask ) ) {
             std::ostringstream e;
             e << "Binding to CPU: " << cpustr;
@@ -641,7 +660,7 @@ namespace  redhawk {
         }
 
 #else
-      RH_NL_WARN("redhawk::affinity", "Missing affinity support from Redhawk libraries, ... ignoring numa affinity based requests ");
+      RH_WARN(_affinity_logger, "Missing affinity support from Redhawk libraries, ... ignoring numa affinity based requests ");
 #endif
 
         // cpuset -- assign via cpuset
@@ -658,7 +677,7 @@ namespace  redhawk {
           }
           os << pid << std::endl;
           os.close();
-          RH_NL_DEBUG("redhawk::affinity", "Setting CPUSET  affinity to constraint :" << cpuset_name );
+          RH_DEBUG(_affinity_logger, "Setting CPUSET  affinity to constraint :" << cpuset_name );
         }
 
         // cgroup - assign to cgroup
@@ -675,7 +694,7 @@ namespace  redhawk {
           }
           os << pid << std::endl;
           os.close();
-          RH_NL_DEBUG("redhawk::affinity", "Setting CGROUP  affinity to constraint :" << cgroup_name );
+          RH_DEBUG(_affinity_logger, "Setting CGROUP  affinity to constraint :" << cgroup_name );
         }
 
       }

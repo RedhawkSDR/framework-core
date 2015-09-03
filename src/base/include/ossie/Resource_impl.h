@@ -63,7 +63,7 @@ public:
     Resource_impl (const char* _uuid);
     Resource_impl (const char* _uuid, const char *label);
 
-    /**
+    /*
      * REDHAWK constructor. All properties are initialized before this constructor is called
      */
     virtual void constructor ();
@@ -86,18 +86,18 @@ public:
     virtual std::string& getCurrentWorkingDirectory();
     
     virtual void setAdditionalParameters(std::string &softwareProfile, std::string &application_registrar_ior, std::string &nic);
-    /**
+    /*
      * Return a pointer to the Domain Manager that the Resource is deployed on
      */
     redhawk::DomainManagerContainer* getDomainManager() {
         return this->_domMgr;
     }
 
-    /**
+    /*
      * Globally unique identifier for this Resource
      */
     std::string _identifier;
-    /**
+    /*
      * Name used to bind this Resource to the Naming Service
      */
     std::string naming_service_name;
@@ -105,11 +105,11 @@ public:
 
 protected:
 
-    /**
+    /*
      * Boolean describing whether or not this Resource is started
      */
     bool _started;
-    /**
+    /*
      * Filename for the Resource's SPD file
      */
     std::string _softwareProfile;

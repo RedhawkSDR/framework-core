@@ -29,7 +29,7 @@
 #include <ossie/logging/rh_logger.h>
 #include <ossie/logging/LogConfigUriResolver.h>
 
-/**
+/*
 The logging namespace contain common routines for configuration
 and manipulation of the logging interface.
 */
@@ -58,7 +58,7 @@ namespace ossie
     LogConfigUriResolverPtr   GetLogConfigUriResolver();
     
 
-    /** 
+    /* 
       Default Logging Macro Table tokens available for substitution in a log4j properties or xml configuration file
 
       -- tokens that are resolved for all resource object types

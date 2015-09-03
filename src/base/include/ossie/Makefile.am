@@ -58,6 +58,7 @@ pkginclude_HEADERS = AggregateDevice_impl.h \
              callback.h \
              signalling.h \
              OptionalProperty.h \
+             PropertyMonitor.h \
              Autocomplete.h
 
 nobase_pkginclude_HEADERS = internal/equals.h \

@@ -329,9 +329,10 @@ int old_main(int argc, char* argv[])
         LOG_FATAL(DomainManager, "Failed to initialize the POA. Is there a Domain Manager already running?");
         return(EXIT_FAILURE);
     }
-    ossie::corba::POACreator activator_servant;
-    PortableServer::AdapterActivator_var activator = activator_servant._this();
+    ossie::corba::POACreator *activator_servant = new ossie::corba::POACreator();
+    PortableServer::AdapterActivator_var activator = activator_servant->_this();
     root_poa->the_activator(activator);
+    activator->_remove_ref();
 
     // Activate the root POA manager.
     PortableServer::POAManager_var mgr = root_poa->the_POAManager();

@@ -37,6 +37,9 @@ abstract class NumericProperty<T extends Number> extends AbstractSimpleProperty<
 
     public void setValue(Number value) {
         this.value = fromNumber(value);
+        for (PropertyListener<Object> listener : voidListeners) {
+            listener.valueChanged(value, this.value);
+        }
     }
 
     protected T extract(Any any) {

@@ -48,7 +48,7 @@ public:
     PropertySet_impl ();
     ~PropertySet_impl ();
 
-    /**
+    /*
      * Sets all the execparams passed in runtime
      */
     void setExecparamProperties(std::map<std::string, char*>&);
@@ -58,13 +58,13 @@ public:
     throw (CF::PropertySet::AlreadyInitialized, CF::PropertySet::PartialConfiguration,
            CF::PropertySet::InvalidConfiguration, CORBA::SystemException);
 
-    /// The core framework provides an implementation for this method.
+    // The core framework provides an implementation for this method.
     void
     configure (const CF::Properties& configProperties)
     throw (CF::PropertySet::PartialConfiguration,
            CF::PropertySet::InvalidConfiguration, CORBA::SystemException);
 
-    /// The core framework provides an implementation for this method.
+    // The core framework provides an implementation for this method.
     void
     query (CF::Properties& configProperties)
     throw (CF::UnknownProperties, CORBA::SystemException);
@@ -86,7 +86,7 @@ public:
    //
    // calls to start and stop property change service function
    //
-   void   startPropertyChangeMonitor();
+   void   startPropertyChangeMonitor( const std::string &rsc_id);
    void   stopPropertyChangeMonitor();
 
 protected:
@@ -99,7 +99,7 @@ protected:
     validate (CF::Properties property, CF::Properties& validProps,
               CF::Properties& invalidProps);
 
-    /**
+    /*
      * Adds a property with no initial value.
      */
     template <typename T>
@@ -116,10 +116,11 @@ protected:
         wrapper->isNil(true);
         ownedWrappers.push_back(wrapper);
         propTable[wrapper->id] = wrapper;
+        _propMonitors[wrapper->id] = PropertyChange::MonitorFactory::Create(value);
         return wrapper;
     }
 
-    /**
+    /*
      * Adds a property with an initial value.
      */
     template <typename T, typename T2>
@@ -172,7 +173,7 @@ protected:
         addPropertyChangeListener(std::string(id), target, func);
     }
 
-    /**
+    /*
      * Set a callback function to be invoked on an object other than the property owner whenever the given property changes
      */
     template <typename T, typename Target, typename Func>
@@ -185,7 +186,7 @@ protected:
         }
     }
 
-    /**
+    /*
      * Set a callback function to be invoked whenever the given property changes
      */
     template <typename T, typename Func>
@@ -198,7 +199,7 @@ protected:
         }
     }
 
-    /**
+    /*
      * Set the implementation for querying the property value to call member function 'func'
      * on a class instance 'target'.
      */
@@ -212,7 +213,7 @@ protected:
         }
     }
 
-    /**
+    /*
      * Set the implementation for querying the property value to call the function 'func'.
      */
     template <typename T, typename Func>
@@ -225,7 +226,7 @@ protected:
         }
     }
 
-    /**
+    /*
      * Set the implementation for configuring the property value to call member function 'func'
      * on a class instance 'target'.
      */
@@ -239,7 +240,7 @@ protected:
         }
     }
 
-    /**
+    /*
      * Set the implementation for configuring the property value to call the function 'func'.
      */
     template <typename T, typename Func>
@@ -252,7 +253,7 @@ protected:
         }
     }
 
-    /**
+    /*
      * Set the callback for changes to a property to a member function on a class instance.
      * The member function must take a string argument (the identifier of the property that changed)
      * and return void.
@@ -295,7 +296,7 @@ protected:
 
     PropertyInterface* getPropertyFromAddress(const void* address);
 
-    /**
+    /*
      * Set the callback for changes to a property to a global function.
      * The function must take a string argument (the identifier of the property that changed)
      * and return void.
@@ -303,7 +304,7 @@ protected:
     typedef void (*PropertyCallbackFn)(const std::string&);
     void setPropertyChangeListener (const std::string& id, PropertyCallbackFn func);
 
-    /**
+    /*
      * Call the property change callback for the given identifier.
      */
     void executePropertyCallback (const std::string& id);
@@ -343,11 +344,19 @@ private:
     // value changed callback when PropertyChangeListeners are registered
     //
     struct PCL_Callback {
-      bool    isChanged;
-     PCL_Callback() : isChanged(false) {};
-      void     recordChanged(void) { isChanged = true;};
-      void     reset() { isChanged = false; };
-      bool     isSet() { return isChanged; };
+      bool    isChanged_;
+      bool    isRecorded_;
+
+    PCL_Callback() : isChanged_(false), isRecorded_(false) {};
+      void     recordChanged(void) { 
+	if ( !isRecorded_ )  {
+	  isChanged_ = true;
+	  isRecorded_ = true;
+	}
+      };
+      void     reset() { isChanged_ = false; isRecorded_=false;};
+      bool     isChanged() { return isChanged_; };
+      bool     isSet() { return isRecorded_; };
     };
 
     // safe pointer to clean up memory
@@ -365,12 +374,15 @@ private:
     
     // Registration and listerner contect to handle property change notifications
     struct  PropertyChangeRec {
+      static std::string  RSC_ID;
+
       std::string                       regId;          // registration id
       CORBA::Object_ptr                 listener;       // listener to send changes to
       boost::posix_time::time_duration  reportInterval; // > 0 wait till 
       boost::posix_time::ptime          expiration;     // time when next notification should happen
+      std::string                       rscId;          // identifier of source object that change happened to
       PropertyReportTable               props;          // list of property ids to report on
-      PCL_ListenerPtr                   pcl;            // listener to performs the work...
+      PCL_ListenerPtr                   pcl;            // listener performs the work...
 
     };
 
@@ -387,12 +399,15 @@ private:
 
     friend class PropertyChangeThread;
 
+    typedef std::map<std::string, PropertyChange::Monitor *> PropertyMonitorTable;
+    PropertyMonitorTable _propMonitors;
+    
     // Registry of active PropertyChangeListeners 
     PropertyChangeRegistry      _propChangeRegistry;
 
     // monitor thread that calls our service function
     ossie::ProcessThread        _propChangeThread;
-    
+
     // service function that reports on change events
     int    _propertyChangeServiceFunction();
     

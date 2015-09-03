@@ -47,7 +47,7 @@ class Device_impl:
 
 public:
 
-    /// Return the Log configuration file
+    // Return the Log configuration file
     static std::string getLogConfig(const char* devmgr_ior, const char* log_config, std::string& devmgr_label);
     Device_impl (char*, char*, char*, char*);
     Device_impl (char*, char*, char*, char*, char*);
@@ -75,31 +75,31 @@ public:
     virtual void run ();
     const CF::DeviceManager_ptr getDeviceManager() const ;
 
-    /// Returns true if the Device is in an unlocked state
+    // Returns true if the Device is in an unlocked state
     bool isUnlocked ();
-    /// Returns true if the Device is in a locked state
+    // Returns true if the Device is in a locked state
     bool isLocked ();
-    /// Returns true if the Device is a disabled state
+    // Returns true if the Device is a disabled state
     bool isDisabled ();
-    /// Returns true if the Device is a busy state
+    // Returns true if the Device is a busy state
     bool isBusy ();
-    /// Returns true if the Device is an idle state
+    // Returns true if the Device is an idle state
     bool isIdle ();
-    /// Set admin state (LOCKED, SHUTTING_DOWN, UNLOCKED)
+    // Set admin state (LOCKED, SHUTTING_DOWN, UNLOCKED)
     void setAdminState (CF::Device::AdminType _adminType);
 
 protected:
-    /// Admin state (LOCKED, SHUTTING_DOWN, UNLOCKED)
+    // Admin state (LOCKED, SHUTTING_DOWN, UNLOCKED)
     CF::Device::AdminType _adminState;
-    /// Admin state (IDLE, ACTIVE, BUSY)
+    // Admin state (IDLE, ACTIVE, BUSY)
     CF::Device::UsageType _usageState;
-    /// Admin state (ENABLED, DISABLED)
+    // Admin state (ENABLED, DISABLED)
     CF::Device::OperationalType _operationalState;
-    /// Pointer to this child's parent (CF::AggregateDevice::nil otherwise)
+    // Pointer to this child's parent (CF::AggregateDevice::nil otherwise)
     CF::AggregateDevice_ptr _aggregateDevice;
-    /// Device label
+    // Device label
     std::string _label;
-    /// String pointer to this child's parent (empty string otherwise
+    // String pointer to this child's parent (empty string otherwise
     std::string _compositeDev_ior;
 
     enum AnyComparisonType {
@@ -140,10 +140,10 @@ protected:
     Device_impl::AnyComparisonType compareAnys (CORBA::Any& first, CORBA::Any& second);
     std::string _devMgr_ior;
 
-    /// Change the value of _usageState
+    // Change the value of _usageState
     void setUsageState (CF::Device::UsageType newUsageState);
 
-    /// Function that is called when the usage state for the Device should be re-evaluated
+    // Function that is called when the usage state for the Device should be re-evaluated
     void updateUsageState ();
 
     template <typename T>
@@ -196,7 +196,7 @@ protected:
     }
 
 
-    /// Associate a function callback with an allocation request against a property
+    // Associate a function callback with an allocation request against a property
     template <typename T, typename Alloc, typename Dealloc>
     void setAllocationImpl (T& value, Alloc alloc, Dealloc dealloc)
     {
@@ -210,7 +210,7 @@ protected:
         }
     }
 
-    /// Associate a function callback on a target object (usually this) with an allocation request against a property
+    // Associate a function callback on a target object (usually this) with an allocation request against a property
     template <typename T, typename Target, typename Alloc, typename Dealloc>
     void setAllocationImpl (T& value, Target target, Alloc alloc, Dealloc dealloc)
     {
@@ -224,7 +224,7 @@ protected:
         }
     }
 
-    /// Return a container with a pointer to the Device Manager hosting this Device
+    // Return a container with a pointer to the Device Manager hosting this Device
     redhawk::DeviceManagerContainer* getDeviceManager() {
         return this->_devMgr;
     }

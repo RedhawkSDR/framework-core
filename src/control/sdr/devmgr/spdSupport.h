@@ -62,7 +62,7 @@ namespace ossie
 
     class SoftpkgInfo;
 
-    /** Base class to contain data for implementations
+    /* Base class to contain data for implementations
      *  - Used to store information about about implementations
      */
     class ImplementationInfo : public ResourceContext
@@ -165,7 +165,7 @@ namespace ossie
         ImplementationInfo::List::iterator _selectedImplementation;
     };
 
-    /** Base class to contain data for components
+    /* Base class to contain data for components
      *  - Used to store information about about components
      */
     class ResourceInfo : public SoftpkgInfo

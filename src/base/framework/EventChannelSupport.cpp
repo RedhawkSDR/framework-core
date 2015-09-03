@@ -156,7 +156,7 @@ namespace events {
   // (Taken from eventc.cc)
   //
   //
-  /**
+  /*
      This requires libomniEvent.so....
 
      omniEvents::EventChannelFactory_ptr GetEventChannelFactory ( corba::OrbPtr &orb ) {
@@ -385,6 +385,53 @@ namespace events {
       RH_NL_ERROR("GetEventChannel", "  CORBA (" << e._name() << ") exception during event channel look up, CH:" << name );
     }
 
+    //
+    // try to resolve with corbaloc method and string_to_object method
+    //
+    try {
+      if ( found == false ) {	
+	std::ostringstream os;
+	//
+	// last gasp... try the corbaloc method...corbaloc::host:11169/<channel name>
+	// 
+	os << "corbaloc::"<<host<<":11169/";
+        if ( nc_name != "" ) { 
+          os << nc_name << "." << name;
+        }
+        else {
+          os << name;
+        }
+	tname=os.str();
+	RH_NL_DEBUG( "GetEventChannel"," : Trying corbaloc resolution " << tname );
+	CORBA::Object_var obj = orbCtx.orb->string_to_object(tname.c_str());
+	if ( !CORBA::is_nil(obj) ) {
+          event_channel = ossie::events::EventChannel::_narrow(obj);
+          found = true;
+          RH_NL_DEBUG( "GetEventChannel", " : FOUND EXISTING, Channel " << tname );
+
+          try {
+            if(!CORBA::is_nil(orbCtx.namingService) and nc_name != "" ) {
+              RH_NL_DEBUG( "GetEventChannel", " : Trying to bind EXISTING Event Channel " << tname );
+              ossie::corba::Bind( name, event_channel.in(), nc_name, true );
+            }
+            
+          } 
+          catch (const CORBA::Exception& ex) {
+            RH_NL_ERROR( "CreateEventChannel", " CHANNEL: CORBA " << ex._name() << " exception during create operation, CHANNEL:" << name );
+          }
+
+	}
+	else {
+	  RH_NL_DEBUG( "GetEventChannel", " : SEARCH FOR Channel " << tname << " FAILED");
+	}
+      } 
+    }catch (const CORBA::Exception& e) {
+      if ( !create ) {
+        RH_NL_WARN( "GetEventChannel", "  Unable to lookup with corbaloc URI:" << tname << ", CORBA RETURNED(" << e._name() << ")" );
+      }
+    }
+
+
 
     try{
       if ( !found && create ) {
@@ -444,9 +491,9 @@ namespace events {
     // 
     // Our EventChannels will always be created with InsName
     //
-    RH_NL_INFO( "CreateEventChannel", " Request to create event channel:" << name.c_str() << " bind action:" << action );
     std::string tname(name);
     if ( nc_name != "" ) { tname=nc_name+"."+name;  }
+    RH_NL_INFO( "CreateEventChannel", " Request to create event channel:" << tname << " bind action:" << action );
     CosLifeCycle::Criteria criteria;
     criteria.length(1);
     criteria[0].name=CORBA::string_dup("InsName");
@@ -487,8 +534,6 @@ namespace events {
 
     try {
       RH_NL_DEBUG( "CreateEventChannel", " action - Narrow EventChannel" );
-      //CosEventChannelAdmin::EventChannel_var tchannel = CosEventChannelAdmin::EventChannel::_narrow(obj);
-      //event_channel = EventChannel::_unchecked_narrow(tchannel);
       event_channel = ossie::events::EventChannel::_narrow(obj);
     }
     catch( CORBA::Exception &ex ) {

@@ -54,7 +54,7 @@ static bool checkPath(const std::string& envpath, const std::string& pattern, ch
     std::string::size_type end = start + pattern.size();
     return ((end == envpath.size()) || (envpath[end] == delim));
 }
-/**
+/*
  * STL algorithm predicate for detecting empty string.
  */
 struct IsEmptyString

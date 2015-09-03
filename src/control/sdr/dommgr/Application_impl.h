@@ -72,17 +72,17 @@ public:
     void stop ()
         throw (CF::Resource::StopError, CORBA::SystemException);
 
-    /// The core framework provides an implementation for this method.
+    // The core framework provides an implementation for this method.
     void initializeProperties (const CF::Properties& configProperties)
         throw (CF::PropertySet::PartialConfiguration,
            CF::PropertySet::InvalidConfiguration, CORBA::SystemException);
 
-    /// The core framework provides an implementation for this method.
+    // The core framework provides an implementation for this method.
     void configure (const CF::Properties& configProperties)
         throw (CF::PropertySet::PartialConfiguration,
            CF::PropertySet::InvalidConfiguration, CORBA::SystemException);
 
-    /// The core framework provides an implementation for this method.
+    // The core framework provides an implementation for this method.
     void query (CF::Properties& configProperties)
         throw (CF::UnknownProperties, CORBA::SystemException);
 
@@ -159,6 +159,17 @@ private:
     Application_impl (); // No default constructor
     Application_impl(Application_impl&);  // No copying
 
+    struct PropertyChangeRecord {
+      std::string               reg_id;
+      CF::Resource_ptr          comp;
+
+      PropertyChangeRecord( const std::string &id, CF::Resource_ptr inComp ) : reg_id(id), comp(inComp) {};
+      PropertyChangeRecord( const PropertyChangeRecord &src ) { reg_id = src.reg_id; comp = src.comp; };
+      ~PropertyChangeRecord() {};
+    };
+    typedef  std::vector< PropertyChangeRecord >                 PropertyChangeRecords;
+    typedef  std::map< std::string, PropertyChangeRecords >      PropertyChangeRegistry;
+
     void registerComponent(CF::Resource_ptr resource);
 
     bool _checkRegistrations(std::set<std::string>& identifiers);
@@ -190,11 +201,14 @@ private:
     bool _releaseAlreadyCalled;
     boost::mutex releaseObjectLock;
 
+    PropertyChangeRegistry   _propertyChangeRegistrations;
+
     ossie::ApplicationComponent* findComponent(const std::string& identifier);
 
     // Returns externalpropid if one exists based off of compId and
     // internal propId, returns empty string if no external prop exists
     std::string getExternalPropertyId(std::string compId, std::string propId);
+
 
     friend class ApplicationRegistrar_impl;
 };

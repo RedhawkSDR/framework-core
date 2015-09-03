@@ -17,7 +17,8 @@
 # You should have received a copy of the GNU Lesser General Public License 
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
-
+import traceback
+import sys
 from ossie.cf import CF
 from omniORB import URI, any, CORBA
 import ossie.utils.log4py.config
@@ -159,6 +160,8 @@ class _EC_PropertyChangeListener(object):
             if channel:
                 self.ec = channel
                 self.pub = ossie.events.Publisher(ec)
+            else:
+                raise -1
         except:
             raise -1
 
@@ -167,7 +170,7 @@ class _EC_PropertyChangeListener(object):
         try:
             evt = CF.PropertyChangeListener.PropertyChangeEvent( str(uuid.uuid1()),
                                                                  prec.regId,
-                                                                 'TBD',
+                                                                 prec.rscId,
                                                                  props)
             if self.pub:
                 self.pub.push( evt )
@@ -185,6 +188,8 @@ class _INF_PropertyChangeListener(object):
             pcl = obj._narrow(CF.PropertyChangeListener)
             if pcl:
                 self.listener = pcl
+            else:
+                raise -1
         except:
             raise -1
 
@@ -193,7 +198,7 @@ class _INF_PropertyChangeListener(object):
         try:
             evt = CF.PropertyChangeListener.PropertyChangeEvent( str(uuid.uuid1()),
                                                                  prec.regId,
-                                                                 'TBD',
+                                                                 prec.rscId,
                                                                  props)
             if self.listener:
                 self.listener.propertyChange( evt )
@@ -202,24 +207,72 @@ class _INF_PropertyChangeListener(object):
 
         return retval
 
-
 class _PCL_Monitor(object):
     def __init__(self):
-        self.isChanged = False
-        
-    def recordChanged(self):
-        self.isChanged = True
+        self.recorded_=False
+        self.changed_=False
 
-    def reset(self):
-        self.isChanged = False
+    def recordChanged(self):
+        if self.recorded_ == False :
+            self.recorded_=True
+            self.changed_=True
+
+    def isChanged(self):
+        return self.changed_
 
     def isSet(self):
-        return self.isChanged
+        return self.recorded_
 
+    def reset(self):
+        self.recorded_=False
+        self.changed_=False
+
+
+class _PCL_MonitorTrack(object):
+    def __init__(self, rsc, prop ):
+        self.rsc=rsc
+        self.prop=prop
+        self.old_ = None
+        self.diff_ = False
+        self.tested_ = False
+        try:
+            self.old_ = self.prop.get(self.rsc)
+        except:
+            pass
+
+    def recordChanged(self):
+        self.tested_=True
+        self.diff_=True
+        
+    def isChanged(self):
+        if self.tested_:
+            return self.diff_
+        try:
+            curr = self.prop.get(self.rsc)
+            if  self.old_ != curr:
+                self.diff_= True
+        except:
+            pass
+        self.tested_=True
+        return self.diff_
+
+    def reset(self):
+        try:
+            self.old_ = self.prop.get(self.rsc)
+        except:
+            pass
+        self.tested_ = False
+        self.diff_ = False
+
+    def isSet(self):
+        return self.tested_
 
 class _PropertyChangeRec(object):
     def __init__(self, parent, listener, pcl, props, interval=0.500):
         self.regId = str(uuid.uuid1())
+        self.rscId = "UNK_RSC_ID"
+        if parent:
+            self.rscId = parent._id
         self.listener = listener
         self.pcl = pcl
         self.reportInterval = interval
@@ -229,7 +282,8 @@ class _PropertyChangeRec(object):
 
     def callback(self, id_, oldvalue, newvalue ):
         if id_ in self.props:
-            self.props[id_].recordChanged()
+            if self.props[id_]:
+                self.props[id_].recordChanged()
 
 class Resource(object):
     def __init__(self, identifier, execparams, propertydefs=(), loggerName=None):
@@ -282,7 +336,8 @@ class Resource(object):
         # property change listener registry and monitoring thread
         self._propChangeRegistry = {}
         self._propChangeThread = _PropertyChangeThread(self)
-        
+        self._propMonitors = {}
+
         # ... and also manages ports
         self.__loadPorts()
 
@@ -307,7 +362,11 @@ class Resource(object):
     def getDomainManager(self):
         return self._domMgr
 
-
+    def __init_monitors(self):
+        self._propMonitors = {}
+        for k, p in self._props.items():
+            self._propMonitors[k] = _PCL_MonitorTrack(self,p)
+        
     #########################################
     # CF::Resource
     def start(self):
@@ -345,6 +404,7 @@ class Resource(object):
             self.__initialized = True
             try:
                 self.constructor()
+                self.__init_monitors()
             except Exception, exc:
                 self._log.error("initialize(): %s", str(exc))
                 raise CF.LifeCycle.InitializeError([str(exc)])
@@ -697,7 +757,7 @@ class Resource(object):
             notSet = []
             for prop in ctorProps:
                 try:
-                    if self._props.has_id(prop.id) and self._props.isProperty(prop.id) and self._props.isConfigurable(prop.id):
+                    if self._props.has_id(prop.id) and self._props.isProperty(prop.id):
                         try:
                             # run configure on property.. disable callback feature
                             self._props.construct(prop.id, prop.value)
@@ -786,22 +846,22 @@ class Resource(object):
         pcl = None
         is_ec = False
         try:
-            self._log.debug("registerPropertyListener, registring event channeld...")
+            self._log.debug("registerPropertyListener, Registering Event Channel...")
             pcl = _EC_PropertyChangeListener(listener)
             is_ec = True
         except:
             pcl = None
-            self._log.debug("registerPropertyListener, try for PropertyChangeListener next...")
+            self._log.debug("registerPropertyListener, Try for PropertyChangeListener next...")
 
         if is_ec == False:
             try:
-                self._log.debug("registerPropertyListener, registring event channeld...")
+                self._log.debug("registerPropertyListener, Trying PropertyChangeListener interface...")
                 pcl = _INF_PropertyChangeListener(listener)
             except:
                 pcl = None
                 self._log.warning("registerPropertyListener, Caller provided invalid registrant.")
                 self.propertySetAccess.release()
-                raise CF.InvalidObjectReference();
+                raise CF.InvalidObjectReference("registerPropertyListener, Caller provided invalid registrant.")
             
 
         # create/add registration record
@@ -809,11 +869,11 @@ class Resource(object):
         reg_id = rec.regId
         self._props.addChangeListener( rec.callback )
         self._propChangeRegistry[reg_id] = rec
-        self._log.debug( "Registry .. reg_id/interval:" + str(reg_id) + "/" + str(rec.reportInterval) + " callback"+  str(self._propChangeRegistry[reg_id].callback))
+        self._log.debug( "registerPropertyListener .. reg_id/interval: " + str(reg_id) + "/" + str(rec.reportInterval) + " callback: "+  str(self._propChangeRegistry[reg_id].callback))
         
         # start 
         if self._propChangeThread and self._propChangeThread.isRunning() == False :
-            self._log.debug( "Starting PROPERTY CHANGE THREAD ... resource/reg_id: " + str(self._name) + "/" + str(reg_id) )
+            self._log.debug( "registerPropertyListener  Starting PROPERTY CHANGE THREAD ... resource/reg_id: " + str(self._name) + "/" + str(reg_id) )
             self._propChangeThread.startThread()        
 
         self.propertySetAccess.release()
@@ -860,6 +920,18 @@ class Resource(object):
         try:
             self._log.debug("_propertyChangeServiceFunction - checking registry.... " + str(len(self._propChangeRegistry)))
             for regid,rec in self._propChangeRegistry.iteritems():
+
+                # process changes for each property
+                for k,p in rec.props.iteritems():
+                    self._log.debug("_propertyChangeServiceFunction - prop/set. " + str(k) + "/" + str(p.isSet()))
+                    try:
+                        if self._propMonitors[k].isChanged():
+                            p.recordChanged()
+                        self._log.debug("_propertyChangeServiceFunction - prop/changed. " + str(k) + "/" + str(self._propMonitors[k].isChanged()))
+                    except Exception, e:
+                        pass
+
+
                 # check if time expired
                 dur = rec.expiration - now
                 if dur <= 0.0:
@@ -868,7 +940,7 @@ class Resource(object):
                     # process changes for each property
                     for k,p in rec.props.iteritems():
                         self._log.debug("_propertyChangeServiceFunction - prop/set. " + str(k) + "/" + str(p.isSet()))
-                        if p.isSet() == True:
+                        if  p.isChanged() == True :
                             try:
                                 value = self._props.query(k)
                                 rpt_props.append( CF.DataType(k,value))
@@ -892,6 +964,11 @@ class Resource(object):
                 self._log.debug("_propertyChangeServiceFunction -  delay :" + str( delay ))
         except:
             pass
+
+        # reset monitor's state
+        if len( self._propChangeRegistry ) > 0:
+           for k,mon in self._propMonitors.iteritems():
+               mon.reset()
 
         self._log.debug("_propertyChangeServiceFunction -  adjust thread delay :" + str( delay ))
         if delay > 0 : self._propChangeThread.setThreadDelay(delay)

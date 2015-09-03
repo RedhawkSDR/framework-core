@@ -32,8 +32,10 @@ class CreateApp(jackhammer.Jackhammer):
     def __init__(self, *args, **kwargs):
         super(CreateApp,self).__init__(*args, **kwargs)
         self.__timeout = None
+        self.__ignore_app = False
 
     def initialize (self, sadFile):
+        self.app_cnt = 0
         if self.__timeout is not None:
             self.domMgr.configure([CF.DataType('COMPONENT_BINDING_TIMEOUT', to_any(self.__timeout))])
 
@@ -52,16 +54,29 @@ class CreateApp(jackhammer.Jackhammer):
         raise KeyError, "Couldn't find app factory"
 
     def test (self):
-        app = self.appFact.create(self.appFact._get_name(), [], [])
-        app.stop()
-        app.releaseObject()
+        if self.__ignore_app:
+            try:
+                print "Creating  app: " + str( self.app_cnt ) 
+                app = self.appFact.create(self.appFact._get_name(), [], [])
+                app.stop()
+                app.releaseObject()
+                print "Cleaned up app: " + str( self.app_cnt ) 
+                self.app_cnt += 1
+            except:
+                pass
+        else:
+            app = self.appFact.create(self.appFact._get_name(), [], [])
+            app.stop()
+            app.releaseObject()
 
     def options(self):
-        return '', ['timeout=']
+        return '', ['timeout=','ignore']
 
     def setOption(self, key, value):
         if key == '--timeout':
             self.__timeout = int(value)
+        if key == '--ignore':
+            self.__ignore_app = True
         else:
             raise KeyError("Unknown option '%s'" % (key,))
 

@@ -55,7 +55,7 @@ static void addProperty(const CF::DataType& dt, CF::Properties& prop)
 
 
 ////////////////////////////////////////////////////
-/**
+/*
  * ImplementationInfo member function definitions
  */
 PREPARE_LOGGING(ImplementationInfo);
@@ -414,7 +414,7 @@ const ImplementationInfo &SoftpkgInfo::getSelectedImplementation() const
 
 
 ////////////////////////////////////////////////////
-/**
+/*
  * ResourceInfo member function definitions
  */
 PREPARE_LOGGING(ResourceInfo);
