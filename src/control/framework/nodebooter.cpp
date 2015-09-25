@@ -176,6 +176,7 @@ static pid_t launchSPD (
     const std::string&                         spdFile,
     const fs::path&                            sdrRoot,
     const ExecParams&                          overrideExecParams,
+    const ExecParams&                          optionParams,
     const std::vector<const ossie::Property*>& deviceProps,
     bool                                       doFork)
 {
@@ -252,6 +253,12 @@ static pid_t launchSPD (
         LOG_TRACE(nodebooter, "EXEC_PARAM: " << param->first << "=\"" << param->second << "\"");
         argv.push_back(param->first.c_str());
         argv.push_back(param->second.c_str());
+    }
+
+    // push options as command line args
+    for (ExecParams::const_iterator param = optionParams.begin(); param != optionParams.end(); ++param) {
+        LOG_TRACE(nodebooter, "EXEC_PARAM (option): " << param->first );
+        argv.push_back(param->first.c_str());
     }
 
     argv.push_back(NULL);
@@ -418,6 +425,7 @@ void usage()
     std::cerr << "    -sdrcache <abs path>       Set sdr cache with absolute path to cache directory" << std::endl;
     std::cerr << "    -debug                     Set the threshold used for logging, the default is 3 (5=TRACE,4=DEBUG,3=INFO,2=WARN,1=ERROR,0=FATAL)" << std::endl << std::endl;
     std::cerr << "    -logcfgfile <config file>  Pass in a logging config file uri" << std::endl;
+    std::cerr << "    --bindapps                 Bind application and component registrations to the Domain and not the NamingService (DomainManager only)" << std::endl;
     std::cerr << "    --dburl                    Store domain state in the following URL" << std::endl;
     std::cerr << "    --nopersist                Disable DomainManager IOR persistence" << std::endl;
     std::cerr << "    --force-rebind             Overwrite any existing name binding for the DomainManager" << std::endl;
@@ -479,6 +487,7 @@ void startDomainManager(
     const fs::path&                            sdrRootPath,
     const int&                                 debugLevel,
     const bool&                                noPersist,
+    const bool &                               bind_apps,
     const string&                              logfile_uri,
     const string&                              db_uri,
     const string&                              endPoint,
@@ -523,6 +532,7 @@ void startDomainManager(
     }
 
     ExecParams execParams;
+    ExecParams optionParams;
     execParams["DMD_FILE"] = dmdFile;
     execParams["DOMAIN_NAME"] = domainName;
     execParams["SDRROOT"] = sdrRootPath.string();
@@ -558,8 +568,13 @@ void startDomainManager(
          }
     }
 
+    if (bind_apps) {
+        optionParams["BINDAPPS"] =  "";
+    }
+
+
     try {
-        domPid = launchSPD(spdFile, domRootPath, execParams, systemProps, doFork);
+      domPid = launchSPD(spdFile, domRootPath, execParams, optionParams, systemProps, doFork);
     } catch (const std::runtime_error& ex) {
         LOG_ERROR(nodebooter, "Unable to launch DomainManager Softpkg: " << ex.what());
         exit(EXIT_FAILURE);
@@ -640,6 +655,7 @@ void startDeviceManager(
 
     // Build up the execparams based on the DCD and command line arguments.
     ExecParams execParams;
+    ExecParams optionParams;
     execParams["DCD_FILE"] = dcdFile;
     execParams["DOMAIN_NAME"] = domainName;
     execParams["SDRROOT"] = sdrRootPath.string();
@@ -668,7 +684,7 @@ void startDeviceManager(
     }
 
     try {
-        devPid = launchSPD(spdFile, devRootPath, execParams, systemProps, doFork);
+      devPid = launchSPD(spdFile, devRootPath, execParams, optionParams, systemProps, doFork);
     } catch (const std::runtime_error& ex) {
         LOG_ERROR(nodebooter, "Unable to launch DeviceManager Softpkg: " << ex.what());
         exit(EXIT_FAILURE);
@@ -716,6 +732,7 @@ int main(int argc, char* argv[])
     string domainName;
     string endPoint;
     int debugLevel = 3;
+    bool   bind_apps=false;
 
     bool startDeviceManagerRequested = false;
     bool startDomainManagerRequested = false;
@@ -819,6 +836,12 @@ int main(int argc, char* argv[])
                 exit(EXIT_FAILURE);
             }
         }
+
+
+        if (( strcmp( argv[i], "--bindapps" ) == 0 )) {
+            bind_apps = true;
+        }
+
 
         if (( strcmp( argv[i], "-log4cxx" ) == 0 ) || ( strcmp( argv[i], "-logcfgfile" ) == 0 )) {
             if( i + 1 <argc && strcmp( argv[i + 1], "--" ) != 0) {
@@ -1149,6 +1172,7 @@ int main(int argc, char* argv[])
                                sdrRootPath,
                                debugLevel,
                                noPersist,
+                               bind_apps,
                                logfile_uri,
                                db_uri,
                                endPoint,

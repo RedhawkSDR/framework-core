@@ -51,7 +51,7 @@ class DomainManager_impl: public virtual POA_CF::DomainManager, public PropertyS
 ///////////////////////////
 public:
 
-  DomainManager_impl (const char*, const char*, const char*, const char*, bool);
+  DomainManager_impl (const char*, const char*, const char*, const char*, bool, bool );
     ~DomainManager_impl ();
 
     friend class IDM_Channel_Consumer_i;
@@ -203,6 +203,8 @@ public:
 
     rh_logger::LoggerPtr  getLogger() const { return __logger; };
 
+    bool   bindToDomain() { return _bindToDomain; };
+
 /////////////////////////////
 // Internal Helper Functions
 /////////////////////////////
@@ -304,6 +306,7 @@ private:
     CORBA::ULong     componentBindingTimeout;
     std::string      redhawk_version;
     bool             _useLogConfigUriResolver;
+    bool             _bindToDomain;
 };                                            /* END CLASS DEFINITION DomainManager */
 
 

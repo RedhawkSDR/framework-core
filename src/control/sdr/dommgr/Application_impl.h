@@ -50,8 +50,13 @@ protected:
 
 public:
 
-    Application_impl (const char* _id, const char* _name, const char* _profile, DomainManager_impl* domainManager, const std::string& waveformContextName,
-                      CosNaming::NamingContext_ptr WaveformContext);
+    Application_impl (const char* _id, 
+		      const char* _name, 
+		      const char* _profile, 
+		      DomainManager_impl* domainManager, 
+		      const std::string& waveformContextName,
+                      CosNaming::NamingContext_ptr WaveformContext,
+                      CosNaming::NamingContext_ptr DomainContext);
     
     void populateApplication (CF::Resource_ptr _assemblyController,
                               std::vector<ossie::DeviceAssignmentInfo>& _devSequence,
@@ -165,6 +170,7 @@ private:
     DomainManager_impl* _domainManager;
     std::string _waveformContextName;
     CosNaming::NamingContext_var _WaveformContext;
+    CosNaming::NamingContext_var _domainContext;
 
     CF::Components _registeredComponents;
 

@@ -403,10 +403,16 @@ class MessageConsumerPort(ExtendedEvent__POA.MessageEvent, threading.Thread):
                         if id in self._messages:
                             msgstruct, callback = self._messages[id]
                             value = struct_from_any(value.value, msgstruct)
-                            callback(id, value)
+                            try:
+                                callback(id, value)
+                            except Exception, e:
+                                print "Callback for message "+str(id)+" failed with exception: "+str(e)
                         for allMsg in self._allMsg:
                             callback = allMsg[1]
-                            callback(id, value)
+                            try:
+                                callback(id, value)
+                            except Exception, e:
+                                print "Callback for message "+str(id)+" failed with exception: "+str(e)
             else:
                 time.sleep(self.thread_sleep)
 

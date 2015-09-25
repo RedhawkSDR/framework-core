@@ -35,8 +35,8 @@
 #include <ossie/FileStream.h>
 #include <ossie/prop_utils.h>
 #include <ossie/logging/loghelpers.h>
-
 #include "DeviceManager_impl.h"
+#include "rh_logger_stdout.h"
 
 namespace fs = boost::filesystem;
 
@@ -614,7 +614,7 @@ void DeviceManager_impl::createDeviceCacheLocation(
  * to be passed to execv.
  */
 void DeviceManager_impl::createDeviceExecStatement(
-        const char*                                   new_argv[], 
+        std::vector< std::string >&                   new_argv,
         const ossie::ComponentPlacement&              componentPlacement,
         const std::string&                            componentType,
         std::map<std::string, std::string>*           pOverloadprops,
@@ -631,55 +631,39 @@ void DeviceManager_impl::createDeviceExecStatement(
         
     std::vector<ComponentProperty*>::const_iterator iprops_iter;
 
-    unsigned long new_argc = 0;
     std::string logcfg_path("");
     deviceMgrIOR = ossie::corba::objectToString(myObj);
     if (getenv("VALGRIND")) {
-        new_argv[new_argc] =  "/usr/local/bin/valgrind";
-        new_argc++;
+        new_argv.push_back("/usr/local/bin/valgrind");
         std::string logFile = "--log-file=";
         logFile += codeFilePath;
-        new_argv[new_argc] = (char*)logFile.c_str();
-        new_argc++;
+        new_argv.push_back(logFile );
     }
-    new_argv[new_argc] = (char*)codeFilePath.c_str();
-    new_argc++;
-    new_argv[new_argc] = "DEVICE_MGR_IOR";
-    new_argc++;
-    new_argv[new_argc] = (char*)deviceMgrIOR.c_str();
-    new_argc++;
+
+    new_argv.push_back(codeFilePath);     
+    new_argv.push_back("DEVICE_MGR_IOR");
+    new_argv.push_back(deviceMgrIOR);
     if (componentType == "device") {
-        new_argv[new_argc] = "PROFILE_NAME";
-        new_argc++;
-        new_argv[new_argc] = (char*)DCDParser.getFileNameFromRefId(componentPlacement.getFileRefId());
-        new_argc++;
-        new_argv[new_argc] = "DEVICE_ID";
-        new_argc++;
-        new_argv[new_argc] = (char*)instantiation.getID();
-        new_argc++;
-        new_argv[new_argc] = "DEVICE_LABEL";
-        new_argc++;
-        new_argv[new_argc] = (char*)usageName.c_str();
-        new_argc++;
-        if (componentPlacement.isCompositePartOf()) {
-            new_argv[new_argc] = "COMPOSITE_DEVICE_IOR";
-            new_argc++;
-            new_argv[new_argc] = (char*)compositeDeviceIOR.c_str();
-            new_argc++;
-        }
-        if (!CORBA::is_nil(IDM_channel)) {
-            new_argv[new_argc] = "IDM_CHANNEL_IOR";
-            new_argc++;
-            new_argv[new_argc] = (char*)IDM_IOR.c_str();
-            new_argc++;
-        }
-        logcfg_path= ossie::logging::GetDevicePath(_domainName, _label, usageName );
+      new_argv.push_back("PROFILE_NAME");
+      new_argv.push_back(DCDParser.getFileNameFromRefId(componentPlacement.getFileRefId()));
+      new_argv.push_back( "DEVICE_ID");
+      new_argv.push_back(instantiation.getID());
+      new_argv.push_back( "DEVICE_LABEL");
+      new_argv.push_back(usageName);
+      if (componentPlacement.isCompositePartOf()) {
+          new_argv.push_back("COMPOSITE_DEVICE_IOR");
+          new_argv.push_back(compositeDeviceIOR);
+      }
+
+      if (IDM_IOR.size() > 0 ) {
+        new_argv.push_back("IDM_CHANNEL_IOR");
+        new_argv.push_back(IDM_IOR.c_str());
+      }
+      logcfg_path= ossie::logging::GetDevicePath(_domainName, _label, usageName );
     } else if (componentType == "service") {
       logcfg_path= ossie::logging::GetServicePath(_domainName, _label, usageName );
-      new_argv[new_argc] = "SERVICE_NAME";
-      new_argc++;
-      new_argv[new_argc] = (char*)usageName.c_str();
-      new_argc++;
+      new_argv.push_back( "SERVICE_NAME");
+      new_argv.push_back(usageName);
     }
 
     logging_uri = "";
@@ -708,38 +692,30 @@ void DeviceManager_impl::createDeviceExecStatement(
         if (logging_uri.substr(0, 4) == "sca:") {
             logging_uri += ("?fs=" + fileSysIOR);
         }
-        new_argv[new_argc] = "LOGGING_CONFIG_URI";
-        new_argc++;
-        new_argv[new_argc] = (char*)logging_uri.c_str();
-        new_argc++;
-	LOG_INFO(DeviceManager_impl, "RSC: " << usageName << " LOGGING PARAM:VALUE " << new_argv[new_argc-2] << ":" <<new_argv[new_argc-1] );
+        new_argv.push_back("LOGGING_CONFIG_URI");
+        new_argv.push_back(logging_uri);
+	LOG_DEBUG(DeviceManager_impl, "RSC: " << usageName << " LOGGING PARAM:VALUE " << new_argv[new_argv.size()-2] << ":" <<new_argv[new_argv.size()-1] );
     } else {
         // Pass along the current debug level setting.
         int level = ossie::logging::ConvertRHLevelToDebug(rh_logger::Logger::getRootLogger()->getLevel());
 
         // Convert the numeric level directly into its ASCII equivalent.
         debug_level.push_back(char(0x30 + level));
-        new_argv[new_argc++] = "DEBUG_LEVEL";
-        new_argv[new_argc++] = const_cast<char*>(debug_level.c_str());
+        new_argv.push_back( "DEBUG_LEVEL");
+        new_argv.push_back(debug_level);
     }
 
     std::string dpath;
     dpath = _domainName + "/" + _label;
-    new_argv[new_argc] = "DOM_PATH";
-    new_argc++;
-    new_argv[new_argc] = (char*)dpath.c_str();
-    new_argc++;
+    new_argv.push_back("DOM_PATH");
+    new_argv.push_back(dpath);
     
     std::map<std::string, std::string>::iterator prop_iter;
     for (prop_iter = pOverloadprops->begin(); prop_iter != pOverloadprops->end(); prop_iter++) {
-        new_argv[new_argc] = (char*)prop_iter->first.c_str();
-        new_argc++;
-        new_argv[new_argc] = (char*)prop_iter->second.c_str();
-        new_argc++;                        
+      new_argv.push_back(prop_iter->first);
+      new_argv.push_back(prop_iter->second);
     }
 
-    // end the args with a NULL
-    new_argv[new_argc] = NULL;
 }                    
 
 DeviceManager_impl::ExecparamList DeviceManager_impl::createDeviceExecparams(
@@ -961,6 +937,30 @@ void DeviceManager_impl::createDeviceThread(
         execDevice->execute(codeFilePath.c_str(), options, personaProps);
         LOG_DEBUG(DeviceManager_impl, "Execute complete");
     } else {
+
+      std::vector< std::string > new_argv;
+
+      createDeviceExecStatement(new_argv, 
+                                componentPlacement,
+                                componentType,
+                                pOverloadprops,
+                                codeFilePath,
+                                DCDParser,
+                                instantiation,
+                                usageName,
+                                componentPlacements,
+                                compositeDeviceIOR,
+                                instanceprops) ;
+
+      // convert std:string to char * for execv
+      std::vector<char*> argv(new_argv.size() + 1, NULL);
+      for (std::size_t i = 0; i < new_argv.size(); ++i) {
+        LOG_TRACE(DeviceManager_impl, "ARG: " << i << " VALUE " << new_argv[i] );
+        argv[i] = const_cast<char*> (new_argv[i].c_str());
+      }
+
+      rh_logger::LevelPtr  lvl = DeviceManager_impl::__logger->getLevel();
+
         int pid = fork();
         if (pid > 0) {
             // parent process: pid is the process ID of the child
@@ -985,6 +985,10 @@ void DeviceManager_impl::createDeviceThread(
             }
         }
         else if (pid == 0) {
+
+          DeviceManager_impl::__logger = rh_logger::StdOutLogger::getRootLogger();
+          DeviceManager_impl::__logger->setLevel(lvl);
+
           // Child process
           int err;
           sigset_t  sigset;
@@ -1016,22 +1020,8 @@ void DeviceManager_impl::createDeviceThread(
           // switch to working directory
           chdir(devcache.c_str());
 
-          const char* new_argv[pOverloadprops->size() + 30];
-
-          createDeviceExecStatement(new_argv, 
-                                    componentPlacement,
-                                    componentType,
-                                    pOverloadprops,
-                                    codeFilePath,
-                                    DCDParser,
-                                    instantiation,
-                                    usageName,
-                                    componentPlacements,
-                                    compositeDeviceIOR,
-                                    instanceprops) ;
-
           // now exec - we should not return from this
-          execv(new_argv[0], (char * const*) new_argv);
+          execv(argv[0], &argv[0]);
 
           LOG_ERROR(DeviceManager_impl, new_argv[0] << " did not execute : " << strerror(errno));
           exit(-1);

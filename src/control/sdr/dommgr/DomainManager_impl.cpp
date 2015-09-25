@@ -63,11 +63,12 @@ static const ComponentInstantiation* findComponentInstantiation (const std::vect
 PREPARE_LOGGING(DomainManager_impl)
 
 // If _overrideDomainName == NULL read the domain name from the DMD file
-DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpath, const char* domainName, const char* _logconfig_uri, bool useLogCfgResolver) :
+DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpath, const char* domainName, const char* _logconfig_uri, bool useLogCfgResolver, bool bindToDomain ) :
   _domainName(domainName),
   _domainManagerProfile(dmdFile),
   _connectionManager(this, this, domainName),
-  _useLogConfigUriResolver(useLogCfgResolver)
+  _useLogConfigUriResolver(useLogCfgResolver),
+  _bindToDomain(bindToDomain)
 {
 
     TRACE_ENTER(DomainManager_impl)
@@ -480,7 +481,12 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
             CosNaming::NamingContext_var context = CosNaming::NamingContext::_narrow(ossie::corba::stringToObject(i->contextIOR));
             if (ossie::corba::objectExists(context)) {
                 LOG_TRACE(DomainManager_impl, "Creating application " << i->identifier << " " << _domainName << " " << i->contextName << " " << i->contextIOR);
-                Application_impl* _application = new Application_impl (i->identifier.c_str(), i->name.c_str(), i->profile.c_str(), this, i->contextName, context);
+                Application_impl* _application = new Application_impl (i->identifier.c_str(), 
+								       i->name.c_str(), i->profile.c_str(), 
+								       this, 
+								       i->contextName, 
+								       context,
+								       CosNaming::NamingContext::_nil() );
                 LOG_TRACE(DomainManager_impl, "Restored " << i->connections.size() << " connections");
 
                 i->_startOrder.resize(i->componentIORS.size());
@@ -2070,6 +2076,7 @@ DomainManager_impl::addApplication(Application_impl* new_app)
         } catch ( ossie::PersistenceException& ex) {
             LOG_ERROR(DomainManager_impl, "Error persisting change to device managers");
         }
+
     } catch (...) {
         ostringstream eout;
         eout << "Could not add new application to AppSeq; ";
@@ -2094,6 +2101,7 @@ DomainManager_impl::removeApplication(std::string app_id)
     unsigned long index_found_app;
     bool found_index = false;
 
+    //LOG_DEBUG(DomainManager_impl, "Attempting to remove application from AppSeq with size/id: " << old_length << "/" << app_id);
     try {
         // find app to remove
         for (unsigned long i=0; i < old_length; i++) {

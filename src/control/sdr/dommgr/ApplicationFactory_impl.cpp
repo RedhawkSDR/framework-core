@@ -39,6 +39,7 @@
 #include "ApplicationFactory_impl.h"
 #include "DomainManager_impl.h"
 #include "AllocationManager_impl.h"
+#include "RH_NamingContext.h"
 
 namespace fs = boost::filesystem;
 using namespace ossie;
@@ -177,26 +178,8 @@ ApplicationFactory_impl::ApplicationFactory_impl (
     _domainManager     = domainManager;
     _softwareProfile   = softwareProfile;
 
-    // Get a reference to the domain
-    CORBA::Object_var obj_DN;
-    try {
-        obj_DN = ossie::corba::objectFromName(_domainName.c_str());
-    } catch( CORBA::SystemException& ex ) {
-        LOG_ERROR(ApplicationFactory_impl, "get_object_from_name threw CORBA::SystemException");
-        throw;
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(ApplicationFactory_impl, "The following standard exception occurred: "<<ex.what()<<" while retrieving the domain name")
-        throw;
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(ApplicationFactory_impl, "The following CORBA exception occurred: "<<ex._name()<<" while retrieving the domain name")
-        throw;
-    } catch( ... ) {
-        LOG_ERROR(ApplicationFactory_impl, "get_object_from_name threw Unknown Exception");
-        throw;
-    }
-
     // Get the naming context from the domain
-    _domainContext = ossie::corba::_narrowSafe<CosNaming::NamingContext> (obj_DN);
+    _domainContext = RH_NamingContext::GetNamingContext( _domainName, !_domainManager->bindToDomain() );
     if (CORBA::is_nil(_domainContext)) {
         LOG_ERROR(ApplicationFactory_impl, "CosNaming::NamingContext::_narrow threw Unknown Exception");
         throw;
@@ -617,6 +600,16 @@ void createHelper::_cleanupLoadAndExecuteComponents()
 
 ApplicationFactory_impl::~ApplicationFactory_impl ()
 {
+  try {
+    //
+    // remove the naming context assocated with the factory that generates new
+    // naming contexts for each application.
+    //
+    if ( _domainManager && _domainManager->bindToDomain() ) _domainContext->destroy();
+  }
+  catch(...)
+    {};
+
 }
 
 void createHelper::_loadAndExecuteComponents() 
@@ -1284,7 +1277,7 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
     // - createHelper is needed to allow concurrent calls to 'create' without
     //   each instance stomping on the others
     LOG_TRACE(ApplicationFactory_impl, "Creating new createHelper class.");
-    createHelper new_createhelper(*this, _waveform_context_name, base_naming_context, _waveformContext);
+    createHelper new_createhelper(*this, _waveform_context_name, base_naming_context, _waveformContext, _domainContext);
 
     // now actually perform the create operation
     LOG_TRACE(ApplicationFactory_impl, "Performing 'create' function.");
@@ -1418,7 +1411,8 @@ throw (CORBA::SystemException,
                 _appFact._softwareProfile.c_str(), 
                 _appFact._domainManager, 
                 _waveformContextName, 
-                _waveformContext));
+                _waveformContext,
+		_domainContext ));
 
             setUpExternalPorts(application);
             setUpExternalProperties(application);
@@ -2778,17 +2772,27 @@ void createHelper::initializeComponents(CF::Resource_var& assemblyController,
             component->setResourcePtr(_rsc);
 
             if (component->isResource ()) {
-                try {
-                    _rsc->initialize ();
-                } catch( ... ) {
-                    LOG_ERROR(ApplicationFactory_impl, "rsc->initialize failed with Unknown Exception");
+
+              int initAttempts=3;
+              while ( initAttempts > 0 ) {
+                initAttempts--;
+                if ( ossie::corba::objectExists(_rsc ) == true ) { initAttempts = 0; break; }
+                LOG_TRACE(ApplicationFactory_impl, "Checking for object existence ........... comp:" << component->getIdentifier() << " waveform: " << _waveformContextName);
+                usleep(1000);
+              }
+
+              try {
+                _rsc->initialize ();
+
+              } catch( ... ) {
+                LOG_ERROR(ApplicationFactory_impl, "rsc->initialize failed with Unknown Exception");
                     ostringstream eout;
                     eout << "rsc->initialize failed with Unknown Exception for component: '" << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId()<<"'";
                     eout << " in waveform '" << _waveformContextName<<"';";
                     eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
                     _cleanupResourceInitializeFailed();
                     throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EIO, eout.str().c_str());
-                }
+              }
             }
 
             // Set the assembly controller
@@ -3058,7 +3062,9 @@ createHelper::createHelper (
         const ApplicationFactory_impl& appFact,
         string                         waveformContextName,
         string                         baseNamingContext,
-        CosNaming::NamingContext_ptr   waveformContext) :
+        CosNaming::NamingContext_ptr   waveformContext,
+        CosNaming::NamingContext_ptr   domainContext ):
+
     _appFact(appFact),
     _allocationMgr(_appFact._domainManager->_allocationMgr),
     _allocations(*_allocationMgr)
@@ -3066,6 +3072,7 @@ createHelper::createHelper (
     this->_waveformContextName = waveformContextName;
     this->_baseNamingContext   = baseNamingContext;
     this->_waveformContext     = CosNaming::NamingContext::_duplicate(waveformContext);
+    this->_domainContext     =  domainContext;
 }
 
 createHelper::~createHelper()

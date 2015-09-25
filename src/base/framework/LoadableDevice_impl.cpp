@@ -232,35 +232,8 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
             LOG_ERROR(LoadableDevice_impl, "Could not create file " << relativeFileName.c_str());
             throw CF::LoadableDevice::LoadFail(CF::CF_NOTSET, "Device SDR cache write error");
         }
-        
-        CF::File_var srcFile = fs->open (workingFileName.c_str(), true);
-        unsigned int srcSize = srcFile->sizeOf();
-        if (srcSize > ossie::corba::giopMaxMsgSize()) {
-            bool doneReading = false;
-            unsigned int maxReadSize = ossie::corba::giopMaxMsgSize() * 0.95;
-            LOG_DEBUG(LoadableDevice_impl, "File is longer than giopMaxMsgSize (" << ossie::corba::giopMaxMsgSize() << "), partitioning the copy into pieces of length " << maxReadSize)
-            unsigned int readSize = maxReadSize;
-            unsigned int leftoverSrcSize = srcSize;
-            while (not doneReading) {
-                CF::OctetSequence_var data;
-                if (readSize > leftoverSrcSize) {
-                    readSize = leftoverSrcSize;
-                }
-                srcFile->read(data, readSize);
-                fileStream.write((const char*)data->get_buffer(), data->length());
-                leftoverSrcSize -= readSize;
-                if (leftoverSrcSize == 0) {
-                    doneReading = true;
-                }
-            }
-            fileStream.close();
-        } else {
-            CF::OctetSequence_var data;
-            srcFile->read(data, srcSize);
-            fileStream.write((const char*)data->get_buffer(), data->length());
-            fileStream.close();
-        }
-        srcFile->close();
+
+        _copyFile( fs, workingFileName, relativeFileName, workingFileName );
         chmod(relativeFileName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         fileTypeTable[workingFileName] = CF::FileSystem::PLAIN;
     } else {
@@ -537,15 +510,38 @@ void LoadableDevice_impl::_copyFile(CF::FileSystem_ptr fs, const std::string &re
 
     copiedFiles.insert(copiedFiles_type::value_type(fileKey, localPath));
     size_t fileSize = fileToLoad->sizeOf();
-    while (fileSize > 0) {
+    bool fe=false;
+    try {
+      while (fileSize > 0) {
         std::size_t toRead = std::min(fileSize, blockTransferSize);
         CF::OctetSequence_var data;
-        fileToLoad->read(data, toRead);
-        fileStream.write((const char*)data->get_buffer(), data->length());
         fileSize -= toRead;
+        try {
+          fileToLoad->read(data, toRead);
+          fileStream.write((const char*)data->get_buffer(), data->length());
+        }
+        catch ( CF::File::IOException &e ) {
+          LOG_WARN(LoadableDevice_impl, "READ Local file exception, " << ossie::corba::returnString(e.msg) );
+          throw;
+        }
+      }
+    } catch(...) {
+      fe=true;
     }
+    
+    try {
+      fileToLoad->close();
+    }
+    catch(...) {
+      LOG_ERROR(LoadableDevice_impl, "Closing remote file encountered exception, file:" << remotePath );
+      fe=true;
+    }
+
     fileStream.close();
-    fileToLoad->close();
+
+    if (fe) {
+      throw CF::FileException();
+    }
 }
 
 

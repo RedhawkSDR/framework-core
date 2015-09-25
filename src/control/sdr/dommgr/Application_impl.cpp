@@ -34,8 +34,10 @@ PREPARE_LOGGING(Application_impl);
 
 using namespace ossie;
 
-Application_impl::Application_impl (const char* _id, const char* _name, const char* _profile, DomainManager_impl* domainManager, const std::string& waveformContextName,
-                                    CosNaming::NamingContext_ptr WaveformContext) :
+Application_impl::Application_impl (const char* _id, const char* _name, const char* _profile, 
+				    DomainManager_impl* domainManager, const std::string& waveformContextName,
+                                    CosNaming::NamingContext_ptr WaveformContext,
+                                    CosNaming::NamingContext_ptr DomainContext) :
     _identifier(_id)
 {
     _domainManager = domainManager;
@@ -45,6 +47,7 @@ Application_impl::Application_impl (const char* _id, const char* _name, const ch
     sadProfile = _profile;
     _waveformContextName = waveformContextName;
     _WaveformContext = CosNaming::NamingContext::_duplicate(WaveformContext);
+    _domainContext = CosNaming::NamingContext::_duplicate(DomainContext);
 
     this->appComponentDevices.length(0);
     this->appComponentImplementations.length(0);
@@ -668,7 +671,27 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
                 } else {
                     continue;
                 }
-            } CATCH_LOG_WARN(Application_impl, "Unable to retrieve device ID for deallocation or process termination. Continuing the App release")
+            } CATCH_LOG_WARN(Application_impl, "Unable to retrieve device ID for deallocation or process termination. Continuing the App release");
+
+            // terminate component if launched on Executable Device
+            CF::ExecutableDevice_var execDev;
+            bool executable = false;
+            try {
+              execDev = CF::ExecutableDevice::_narrow (_devObj);
+              CORBA::is_nil( execDev ) ? executable = false : executable = true;
+            } catch( ... ) {
+              LOG_DEBUG(Application_impl, "Not an executable device...moving on");
+              executable = false;
+            }
+            if (executable) {
+              try {
+                LOG_DEBUG(Application_impl, "Terminating " << _pidTable[id] << " on " << ossie::corba::returnString(execDev->label()));
+                execDev ->terminate ( _pidTable[id] );
+              } catch ( ... ) {
+                LOG_WARN(Application_impl, "Call to terminate failed. Continuing the App release")
+              }
+            }
+
 
             // unload component is launched on Loadable Device
             std::string localFileName = _fileTable[id];
@@ -696,28 +719,6 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
                 }
             }
 
-            // terminate component if launched on Executable Device
-            if (loadable) {
-                CF::ExecutableDevice_var execDev;
-                bool executable = false;
-                try {
-                    execDev = CF::ExecutableDevice::_narrow (_devObj);
-                    CORBA::is_nil( execDev ) ? executable = false : executable = true;
-                } catch( ... ) {
-                    LOG_DEBUG(Application_impl, "Not an executable device...moving on")
-                    executable = false;
-                }
-                if (executable) {
-                    try {
-                        LOG_DEBUG(Application_impl, "Terminating " << _pidTable[id] << " on " << ossie::corba::returnString(execDev->label()));
-                        execDev ->terminate ( _pidTable[id] );
-                    } catch ( ... ) {
-                        LOG_WARN(Application_impl, "Call to terminate failed. Continuing the App release")
-                        continue;
-                    }
-                    break;
-                }
-            }
         }
         LOG_DEBUG(Application_impl, "Next component")
     }
@@ -771,16 +772,17 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
     // Unbind the application's naming context using the fully-qualified name.
     LOG_TRACE(Application_impl, "Unbinding application naming context " << _waveformContextName);
     CosNaming::Name DNContextname;
-    DNContextname.length(2);
-    DNContextname[0].id = CORBA::string_dup(_domainName.c_str());
-    DNContextname[1].id = CORBA::string_dup(_waveformContextName.c_str());
+    DNContextname.length(1);
+    DNContextname[0].id = CORBA::string_dup(_waveformContextName.c_str());
     try {
-        ossie::corba::InitialNamingContext()->unbind(DNContextname);
+      if ( CORBA::is_nil(_domainContext) ==  false ) {
+        _domainContext->unbind(DNContextname);
+      }
     } catch (const CosNaming::NamingContext::NotFound&) {
         // Someone else has removed the naming context; this is a non-fatal condition.
         LOG_WARN(Application_impl, "Naming context has already been removed");
     } CATCH_LOG_ERROR(Application_impl, "Unbind context failed with CORBA::SystemException")
-    
+
     // Destroy the waveform context; it should be empty by this point, assuming all
     // of the components were properly unbound.
     LOG_TRACE(Application_impl, "Destroying application naming context " << _waveformContextName);
@@ -794,8 +796,6 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
         message[0] = CORBA::string_dup(error);
         throw CF::LifeCycle::ReleaseError(message);
     }
-    _WaveformContext = CosNaming::NamingContext::_nil();
-
 
     // Send an event with the Application releaseObject
     ossie::sendObjectRemovedEvent(Application_impl::__logger, _identifier.c_str(), _identifier.c_str(), appName.c_str(), 

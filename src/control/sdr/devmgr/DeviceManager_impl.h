@@ -247,7 +247,7 @@ private:
         const ossie::ComponentInstantiation& instantiation);
 
     void createDeviceExecStatement(
-        const char*                                   new_argv[], 
+        std::vector< std::string >&                   new_argv,
         const ossie::ComponentPlacement&              componentPlacement,
         const std::string&                            componentType,
         std::map<std::string, std::string>*           pOverloadprops,
