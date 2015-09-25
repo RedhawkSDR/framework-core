@@ -19,7 +19,7 @@
 #
 
 import sys
-import time
+import time as _time
 import threading
 import Queue
 import copy
@@ -292,7 +292,7 @@ class ChannelManager:
             # fail (as though it still existed).
             eventChannel.destroy()
             while not eventChannel._non_existent():
-                time.sleep(0.1)
+                _time.sleep(0.1)
         except:
             pass
     
@@ -344,6 +344,7 @@ class MessageConsumerPort(ExtendedEvent__POA.MessageEvent, threading.Thread):
     def __init__(self, thread_sleep=0.1, parent=None):
         self.consumer_lock = threading.Lock()
         threading.Thread.__init__(self)
+        self._stopMe=False
         self.setDaemon(True)
         self.actionQueue = Queue.Queue()
         self.thread_sleep = thread_sleep
@@ -354,6 +355,7 @@ class MessageConsumerPort(ExtendedEvent__POA.MessageEvent, threading.Thread):
         self.consumers = {}
         self.supplier_admin = self.SupplierAdmin_i(self)
         self._parent_comp = parent
+
 
     def registerMessage(self, msgid, msgstruct, callback):
         if msgid != None:
@@ -393,9 +395,22 @@ class MessageConsumerPort(ExtendedEvent__POA.MessageEvent, threading.Thread):
     # CosEventChannelAdmin.EventChannel
     def for_suppliers(self):
         return self.supplier_admin._this()
+
+
+    def start(self):
+        self._stopMe = False
+        if not self.is_alive():
+           threading.Thread.start(self)
+
+    def stop(self):
+        self._stopMe=True
+        try:
+           self.join(2.5)
+        except:
+            pass
     
     def run(self):
-        while True:
+        while not self._stopMe:
             while not self.actionQueue.empty():
                 action, payload = self.actionQueue.get()
                 if action == 'destroy':
@@ -417,7 +432,10 @@ class MessageConsumerPort(ExtendedEvent__POA.MessageEvent, threading.Thread):
                         if id in self._messages:
                             msgstruct, callback = self._messages[id]
                             value = struct_from_any(value.value, msgstruct)
-                            callback(id, value)
+                            try:
+                                callback(id, value)
+                            except Exception, e:
+                                print "Callback for message "+str(id)+" failed with exception: "+str(e)
                         else:
                             if len(self._allMsg) == 0:
                                 warning = "no callbacks registered for messages with id: "+id+".";
@@ -438,9 +456,12 @@ class MessageConsumerPort(ExtendedEvent__POA.MessageEvent, threading.Thread):
                                     print warning
                         for allMsg in self._allMsg:
                             callback = allMsg[1]
-                            callback(id, value)
+                            try:
+                                callback(id, value)
+                            except Exception, e:
+                                print "Callback for message "+str(id)+" failed with exception: "+str(e)
             else:
-                time.sleep(self.thread_sleep)
+                _time.sleep(self.thread_sleep)
 
 class MessageSupplierPort(CF__POA.Port):
     class Supplier_i(CosEventComm__POA.PushSupplier):

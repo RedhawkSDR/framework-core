@@ -197,7 +197,7 @@ class Device(resource.Resource):
         self._devMgr = containers.DeviceManagerContainer(devmgr)
         self._domMgr = containers.DomainManagerContainer(devmgr._get_domMgr())
         self._compositeDevice = compositeDevice
-        self._capacityLock = threading.Lock()
+        self._capacityLock = threading.RLock()
         self._idm_publisher = None
         self._cmdLock = threading.RLock()
         self._allocationCallbacks = {}
@@ -446,7 +446,8 @@ class Device(resource.Resource):
             propdef = self._props.getPropDef(prop.id)
             propdict[prop.id] = propdef._fromAny(prop.value)
         try:
-            return self._allocateCapacities(propdict)
+            retval = self._allocateCapacities(propdict)
+            return retval
         except CF.Device.InvalidCapacity:
             raise # re-raise valid exceptions
         except CF.Device.InvalidState:
@@ -454,7 +455,6 @@ class Device(resource.Resource):
         except Exception, e:
             self._log.exception("Unexpected error in _allocateCapacities: %s", str(e))
             return False
-
 
 
     def _deallocateCapacities(self, propDict):

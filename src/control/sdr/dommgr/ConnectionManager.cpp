@@ -39,7 +39,9 @@ static CF::ConnectionManager::ConnectionStatusSequence* connectionListToSequence
         CF::ConnectionManager::ConnectionStatusType status;
         status.usesEndpoint = ii->uses->toEndpointStatusType();
         status.providesEndpoint = ii->provides->toEndpointStatusType();
-        status.connectionId = ii->identifier.c_str();
+        status.connectionId = CORBA::string_dup(ii->identifier.c_str());
+        status.requesterId = CORBA::string_dup(ii->requesterId.c_str());
+        status.connectionRecordId = CORBA::string_dup(ii->connectionRecordId.c_str());
         status.connected = ii->connected;
         ossie::corba::push_back(result, status);
     }
@@ -61,20 +63,35 @@ ossie::Endpoint* ConnectionManager_impl::requestToEndpoint(const CF::ConnectionM
     ossie::Endpoint* endpoint = 0;
     switch (request.endpoint._d()) {
     case CF::ConnectionManager::ENDPOINT_APPLICATION:
-        endpoint = new ossie::ApplicationEndpoint(request.endpoint.waveformId());
+        endpoint = new ossie::ApplicationEndpoint(request.endpoint.applicationId());
+        endpoint->setIdentifier(request.endpoint.applicationId());
         break;
     case CF::ConnectionManager::ENDPOINT_DEVICE:
         endpoint = new ossie::ComponentEndpoint(request.endpoint.deviceId());
+        endpoint->setIdentifier(request.endpoint.deviceId());
         break;
     case CF::ConnectionManager::ENDPOINT_SERVICE:
         endpoint = new ossie::ServiceEndpoint(request.endpoint.serviceName());
+        endpoint->setIdentifier(request.endpoint.serviceName());
         break;
     case CF::ConnectionManager::ENDPOINT_EVENTCHANNEL:
         endpoint = new ossie::EventChannelEndpoint(request.endpoint.channelName());
+        endpoint->setIdentifier(request.endpoint.channelName());
         break;
     case CF::ConnectionManager::ENDPOINT_OBJECTREF:
         endpoint = new ossie::ObjectrefEndpoint(request.endpoint.objectRef());
+        endpoint->setIdentifier(std::string(""));
         break;
+    case CF::ConnectionManager::ENDPOINT_COMPONENT:
+        endpoint = new ossie::ComponentEndpoint(request.endpoint.componentId());
+        endpoint->setIdentifier(request.endpoint.componentId());
+        break;
+    case CF::ConnectionManager::ENDPOINT_DOMAINMANAGER:
+        endpoint = new ossie::FindByDomainFinderEndpoint("domainmanager","");
+        endpoint->setIdentifier(this->_domainManager->_domainName);
+        break;
+    case CF::ConnectionManager::ENDPOINT_DEVICEMANAGER:
+        throw(CF::Port::InvalidPort(1, "Unsupported endpoint. DeviceManager endpoint is not supported"));
     }
 
     const std::string portName(request.portName);
@@ -85,24 +102,39 @@ ossie::Endpoint* ConnectionManager_impl::requestToEndpoint(const CF::ConnectionM
     }
 }
 
-void ConnectionManager_impl::connect(const CF::ConnectionManager::EndpointRequest& usesEndpoint, const CF::ConnectionManager::EndpointRequest& providesEndpoint, char*& connectionId)
+char* ConnectionManager_impl::connect(const CF::ConnectionManager::EndpointRequest& usesEndpoint, const CF::ConnectionManager::EndpointRequest& providesEndpoint, const char* requesterId, const char* connectionId)
 {
     // If no connection ID was given, generate one
-    if (strlen(connectionId) == 0) {
-        CORBA::string_free(connectionId);
-        connectionId = CORBA::string_dup(ossie::generateUUID().c_str());
+    std::string _connectionId = ossie::corba::returnString(connectionId);
+    std::string _requesterId = ossie::corba::returnString(requesterId);
+    if (_connectionId.size() == 0) {
+        _connectionId = ossie::generateUUID();
     }
 
     std::auto_ptr<ossie::Endpoint> uses(requestToEndpoint(usesEndpoint));
     std::auto_ptr<ossie::Endpoint> provides(requestToEndpoint(providesEndpoint));
-    ossie::ConnectionNode connection(uses.release(), provides.release(), connectionId);
-    connection.connect(_domainManager->_connectionManager);
-    _domainManager->_connectionManager.restoreConnection("", connection);
+    ossie::ConnectionNode connection(uses.release(), provides.release(), _connectionId, requesterId, "");
+    try {
+        connection.connect(_domainManager->_connectionManager);
+    } catch (ossie::InvalidConnection &e){
+        std::ostringstream err;
+        err << "Unable to create a connection: "<<e.what();
+        throw (CF::Port::InvalidPort(1, err.str().c_str()));
+    }
+    std::string connectionRecordId = _domainManager->_connectionManager.restoreConnection(requesterId, connection);
+    return CORBA::string_dup(connectionRecordId.c_str());
 }
 
-void ConnectionManager_impl::disconnect(const char* connectionId)
+void ConnectionManager_impl::disconnect(const char* connectionRecordId)
 {
-    _domainManager->_connectionManager.breakConnection("", connectionId);
+    std::string _connectionRecordId = ossie::corba::returnString(connectionRecordId);
+    try {
+        _domainManager->_connectionManager.breakConnection(_connectionRecordId);
+    } catch ( ossie::InvalidConnection &e) {
+        std::ostringstream err;
+        err << "Unable to remove a connection: "<<e.what();
+        throw (CF::Port::InvalidPort(1, err.str().c_str()));
+    }
 }
 
 CF::ConnectionManager::ConnectionStatusSequence* ConnectionManager_impl::connections()

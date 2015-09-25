@@ -511,7 +511,11 @@ void ResourceInfo::LoadResource(CF::FileSystem_ptr fileSys,
         const std::vector<const Property*>& cprop = newComponent.prf.getConstructProperties();
         for (unsigned int i = 0; i < cprop.size(); i++) {
           LOG_TRACE(ResourceInfo, "Adding construct prop " << cprop[i]->getID() << " " << cprop[i]->getName() << " " << cprop[i]->isReadOnly());
-          newComponent.addConstructProperty(convertPropertyToDataType(cprop[i]));
+          if (cprop[i]->isCommandLine()) {
+            newComponent.addExecParameter(convertPropertyToDataType(cprop[i]));
+          } else {
+            newComponent.addConstructProperty(convertPropertyToDataType(cprop[i]));
+          }
         }
 
     }

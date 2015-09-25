@@ -68,12 +68,13 @@ static const ComponentInstantiation* findComponentInstantiation (const std::vect
 PREPARE_LOGGING(DomainManager_impl)
 
 // If _overrideDomainName == NULL read the domain name from the DMD file
-DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpath, const char* domainName, const char* _logconfig_uri, bool useLogCfgResolver) :
+DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpath, const char* domainName, const char* _logconfig_uri, bool useLogCfgResolver, bool bindToDomain ) :
   _eventChannelMgr(NULL),
   _domainName(domainName),
   _domainManagerProfile(dmdFile),
   _connectionManager(this, this, domainName),
-  _useLogConfigUriResolver(useLogCfgResolver)
+  _useLogConfigUriResolver(useLogCfgResolver),
+  _bindToDomain(bindToDomain)
 {
     TRACE_ENTER(DomainManager_impl)
 
@@ -408,9 +409,16 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
          ++i) {
         LOG_TRACE(DomainManager_impl, "Attempting to restore application  " << i->name << " " << i->identifier << " " << i->profile);
         try {
-            if (ossie::corba::objectExists(i->context)) {
-                LOG_TRACE(DomainManager_impl, "Creating application " << i->identifier << " " << _domainName << " " << i->contextName);
-                Application_impl* _application = new Application_impl (i->identifier.c_str(), i->name.c_str(), i->profile.c_str(), this, i->contextName, i->context, i->aware_application);
+            CosNaming::NamingContext_var context = CosNaming::NamingContext::_narrow(ossie::corba::stringToObject(i->contextIOR));
+            if (ossie::corba::objectExists(context)) {
+                LOG_TRACE(DomainManager_impl, "Creating application " << i->identifier << " " << _domainName << " " << i->contextName << " " << i->contextIOR);
+                Application_impl* _application = new Application_impl (i->identifier.c_str(), 
+                                       i->name.c_str(), i->profile.c_str(), 
+                                       this, 
+                                       i->contextName, 
+                                       context,
+                                       i->aware_application,
+                                       CosNaming::NamingContext::_nil() );
                 LOG_TRACE(DomainManager_impl, "Restored " << i->connections.size() << " connections");
 
                 _application->populateApplication(i->assemblyController,
@@ -1011,7 +1019,7 @@ void DomainManager_impl::_local_registerDeviceManager (CF::DeviceManager_ptr dev
         const std::vector<Connection>& connections = dcdParser.getConnections();
 
         for(size_t ii = 0; ii < connections.size(); ++ii) {
-            _connectionManager.addConnection(dcdParser.getID(), connections[ii]);
+            _connectionManager.addConnection(dcdParser.getName(), connections[ii]);
         }
         try {
             db.store("CONNECTIONS", _connectionManager.getConnections());
@@ -1143,7 +1151,7 @@ ossie::DeviceManagerList::iterator DomainManager_impl::_local_unregisterDeviceMa
     //  will be done, but no error will be raised
 
     // Break and release connections owned by the unregistering DeviceManager.
-    _connectionManager.deviceManagerUnregistered(deviceManager->identifier);
+    _connectionManager.deviceManagerUnregistered(deviceManager->label);
     try {
         db.store("CONNECTIONS", _connectionManager.getConnections());
     } catch (const ossie::PersistenceException& ex) {
@@ -1807,6 +1815,7 @@ DomainManager_impl::addApplication(Application_impl* new_app)
         } catch (const ossie::PersistenceException& ex) {
             LOG_ERROR(DomainManager_impl, "Error persisting change to device managers");
         }
+
     } catch (...) {
         ostringstream eout;
         eout << "Could not add new application to AppSeq; ";

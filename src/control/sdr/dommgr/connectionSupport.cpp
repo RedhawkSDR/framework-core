@@ -208,7 +208,7 @@ DomainConnectionManager::DomainConnectionManager(DomainLookup* domainLookup,
                                                  ComponentLookup* componentLookup,
                                                  const std::string& domainName) :
     ConnectionManager(domainLookup, componentLookup, domainName),
-    _connections()
+    _connectionsByRequester()
 {
 }
 
@@ -234,26 +234,28 @@ CF::Device_ptr DomainConnectionManager::resolveDeviceUsedByApplication(const std
     return CF::Device::_nil();
 }
 
-void DomainConnectionManager::addConnection(const std::string& deviceManagerId, const Connection& connection)
+std::string DomainConnectionManager::addConnection(const std::string& deviceManagerId, const Connection& connection)
 {
     boost::scoped_ptr<ConnectionNode> connectionNode(ConnectionNode::ParseConnection(connection));
     if (!connectionNode.get()) {
         LOG_ERROR(DomainConnectionManager, "Skipping invalid connection for DeviceManager " << deviceManagerId);
-        return;
+        return "";
     }
 
     if (!connectionNode->connect(*this)) {
         if (!connectionNode->allowDeferral()) {
             LOG_ERROR(DomainConnectionManager, "Connection " << connectionNode->identifier << " is not resolvable");
-            return;
+            return "";
         }
     }
     
+    connectionNode.get()->setrequesterId(deviceManagerId);
     LOG_DEBUG(DomainConnectionManager, "Connection " << connectionNode->identifier << " could not be resolved, marked as pending");
-    addConnection_(deviceManagerId, *connectionNode);
+    std::string connectionRecordId = addConnection_(deviceManagerId, *connectionNode);
+    return connectionRecordId;
 }
 
-void DomainConnectionManager::restoreConnection(const std::string& deviceManagerId, ConnectionNode connection)
+std::string DomainConnectionManager::restoreConnection(const std::string& deviceManagerId, ConnectionNode connection)
 {
     if (connection.connected) {
         // Try to determine whether the connection is still active.
@@ -270,14 +272,23 @@ void DomainConnectionManager::restoreConnection(const std::string& deviceManager
         // DeviceManager has come online, it will register after the restoration completes.
     }
 
-    addConnection_(deviceManagerId, connection);
+    std::string connectionRecordId = addConnection_(deviceManagerId, connection);
+    return connectionRecordId;
 }
 
-void DomainConnectionManager::breakConnection(const std::string& deviceManagerId, const std::string& connectionId)
+void DomainConnectionManager::breakConnection(const std::string& connectionRecordId)
 {
     boost::mutex::scoped_lock(_connectionMutex);
-    ConnectionTable::iterator table = _connections.find(deviceManagerId);
-    if (table != _connections.end()) {
+    std::map< std::string, std::pair<std::string, std::string> >::iterator _gC_it = _globalConnections.find(connectionRecordId);
+    if (_gC_it == _globalConnections.end()) {
+        // connection already broken
+        throw (InvalidConnection("Connection already broken"));
+    }
+    std::string deviceManagerId = _gC_it->second.first;
+    std::string connectionId = _gC_it->second.second;
+    _globalConnections.erase(_gC_it);
+    ConnectionTable::iterator table = _connectionsByRequester.find(deviceManagerId);
+    if (table != _connectionsByRequester.end()) {
         ConnectionList& connections = table->second;
         for (ConnectionList::iterator ii = connections.begin(); ii != connections.end(); ++ii) {
             if (ii->identifier == connectionId) {
@@ -289,21 +300,25 @@ void DomainConnectionManager::breakConnection(const std::string& deviceManagerId
     }
 }
 
-void DomainConnectionManager::deviceManagerUnregistered(const std::string& deviceManagerId)
+void DomainConnectionManager::deviceManagerUnregistered(const std::string& deviceManagerName)
 {
     TRACE_ENTER(DomainConnectionManager);
     boost::mutex::scoped_lock(_connectionLock);
-    ConnectionTable::iterator devMgr = _connections.find(deviceManagerId);
-    if (devMgr == _connections.end()) {
+    ConnectionTable::iterator devMgr = _connectionsByRequester.find(deviceManagerName);
+    if (devMgr == _connectionsByRequester.end()) {
         // DeviceManager has no connections.
         return;
     }
     ConnectionList& connectionList = devMgr->second;
-    LOG_TRACE(DomainConnectionManager, "Deleting " << connectionList.size() << " connection(s) from DeviceManager " << deviceManagerId);
+    LOG_TRACE(DomainConnectionManager, "Deleting " << connectionList.size() << " connection(s) from DeviceManager " << deviceManagerName);
     for (ConnectionList::iterator connection = connectionList.begin(); connection != connectionList.end(); ++connection) {
         connection->disconnect(_domainLookup);
+        try {
+            _globalConnections.erase(connection->connectionRecordId);
+        } catch ( ... ) {
+        }
     }
-    _connections.erase(devMgr);
+    _connectionsByRequester.erase(devMgr);
     TRACE_EXIT(DomainConnectionManager);
 }
 
@@ -351,16 +366,29 @@ void DomainConnectionManager::applicationUnregistered(const std::string& applica
 
 const ConnectionTable& DomainConnectionManager::getConnections() const
 {
-    return _connections;
+    return _connectionsByRequester;
 }
 
-void DomainConnectionManager::addConnection_(const std::string& deviceManagerId, const ConnectionNode& connection)
+std::string DomainConnectionManager::addConnection_(const std::string& requesterId, const ConnectionNode& connection)
 {
     boost::mutex::scoped_lock(_connectionMutex);
-    if (_connections.find(deviceManagerId) == _connections.end()) {
-        _connections[deviceManagerId] = ConnectionList();
+    if (_connectionsByRequester.find(requesterId) == _connectionsByRequester.end()) {
+        _connectionsByRequester[requesterId] = ConnectionList();
     }
-    _connections[deviceManagerId].push_back(connection);
+    std::string connectionRecordId = requesterId + std::string("_") + connection.identifier;
+    std::string orig_connectionRecordId = connectionRecordId;
+    int counter = 1;
+    while (_globalConnections.find(connectionRecordId) != _globalConnections.end()) {
+        std::ostringstream candidate;
+        candidate << orig_connectionRecordId<<"_"<<counter;
+        counter++;
+        connectionRecordId = candidate.str();
+    }
+    _globalConnections[connectionRecordId] = std::make_pair(requesterId, connection.identifier);
+    ConnectionNode tmpNode = connection;
+    tmpNode.setconnectionRecordId(connectionRecordId);
+    _connectionsByRequester[requesterId].push_back(tmpNode);
+    return connectionRecordId;
 }
 
 void DomainConnectionManager::tryPendingConnections_(Endpoint::DependencyType type, const std::string& identifier)
@@ -368,7 +396,7 @@ void DomainConnectionManager::tryPendingConnections_(Endpoint::DependencyType ty
     TRACE_ENTER(DomainConnectionManager);
 
     boost::mutex::scoped_lock lock(_connectionLock);
-    for (ConnectionTable::iterator devMgr = _connections.begin(); devMgr != _connections.end(); ++devMgr) {
+    for (ConnectionTable::iterator devMgr = _connectionsByRequester.begin(); devMgr != _connectionsByRequester.end(); ++devMgr) {
         // Go through the list of connections for each DeviceManager to check
         // for pending connections that have the given dependency, and attempt
         // to complete the connection.
@@ -398,7 +426,7 @@ void DomainConnectionManager::breakConnections_(Endpoint::DependencyType type, c
     TRACE_ENTER(DomainConnectionManager);
 
     boost::mutex::scoped_lock lock(_connectionLock);
-    for (ConnectionTable::iterator devMgr = _connections.begin(); devMgr != _connections.end(); ++devMgr) {
+    for (ConnectionTable::iterator devMgr = _connectionsByRequester.begin(); devMgr != _connectionsByRequester.end(); ++devMgr) {
         // Go through the list of connections for each DeviceManager to check
         // for connections that have the given dependency, and disconnect the
         // uses side.
@@ -524,6 +552,7 @@ CF::ConnectionManager::EndpointStatusType Endpoint::toEndpointStatusType() const
     if (!CORBA::is_nil(object_)) {
         status.repositoryId = ossie::corba::mostDerivedRepoId(status.endpointObject);
     }
+    status.entityId = CORBA::string_dup(identifier__.c_str());
     return status;
 }
 
@@ -544,6 +573,16 @@ CORBA::Object_ptr Endpoint::resolve(ConnectionManager& manager)
 CORBA::Object_ptr Endpoint::object()
 {
     return object_;
+}
+
+std::string Endpoint::getIdentifier()
+{
+    return identifier__;
+}
+
+void Endpoint::setIdentifier(std::string identifier)
+{
+    identifier__ = identifier;
 }
 
 void Endpoint::release()
@@ -579,13 +618,15 @@ ConnectionNode* ConnectionNode::ParseConnection(const Connection& connection)
         connectionId = ossie::generateUUID();
     }
 
-    return new ConnectionNode(usesEndpoint.release(), providesEndpoint.release(), connectionId);
+    return new ConnectionNode(usesEndpoint.release(), providesEndpoint.release(), connectionId, "", "");
 }
 
-ConnectionNode::ConnectionNode(Endpoint* uses_, Endpoint* provides_, const std::string& identifier_) :
+ConnectionNode::ConnectionNode(Endpoint* uses_, Endpoint* provides_, const std::string& identifier_, const std::string& requesterId_, const std::string& connectionRecordId_) :
     uses(uses_),
     provides(provides_),
     identifier(identifier_),
+    requesterId(requesterId_),
+    connectionRecordId(connectionRecordId_),
     connected(false)
 {
     assert(uses);
@@ -596,6 +637,8 @@ ConnectionNode::ConnectionNode(const ConnectionNode& other) :
     uses(other.uses->clone()),
     provides(other.provides->clone()),
     identifier(other.identifier),
+    requesterId(other.requesterId),
+    connectionRecordId(other.connectionRecordId),
     connected(other.connected)
 {
 }
@@ -626,15 +669,13 @@ bool ConnectionNode::connect(ConnectionManager& manager)
             LOG_DEBUG(ConnectionNode, "Connection is deferred to a later date");
             return false;
         }
-        //throw InvalidConnection("Connection cannot be deferred");
-        return false;
+        throw InvalidConnection("Connection cannot be deferred");
     }
 
     CF::Port_var usesPort = ossie::corba::_narrowSafe<CF::Port>(usesObject);
     if (CORBA::is_nil(usesPort)) {
         LOG_ERROR(ConnectionNode, "Uses port is not a CF::Port");
-        //throw InvalidConnection("Uses port is not a CF::Port");
-        return false;
+        throw InvalidConnection("Uses port is not a CF::Port");
     }
 
     try {
@@ -642,15 +683,16 @@ bool ConnectionNode::connect(ConnectionManager& manager)
         connected = true;
         return true;
     } catch (const CF::Port::InvalidPort& ip) {
-        LOG_ERROR(ConnectionNode, "Invalid port: " << ip.msg);
-        //throw InvalidConnection(std::string("Invalid port: ") + ip.msg);
+        std::ostringstream err;
+        err << "Invalid port: " << ip.msg;
+        LOG_ERROR(ConnectionNode, err.str());
+        throw InvalidConnection(err.str());
     } catch (const CF::Port::OccupiedPort& op) {
         LOG_ERROR(ConnectionNode, "Port is occupied");
-        //throw InvalidConnection("Port is occupied");
+        throw InvalidConnection("Port is occupied");
     } CATCH_LOG_ERROR(ConnectionNode, "Port connection failed for connection " << identifier);
 
-    //throw InvalidConnection("Unknown error");
-    return false;
+    throw InvalidConnection("Unknown error");
 }
 
 void ConnectionNode::disconnect(DomainLookup* domainLookup)

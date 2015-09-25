@@ -1341,7 +1341,10 @@ class BulkioTest(unittest.TestCase):
                 # TODO: add test for char
                 continue
             elif format == "octet":
-                # TODO: add test for char
+                # TODO: add test for octet
+                continue
+            elif format == "sdds":
+                # TODO: add test for sdds
                 continue
             else:
                 # test scalar data

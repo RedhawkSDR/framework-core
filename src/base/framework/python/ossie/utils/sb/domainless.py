@@ -321,9 +321,15 @@ def show():
 
 def getComponent(name):
     '''
-    Retrieve a pointer to a running component instance
+    Retrieve a pointer to a running component instance. This function is being deprecated
     '''
     return _getSandbox().getComponent(name)
+
+def retrieve(name):
+    '''
+    Retrieve a pointer to a running component instance (replaces getComponent)
+    '''
+    return _getSandbox().retrieve(name)
 
 def getService(name):
     """
@@ -555,13 +561,13 @@ def loadSADFile(filename, props={}):
             refid = component.componentfileref.refid
             if validRequestedComponents.has_key(refid):
                 instanceName = component.get_componentinstantiation()[0].get_usagename()
-                componentName = os.path.basename(validRequestedComponents[refid] ).split('.')[0]
                 instanceID = component.get_componentinstantiation()[0].id_
                 log.debug("launching component '%s'", instanceName)
                 properties=component.get_componentinstantiation()[0].get_componentproperties()
                 #simples
                 spd = validRequestedComponents[refid]
                 parsed_spd = parsers.spd.parse(spd)
+                componentName = parsed_spd.get_name()
                 pathToComponentXML = os.path.dirname(spd)
                 prfFilename = pathToComponentXML+'/'+parsed_spd.get_propertyfile().get_localfile().name
                 _prf = parsers.prf.parse(prfFilename)

@@ -288,6 +288,9 @@ class LocalSandbox(Sandbox):
     def getComponent(self, name):
         return self.__components.get(name, None)
 
+    def retrieve(self, name):
+        return self.__components.get(name, None)
+
     def getComponentByRefid(self, refid):
         for component in self.__components.itervalues():
             if refid == component._refid:

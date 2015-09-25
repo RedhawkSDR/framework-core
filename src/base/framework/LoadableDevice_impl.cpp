@@ -375,6 +375,12 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
         if (workingFileName[0] == '/') {
             relativeFileName = workingFileName.substr(1);
         }
+        fileStream.open(relativeFileName.c_str(), mode);
+        if (!fileStream.is_open()) {
+            LOG_ERROR(LoadableDevice_impl, "Could not create file " << relativeFileName.c_str());
+            throw CF::LoadableDevice::LoadFail(CF::CF_NOTSET, "Device SDR cache write error");
+        }
+
         _copyFile( fs, workingFileName, relativeFileName, workingFileName );
         chmod(relativeFileName.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         fileTypeTable[workingFileName] = CF::FileSystem::PLAIN;
@@ -641,6 +647,7 @@ void LoadableDevice_impl::_copyFile(CF::FileSystem_ptr fs, const std::string &re
     }
 
     copiedFiles.insert(copiedFiles_type::value_type(fileKey, localPath));
+
     std::size_t fileSize = fileToLoad->sizeOf();
     bool fe=false;
     try  {
@@ -672,13 +679,12 @@ void LoadableDevice_impl::_copyFile(CF::FileSystem_ptr fs, const std::string &re
       LOG_ERROR(LoadableDevice_impl, "Closing remote file encountered exception, file:" << remotePath );
       fe=true;
     }
-      
+
     fileStream.close();
 
     if (fe) {
       throw CF::FileException();
     }
-
 }
 
 

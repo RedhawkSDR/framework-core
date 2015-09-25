@@ -241,7 +241,6 @@ namespace ossie
 
         void overrideProperty(const ossie::ComponentProperty* propref);
         void overrideProperty(const char* id, const CORBA::Any& value);
-        void overrideSimpleProperty(const char* id, const std::string value);
 
         void setResourcePtr(CF::Resource_ptr);
 
@@ -265,7 +264,7 @@ namespace ossie
         bool checkStruct(CF::Properties &props);
 
         CF::Properties getNonNilConfigureProperties();
-        CF::Properties getNonNilConstructProperties();
+        CF::Properties getNonNilNonExecConstructProperties();
         CF::Properties getConfigureProperties();
         CF::Properties getConstructProperties();
         CF::Properties getOptions();

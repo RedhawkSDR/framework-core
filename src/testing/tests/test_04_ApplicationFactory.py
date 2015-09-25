@@ -256,6 +256,50 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         app.releaseObject()
         self.assertEqual(len(domMgr._get_applications()), 0)
 
+    def test_commandline_props(self):
+        nodebooter, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(devMgr, None)
+
+        app = domMgr.createApplication("/waveforms/commandline_prop_w/commandline_prop_w.sad.xml", 'some_app', [], [])
+        comp_pid = int(app._get_componentProcessIds()[0].processId)
+        fp=open('/proc/'+str(comp_pid)+'/cmdline','r')
+        comp_contents = fp.read()
+        fp.close()
+        items = comp_contents.split('\x00')
+        self.assertEqual(len(domMgr._get_applications()), 1)
+        
+        self.assertEqual(items.count('testprop'),1)
+        props=[CF.DataType(id='testprop',value=any.to_any(None))]
+        retprops = app._get_registeredComponents()[0].componentObject.query(props)
+        self.assertEqual('abc',retprops[0].value._v)
+        
+        app.releaseObject()
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+    def test_nocommandline_props(self):
+        nodebooter, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(devMgr, None)
+
+        app = domMgr.createApplication("/waveforms/nocommandline_prop_w/nocommandline_prop_w.sad.xml", 'some_app', [], [])
+        comp_pid = int(app._get_componentProcessIds()[0].processId)
+        fp=open('/proc/'+str(comp_pid)+'/cmdline','r')
+        comp_contents = fp.read()
+        fp.close()
+        items = comp_contents.split('\x00')
+        self.assertEqual(len(domMgr._get_applications()), 1)
+        
+        self.assertEqual(items.count('testprop'),0)
+        props=[CF.DataType(id='testprop',value=any.to_any(None))]
+        retprops = app._get_registeredComponents()[0].componentObject.query(props)
+        self.assertEqual('abc',retprops[0].value._v)
+        
+        app.releaseObject()
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
     def test_NonScaCompliant(self):
         nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)

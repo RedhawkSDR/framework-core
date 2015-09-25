@@ -137,7 +137,8 @@ public:
     createHelper (const ApplicationFactory_impl& appFact,
                   std::string waveformContextName,
                   std::string base_naming_context,
-                  CosNaming::NamingContext_ptr WaveformContext);
+                  CosNaming::NamingContext_ptr WaveformContext,
+                  CosNaming::NamingContext_ptr DomainContext);
     ~createHelper ();
 
     CF::Application_ptr create (const char* name,
@@ -186,6 +187,7 @@ private:
 
     // CORBA naming context
     CosNaming::NamingContext_var _waveformContext; 
+    CosNaming::NamingContext_ptr _domainContext; 
 
     ossie::ApplicationInfo _appInfo;
 

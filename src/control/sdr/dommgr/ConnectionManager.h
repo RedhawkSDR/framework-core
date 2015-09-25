@@ -31,7 +31,7 @@ public:
     ConnectionManager_impl(DomainManager_impl* domain);
     virtual ~ConnectionManager_impl();
 
-    virtual void connect(const CF::ConnectionManager::EndpointRequest& usesEndpoint, const CF::ConnectionManager::EndpointRequest& providesEndpoint, char*& connectionId);
+    virtual char* connect(const CF::ConnectionManager::EndpointRequest& usesEndpoint, const CF::ConnectionManager::EndpointRequest& providesEndpoint, const char* requesterId, const char* connectionId);
 
     virtual void disconnect(const char* connectionId);
 

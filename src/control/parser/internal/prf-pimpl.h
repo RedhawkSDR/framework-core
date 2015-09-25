@@ -63,6 +63,17 @@ namespace prf
       virtual ::std::string
       post_IsComplex ();
     };
+
+    class IsCommandLine_pimpl: public virtual IsCommandLine_pskel,
+      public ::xml_schema::string_pimpl
+    {
+      public:
+      virtual void
+      pre ();
+
+      virtual ::std::string
+      post_IsCommandLine ();
+    };
    
     class IsOptional_pimpl: public virtual IsOptional_pskel,
       public ::xml_schema::string_pimpl
@@ -314,6 +325,9 @@ namespace prf
       complex (const ::std::string&);
 
       virtual void
+      commandline (const ::std::string&);
+
+      virtual void
       optional (const ::std::string&);
 
       virtual ossie::SimpleProperty*
@@ -326,6 +340,7 @@ namespace prf
       std::string _complex;
       std::string _mode;
       std::string _action;
+      std::string _commandline;
       std::string _optional;
       std::vector<std::string> _kinds;
       std::auto_ptr<std::string> _value;

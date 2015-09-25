@@ -28,6 +28,7 @@ import java.util.Set;
 import org.omg.CORBA.Any;
 import org.omg.CORBA.ORB;
 import org.omg.CORBA.TCKind;
+import org.ossie.properties.AnyUtils;
 
 import CF.DevicePackage.InvalidCapacity;
 import CF.DevicePackage.InvalidState;
@@ -134,14 +135,20 @@ abstract class Property<T extends Object> implements IProperty {
      * Updates the value of the property, triggering any change listeners.
      */
     public void configure(Any any) {
+        boolean trigger_callback = false;
+        if (AnyUtils.compareAnys(this.toAny(), any, "ne")) {
+            trigger_callback = true;
+        }
         T oldValue = this.value;
         configureNoCallbacks(any);
-        for (PropertyListener<T> listener : changeListeners) {
-            listener.valueChanged(oldValue, this.value);
-        }
+        if (trigger_callback) {
+            for (PropertyListener<T> listener : changeListeners) {
+                listener.valueChanged(oldValue, this.value);
+            }
 
-        for (PropertyListener<Object> listener : voidListeners) {
-            listener.valueChanged(oldValue, this.value);
+            for (PropertyListener<Object> listener : voidListeners) {
+                listener.valueChanged(oldValue, this.value);
+            }
         }
     }
 
@@ -156,9 +163,10 @@ abstract class Property<T extends Object> implements IProperty {
      * Sets the current value of the property.
      */
     public void setValue(T value) {
+        T tmpValue = this.value;
         this.value = value;
         for (PropertyListener<Object> listener : voidListeners) {
-            listener.valueChanged(value, this.value);
+            listener.valueChanged(value, tmpValue);
         }
     }
 
@@ -323,17 +331,17 @@ abstract class Property<T extends Object> implements IProperty {
         boolean retval = false;
         if (this.optional == true) {
             if (this.getValue() instanceof List) {
-		if (!((List)this.getValue()).isEmpty()) {
-		    retval = true;
-		}
-	    } else {
-		if (this.getValue() != null) {
+                if (!((List)this.getValue()).isEmpty()) {
                     retval = true;
-		}
+                }
+            } else {
+                if (this.getValue() != null) {
+                    retval = true;
+                }
             }
-	} else {
-	    retval = true;
-	}
+        } else {
+            retval = true;
+        }
         return retval;
-    }         
+    }      
 }

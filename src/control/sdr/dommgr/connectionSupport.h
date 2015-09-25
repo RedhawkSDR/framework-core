@@ -93,9 +93,12 @@ namespace ossie
             APPLICATION
         } DependencyType;
 
+        Endpoint() { identifier__ = std::string("");};
         virtual ~Endpoint() { };
         CORBA::Object_ptr resolve(ConnectionManager& manager);
         CORBA::Object_ptr object();
+        std::string getIdentifier();
+        void setIdentifier(std::string identifier);
         bool isResolved();
 
         virtual CF::ConnectionManager::EndpointStatusType toEndpointStatusType() const;
@@ -131,6 +134,9 @@ namespace ossie
 #endif
 
         CORBA::Object_var object_;
+
+    protected:
+        std::string identifier__;
     };
 
     class ConnectionNode {
@@ -140,7 +146,7 @@ namespace ossie
     public:
         static ConnectionNode* ParseConnection(const ossie::Connection& connection);
 
-        ConnectionNode(Endpoint* uses, Endpoint* provides, const std::string& identifier);
+        ConnectionNode(Endpoint* uses, Endpoint* provides, const std::string& identifier, const std::string &requesterId, const std::string &connectionRecordId);
         ConnectionNode(const ConnectionNode&);
 
         bool connect(ConnectionManager& manager);
@@ -157,14 +163,21 @@ namespace ossie
             provides.reset(other.provides->clone());
             identifier = other.identifier;
             connected = other.connected;
+            requesterId = other.requesterId;
+            connectionRecordId = other.connectionRecordId;
             return *this;
         }
+
+        void setrequesterId(std::string _requesterId) { requesterId = _requesterId;}
+        void setconnectionRecordId(std::string _connectionRecordId) { connectionRecordId = _connectionRecordId;}
 
         // Use boost::scoped_ptr instead of std::auto_ptr for serialization
         // purposes.
         boost::scoped_ptr<Endpoint> uses;
         boost::scoped_ptr<Endpoint> provides;
         std::string identifier;
+        std::string requesterId;
+        std::string connectionRecordId;
         bool connected;
 
     };
@@ -247,11 +260,11 @@ namespace ossie
                                 const std::string& domainName);
         virtual ~DomainConnectionManager();
 
-        void addConnection(const std::string& deviceManagerId, const Connection& connection);
-        void restoreConnection(const std::string& deviceManagerId, ConnectionNode connection);
-        void breakConnection(const std::string& deviceManagerId, const std::string& connectionId);
+        std::string addConnection(const std::string& deviceManagerId, const Connection& connection);
+        std::string restoreConnection(const std::string& deviceManagerId, ConnectionNode connection);
+        void breakConnection(const std::string& connectionRecordId);
 
-        void deviceManagerUnregistered(const std::string& deviceManagerId);
+        void deviceManagerUnregistered(const std::string& deviceManagerName);
 
         void deviceRegistered(const std::string& deviceId);
         void deviceUnregistered(const std::string& deviceId);
@@ -269,12 +282,13 @@ namespace ossie
         virtual CF::Device_ptr resolveDeviceUsedByThisComponentRef(const std::string& refid, const std::string& usesrefid);
         virtual CF::Device_ptr resolveDeviceUsedByApplication(const std::string& usesrefid);
 
-        void addConnection_(const std::string& deviceManagerId, const ConnectionNode& connection);
+        std::string addConnection_(const std::string& deviceManagerId, const ConnectionNode& connection);
         void tryPendingConnections_(Endpoint::DependencyType type, const std::string& identifier);
         void breakConnections_(Endpoint::DependencyType type, const std::string& identifier);
 
         boost::mutex _connectionLock;
-        ConnectionTable _connections;
+        ConnectionTable _connectionsByRequester;
+        std::map< std::string, std::pair<std::string, std::string> > _globalConnections;
     };
 
     // Miscellaneous helper functions

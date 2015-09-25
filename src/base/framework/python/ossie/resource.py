@@ -751,7 +751,7 @@ class Resource(object):
         with self.propertySetAccess:
             # Disallow multiple calls
             if self.__propertiesInitialized:
-                raise CF.PropertySet.AlreadyInitialized()
+                raise CF.PropertyEmitter.AlreadyInitialized()
             self.__propertiesInitialized = True
 
             notSet = []

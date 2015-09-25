@@ -59,7 +59,7 @@ class DomainManager_impl: public virtual POA_CF::DomainManager, public PropertyS
 ///////////////////////////
 public:
 
-  DomainManager_impl (const char*, const char*, const char*, const char*, bool);
+  DomainManager_impl (const char*, const char*, const char*, const char*, bool, bool );
     ~DomainManager_impl ();
 
     friend class ODM_Channel_Supplier_i;
@@ -230,6 +230,8 @@ public:
 
     rh_logger::LoggerPtr  getLogger() const { return __logger; };
 
+    bool   bindToDomain() { return _bindToDomain; };
+
 /////////////////////////////
 // Internal Helper Functions
 /////////////////////////////
@@ -349,11 +351,14 @@ private:
     CORBA::ULong     componentBindingTimeout;
     std::string      redhawk_version;
     bool             _useLogConfigUriResolver;
+
     void _exit(int __status) {
         ossie::logging::Terminate();            //no more logging....
         exit(__status);
     };
     FileManager_impl* fileMgr_servant;
+
+    bool             _bindToDomain;
 };                                            /* END CLASS DEFINITION DomainManager */
 
 

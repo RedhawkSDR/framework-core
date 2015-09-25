@@ -1647,10 +1647,16 @@ class PropertyStorage:
                 else:
                     newvalue = _toPyComplex(newvalue,'')
         if disableCallbacks: return
-        if id_ in self._changeListeners and oldvalue != newvalue:
-            if self._changeListeners[id_].func_code.co_argcount != 4:
-                raise CF.PropertySet.InvalidConfiguration(msg='callback function '+self._changeListeners[id_].func_name+' has the wrong number of arguments',invalidProperties=prop)
-            self._changeListeners[id_](id_, oldvalue, newvalue)
+        if id_ in self._changeListeners:
+            if 'configure' in prop.kinds or 'execparam'in prop.kinds:
+                self._changeListeners[id_](id_, oldvalue, newvalue)
+            else: # property kind
+                if oldvalue != newvalue:
+                    if self._changeListeners[id_].func_code.co_argcount != 4:
+                        raise CF.PropertySet.InvalidConfiguration(msg='callback function '+self._changeListeners[id_].func_name+' has the wrong number of arguments',invalidProperties=prop)
+                    self._changeListeners[id_](id_, oldvalue, newvalue)
+                else:
+                    self.__resource._log.warning("Value has not changed on configure for property "+id_+". Not triggering callback")
         for callback in self._genericListeners:
             callback(id_, oldvalue, newvalue)
         

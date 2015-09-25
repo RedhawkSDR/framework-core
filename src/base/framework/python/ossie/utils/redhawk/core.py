@@ -111,6 +111,7 @@ class App(_CF__POA.Application, Resource):
         self.__initialized = False
         Resource.__init__(self, None)
         self.name = name
+        self._instanceName = name
         self.__components = None
         self.ports = []
         self._portsUpdated = False
@@ -122,6 +123,7 @@ class App(_CF__POA.Application, Resource):
         self._connectioncount = 0
         self.assemblyController = None
         self._acRef = None
+        self._id = None
 
         if self._domain == None:
             orb = _CORBA.ORB_init(_sys.argv, _CORBA.ORB_ID)
@@ -220,6 +222,10 @@ class App(_CF__POA.Application, Resource):
             if name in ('ports', '_usesPortDict', '_providesPortDict'):
                 if not object.__getattribute__(self,'_portsUpdated'):
                     self._populatePorts()
+            if name == '_id':
+                if object.__getattribute__(self,'_id') == None:
+                    tmp_id = object.__getattribute__(self, 'ref')._get_identifier()
+                    self.__setattr__('_id', tmp_id)
 
             return object.__getattribute__(self,name)
         except AttributeError:
@@ -1087,6 +1093,72 @@ class Domain(_CF__POA.DomainManager, QueryableBase, PropertySet):
         for devMgr in self.devMgrs:
             svcs.extend(devMgr.services)
         return svcs
+
+    # this function is a bit of overkill. The reason why an evaluation
+    # function is passed is that because at first, the retrieve function
+    # did an exact match and then a regular expression, so it was simpler
+    # to pass the evaluation criteria rather than hard-code the behavior
+    def __execute_search(self, element=None, search='', func=None):
+        if element == None:
+            return None
+        if func == None:
+            return None
+        devices = self.devices
+        for device in devices:
+            if func(device.__dict__[element], search):
+                return device
+         # search services
+        services = self.services
+        for service in services:
+            if func(service.__dict__[element], search):
+                return service
+         # search apps
+        apps = self.apps
+        for app in apps:
+            if func(app.__dict__[element], search):
+                return app
+         # search for components on apps
+        for app in apps:
+            for comp in app.comps:
+                if func(comp.__dict__[element], search):
+                    return comp
+
+    def retrieve(self, search=''):
+        """
+        find a component, device, service, application, or event channel based on
+        the given search string. The search pattern is
+        for (1) the identifier. If there are no hits on the
+        identifier, then (2) for the name
+        """
+        if search == '':
+            raise Exception('A valid search pattern must be provided')
+        # search by id
+         # search devices, services, apps, and components on apps
+        def __equals(a,b):
+            return a==b
+        retval = self.__execute_search('_id', search, __equals)
+        if retval:
+            return retval
+        # search by name
+        retval = self.__execute_search('_instanceName', search, __equals)
+        if retval:
+            return retval
+         # search for event channels
+        evtMgr = self.ref._get_eventChannelMgr()
+        get_number = 100
+        evt_channels = evtMgr.listChannels(get_number)
+        if len(evt_channels[0]) == get_number:
+            done = False
+            while not done:
+                ret_ch = evt_channels[1].next_n(get_number)
+                if len(ret_ch[1]) != get_number:
+                    done = True
+                evt_channels[0] = evt_channels[0] + ret_ch[1]
+        for evt_channel in evt_channels[0]:
+            if evt_channel.channel_name == search:
+                return evt_channel
+
+        raise Exception('No element found with the given criteria')
 
     def __connectIDMChannel(self):
         """

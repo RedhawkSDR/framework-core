@@ -584,7 +584,22 @@ ComponentInfo* ComponentInfo::buildComponentInfoFromSPDFile(CF::FileManager_ptr 
         const std::vector<const Property*>& cprop = newComponent->prf.getConstructProperties();
         for (unsigned int i = 0; i < cprop.size(); i++) {
           LOG_TRACE(ComponentInfo, "Adding construct prop " << cprop[i]->getID() << " " << cprop[i]->getName() << " " << cprop[i]->isReadOnly());
-          newComponent->addConstructProperty(convertPropertyToDataType(cprop[i]));
+          bool isExec = false;
+          std::string cprop_id(cprop[i]->getID());
+          for (unsigned int ei = 0; ei < eprop.size(); ei++) {
+              std::string eprop_id(eprop[ei]->getID());
+              if (eprop_id == cprop_id) {
+                  isExec = true;
+                  break;
+              }
+          }
+          if (isExec)
+              continue;
+          if (cprop[i]->isCommandLine()) {
+            newComponent->addExecParameter(convertPropertyToDataType(cprop[i]));
+          } else {
+            newComponent->addConstructProperty(convertPropertyToDataType(cprop[i]));
+          }
         }
 
     }
@@ -728,25 +743,6 @@ void ComponentInfo::overrideProperty(const ossie::ComponentProperty* propref) {
 
     CF::DataType dt = overridePropertyValue(prop, propref);
     overrideProperty(dt.id, dt.value);
-}
-
-void ComponentInfo::overrideSimpleProperty(const char* id, const std::string value)
-{
-    const Property* prop = prf.getProperty(id);
-    // Without a prop, we don't know how to convert the strings to the property any type
-    if (prop == NULL) {
-        LOG_WARN(ComponentInfo, "ignoring attempt to override property " << id << " that does not exist in component")
-        return;
-    }
-
-    if (dynamic_cast<const SimpleProperty*>(prop) != NULL) {
-        const SimpleProperty* simple = dynamic_cast<const SimpleProperty*>(prop);
-        CORBA::TypeCode_ptr type = ossie::getTypeCode(static_cast<std::string>(simple->getType()));
-        CORBA::Any val = ossie::string_to_any(value, type);
-        overrideProperty(id, val);
-    } else {
-        LOG_WARN(ComponentInfo, "attempt to override non-simple property with string value");
-    }
 }
 
 void ComponentInfo::overrideProperty(const char* id, const CORBA::Any& value)
@@ -925,7 +921,7 @@ CF::Properties ComponentInfo::getNonNilConfigureProperties()
     return ossie::getNonNilConfigureProperties(configureProperties);
 }
 
-CF::Properties ComponentInfo::getNonNilConstructProperties()
+CF::Properties ComponentInfo::getNonNilNonExecConstructProperties()
 {
     return ossie::getNonNilProperties(ctorProperties);
 }

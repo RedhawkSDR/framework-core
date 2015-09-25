@@ -100,7 +100,7 @@ import CF.InvalidIdentifier;
 import CF.LifeCyclePackage.InitializeError;
 import CF.LifeCyclePackage.ReleaseError;
 import CF.PortSupplierPackage.UnknownPort;
-import CF.PropertySetPackage.AlreadyInitialized;
+import CF.PropertyEmitterPackage.AlreadyInitialized;
 import CF.PropertySetPackage.InvalidConfiguration;
 import CF.PropertySetPackage.PartialConfiguration;
 import CF.ResourcePackage.StartError;
@@ -569,17 +569,18 @@ public abstract class Resource extends Logging implements ResourceOperations, Ru
             }
 
             try {
-                // See if the value has changed
-                if (AnyUtils.compareAnys(prop.toAny(), dt.value, "ne")) {
-                    // Update the value on the property, which may trigger a
-                    // callback.
-                    prop.configure(dt.value);
+                Any value_before = prop.toAny();
+                // Update the value on the property, which may trigger a
+                // callback.
+                prop.configure(dt.value);
+                if (AnyUtils.compareAnys(value_before, prop.toAny(), "eq")) {
+                    logger.warn("Value has not changed on configure for property " + dt.id + ". Not triggering callback");
+                }
 
-                    // Check to see if this property should issue property change
-                    // events and a port is registered.
-                    if (prop.isEventable() && (this.propertyChangePort != null)) {
-                        this.propertyChangePort.sendPropertyEvent(prop.getId());
-                    }
+                // Check to see if this property should issue property change
+                // events and a port is registered.
+                if (prop.isEventable() && (this.propertyChangePort != null)) {
+                    this.propertyChangePort.sendPropertyEvent(prop.getId());
                 }
                 logger.trace("Configured property: " + prop);
             } catch (Throwable t) {

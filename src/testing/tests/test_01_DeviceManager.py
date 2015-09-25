@@ -26,6 +26,7 @@ from ossie.cf import CF
 import commands
 import CosNaming
 import tempfile
+import commands
 
 java_support = runtestHelpers.haveJavaSupport('../Makefile')
 
@@ -321,6 +322,41 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         d = dict([(d["id"], d["value"]) for d in struct_propseq])
         self.assertEqual(d, {"item1": "the new value", "item2": 400, "item3": 1.414})
 
+    def test_cmdline_props(self):
+        nodebooter, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/cmdline_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(devMgr, None)
+        
+        status,output = commands.getstatusoutput('ps -ef | grep cmdline_dev')
+        lines = output.split('\n')
+        for line in lines:
+          if 'IOR' in line:
+            break
+        
+        items = line.split(' ')
+        self.assertEqual(items.count('testprop'),1)
+        props=[CF.DataType(id='testprop',value=any.to_any(None))]
+        retprops = devMgr._get_registeredDevices()[0].query(props)
+        self.assertEqual('abc',retprops[0].value._v)
+
+    def test_nocmdline_props(self):
+        nodebooter, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/nocmdline_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(devMgr, None)
+        
+        status,output = commands.getstatusoutput('ps -ef | grep cmdline_dev')
+        lines = output.split('\n')
+        for line in lines:
+          if 'IOR' in line:
+            break
+        
+        items = line.split(' ')
+        self.assertEqual(items.count('testprop'),0)
+        props=[CF.DataType(id='testprop',value=any.to_any(None))]
+        retprops = devMgr._get_registeredDevices()[0].query(props)
+        self.assertEqual('abc',retprops[0].value._v)
 
     def test_ComponentPlacementSimpleSeqPropertyOverride(self):
         devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_DCDSimpleSeq_node/DeviceManager.dcd.xml")

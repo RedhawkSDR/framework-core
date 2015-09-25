@@ -31,6 +31,7 @@ DomainManager_SOURCES = applicationSupport.cpp \
                         ApplicationFactory_impl.cpp \
                         DomainManager_EventSupport.cpp \
                         ConnectionManager.cpp \
+                        RH_NamingContext.cpp \
                         DomainManager_impl.cpp \
                         FakeApplication.cpp \
                         main.cpp

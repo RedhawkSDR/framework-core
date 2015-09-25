@@ -45,6 +45,7 @@ with this program.  If not, see http://www.gnu.org/licenses/.
 		| string	| ulong | ulonglong	| ushort )		#REQUIRED
 	name	CDATA							#IMPLIED
 	complex ( false | true ) "false"
+	commandline ( false | true ) "false"
 	optional ( false | true ) "false"
 	mode	( readonly	| readwrite | writeonly)	"readwrite">
 

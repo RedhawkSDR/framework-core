@@ -38,6 +38,7 @@
 #include <ossie/affinity.h>
 #include "spdSupport.h"
 #include "DeviceManager_impl.h"
+#include "rh_logger_stdout.h"
 
 namespace fs = boost::filesystem;
 
@@ -543,7 +544,52 @@ void DeviceManager_impl::getOverloadprops(
                 }
             }
         }
+    }
+    const std::vector<const Property*>& deviceConstructParams = deviceProperties.getConstructProperties();
+    LOG_TRACE(DeviceManager_impl, "getting exec params. Num properties: " << deviceExecParams.size());
+    for (jprops_iter = deviceConstructParams.begin(); jprops_iter != deviceConstructParams.end(); jprops_iter++) {
+        if (not (*jprops_iter)->isCommandLine()) {
+            LOG_TRACE(DeviceManager_impl, "property " << (*jprops_iter)->getID() << " is not initialized on command line");
+            continue;
+        }
+        LOG_TRACE(DeviceManager_impl, "using property: " << (*jprops_iter)->getID());
+        assert((*jprops_iter) != 0);
 
+        // if no instantiation property overrode the execparm, then just use what came from the joined PRF property set
+        // but make sure there actually was a default value
+        if ((*jprops_iter)->isNone() == false) {
+            if (dynamic_cast<const SimpleProperty*>(*jprops_iter) != NULL) {
+                const SimpleProperty* tmp = dynamic_cast<const SimpleProperty*>(*jprops_iter);
+                LOG_TRACE(DeviceManager_impl, "setting property " << (*jprops_iter)->getID() << " to " <<  tmp->getValue());
+                overloadprops[(*jprops_iter)->getID()] = tmp->getValue();
+            } else {
+                LOG_WARN(DeviceManager_impl, "PRF file error, property initialized on command line must be simple type");
+            }
+        } else {
+            LOG_WARN(DeviceManager_impl, "skipping property with null value")
+        }
+
+        LOG_TRACE(DeviceManager_impl, "looking for DCD overloaded props. Num props: " << instanceprops.size());
+        // see if this property has been overloaded (NOTE: we know that property are simple elements via the spec)
+        for (iprops_iter = instanceprops.begin(); iprops_iter != instanceprops.end(); iprops_iter++) {
+            // property has been overloaded in instantiation from DCD
+            if (strcmp((*iprops_iter)->getID(), (*jprops_iter)->getID()) == 0) {
+                if (dynamic_cast<const SimplePropertyRef*>(*iprops_iter) == NULL) {
+                    LOG_WARN(DeviceManager_impl, "ignoring attempt to override property with non-simple ref");
+                } else {
+                    const SimplePropertyRef* simpleref = dynamic_cast<const SimplePropertyRef*>(*iprops_iter);
+                    // do some error checking - the property should have one value
+                    if (simpleref->getValue() == 0) {
+                        LOG_WARN(DeviceManager_impl, "value is empty for property: " << simpleref->getID());
+                        continue;
+                    }
+
+                    LOG_TRACE(DeviceManager_impl, "overloading property " << (*jprops_iter)->getName() << " with value " << simpleref->getValue() << " from DCD");
+                    overloadprops[(*jprops_iter)->getID()] = simpleref->getValue();
+                    break;
+                }
+            }
+        }
     }
 }
 
@@ -734,7 +780,7 @@ void DeviceManager_impl::createDeviceExecStatement(
         }
         new_argv.push_back("LOGGING_CONFIG_URI");
         new_argv.push_back(logging_uri);
-	LOG_DEBUG(DeviceManager_impl, "RSC: " << usageName << " LOGGING PARAM:VALUE " << new_argv[new_argv.size()-2] << ":" <<new_argv[new_argv.size()-1] );
+        LOG_DEBUG(DeviceManager_impl, "RSC: " << usageName << " LOGGING PARAM:VALUE " << new_argv[new_argv.size()-2] << ":" <<new_argv[new_argv.size()-1] );
     } 
 
     int level;
@@ -1010,8 +1056,31 @@ void DeviceManager_impl::createDeviceThread(
         LOG_DEBUG(DeviceManager_impl, "Execute complete");
     } else {
 
-        int pid = fork();
-        if (pid > 0) {
+      std::vector< std::string > new_argv;
+
+      createDeviceExecStatement(new_argv, 
+                                componentPlacement,
+                                componentType,
+                                pOverloadprops,
+                                codeFilePath,
+                                DCDParser,
+                                instantiation,
+                                usageName,
+                                componentPlacements,
+                                compositeDeviceIOR,
+                                instanceprops) ;
+
+      // convert std:string to char * for execv
+      std::vector<char*> argv(new_argv.size() + 1, NULL);
+      for (std::size_t i = 0; i < new_argv.size(); ++i) {
+        LOG_TRACE(DeviceManager_impl, "ARG: " << i << " VALUE " << new_argv[i] );
+        argv[i] = const_cast<char*> (new_argv[i].c_str());
+      }
+
+      rh_logger::LevelPtr  lvl = DeviceManager_impl::__logger->getLevel();
+
+      int pid = fork();
+      if (pid > 0) {
             // parent process: pid is the process ID of the child
             LOG_TRACE(DeviceManager_impl, "Resulting PID: " << pid);
 
@@ -1034,6 +1103,10 @@ void DeviceManager_impl::createDeviceThread(
             }
         }
         else if (pid == 0) {
+
+          DeviceManager_impl::__logger = rh_logger::StdOutLogger::getRootLogger();
+          DeviceManager_impl::__logger->setLevel(lvl);
+
           // Child process
           int err;
           sigset_t  sigset;
@@ -1065,31 +1138,9 @@ void DeviceManager_impl::createDeviceThread(
           // switch to working directory
           chdir(devcache.c_str());
 
-          std::vector< std::string > new_argv;
-
-          createDeviceExecStatement(new_argv, 
-                                    componentPlacement,
-                                    componentType,
-                                    pOverloadprops,
-                                    codeFilePath,
-                                    DCDParser,
-                                    instantiation,
-                                    usageName,
-                                    componentPlacements,
-                                    compositeDeviceIOR,
-                                    instanceprops) ;
-
-          // convert std:string to char * for execv
-          std::vector<char*> argv(new_argv.size() + 1, NULL);
-          for (std::size_t i = 0; i < new_argv.size(); ++i) {
-            LOG_TRACE(DeviceManager_impl, "ARG: " << i << " VALUE " << new_argv[i] );
-            argv[i] = const_cast<char*> (new_argv[i].c_str());
-          }
-
-
           // honor affinity requests
           try {
-	    CF::Properties options;
+            CF::Properties options;
             options = getResourceOptions( instantiation );
             if ( redhawk::affinity::has_affinity(options) ){
               if ( redhawk::affinity::is_disabled() ) {

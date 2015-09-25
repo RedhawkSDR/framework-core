@@ -68,7 +68,7 @@ class ConnectionManagerTest(scatest.CorbaTestCase):
         provides = CF.ConnectionManager.EndpointRequest(provides, '')
 
         # Create a new connection with a known ID
-        self._connMgr.connect(uses, provides, 'test_connection')
+        connectionReportId = self._connMgr.connect(uses, provides, 'test_environment', 'test_connection')
 
         # Make sure the new connection is listed
         self.assertEqual(len(self._connMgr._get_connections()), 2)
@@ -87,7 +87,7 @@ class ConnectionManagerTest(scatest.CorbaTestCase):
         self.assertEqual(connections[0].port._get_identifier(), self.devId1)
 
         # Break the connection and make sure the connection went away
-        self._connMgr.disconnect('test_connection')
+        self._connMgr.disconnect(connectionReportId)
         connections = self._connMgr._get_connections()
         self.assertEqual(len(self._connMgr._get_connections()), 1)
 
@@ -96,11 +96,11 @@ class ConnectionManagerTest(scatest.CorbaTestCase):
         
         # Connect the application's external uses port to the first device's
         # provides port
-        uses = CF.ConnectionManager.EndpointResolutionType(waveformId=app._get_identifier())
+        uses = CF.ConnectionManager.EndpointResolutionType(applicationId=app._get_identifier())
         uses = CF.ConnectionManager.EndpointRequest(uses, 'rename_resource_out')
         provides = CF.ConnectionManager.EndpointResolutionType(deviceId=self.devId1)
         provides = CF.ConnectionManager.EndpointRequest(provides, 'resource_in')
-        self._connMgr.connect(uses, provides, 'test_connection')
+        connectionReportId = self._connMgr.connect(uses, provides, 'test_environment', 'test_connection')
 
         # Make sure the new connection is listed
         self.assertEqual(len(self._connMgr._get_connections()), 2)
@@ -119,7 +119,7 @@ class ConnectionManagerTest(scatest.CorbaTestCase):
         self.assertEqual(connections[0].port._get_identifier(), self.devId1+'/resource_in')
 
         # Break the connection and make sure the connection went away
-        self._connMgr.disconnect('test_connection')
+        self._connMgr.disconnect(connectionReportId)
         connections = self._connMgr._get_connections()
         self.assertEqual(len(self._connMgr._get_connections()), 1)
 
@@ -131,11 +131,11 @@ class ConnectionManagerTest(scatest.CorbaTestCase):
         # Try to connect the application's external uses port to a device that
         # has not started yet
         devId = 'DCE:8f3478e3-626e-45c3-bd01-0a8117dbe59b'
-        uses = CF.ConnectionManager.EndpointResolutionType(waveformId=app._get_identifier())
+        uses = CF.ConnectionManager.EndpointResolutionType(applicationId=app._get_identifier())
         uses = CF.ConnectionManager.EndpointRequest(uses, 'rename_resource_out')
         provides = CF.ConnectionManager.EndpointResolutionType(deviceId=devId)
         provides = CF.ConnectionManager.EndpointRequest(provides, '')
-        self._connMgr.connect(uses, provides, 'test_connection')
+        self._connMgr.connect(uses, provides, 'test_environment', 'test_connection')
 
         # Make sure the new connection is listed
         self.assertEqual(len(self._connMgr._get_connections()), 2)

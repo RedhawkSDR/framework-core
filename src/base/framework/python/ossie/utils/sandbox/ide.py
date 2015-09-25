@@ -354,6 +354,10 @@ class IDESandbox(Sandbox):
         self._scanChalkboard()
         return self.__components.get(name, None)
 
+    def retrieve(self, name):
+        self._scanChalkboard()
+        return self.__components.get(name, None)
+
     def getComponents(self):
         self._scanChalkboard()
         return self.__components.values()

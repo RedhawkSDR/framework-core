@@ -540,6 +540,7 @@ class Service(CorbaObject):
 
         self._profile = profile
         self._refid = refid
+        self._id = refid
         self._spd = spd
         self._scd = scd
         self._prf = prf

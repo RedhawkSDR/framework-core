@@ -417,6 +417,7 @@ void usage()
     std::cerr << "    -debug                     Set the threshold used for logging, the default is 3 (5=TRACE,4=DEBUG,3=INFO,2=WARN,1=ERROR,0=FATAL)" << std::endl << std::endl;
     std::cerr << "    -logcfgfile <config file>  Pass in a logging config file uri" << std::endl;
     std::cerr << "    --useloglib                Use libossielogcfg.so to generate LOGGING_CONFIG_URI " << std::endl;
+    std::cerr << "    --bindapps                 Bind application and component registrations to the Domain and not the NamingService (DomainManager only)" << std::endl;
     std::cerr << "    --dburl                    Store domain state in the following URL" << std::endl;
     std::cerr << "    --nopersist                Disable DomainManager IOR persistence" << std::endl;
     std::cerr << "    --force-rebind             Overwrite any existing name binding for the DomainManager" << std::endl;
@@ -478,6 +479,7 @@ void startDomainManager(
     const fs::path&                            sdrRootPath,
     const int&                                 debugLevel,
     const bool&                                noPersist,
+    const bool &                               bind_apps,
     const string&                              logfile_uri,
     const bool&                                use_loglib,
     const string&                              db_uri,
@@ -562,7 +564,11 @@ void startDomainManager(
     if (use_loglib) {
         optionParams["USELOGCFG"] =  "";
     }
-
+    
+    if (bind_apps) {
+        optionParams["BINDAPPS"] =  "";
+    }
+    
     try {
       domPid = launchSPD(spdFile, domRootPath, execParams, optionParams, systemProps, doFork);
     } catch (const std::runtime_error& ex) {
@@ -753,6 +759,7 @@ int main(int argc, char* argv[])
     string domainName;
     string endPoint;
     int debugLevel = 3;
+    bool   bind_apps=false;
 
     bool startDeviceManagerRequested = false;
     bool startDomainManagerRequested = false;
@@ -859,6 +866,12 @@ int main(int argc, char* argv[])
                 exit(EXIT_FAILURE);
             }
         }
+
+
+        if (( strcmp( argv[i], "--bindapps" ) == 0 )) {
+            bind_apps = true;
+        }
+
 
         if (( strcmp( argv[i], "-log4cxx" ) == 0 ) || ( strcmp( argv[i], "-logcfgfile" ) == 0 )) {
             if( i + 1 <argc && strcmp( argv[i + 1], "--" ) != 0) {
@@ -1143,6 +1156,7 @@ int main(int argc, char* argv[])
                                  kinds,
                                  std::string(un.sysname),
                                  "false",
+                                 "false",
 				 "false");
     ossie::SimpleProperty procProp("DCE:fefb9c66-d14a-438d-ad59-2cfd1adb272b",
                                    "processor_name",
@@ -1151,6 +1165,7 @@ int main(int argc, char* argv[])
                                    "eq",
                                    kinds,
                                    std::string(un.machine),
+                                   "false",
                                    "false",
 				   "false");
     std::vector<const ossie::Property*> systemProps;
@@ -1167,6 +1182,7 @@ int main(int argc, char* argv[])
                                sdrRootPath,
                                debugLevel,
                                noPersist,
+                               bind_apps,
                                logfile_uri,
                                use_loglib,
                                db_uri,

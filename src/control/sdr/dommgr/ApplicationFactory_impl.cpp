@@ -39,6 +39,7 @@
 #include "ApplicationFactory_impl.h"
 #include "DomainManager_impl.h"
 #include "AllocationManager_impl.h"
+#include "RH_NamingContext.h"
 
 namespace fs = boost::filesystem;
 using namespace ossie;
@@ -170,26 +171,8 @@ ApplicationFactory_impl::ApplicationFactory_impl (const std::string& softwarePro
     _domainManager(domainManager),
     _lastWaveformUniqueId(0)
 {
-    // Get a reference to the domain
-    CORBA::Object_var obj_DN;
-    try {
-        obj_DN = ossie::corba::objectFromName(_domainName.c_str());
-    } catch( CORBA::SystemException& ex ) {
-        LOG_ERROR(ApplicationFactory_impl, "get_object_from_name threw CORBA::SystemException");
-        throw;
-    } catch ( std::exception& ex ) {
-        LOG_ERROR(ApplicationFactory_impl, "The following standard exception occurred: "<<ex.what()<<" while retrieving the domain name")
-        throw;
-    } catch ( const CORBA::Exception& ex ) {
-        LOG_ERROR(ApplicationFactory_impl, "The following CORBA exception occurred: "<<ex._name()<<" while retrieving the domain name")
-        throw;
-    } catch( ... ) {
-        LOG_ERROR(ApplicationFactory_impl, "get_object_from_name threw Unknown Exception");
-        throw;
-    }
-
     // Get the naming context from the domain
-    _domainContext = ossie::corba::_narrowSafe<CosNaming::NamingContext> (obj_DN);
+    _domainContext = RH_NamingContext::GetNamingContext( _domainName, !_domainManager->bindToDomain() );
     if (CORBA::is_nil(_domainContext)) {
         LOG_ERROR(ApplicationFactory_impl, "CosNaming::NamingContext::_narrow threw Unknown Exception");
         throw;
@@ -350,6 +333,16 @@ ApplicationFactory_impl::ApplicationFactory_impl (const std::string& softwarePro
 
 ApplicationFactory_impl::~ApplicationFactory_impl ()
 {
+  try {
+    //
+    // remove the naming context assocated with the factory that generates new
+    // naming contexts for each application.
+    //
+    if ( _domainManager && _domainManager->bindToDomain() ) _domainContext->destroy();
+  }
+  catch(...)
+    {};
+
 }
 
 /*
@@ -770,6 +763,10 @@ void createHelper::_handleUsesDevices(const std::string& appName)
         LOG_DEBUG(ApplicationFactory_impl, eout.str());
         throw CF::ApplicationFactory::CreateApplicationError(CF::CF_ENOSPC, eout.str().c_str());
     }
+    for (DeviceAssignmentList::iterator dev=assignedDevices.begin(); dev!=assignedDevices.end(); dev++) {
+        dev->deviceAssignment.componentId = getAssemblyController()->getIdentifier();
+    }
+    _appUsedDevs.insert(_appUsedDevs.end(), assignedDevices.begin(), assignedDevices.end());
 }
 
 void createHelper::setUpExternalPorts(Application_impl* application)
@@ -959,7 +956,7 @@ throw (CORBA::SystemException, CF::ApplicationFactory::CreateApplicationError,
     // - createHelper is needed to allow concurrent calls to 'create' without
     //   each instance stomping on the others
     LOG_TRACE(ApplicationFactory_impl, "Creating new createHelper class.");
-    createHelper new_createhelper(*this, _waveform_context_name, base_naming_context, _waveformContext);
+    createHelper new_createhelper(*this, _waveform_context_name, base_naming_context, _waveformContext, _domainContext);
 
     // now actually perform the create operation
     LOG_TRACE(ApplicationFactory_impl, "Performing 'create' function.");
@@ -1102,7 +1099,8 @@ throw (CORBA::SystemException,
                                             _appFact._domainManager, 
                                             _waveformContextName, 
                                             _waveformContext,
-                                            aware_application);
+                                            aware_application,
+                                            _domainContext);
 
         // Activate the new Application servant
         PortableServer::ObjectId_var oid = Application_impl::Activate(_application);
@@ -1632,7 +1630,15 @@ ossie::AllocationResult createHelper::allocateComponentToDevice( ossie::Componen
     std::vector<SPD::PropertyRef> prop_refs = implementation->getDependencyProperties();
     redhawk::PropertyMap allocationProperties;
     this->_castRequestProperties(allocationProperties, prop_refs);
-    this->_evaluateMATHinRequest(allocationProperties, component->getConfigureProperties());
+
+    CF::Properties configure_props = component->getConfigureProperties();
+    CF::Properties construct_props = component->getConstructProperties();
+    unsigned int initial_length = configure_props.length();
+    configure_props.length(configure_props.length()+construct_props.length());
+    for (unsigned int i=0; i<construct_props.length(); i++) {
+        configure_props[i+initial_length] = construct_props[i];
+    }
+    this->_evaluateMATHinRequest(allocationProperties, configure_props);
     
     LOG_TRACE(ApplicationFactory_impl, "alloc prop size " << allocationProperties.size() );
     redhawk::PropertyMap::iterator iter=allocationProperties.begin();
@@ -1853,8 +1859,20 @@ void createHelper::getRequiredComponents()
 
         const std::vector<ComponentProperty*>& ins_prop = instance.getProperties();
 
+        int docker_image_idx = -1;
         for (unsigned int i = 0; i < ins_prop.size(); ++i) {
+            if (ins_prop[i]->_id == "__DOCKER_IMAGE__") {
+                docker_image_idx = i;
+                continue;
+            }
             newComponent->overrideProperty(ins_prop[i]);
+        }
+
+        if (docker_image_idx > -1) {
+            CF::Properties tmp;
+            redhawk::PropertyMap& tmpProp = redhawk::PropertyMap::cast(tmp);
+            tmpProp["__DOCKER_IMAGE__"].setValue(dynamic_cast<const SimplePropertyRef*>(ins_prop[docker_image_idx])->getValue());
+            newComponent->addExecParameter(tmpProp[0]);
         }
 
         _requiredComponents.push_back(newComponent);
@@ -2155,14 +2173,14 @@ void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg
             // See if the LOGGING_CONFIG_URI has already been set
             // via <componentproperties> or initParams
             bool alreadyHasLoggingConfigURI = false;
-	    std::string logging_uri("");
+            std::string logging_uri("");
             CF::DataType* logcfg_prop = NULL;
             CF::Properties execParameters = component->getExecParameters();
             for (unsigned int i = 0; i < execParameters.length(); ++i) {
                 std::string propid = static_cast<const char*>(execParameters[i].id);
                 if (propid == "LOGGING_CONFIG_URI") {
-		  logcfg_prop = &execParameters[i];
-		  const char* tmpstr;
+                  logcfg_prop = &execParameters[i];
+                  const char* tmpstr;
                   if ( ossie::any::isNull(logcfg_prop->value) == true ) {
                     LOG_WARN(ApplicationFactory_impl, "Missing value for LOGGING_CONFIG_URI, component: " << _baseNamingContext << "/" << component->getNamingServiceName() );
                   }
@@ -2176,23 +2194,21 @@ void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg
                 }
             }
 
-	    ossie::logging::LogConfigUriResolverPtr logcfg_resolver = ossie::logging::GetLogConfigUriResolver();
-	    std::string logcfg_path = ossie::logging::GetComponentPath( _appFact._domainName,
-									_waveformContextName,
-									component->getNamingServiceName() );
-	    if ( _appFact._domainManager->getUseLogConfigResolver() && logcfg_resolver ) {
-              std::string t_uri = logcfg_resolver->get_uri( logcfg_path );
-              LOG_DEBUG(ApplicationFactory_impl, "Using LogConfigResolver plugin: path " << logcfg_path << " logcfg:" << t_uri );
-              if ( !t_uri.empty() ) logging_uri = t_uri;
-	    }
+            ossie::logging::LogConfigUriResolverPtr logcfg_resolver = ossie::logging::GetLogConfigUriResolver();
+            std::string logcfg_path = ossie::logging::GetComponentPath( _appFact._domainName, _waveformContextName, component->getNamingServiceName() );
+            if ( _appFact._domainManager->getUseLogConfigResolver() && logcfg_resolver ) {
+                  std::string t_uri = logcfg_resolver->get_uri( logcfg_path );
+                  LOG_DEBUG(ApplicationFactory_impl, "Using LogConfigResolver plugin: path " << logcfg_path << " logcfg:" << t_uri );
+                  if ( !t_uri.empty() ) logging_uri = t_uri;
+            }
             
-	    if (!alreadyHasLoggingConfigURI && logging_uri.empty() ) {
+            if (!alreadyHasLoggingConfigURI && logging_uri.empty() ) {
                 // Query the DomainManager for the logging configuration
                 LOG_TRACE(ApplicationFactory_impl, "Checking DomainManager for LOGGING_CONFIG_URI");
                 PropertyInterface *log_prop = _appFact._domainManager->getPropertyFromId("LOGGING_CONFIG_URI");
-		StringProperty *logProperty = (StringProperty *)log_prop;
+                StringProperty *logProperty = (StringProperty *)log_prop;
                 if (!logProperty->isNil()) {
-		  logging_uri = logProperty->getValue();
+                    logging_uri = logProperty->getValue();
                 } else {
                     LOG_TRACE(ApplicationFactory_impl, "DomainManager LOGGING_CONFIG_URI is not set");
                 }
@@ -2206,16 +2222,16 @@ void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg
                   prop.value <<= static_cast<CORBA::Long>(ossie::logging::ConvertRHLevelToDebug( dlevel ));
                   component->addExecParameter(prop);
                 }
-	    }
+            }
 
-	    // if we have a uri but no property, add property to component's exec param list
-	    if ( logcfg_prop == NULL && !logging_uri.empty() ) {
-	      CF::DataType prop;
-	      prop.id = "LOGGING_CONFIG_URI";
-	      prop.value <<= logging_uri.c_str();
-              LOG_DEBUG(ApplicationFactory_impl, "logcfg_prop == NULL " << prop.id << " / " << logging_uri );
-	      component->addExecParameter(prop);
-	    }
+            // if we have a uri but no property, add property to component's exec param list
+            if ( logcfg_prop == NULL && !logging_uri.empty() ) {
+                CF::DataType prop;
+                prop.id = "LOGGING_CONFIG_URI";
+                prop.value <<= logging_uri.c_str();
+                LOG_DEBUG(ApplicationFactory_impl, "logcfg_prop == NULL " << prop.id << " / " << logging_uri );
+                component->addExecParameter(prop);
+            }
 
             if (!logging_uri.empty()) {
                 if (logging_uri.substr(0, 4) == "sca:") {
@@ -2230,7 +2246,7 @@ void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg
                 // this overrides all instances of the property called LOGGING_CONFIG_URI
                 LOG_TRACE(ApplicationFactory_impl, "override ....... uri " << logging_uri );
                 component->overrideProperty("LOGGING_CONFIG_URI", loguri);
-	    }
+            }
             // Add the Naming Context IOR to make it easier to parse the command line
             CF::DataType ncior;
             ncior.id = "NAMING_CONTEXT_IOR";
@@ -2516,7 +2532,7 @@ void createHelper::initializeComponents()
           }
           try {
             // Try to set the initial values for the component's properties
-            resource->initializeProperties(component->getNonNilConstructProperties());
+            resource->initializeProperties(component->getNonNilNonExecConstructProperties());
           } catch(CF::PropertySet::InvalidConfiguration& e) {
             ostringstream eout;
             eout << "Failed to initialize component properties: '";
@@ -2824,7 +2840,9 @@ createHelper::createHelper (
         const ApplicationFactory_impl& appFact,
         string                         waveformContextName,
         string                         baseNamingContext,
-        CosNaming::NamingContext_ptr   waveformContext) :
+        CosNaming::NamingContext_ptr   waveformContext,
+        CosNaming::NamingContext_ptr   domainContext ):
+
     _appFact(appFact),
     _allocationMgr(_appFact._domainManager->_allocationMgr),
     _allocations(*_allocationMgr),
@@ -2834,6 +2852,7 @@ createHelper::createHelper (
     this->_waveformContextName = waveformContextName;
     this->_baseNamingContext   = baseNamingContext;
     this->_waveformContext     = CosNaming::NamingContext::_duplicate(waveformContext);
+    this->_domainContext     =  domainContext;
 }
 
 createHelper::~createHelper()

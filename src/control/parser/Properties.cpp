@@ -259,20 +259,14 @@ bool Property::isAllocation() const
 bool Property::isConfigure() const
 {
     TRACE_ENTER(Property);
-    bool retval=isProperty();
-    if ( retval == false ) {
-      if (kinds.size() == 0) {
-        return true;
-      }
-      for (unsigned int i = 0; i < kinds.size (); i++) {
-        if (kinds[i] == "configure")
-          { return true; }
-      }
-
-      return false;
+    if (kinds.size() == 0) {
+      return true;
     }
-    return retval;
-
+    for (unsigned int i = 0; i < kinds.size (); i++) {
+      if (kinds[i] == "configure")
+        { return true; }
+    }
+    return false;
 }
 
 bool Property::isProperty() const
@@ -354,6 +348,11 @@ const std::vector <std::string>& Property::getKinds() const
 bool Property::isReadOnly() const
 {
     return (mode == "readonly");
+}
+
+bool Property::isCommandLine() const
+{
+    return (commandline == "true");
 }
 
 bool Property::isReadWrite() const
@@ -450,9 +449,11 @@ SimpleProperty::SimpleProperty(const std::string& id,
                                const std::vector<std::string>& kinds,
                                const optional_value<std::string>& value, 
                                const std::string& complex_,
-			       const std::string& optional) :
+                               const std::string& commandline_,
+                               const std::string& optional) :
 Property(id, name, mode, action, kinds), value(value), _complex(complex_), optional(optional)
 {
+    commandline = commandline_;
     if (_complex.compare("true") == 0) {
         /* 
          * Downstream processing expects complex types
@@ -460,10 +461,10 @@ Property(id, name, mode, action, kinds), value(value), _complex(complex_), optio
          * types (e.g., long).
          */
         if (type.find("complex") != std::string::npos) {
-	    this->type = type;
-	} else {
+            this->type = type;
+        } else {
             this->type = mapPrimitiveToComplex(type);
-	}
+        }
     } else {
         this->type = type;
     }
@@ -482,7 +483,7 @@ SimpleProperty::SimpleProperty(const std::string& id,
                                const std::vector<std::string>& kinds,
                                const optional_value<std::string>& value)
 {
-    SimpleProperty(id, name, type, mode, action, kinds, value, "false", "false");
+    SimpleProperty(id, name, type, mode, action, kinds, value, "false", "false", "false");
 }
 
 SimpleProperty::~SimpleProperty()
@@ -522,6 +523,11 @@ const char* SimpleProperty::getComplex() const
     return _complex.c_str();
 }
 
+const char* SimpleProperty::getCommandLine() const
+{
+    return commandline.c_str();
+}
+
 const char* SimpleProperty::getOptional() const
 {
     return optional.c_str();
@@ -551,7 +557,7 @@ const std::string SimpleProperty::asString() const {
 }
 
 const Property* SimpleProperty::clone() const {
-    return new SimpleProperty(id, name, type, mode, action, kinds, value, _complex, optional);
+    return new SimpleProperty(id, name, type, mode, action, kinds, value, _complex, commandline, optional);
 }
 
 
@@ -567,12 +573,12 @@ SimpleSequenceProperty::SimpleSequenceProperty(
     const std::vector<std::string>& kinds,
     const std::vector<std::string>& values,
     const std::string&              complex_,
-    const std::string&		    optional) :
+    const std::string&              optional) :
         Property(id, name, mode, action, kinds), 
         type(type), 
         values(values), 
         _complex(complex_),
-	optional(optional)
+        optional(optional)
 {
     if (_complex.compare("true") == 0) {
         /* 
@@ -608,7 +614,7 @@ SimpleSequenceProperty::SimpleSequenceProperty(
                            kinds, 
                            values, 
                            "false",
-			   "false");
+                           "false");
 }
 
 SimpleSequenceProperty::~SimpleSequenceProperty()

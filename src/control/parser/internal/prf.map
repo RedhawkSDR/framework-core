@@ -43,6 +43,7 @@ namespace urn:mil:jpeojtrs:sca:prf {
     AccessType "::std::string";
     ActionType "::std::string";
     IsComplex "::std::string";
+    IsCommandLine "::std::string";
     IsOptional "::std::string";
     Unit "::std::string";
     PropertyConfigurationType "::std::string";

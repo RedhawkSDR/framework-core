@@ -105,6 +105,7 @@ int old_main(int argc, char* argv[])
     std::string dpath("");
     std::string name_binding("DomainManager");
     bool  useLogCfgResolver = false;
+    bool  bindToDomain=false;
 
     // If "--nopersist" is asserted, turn off persistent IORs.
     bool enablePersistence = false;
@@ -127,6 +128,10 @@ int old_main(int argc, char* argv[])
         std::string pupper = boost::algorithm::to_upper_copy(param);
         if (pupper == "USELOGCFG") {
           useLogCfgResolver=true;
+          continue;
+        }
+        if (pupper == "BINDAPPS") {
+          bindToDomain=true;
           continue;
         }
         if (++ii >= argc) {
@@ -364,13 +369,15 @@ int old_main(int argc, char* argv[])
     LOG_DEBUG(DomainManager, "Root of DomainManager FileSystem set to " << domRootPath);
     LOG_DEBUG(DomainManager, "DMD path set to " << dmdFile);
     LOG_DEBUG(DomainManager, "Domain Name set to " << domainName);
+    if ( bindToDomain ) { LOG_INFO(DomainManager, "Binding applications to the domain." ); }
 
     try {
         DomainManager_servant = new DomainManager_impl(dmdFile.c_str(),
                                                        domRootPath.string().c_str(),
                                                        domainName.c_str(),
                                                        (logfile_uri.empty()) ? NULL : logfile_uri.c_str(),
-                                                       useLogCfgResolver
+                                                       useLogCfgResolver,
+                                                       bindToDomain
                                                        );
 
         // set logging level for the DomainManager's logger

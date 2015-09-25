@@ -68,6 +68,7 @@ namespace ossie {
         bool isConfigure() const;
         bool isProperty() const;
         bool isTest() const;
+        bool isCommandLine() const;
         bool isExecParam() const;
         bool isFactoryParam() const;
         bool isEqual() const;
@@ -96,6 +97,7 @@ namespace ossie {
         std::string id;
         std::string name;
         std::string mode;
+        std::string commandline;
         std::string action;
         std::vector <std::string> kinds;
         
@@ -123,6 +125,7 @@ namespace ossie {
                const std::vector<std::string>& kinds,
                const optional_value<std::string>& value,
                const std::string& complex_,
+               const std::string& commandline,
 	       const std::string& optional);
 
         SimpleProperty(const std::string& id, 
@@ -144,6 +147,7 @@ namespace ossie {
         virtual const Property* clone() const;
         const char* getType() const;
         const char* getComplex() const;
+        const char* getCommandLine() const;
 	const char* getOptional() const;
 
     protected:

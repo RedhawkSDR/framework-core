@@ -114,7 +114,7 @@ namespace {
 
 Application_impl::Application_impl (const std::string& id, const std::string& name, const std::string& profile,
                                     DomainManager_impl* domainManager, const std::string& waveformContextName,
-                                    CosNaming::NamingContext_ptr waveformContext, bool aware) :
+                                    CosNaming::NamingContext_ptr waveformContext, bool aware, CosNaming::NamingContext_ptr DomainContext) :
     _identifier(id),
     _sadProfile(profile),
     _appName(name),
@@ -124,6 +124,7 @@ Application_impl::Application_impl (const std::string& id, const std::string& na
     _started(false),
     _isAware(aware),
     _fakeProxy(0),
+    _domainContext(CosNaming::NamingContext::_duplicate(DomainContext)),
     _releaseAlreadyCalled(false)
 {
     _registrar = new ApplicationRegistrar_impl(waveformContext, this);
@@ -846,12 +847,14 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
     DNContextname[0].id = CORBA::string_dup(domainName.c_str());
     DNContextname[1].id = CORBA::string_dup(_waveformContextName.c_str());
     try {
-        ossie::corba::InitialNamingContext()->unbind(DNContextname);
+      if ( CORBA::is_nil(_domainContext) ==  false ) {
+        _domainContext->unbind(DNContextname);
+      }
     } catch (const CosNaming::NamingContext::NotFound&) {
         // Someone else has removed the naming context; this is a non-fatal condition.
         LOG_WARN(Application_impl, "Naming context has already been removed");
     } CATCH_LOG_ERROR(Application_impl, "Unbind context failed with CORBA::SystemException")
-    
+
     // Destroy the waveform context; it should be empty by this point, assuming all
     // of the components were properly unbound.
     LOG_TRACE(Application_impl, "Destroying application naming context " << _waveformContextName);

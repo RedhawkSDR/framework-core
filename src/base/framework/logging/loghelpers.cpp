@@ -32,6 +32,7 @@
 #include <boost/make_shared.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <boost/algorithm/string.hpp>
 #include <ossie/CorbaUtils.h>
 #include <ossie/ossieSupport.h>
@@ -71,6 +72,11 @@ using boost::asio::ip::tcp;
 namespace ossie {
 
   namespace logging {
+
+    // resolve logging config uri from command line
+    std::string  ResolveLocalUri( const std::string &logfile_uri,
+                                  const std::string &rootPath,
+                                  std::string &validated_uri );
 
     static const std::string DomPrefix("dom");
     static const std::string DevMgrPrefix("devmgr");
@@ -245,17 +251,32 @@ namespace ossie {
       SetResourceInfo( tbl, *this );
     }
 
+    void ResourceCtx::configure( const std::string &logcfg_uri, int debugLevel ) {
+      Configure( logcfg_uri, debugLevel, this  );
+    };
 
 
-    DomainCtx::DomainCtx( const std::string &name,
-			  const std::string &id,
-			  const std::string &dpath ):
-      ResourceCtx(name, "DOMAIN_MANAGER_1", dpath)
+
+    DomainCtx::DomainCtx( const std::string &appName,
+			  const std::string &domName,
+			  const std::string &domPath ):
+      ResourceCtx(appName, "DOMAIN_MANAGER_1", domName+"/"+domName)
     {
+      rootPath=domPath;
     }
 
     void DomainCtx::apply( MacroTable &tbl ) {
       SetResourceInfo( tbl, *this );
+    }
+
+    std::string DomainCtx::getLogCfgUri( const std::string &log_uri ) {
+      std::string val_uri;
+      return ResolveLocalUri(log_uri, rootPath, val_uri);
+    }
+
+    void DomainCtx::configure( const std::string &log_uri, int level, std::string &validated_uri ) {
+      std::string local_uri= ResolveLocalUri(log_uri, rootPath, validated_uri);
+      Configure( local_uri, level, this  );
     }
 
 
@@ -328,13 +349,14 @@ namespace ossie {
       SetDeviceInfo( tbl, *this );
     }
 
-    DeviceMgrCtx::DeviceMgrCtx( const std::string &dname,
-                                const std::string &did,
-                                const std::string &dpath ) :
-      ResourceCtx(dname,did,dpath)
+    DeviceMgrCtx::DeviceMgrCtx( const std::string &nodeName,
+                                const std::string &domName,
+                                const std::string &devPath ) :
+      ResourceCtx(nodeName,domName+":"+nodeName, domName+"/"+nodeName)
     {
+      rootPath=devPath;
       // path should be   /domain/devmgr
-      std::vector< std::string > t = split_path(dpath);
+      std::vector< std::string > t = split_path(dom_path);
       int n=0;
       if ( t.size() > 0 ) {
         domain_name = t[n];
@@ -342,9 +364,18 @@ namespace ossie {
       }
     }
 
-
     void DeviceMgrCtx::apply( MacroTable &tbl ) {
       SetDeviceMgrInfo( tbl, *this );
+    }
+
+    std::string DeviceMgrCtx::getLogCfgUri( const std::string &log_uri ) {
+      std::string val_uri;
+      return ResolveLocalUri(log_uri, rootPath, val_uri);
+    }
+
+    void DeviceMgrCtx::configure( const std::string &log_uri, int level, std::string &validated_uri ) {
+      std::string local_uri= ResolveLocalUri(log_uri, rootPath, validated_uri);
+      Configure( local_uri, level, this  );
     }
 
 
@@ -649,6 +680,60 @@ namespace ossie {
       STDOUT_DEBUG( " Setting Logger: END  log:" << logid << " NEW Level:" << newLevel );
     }
 
+
+    std::string ResolveLocalUri( const std::string &in_logfile_uri, 
+                                 const std::string &root_path, 
+                                 std::string  &new_uri ) {
+
+      std::string logfile_uri(in_logfile_uri);
+      std::string logcfg_uri("");
+      if ( !logfile_uri.empty() ) {
+        // Determine the scheme, if any.  This isn't a full fledged URI parser so we can
+        // get tripped up on complex URIs.  We should probably incorporate a URI parser
+        // library for this sooner rather than later
+        std::string scheme;
+        boost::filesystem::path path;
+
+        std::string::size_type colonIdx = logfile_uri.find(":"); // Find the scheme separator
+        if (colonIdx == std::string::npos) {
+
+          scheme = "file";
+          path = logfile_uri;
+          // Make the path absolute
+          boost::filesystem::path logfile_path(path);
+          if (! logfile_path.is_complete()) {
+            // Get the root path so we can resolve relative paths
+            boost::filesystem::path root = boost::filesystem::initial_path();
+            logfile_path = boost::filesystem::path(root / path);
+          }
+          path = logfile_path;
+          logfile_uri = "file://" + path.string();
+
+        } else {
+
+          scheme = logfile_uri.substr(0, colonIdx);
+          colonIdx += 1;
+          if ((logfile_uri.at(colonIdx + 1) == '/') && (logfile_uri.at(colonIdx + 2) == '/')) {
+            colonIdx += 2;
+          }
+          path = logfile_uri.substr(colonIdx, logfile_uri.length() - colonIdx);
+        }
+
+        if (scheme == "file") {
+          std::string fpath((char*)path.string().c_str());
+          logcfg_uri = "file://" + fpath;         
+        }
+        if (scheme == "sca") {
+          std::string fpath((char*)boost::filesystem::path( root_path / path).string().c_str());
+          logcfg_uri = "file://" + fpath;
+        }
+      }
+
+      new_uri = logfile_uri;
+      return logcfg_uri;
+    }
+
+
     /*
     log4j.appender.stdout.Target=System.out\n        \
     */
@@ -937,7 +1022,12 @@ namespace ossie {
     // Current logging configuration method used by Redhawk Resources.  
     //
     //
-    void Configure(const std::string &logcfgUri, int logLevel, ossie::logging::ResourceCtxPtr ctx )  {
+    void Configure(const std::string &in_logcfgUri, int logLevel, ossie::logging::ResourceCtxPtr ctx )  {
+      Configure(in_logcfgUri, logLevel, ctx.get() );
+    }
+
+    void Configure(const std::string &in_logcfgUri, int logLevel, ossie::logging::ResourceCtx *ctx )  {
+      std::string logcfgUri(in_logcfgUri);
 
       STDOUT_DEBUG( "ossie::logging::Configure Rel 1.10 START url:" << logcfgUri );
       std::string fileContents("");

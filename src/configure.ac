@@ -363,6 +363,8 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dom/components/PropertyChange_C1/cpp/Makefile \
                 testing/sdr/dom/components/PropertyChange_J1/java/Makefile \
                 testing/sdr/dom/components/Property_CPP/cpp/Makefile \
+                testing/sdr/dom/components/commandline_prop/cpp/Makefile \
+                testing/sdr/dom/components/nocommandline_prop/cpp/Makefile \
                 testing/sdr/dom/components/Property_JAVA/java/Makefile \
                 testing/sdr/dom/components/foo/bar/comp/cpp/Makefile \
                 testing/sdr/dom/components/foo/bar/jv/java/Makefile \

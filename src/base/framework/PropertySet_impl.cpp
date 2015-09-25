@@ -144,7 +144,7 @@ void PropertySet_impl::setExecparamProperties(std::map<std::string, char*>& exec
 
 void
 PropertySet_impl::initializeProperties(const CF::Properties& ctorProps)
-throw (CF::PropertySet::AlreadyInitialized, CF::PropertySet::PartialConfiguration,
+throw (CF::PropertyEmitter::AlreadyInitialized, CF::PropertySet::PartialConfiguration,
        CF::PropertySet::InvalidConfiguration, CORBA::SystemException)
 {
     TRACE_ENTER(PropertySet_impl);
@@ -152,7 +152,7 @@ throw (CF::PropertySet::AlreadyInitialized, CF::PropertySet::PartialConfiguratio
 
     // Disallow multiple calls
     if (_propertiesInitialized) {
-        throw CF::PropertySet::AlreadyInitialized();
+        throw CF::PropertyEmitter::AlreadyInitialized();
     }
     _propertiesInitialized = true;
 
@@ -226,7 +226,14 @@ throw (CORBA::SystemException, CF::PropertySet::InvalidConfiguration,
                         }
                     }
                 }
+                CORBA::Any before_value, after_value;
+                property->getValue(before_value);
                 property->setValue(configProperties[ii].value);
+                property->getValue(after_value);
+                std::string comparator("eq");
+                if (ossie::compare_anys(before_value, after_value, comparator)) {
+                    LOG_WARN(PropertySet_impl, "Value has not changed on configure for property " << property->id << ". Not triggering callback");
+                }
                 executePropertyCallback(property->id);
                 if (sendEvent) {
                     // sending the event

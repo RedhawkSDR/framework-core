@@ -60,6 +60,8 @@ SUBDIRS = sdr/dev/devices/ExecutableDevice \
           sdr/dom/components/C2/cpp \
           sdr/dom/components/PropertyChange_C1/cpp \
           sdr/dom/components/Property_CPP/cpp \
+          sdr/dom/components/commandline_prop/cpp \
+          sdr/dom/components/nocommandline_prop/cpp \
           sdr/dom/components/foo/bar/comp/cpp \
           sdr/dom/components/TestCppOptionalProps/cpp
 

@@ -77,6 +77,21 @@ post_IsComplex ()
   return v;
 }
 
+// IsCommandLine_pimpl
+//
+
+void IsCommandLine_pimpl::
+pre ()
+{
+}
+
+::std::string IsCommandLine_pimpl::
+post_IsCommandLine ()
+{
+  const ::std::string& v (post_string ());
+  return v;
+}
+
 // IsOptional_pimpl
 //
 
@@ -479,15 +494,22 @@ optional (const ::std::string& optional)
     _optional = optional;
 }
 
+void simple_pimpl::
+commandline (const ::std::string& commandline)
+{
+    LOG_TRACE(prf_parser, "simple_pimpl _commandline " << _commandline)
+    _commandline = commandline;
+}
+
 ossie::SimpleProperty* simple_pimpl::
 post_simple ()
 {
   if (_value.get()  != 0) {
       LOG_TRACE(prf_parser, "simple_pimpl post " << _id << " " << _name << " " << _value->c_str())
-      return new ossie::SimpleProperty(_id, _name, _type, _mode, _action, _kinds, _value.get(), _complex, _optional);
+      return new ossie::SimpleProperty(_id, _name, _type, _mode, _action, _kinds, _value.get(), _complex, _commandline, _optional);
   } else {
       LOG_TRACE(prf_parser, "simple_pimpl post " << _id << " " << _name << " None")
-      return new ossie::SimpleProperty(_id, _name, _type, _mode, _action, _kinds, 0, _complex, _optional);
+      return new ossie::SimpleProperty(_id, _name, _type, _mode, _action, _kinds, 0, _complex, _commandline, _optional);
   }
 }
 
@@ -785,6 +807,7 @@ structvalue (const std::map<std::string, ossie::ComponentProperty*>& value)
                                                               simp->getKinds(), 
                                                               val, 
                                                               simp->getComplex(),
+                                                              simp->getCommandLine(),
 							      simp->getOptional()));
             
    	    } else if (dynamic_cast<const ossie::SimpleSequenceProperty*>(*prop) != NULL) {

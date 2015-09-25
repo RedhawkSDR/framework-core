@@ -112,18 +112,24 @@ namespace ossie
       
       virtual ~ResourceCtx() {};
       virtual void apply( MacroTable &tbl );
-
+      virtual std::string getLogCfgUri( const std::string &logcfg_uri ) { return logcfg_uri; };
+      virtual void configure( const std::string &logcfg_uri, int debugLevel );
       std::string  get_path( ) { return dom_path; };
 
     };
 
 
     struct DomainCtx : public ResourceCtx {
-      DomainCtx( const std::string &name,
-		    const std::string &id,
-		    const std::string &dpath );
+      std::string   rootPath;
+      DomainCtx( const std::string &appName,
+                 const std::string &domName,
+                 const std::string &domPath );
       ~DomainCtx() {};
       virtual void apply( MacroTable &tbl );
+      virtual std::string getLogCfgUri( const std::string &logcfg_uri );
+      void configure( const std::string &logcfg_uri,
+                      int debugLevel,
+                      std::string &validated_uri);
     };
 
     struct ComponentCtx : public ResourceCtx {
@@ -157,11 +163,16 @@ namespace ossie
     };
 
     struct DeviceMgrCtx : public ResourceCtx {
-      DeviceMgrCtx( const std::string &name,
-		    const std::string &id,
-		    const std::string &dpath );
+      std::string  rootPath;
+      DeviceMgrCtx( const std::string &nodeName,
+                    const std::string &domName,
+                    const std::string &devPath );
       ~DeviceMgrCtx() {};
       virtual void apply( MacroTable &tbl );
+      virtual std::string getLogCfgUri( const std::string &logcfg_uri );
+      void configure( const std::string &logcfg_uri,
+                      int debugLevel,
+                      std::string &validated_uri);
     };
 
 
@@ -356,6 +367,7 @@ namespace ossie
     // @param ctx execution context for the resource
     //
     void Configure(const std::string &logcfgUri, int logLevel, ResourceCtxPtr ctx);
+    void Configure(const std::string &logcfgUri, int logLevel, ResourceCtx *ctx);
 
 
     //

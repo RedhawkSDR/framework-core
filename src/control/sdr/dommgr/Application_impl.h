@@ -52,7 +52,7 @@ public:
 
     Application_impl (const std::string& id, const std::string& name, const std::string& profile,
                       DomainManager_impl* domainManager, const std::string& waveformContextName,
-                      CosNaming::NamingContext_ptr waveformContext, bool aware);
+                      CosNaming::NamingContext_ptr waveformContext, bool aware, CosNaming::NamingContext_ptr DomainContext);
     
     void populateApplication (CF::Resource_ptr _assemblyController,
                               std::vector<ossie::DeviceAssignmentInfo>& _devSequence,
@@ -191,6 +191,7 @@ private:
     ApplicationRegistrar_impl* _registrar;
 
     ossie::ComponentList _components;
+    CosNaming::NamingContext_var _domainContext;
 
     boost::mutex _registrationMutex;
     boost::condition_variable _registrationCondition;

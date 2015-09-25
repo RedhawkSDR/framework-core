@@ -69,6 +69,10 @@ class UnitTestTest(scatest.OssieTestCase):
         self.assertEqual(cfgparams.has_key("DCE:cf623573-a09d-4fb1-a2ae-24b0b507115d"), True)
         self.assertEqual(cfgparams.has_key("DCE:6ad84383-49cf-4017-b7ca-0ec4c4917952"), True)
 
+        propparams = tc.getPropertySet(kinds=("property",), modes=("readwrite", "writeonly"))
+        propparams = dict([(p.id, any.from_any(p.value)) for p in propparams])
+        self.assertEqual(propparams.has_key("configure_prop_notset"), True)
+
         self.assertEqual(cfgparams["DCE:a4e7b230-1d17-4a86-aeff-ddc6ea3df26e"], "/bin/echo")
         self.assertEqual(cfgparams["DCE:5d8bfe8d-bc25-4f26-8144-248bc343aa53"], ["Hello World"])
         self.assertEqual(cfgparams["DCE:ffe634c9-096d-425b-86cc-df1cce50612f"], [{"id": 'item1', 'value': 'value1'},

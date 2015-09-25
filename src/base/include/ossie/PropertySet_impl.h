@@ -38,7 +38,7 @@
 
 class PropertySet_impl
 #ifdef BEGIN_AUTOCOMPLETE_IGNORE
-    : public virtual POA_CF::PropertySet
+    : public virtual POA_CF::PropertyEmitter
 #endif
 {
     ENABLE_LOGGING;
@@ -55,7 +55,7 @@ public:
 
     void
     initializeProperties(const CF::Properties& initialProperties)
-    throw (CF::PropertySet::AlreadyInitialized, CF::PropertySet::PartialConfiguration,
+    throw (CF::PropertyEmitter::AlreadyInitialized, CF::PropertySet::PartialConfiguration,
            CF::PropertySet::InvalidConfiguration, CORBA::SystemException);
 
     // The core framework provides an implementation for this method.

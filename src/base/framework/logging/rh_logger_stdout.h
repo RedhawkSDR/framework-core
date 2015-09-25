@@ -47,4 +47,3 @@ namespace rh_logger {
 };
 
 #endif
-

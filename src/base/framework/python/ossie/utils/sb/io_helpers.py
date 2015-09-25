@@ -18,7 +18,6 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-
 try:
     from bulkio.bulkioInterfaces import BULKIO as _BULKIO
     from bulkio.bulkioInterfaces import BULKIO__POA as _BULKIO__POA
@@ -42,6 +41,7 @@ import subprocess as _subprocess
 import Queue as _Queue
 import struct as _struct
 import logging as _logging
+import socket as _socket
 from omniORB import any as _any
 from omniORB import CORBA as _CORBA
 
@@ -56,7 +56,8 @@ log = _logging.getLogger(__name__)
 
 __all__ = ('DataSink', 'DataSource', 'FileSink', 'FileSource', 'MessageSink',
            'MessageSource','Plot', 'SRIKeyword', 'compareSRI', 'helperBase',
-           'probeBULKIO')
+           'probeBULKIO','createSDDSStreamDefinition', 'DataSourceSDDS',
+           'DataSinkSDDS')
 
 def compareSRI(a, b):
     '''
@@ -157,9 +158,11 @@ class MessageSink(helperBase, PortSupplier):
         PortSupplier.api(self)
 
     def start(self):
+        if self._messagePort and not self._messagePort.is_alive():  self._messagePort.start()
         pass
 
     def stop(self):
+        if self._messagePort:  self._messagePort.stop()
         pass
 
     def eos(self):
@@ -340,6 +343,12 @@ class _DataPortBase(helperBase, PortSupplier):
                             "portType" : "_BULKIO__POA.dataFile",
                             "portDict" : {"Port Interface" : "IDL:BULKIO/dataFile:1.0",
                                           "Port Name"      : "file"}},
+             "sdds"      : {"bytesPerSample" : 1,
+                            "pktSize"        : -1,
+                            "format"         : 's',
+                            "portType" : "_BULKIO__POA.dataSDDS",
+                            "portDict" : {"Port Interface" : "IDL:BULKIO/dataSDDS:1.0",
+                                          "Port Name"      : "sdds"}},
              "xml"       : {"bytesPerSample" : 1,
                             "pktSize"        : -1,
                             "format"         : 's',
@@ -391,7 +400,7 @@ class _DataPortBase(helperBase, PortSupplier):
 
 class _SourceBase(_DataPortBase):
 
-    def __init__(self, bytesPerPush, dataFormat, data = None, formats=None):
+    def __init__(self, bytesPerPush, dataFormat, data = None, formats=None, subsize=0):
         """
         Forward parameters to parent constructor.
 
@@ -419,6 +428,8 @@ class _SourceBase(_DataPortBase):
                 self._dataFormat = None
         else:
             self._dataFormat = None
+            
+        self._subsize     = subsize
 
         self._connections = {}
         self._buildAPI()
@@ -543,6 +554,11 @@ class _SinkBase(_DataPortBase):
 
         self.breakBlock = True
 
+    def reset(self):
+        if self._sink:
+            if callable(self._sink.reset):
+                self._sink.reset()
+
     def eos(self):
         """
         Returns the end of sequence (EOS) state of self._sink, or false if no
@@ -577,7 +593,8 @@ class FileSource(_SourceBase):
                  bytesPerPush = 512000,
                  startTime    = 0.0,
                  streamID     = None,
-                 blocking     = True):
+                 blocking     = True,
+                 subsize      = 0):
 
         self._filename = filename
         self._midasFile = midasFile
@@ -678,7 +695,7 @@ class FileSource(_SourceBase):
                 elif 'f' in dataFormat:
                     dataFormat = 'double'
  
-        _SourceBase.__init__(self, bytesPerPush = bytesPerPush, dataFormat = dataFormat) 
+        _SourceBase.__init__(self, bytesPerPush = bytesPerPush, dataFormat = dataFormat, subsize=subsize) 
         if self.supportedPorts.has_key(dataFormat):
             self._srcPortType = self.supportedPorts[dataFormat]["portType"]
         else:
@@ -717,7 +734,7 @@ class FileSource(_SourceBase):
                 if self._streamID == None:
                     self._streamID = self._filename.split('/')[-1]
 
-                self._sri = _BULKIO.StreamSRI(1, 0.0, 1, 0, 0, 0.0, 0, 0, 0,
+                self._sri = _BULKIO.StreamSRI(1, 0.0, 1, 0, self._subsize, 0.0, 0, 0, 0,
                                             self._streamID, True, keywords)
 
                 if self._sampleRate > 0.0:
@@ -830,6 +847,95 @@ class FileSink(_SinkBase):
             # not yet exist.
             log.warn("No file writer present, therefore not waiting for EOS.  Is the " + self.className + " module connected?")
 
+class DataSinkSDDS(_SinkBase):
+    """
+    DataSinkSDDS accepts SDDS metadata
+
+    It is the responsibility of the user to consume the SDDS data
+
+    DataSinkSDDS manages attachment Ids under the port (self._snk) dictionary attachments
+
+    register an attach callback by passing a function to registerAttachCallback
+    register an detach callback by passing a function to registerDetachCallback
+    """
+    def __init__(self):
+        _SinkBase.__init__(self, formats=['sdds'])
+        self._snk = _bulkio_data_helpers.SDDSSink(self)
+        self.attach_cb = self.__attach_cb
+        self.detach_cb = self.__detach_cb
+
+    def getPort(self, portName):
+        return self._snk.getPort()
+
+    def __attach_cb(self, streamDef, user_id):
+        print 'attach received: ',streamDef, user_id
+
+    def __detach_cb(self, attachId):
+        print 'detach received: ',attachId
+
+    def registerAttachCallback(self, attach_cb_fn):
+        """
+        The attach function takes two arguments: stream definition, user id
+        """
+        self.attach_cb = attach_cb_fn
+
+    def registerDetachCallback(self, detach_cb_fn):
+        """
+        The detach function takes one arguments: attachment id
+        """
+        self.detach_cb = detach_cb_fn
+
+def createSDDSStreamDefinition(id=None, dataFormat=_BULKIO.SDDS_SB, multicastAddress='0.0.0.0',vlan=0,port=1,sampleRate=2,timeTagValid=False,privateInfo=''):
+    if id == None:
+        id = _socket.gethostname()
+    return _BULKIO.SDDSStreamDefinition(id=id, dataFormat=dataFormat, multicastAddress=multicastAddress,vlan=vlan,port=port,sampleRate=sampleRate,timeTagValid=timeTagValid,privateInfo=privateInfo)
+
+class DataSourceSDDS(_SourceBase):
+    """
+    DataSourceSDDS generates the SDDS metadata and sends it to whichever destination it is connected to.
+
+    It is the responsibility of the user to generate the SDDS data
+    """
+    def __init__(self):
+        """
+        Helper to handle the generation of SDDS metadata forwarding
+        """
+        _SourceBase.__init__(self, bytesPerPush = 0, dataFormat='sdds', formats=['sdds'])
+        self._src = _bulkio_data_helpers.SDDSSource()
+    def attach(self, streamData=None, name=None):
+        """
+        streamData: type BULKIO.SDDSStreamDefinition
+        name: user id (string)
+
+        The return value is the attachment id (use this to detach)
+
+        If there exists more than one connection, then the return value is a list
+        of all attachment id's generated
+
+        """
+        if streamData == None:
+            streamData = createSDDSStreamDefinition()
+        if name == None:
+            name = _socket.gethostname()+'_user'
+        if not isinstance(streamData, _BULKIO.SDDSStreamDefinition):
+            raise Exception("streamData must be of type BULKIO.SDDSStreamDefinition")
+        if not isinstance(name, str):
+            raise Exception("name must be of <type 'str'>")
+        retval = self._src.attach(streamData, name)
+        return retval
+
+    def detach(self, attachId=''):
+        """
+        streamData: type BULKIO.SDDSStreamDefinition
+        name: user id (string)
+        """
+        if not isinstance(attachId, str):
+            raise Exception("attachId must be of <type 'str'>")
+        self._src.detach(attachId)
+
+    def _createArraySrcInst(self, srcPortType):
+        return self._src
+
 class DataSource(_SourceBase):
     def __init__(self,
                  data         = None,
@@ -837,14 +943,16 @@ class DataSource(_SourceBase):
                  loop         = False,
                  bytesPerPush = 512000,
                  startTime    = 0.0,
-                 blocking     = True):
+                 blocking     = True,
+                 subsize      = 0):
 
         self.threadExited = None
 
         _SourceBase.__init__(self,
                              bytesPerPush = bytesPerPush,
                              dataFormat   = dataFormat,
-                             data         = data)
+                             data         = data,
+                             subsize      = subsize)
 
         self._sampleRate  = None
         self._complexData = None
@@ -986,7 +1094,7 @@ class DataSource(_SourceBase):
                     keywords = []
                     for key in self._SRIKeywords:
                         keywords.append(_CF.DataType(key._name, _properties.to_tc_value(key._value,str(key._format))))
-                    candidateSri = _BULKIO.StreamSRI(1, 0.0, 1, 0, 0, 0.0, 0, 0, 0,
+                    candidateSri = _BULKIO.StreamSRI(1, 0.0, 1, 0, self._subsize, 0.0, 0, 0, 0,
                                                      streamID, self._blocking, keywords)
 
                     if sampleRate > 0.0:
@@ -1000,7 +1108,7 @@ class DataSource(_SourceBase):
                     if self._startTime >= 0.0:
                         candidateSri.xstart = self._startTime
                 else:
-                    candidateSri = _BULKIO.StreamSRI(1, 0.0, 1, 0, 0, 0.0, 0, 0, 0,
+                    candidateSri = _BULKIO.StreamSRI(1, 0.0, 1, 0, self._subsize, 0.0, 0, 0, 0,
                                                      "defaultStreamID", self._blocking, [])
 
                 if self._sri==None or not compareSRI(candidateSri, self._sri):

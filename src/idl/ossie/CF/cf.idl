@@ -430,13 +430,6 @@ module CF {
     exception PartialConfiguration {
       CF::Properties invalidProperties;
     };
-    /* The AlreadyInitialized exception indicates that initializeProperties has already been called on this component. */
-    exception AlreadyInitialized {
-    };
-
-    /* The purpose of this operation is to set the initial id/value pair configuration properties for components implementing this interface. */
-    void initializeProperties(in CF::Properties initialProperties)
-      raises (CF::PropertySet::AlreadyInitialized,CF::PropertySet::InvalidConfiguration,CF::PropertySet::PartialConfiguration);
 
     /* The purpose of this operation is to allow id/value pair configuration properties to be assigned to components implementing this interface. */
     void configure (in CF::Properties configProperties )
@@ -446,13 +439,24 @@ module CF {
     void query (inout CF::Properties configProperties)
       raises (CF::UnknownProperties);
 
+  };
+
+    interface PropertyEmitter : PropertySet {
+
+    /* The AlreadyInitialized exception indicates that initializeProperties has already been called on this component. */
+    exception AlreadyInitialized {
+    };
+
+    /* The purpose of this operation is to set the initial id/value pair configuration properties for components implementing this interface. */
+    void initializeProperties(in CF::Properties initialProperties)
+      raises (CF::PropertyEmitter::AlreadyInitialized,CF::PropertySet::InvalidConfiguration,CF::PropertySet::PartialConfiguration);
+
     string  registerPropertyListener( in Object obj, in StringSequence prop_ids, in float interval )
       raises (CF::UnknownProperties, CF::InvalidObjectReference);
 
     void    unregisterPropertyListener( in string id)
       raises ( CF::InvalidIdentifier );
-
-  };
+    };
 
     interface AllocationStatusIterator;
     interface DeviceLocationIterator;
@@ -596,20 +600,27 @@ module CF {
         ENDPOINT_DEVICE,
         ENDPOINT_SERVICE,
         ENDPOINT_EVENTCHANNEL,
+        ENDPOINT_COMPONENT,
+        ENDPOINT_DOMAINMANAGER,
+        ENDPOINT_DEVICEMANAGER,
         ENDPOINT_OBJECTREF
       };
 
       union EndpointResolutionType switch(EndpointKind) {
       case ENDPOINT_APPLICATION:
-        string waveformId;
+        string applicationId;
       case ENDPOINT_DEVICE:
         string deviceId;
+      case ENDPOINT_COMPONENT:
+        string componentId;
       case ENDPOINT_SERVICE:
         string serviceName;
       case ENDPOINT_EVENTCHANNEL:
         string channelName;
       case ENDPOINT_OBJECTREF:
         Object objectRef;
+      case ENDPOINT_DEVICEMANAGER:
+        string deviceMgrId;
       };
 
       struct EndpointRequest {
@@ -617,19 +628,24 @@ module CF {
         string portName;
       };
 
-      void connect(in EndpointRequest usesEndpoint, in EndpointRequest providesEndpoint, inout string connectionId);
-      void disconnect(in string connectionId);
+      string connect(in EndpointRequest usesEndpoint, in EndpointRequest providesEndpoint, in string requesterId, in string connectionId)
+          raises (CF::Port::InvalidPort);
+      void disconnect(in string connectionRecordId)
+          raises (CF::Port::InvalidPort);
 
       struct EndpointStatusType {
         Object endpointObject;
         string portName;
         string repositoryId;
+        string entityId;
       };
 
       struct ConnectionStatusType {
         EndpointStatusType providesEndpoint;
         EndpointStatusType usesEndpoint;
         string connectionId;
+        string requesterId;
+        string connectionRecordId;
         boolean connected;
       };
 
@@ -685,7 +701,7 @@ module CF {
     };
 
     /* The DomainManager interface is for the control and configuration of the radio domain. */
-    interface DomainManager : PropertySet {
+    interface DomainManager : PropertyEmitter {
       /* This exception is raised when an Application installation has not completed correctly. The message provides additional information describing the reason for the error. */
       exception ApplicationInstallationError {
         CF::ErrorNumberType errorNumber;
@@ -861,21 +877,21 @@ module CF {
                       in string name
                       )
         raises (CF::PortSupplier::UnknownPort);
-	  /* The PortInfoType defines a type for returning information about a port in the getPortSet function. */
-	  struct PortInfoType {
-		Object obj_ptr;
-		string name;
-		string repid;
-		string description;
-		string direction;
-	  };
-	  /* The PortInfoSequence type defines an unbounded sequence of ports' information for getPortSet function. */
-	  typedef sequence <PortInfoType> PortInfoSequence;
-	  /* The getPortSet operation provides a mechanism to obtain information about all ports in the resource. */
-	  PortInfoSequence getPortSet ();
+      /* The PortInfoType defines a type for returning information about a port in the getPortSet function. */
+      struct PortInfoType {
+        Object obj_ptr;
+        string name;
+        string repid;
+        string description;
+        string direction;
+      };
+      /* The PortInfoSequence type defines an unbounded sequence of ports' information for getPortSet function. */
+      typedef sequence <PortInfoType> PortInfoSequence;
+      /* The getPortSet operation provides a mechanism to obtain information about all ports in the resource. */
+      PortInfoSequence getPortSet ();
     };
     /* The Resource interface provides a common interface for the control and configuration of a software component. */
-  interface Resource : LifeCycle, TestableObject, PropertySet, PortSupplier, Logging {
+  interface Resource : LifeCycle, TestableObject, PropertyEmitter, PortSupplier, Logging {
       /* This exception indicates that an error occurred during an attempt to start the Resource. The message provides additional information describing the reason for the error. */
       exception StartError {
         CF::ErrorNumberType errorNumber;
@@ -1108,7 +1124,7 @@ module CF {
                 CF::ExecutableDevice::ExecuteFail);
     };
     /* The DeviceManager interface is used to manage a set of logical Devices and services. */
-    interface DeviceManager : PropertySet, PortSupplier {
+    interface DeviceManager : PropertyEmitter, PortSupplier {
       /* This structure provides the object reference and name of services that have registered with the DeviceManager. */
       struct ServiceType {
         Object serviceObject;
