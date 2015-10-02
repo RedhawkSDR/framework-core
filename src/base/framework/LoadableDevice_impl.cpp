@@ -358,10 +358,13 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                     FILE *fileCheck = popen(command.c_str(), "r");
                     int status = pclose(fileCheck);
                     if (!status) {
+                      LOG_DEBUG(LoadableDevice_impl, "cmd= " << command << 
+                                " relativeFileName: " << relativeFileName <<
+                                " relativePath: " << relativePath);
                         // The import worked
                         std::string additionalPath = "";
                         if (fileInfo->kind == CF::FileSystem::DIRECTORY) {
-                            additionalPath = currentPath+std::string("/")+relativeFileName;
+                            additionalPath = currentPath+std::string("/")+relativePath;
                         } else {
                             additionalPath = currentPath+std::string("/")+relativePath;
                         }

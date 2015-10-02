@@ -729,6 +729,7 @@ class LoadableDevice(Device):
             if not foundValue:
                 os.environ['PYTHONPATH'] = os.environ['PYTHONPATH']+':'+currentdir+'/'+aggregateChange+':'
             matchesPattern = True
+            self._log.debug("LOAD -SHARED (PY-2)  PYTHONPATH:" + str(os.environ['PYTHONPATH']) )
         except:
             # This is not a python module
             pass
