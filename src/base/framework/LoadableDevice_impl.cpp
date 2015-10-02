@@ -349,10 +349,14 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                     FILE *fileCheck = popen(command.c_str(), "r");
                     int status = pclose(fileCheck);
                     if (!status) {
+                        LOG_DEBUG(LoadableDevice_impl, "cmd= " << command << 
+                                " relativeFileName: " << relativeFileName <<
+                                " relativePath: " << relativePath);
+
                         // The import worked
                         std::string additionalPath = "";
                         if (fileInfo->kind == CF::FileSystem::DIRECTORY) {
-                            additionalPath = currentPath+std::string("/")+relativeFileName;
+                            additionalPath = currentPath+std::string("/")+relativePath;
                         } else {
                             additionalPath = currentPath+std::string("/")+relativePath;
                         }
@@ -363,6 +367,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                         std::string::size_type pathLocation = pythonpath.find(additionalPath);
                         if (pathLocation == std::string::npos) {
                             pythonpath = additionalPath + std::string(":") + pythonpath;
+                            LOG_DEBUG(LoadableDevice_impl, "Adding " << additionalPath << " to PYTHONPATH");
                             setenv("PYTHONPATH", pythonpath.c_str(), 1);
                         }
                         PythonPackage = true;

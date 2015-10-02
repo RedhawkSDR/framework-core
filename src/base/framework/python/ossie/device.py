@@ -719,6 +719,7 @@ class LoadableDevice(Device):
                 newFileValue = importFile
             candidatePath = currentdir+'/'+aggregateChange
             self._prependToEnvVar(candidatePath, 'PYTHONPATH')
+            self._log.debug("PYTHONPATH : ADDING:" + str(candidatePath) + " PATH:" + str(os.environ['PYTHONPATH']) )
 
             matchesPattern = True
         except:
