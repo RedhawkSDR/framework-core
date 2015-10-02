@@ -1546,7 +1546,7 @@ class simple(GeneratedsSuper):
             self.units = units_
             self.validate_Unit(self.units)    # validate type Unit
         elif nodeName_ == 'range':
-            obj_ = range.factory()
+            obj_ = range_.factory()
             obj_.build(child_)
             self.set_range(obj_)
         elif nodeName_ == 'enumerations':

@@ -236,7 +236,8 @@ class ScaComponentTestCase(unittest.TestCase):
         propertySet = []
 
         # Simples
-        for prop in self.prf.get_simple():
+        if self.prf != None:
+          for prop in self.prf.get_simple():
             if self.isMatch(prop, modes, kinds, (action,)): 
                 if prop.get_value() is not None:    
                     if prop.complex.lower() == "true":
@@ -253,8 +254,8 @@ class ScaComponentTestCase(unittest.TestCase):
                 p = CF.DataType(id=str(prop.get_id()), value=dt)
                 propertySet.append(p)
 
-        # Simple Sequences
-        for prop in self.prf.get_simplesequence():
+          # Simple Sequences
+          for prop in self.prf.get_simplesequence():
             if self.isMatch(prop, modes, kinds, (action,)): 
                 if prop.get_values() is not None:
                     seq = []
@@ -281,8 +282,8 @@ class ScaComponentTestCase(unittest.TestCase):
                 p = CF.DataType(id=str(prop.get_id()), value=dt)
                 propertySet.append(p)
 
-        # Structures
-        for prop in self.prf.get_struct():
+          # Structures
+          for prop in self.prf.get_struct():
             if self.isMatch(prop, modes, kinds, (action,)): 
                 if (prop.get_simple() is not None) or (prop.get_simplesequence() is not None):
                     fields = []
@@ -306,8 +307,9 @@ class ScaComponentTestCase(unittest.TestCase):
                     dt = any.to_any(None)
                 p = CF.DataType(id=str(prop.get_id()), value=dt)
                 propertySet.append(p)
-        # Structures
-        for prop in self.prf.get_structsequence():
+                
+          # Struct Sequence
+          for prop in self.prf.get_structsequence():
             if self.isMatch(prop, modes, kinds, (action,)):
               baseProp = []
               if prop.get_struct() != None:
@@ -339,7 +341,6 @@ class ScaComponentTestCase(unittest.TestCase):
                   anybp.append(properties.props_to_any(bp))
               p = CF.DataType(id=str(prop.get_id()), value=any.to_any(anybp))
               propertySet.append(p)
-        # Struct Sequence
 
         return propertySet
     
