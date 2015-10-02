@@ -227,7 +227,8 @@ class ScaComponentTestCase(unittest.TestCase):
     def getPropertySet(self, kinds=("configure","property",), \
                              modes=("readwrite", "writeonly", "readonly"), \
                              action="external", \
-                             includeNil=True):
+                             includeNil=True,
+                             commandline=False):
         """
         A useful utility function that extracts specified property types from
         the PRF file and turns them into a CF.PropertySet
@@ -283,19 +284,21 @@ class ScaComponentTestCase(unittest.TestCase):
         # Structures
         for prop in self.prf.get_struct():
             if self.isMatch(prop, modes, kinds, (action,)): 
-                if prop.get_props() is not None:
+                if (prop.get_simple() is not None) or (prop.get_simplesequence() is not None):
                     fields = []
                     hasValue = False
-                    for p in prop.get_props():
-                        if isinstance(p, PRFParser.simple):
+                    if prop.get_simple() is not None:
+                        for p in prop.get_simple():
                             if p.get_value() is not None:
                                 hasValue = True
                             dt = properties.to_tc_value(p.get_value(), p.get_type())
-                        elif isinstance(p, PRFParser.simpleSequence):
+                            fields.append(CF.DataType(id=str(p.get_id()), value=dt))
+                    if prop.get_simplesequence() is not None:
+                        for p in prop.get_simplesequence():
                             if p.get_values() is not None:
                                 hasValue = True
                             dt = properties.to_tc_value(p.get_values(), p.get_type())
-                        fields.append(CF.DataType(id=str(p.get_id()), value=dt))
+                            fields.append(CF.DataType(id=str(p.get_id()), value=dt))
                     if not hasValue and not includeNil:
                         continue
                     dt = any.to_any(fields)
@@ -309,21 +312,28 @@ class ScaComponentTestCase(unittest.TestCase):
               baseProp = []
               if prop.get_struct() != None:
                 fields = []
-                for internal_prop in prop.get_struct().get_props():
+                for internal_prop in prop.get_struct().get_simple():
+                    fields.append(CF.DataType(id=str(internal_prop.get_id()), value=any.to_any(None)))
+                for internal_prop in prop.get_struct().get_simplesequence():
                     fields.append(CF.DataType(id=str(internal_prop.get_id()), value=any.to_any(None)))
               for val in prop.get_structvalue():
                 baseProp.append(copy.deepcopy(fields))
-                for entry in val.get_propsref():
+                for entry in val.get_simpleref():
                   val_type = None
-                  for internal_prop in prop.get_struct().get_props():
+                  for internal_prop in prop.get_struct().get_simple():
                       if str(internal_prop.get_id()) == entry.refid:
                           val_type = internal_prop.get_type()
                   for subfield in baseProp[-1]:
                       if subfield.id == entry.refid:
-                        if isinstance(entry, PRFParser.simpleRef):
-                            subfield.value = properties.to_tc_value(entry.get_value(), val_type)
-                        elif isinstance(entry, PRFParser.simpleSequenceRef):
-                            subfield.value = properties.to_tc_value(entry.get_values(), val_type)
+                          subfield.value = properties.to_tc_value(entry.get_value(), val_type)
+                for entry in val.get_simplesequenceref():
+                  val_type = None
+                  for internal_prop in prop.get_struct().get_simplesequence():
+                      if str(internal_prop.get_id()) == entry.refid:
+                          val_type = internal_prop.get_type()
+                  for subfield in baseProp[-1]:
+                      if subfield.id == entry.refid:
+                          subfield.value = properties.to_tc_value(entry.get_values(), val_type)
               anybp = []
               for bp in baseProp:
                   anybp.append(properties.props_to_any(bp))

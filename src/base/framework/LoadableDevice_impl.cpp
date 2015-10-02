@@ -338,7 +338,7 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                 // Check if the remote file is newer than the local file, and if so, update the file
                 // in the cache. No consideration is given to clock sync differences between systems.
                 time_t remoteModifiedTime = getModTime(fileInfo->fileProperties);
-                time_t cacheModifiedTime = fs::last_write_time(relativeFileName);
+                time_t cacheModifiedTime = cacheTimestamps[workingFileName];
                 LOG_TRACE(LoadableDevice_impl, "Remote modified: " << remoteModifiedTime << " Local modified: " << cacheModifiedTime);
                 if (remoteModifiedTime > cacheModifiedTime) {
                     LOG_DEBUG(LoadableDevice_impl, "Remote file is newer than local file");
@@ -376,9 +376,26 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
             relativeFileName = workingFileName.substr(1);
         }
         fileStream.open(relativeFileName.c_str(), mode);
+        bool text_file_busy = false;
         if (!fileStream.is_open()) {
-            LOG_ERROR(LoadableDevice_impl, "Could not create file " << relativeFileName.c_str());
-            throw CF::LoadableDevice::LoadFail(CF::CF_NOTSET, "Device SDR cache write error");
+            if (errno == ETXTBSY) {
+                text_file_busy = true;
+            } else {
+                LOG_ERROR(LoadableDevice_impl, "Could not create file " << relativeFileName.c_str());
+                throw CF::LoadableDevice::LoadFail(CF::CF_NOTSET, "Device SDR cache write error");
+            }
+        }
+        if (text_file_busy) {
+            std::stringstream new_filename;
+            new_filename << relativeFileName << "_timestamp_" << cacheTimestamps[workingFileName];
+            rename(relativeFileName.c_str(), new_filename.str().c_str());
+            duplicate_filenames[workingFileName].push_back(new_filename.str());
+            cacheTimestamps[workingFileName] = getModTime(fileInfo->fileProperties);
+            fileStream.open(relativeFileName.c_str(), mode);
+            if (!fileStream.is_open()) {
+                LOG_ERROR(LoadableDevice_impl, "Could not create file " << relativeFileName.c_str());
+                throw CF::LoadableDevice::LoadFail(CF::CF_NOTSET, "Device SDR cache write error");
+            }
         }
 
         _copyFile( fs, workingFileName, relativeFileName, workingFileName );
@@ -400,6 +417,9 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
 // add filename to loadedfiles. If it's been already loaded, then increment its counter
     LOG_DEBUG(LoadableDevice_impl, "Incrementing " << workingFileName << " vs " << fileName)
     incrementFile (workingFileName);
+    if (cacheTimestamps.count(workingFileName) == 0) {
+        cacheTimestamps[workingFileName] = getModTime(fileInfo->fileProperties);
+    }
 
     // Update environment to use newly-loaded library
     if (loadKind == CF::LoadableDevice::SHARED_LIBRARY) {
@@ -480,14 +500,19 @@ throw (CORBA::SystemException, CF::Device::InvalidState,
                     FILE *fileCheck = popen(command.c_str(), "r");
                     int status = pclose(fileCheck);
                     if (!status) {
+                        LOG_DEBUG(LoadableDevice_impl, "cmd= " << command << 
+                                " relativeFileName: " << relativeFileName <<
+                                " relativePath: " << relativePath);
+
                         // The import worked
                         std::string additionalPath = "";
                         if (fileInfo->kind == CF::FileSystem::DIRECTORY) {
-                            additionalPath = currentPath+std::string("/")+relativeFileName;
+                            additionalPath = currentPath+std::string("/")+relativePath;
                         } else {
                             additionalPath = currentPath+std::string("/")+relativePath;
                         }
                         env_changes.addModification("PYTHONPATH", additionalPath);
+                        LOG_DEBUG(LoadableDevice_impl, "Adding " << additionalPath << " to PYTHONPATH");
                         PythonPackage = true;
                     }
                 }
@@ -765,10 +790,23 @@ throw (CORBA::SystemException, CF::Device::InvalidState, CF::InvalidFileName)
 
 }
 
+void LoadableDevice_impl::removeDuplicateFiles(std::string fileName) {
+    if (duplicate_filenames.count(fileName) != 0) {
+        for (unsigned int i=0; i<duplicate_filenames[fileName].size(); i++) {
+            remove(duplicate_filenames[fileName][i].c_str());
+        }
+    }
+    duplicate_filenames.erase(fileName);
+}
+
 void
 LoadableDevice_impl::decrementFile (std::string fileName)
 {
     if (loadedFiles.count(fileName) == 0) {
+        if (cacheTimestamps.count(fileName) != 0) {
+            cacheTimestamps.erase(fileName);
+        }
+        removeDuplicateFiles(fileName);
         throw (CF::InvalidFileName (CF::CF_ENOENT, fileName.c_str()));
     } else {
         loadedFiles[fileName]--;
@@ -778,6 +816,8 @@ LoadableDevice_impl::decrementFile (std::string fileName)
             this->sharedPkgs.erase(fileName);
         }
         loadedFiles.erase(fileName);
+        cacheTimestamps.erase(fileName);
+        removeDuplicateFiles(fileName);
     }
 }
 

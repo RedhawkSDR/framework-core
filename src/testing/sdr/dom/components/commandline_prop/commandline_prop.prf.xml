@@ -6,4 +6,8 @@
     <kind kindtype="property"/>
     <action type="external"/>
   </simple>
+  <simple id="emptytestprop" mode="readwrite" type="string" commandline="true">
+    <kind kindtype="property"/>
+    <action type="external"/>
+  </simple>
 </properties>

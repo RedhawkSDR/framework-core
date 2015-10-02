@@ -60,6 +60,13 @@ void commandline_prop_base::loadProperties()
                 "",
                 "external",
                 "property");
+    addProperty(emptytestprop,
+                "emptytestprop",
+                "",
+                "readwrite",
+                "",
+                "external",
+                "property");
 
 }
 

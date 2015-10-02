@@ -1121,7 +1121,8 @@ public final class AnyUtils {
                             }
                         }
                         if ("eq".equals(action)) {
-                        } 
+                            return true;
+                        }
                         return false;
                     }
                     

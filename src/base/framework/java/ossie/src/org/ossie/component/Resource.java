@@ -574,14 +574,16 @@ public abstract class Resource extends Logging implements ResourceOperations, Ru
                 // callback.
                 prop.configure(dt.value);
                 if (AnyUtils.compareAnys(value_before, prop.toAny(), "eq")) {
-                    logger.warn("Value has not changed on configure for property " + dt.id + ". Not triggering callback");
+                    logger.debug("Value has not changed on configure for property " + dt.id + ". Not triggering callback");
+                } else {
+                    // The property value changed.
+                    // Check to see if this property should issue property change
+                    // events and a port is registered.
+                    if (prop.isEventable() && (this.propertyChangePort != null)) {
+                        this.propertyChangePort.sendPropertyEvent(prop.getId());
+                    }
                 }
 
-                // Check to see if this property should issue property change
-                // events and a port is registered.
-                if (prop.isEventable() && (this.propertyChangePort != null)) {
-                    this.propertyChangePort.sendPropertyEvent(prop.getId());
-                }
                 logger.trace("Configured property: " + prop);
             } catch (Throwable t) {
                 logger.error("Unable to configure property " + dt.id + ": " + t.getMessage());

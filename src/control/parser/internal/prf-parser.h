@@ -108,7 +108,6 @@ namespace ossie {
                                         string_p,
                                         PropertyValueType_p,
                                         IsComplex_p,
-                                        IsCommandLine_p,
                                         IsOptional_p);
 
                 values_p.parsers (string_p);

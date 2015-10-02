@@ -142,7 +142,10 @@ class LocalSandboxComponent(SandboxComponent, LocalMixin):
         self._buildAPI()
 
     def _getExecparams(self):
-        return dict((str(ep.id), ep.defValue) for ep in self._getPropertySet(kinds=('execparam',), includeNil=False))
+        execparams = dict((str(ep.id), ep.defValue) for ep in self._getPropertySet(kinds=('execparam',), includeNil=False))
+        commandline_property = dict((str(ep.id), ep.defValue) for ep in self._getPropertySet(kinds=('property',), includeNil=False,commandline=True))
+        execparams.update(commandline_property)
+        return execparams
 
     def releaseObject(self):
         try:
@@ -211,9 +214,12 @@ class LocalService(Service, LocalMixin):
         for prop in self._prf.get_simple():
             # Skip non-execparam properties
             kinds = set(k.get_kindtype() for k in prop.get_kind())
-            if 'execparam' not in kinds:
+            if ('execparam' not in kinds) and ('property' not in kinds):
                 continue
-            # Only include execparam properties with values
+            if 'property' in kinds:
+                if prop.get_commandline() == 'false':
+                    continue
+            # Only include properties with values
             value = prop.get_value()
             if value is not None:
                 execparams[prop.get_id()] = value

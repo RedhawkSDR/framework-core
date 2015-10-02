@@ -563,10 +563,10 @@ void DeviceManager_impl::getOverloadprops(
                 LOG_TRACE(DeviceManager_impl, "setting property " << (*jprops_iter)->getID() << " to " <<  tmp->getValue());
                 overloadprops[(*jprops_iter)->getID()] = tmp->getValue();
             } else {
-                LOG_WARN(DeviceManager_impl, "PRF file error, property initialized on command line must be simple type");
+                LOG_DEBUG(DeviceManager_impl, "PRF file error, property initialized on command line must be simple type");
             }
         } else {
-            LOG_WARN(DeviceManager_impl, "skipping property with null value")
+            LOG_DEBUG(DeviceManager_impl, "skipping property with null value")
         }
 
         LOG_TRACE(DeviceManager_impl, "looking for DCD overloaded props. Num props: " << instanceprops.size());

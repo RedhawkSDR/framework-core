@@ -898,7 +898,8 @@ class QueryableBase(object):
                         kinds=("configure","property", "execparam"), \
                         modes=("readwrite", "writeonly", "readonly"), \
                         action=("external"), \
-                        includeNil=True):
+                        includeNil=True,
+                        commandline=False):
         """
         A useful utility function that extracts specified property types from
         the PRF file and turns them into a _CF.PropertySet
@@ -919,6 +920,8 @@ class QueryableBase(object):
         for prop in self._prf.get_simple():
             if _prop_helpers.isMatch(prop, modes, kinds, action):
                 if prop.get_value() == None and includeNil == False:
+                    continue
+                if (prop.get_commandline() == 'false') and ('property' in kinds) and (commandline==True):
                     continue
                 propType = self._getPropType(prop)
                 try:
@@ -970,32 +973,30 @@ class QueryableBase(object):
             if _prop_helpers.isMatch(structProp, modes, kinds, action):
                 members = []
                 structDefValue = {}
-                if structProp.get_props() != None:
-                    for prop in structProp.get_props():
-                        if isinstance(prop, _parsers.prf.simple):
-                            propType = self._getPropType(prop)
-                            val = prop.get_value()
-                            if str(val) == str(None):
-                                defValue = None
-                            else:
-                                defValue = _convertType(propType, val)
-                            id_clean = _prop_helpers._cleanId(prop)
-                            # Add individual property
-                            id_clean = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
-                            members.append((prop.get_id(), propType, defValue, id_clean))
-                            structDefValue[prop.get_id()] = defValue
-                        elif isinstance(prop, _parsers.prf.simpleSequence):
-                            propType = self._getPropType(prop)
-                            vals = prop.get_values()
-                            if vals:
-                                defValue = [_convertType(propType, val) for val in vals.get_value()]
-                            else:
-                                defValue = None
-                            id_clean = _prop_helpers._cleanId(prop)
-                            # Add individual property
-                            id_clean = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
-                            members.append((prop.get_id(), propType, defValue, id_clean))
-                            structDefValue[prop.get_id()] = defValue
+                for prop in structProp.get_simple():
+                    propType = self._getPropType(prop)
+                    val = prop.get_value()
+                    if str(val) == str(None):
+                        defValue = None
+                    else:
+                        defValue = _convertType(propType, val)
+                    id_clean = _prop_helpers._cleanId(prop)
+                    # Add individual property
+                    id_clean = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
+                    members.append((prop.get_id(), propType, defValue, id_clean))
+                    structDefValue[prop.get_id()] = defValue
+                for prop in structProp.get_simplesequence():
+                    propType = self._getPropType(prop)
+                    vals = prop.get_values()
+                    if vals:
+                        defValue = [_convertType(propType, val) for val in vals.get_value()]
+                    else:
+                        defValue = None
+                    id_clean = _prop_helpers._cleanId(prop)
+                    # Add individual property
+                    id_clean = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
+                    members.append((prop.get_id(), propType, defValue, id_clean))
+                    structDefValue[prop.get_id()] = defValue
                 
                 hasDefault = False
                 for defValue in structDefValue.values():
@@ -1010,7 +1011,7 @@ class QueryableBase(object):
                 p = _prop_helpers.structProperty(id=structProp.get_id(),
                                                  valueType=members,
                                                  kinds=kindList,
-                                                 props=structProp.get_props(),
+                                                 props=structProp.get_simple()+structProp.get_simplesequence(),
                                                  compRef=weakref.proxy(self),
                                                  defValue=structDefValue,
                                                  mode=structProp.get_mode())
@@ -1024,61 +1025,66 @@ class QueryableBase(object):
                 if prop.get_struct() != None:
                     members = []
                     #get the struct definition
-                    for prp in prop.get_struct().get_props():
+                    for prp in prop.get_struct().get_simple():
                         propType = self._getPropType(prp)
-                        if isinstance(prp, _parsers.prf.simple):
-                            val = prp.get_value()
-                            if str(val) == str(None):
-                                defValue = None
-                            else:
-                                defValue = _convertType(propType, val)
-                            id_clean = _prop_helpers._cleanId(prp)
-                            # Add struct member
-                            members.append((prp.get_id(), propType, defValue, id_clean))
-                            _prop_helpers.addCleanName(id_clean, prp.get_id(), _displayNames, _duplicateNames)
-                        elif isinstance(prp, _parsers.prf.simpleSequence):
-                            vals = prp.get_values()
-                            if vals:
-                                defValue = [_convertType(propType, val) for val in vals.get_value()]
-                            else:
-                                defValue = None
-                            id_clean = _prop_helpers._cleanId(prp)
-                            # Adds struct member
-                            members.append((prp.get_id(), propType, defValue, id_clean))
-                            _prop_helpers.addCleanName(id_clean, prp.get_id(), _displayNames, _duplicateNames)
+                        val = prp.get_value()
+                        if str(val) == str(None):
+                            defValue = None
+                        else:
+                            defValue = _convertType(propType, val)
+                        id_clean = _prop_helpers._cleanId(prp)
+                        # Add struct member
+                        members.append((prp.get_id(), propType, defValue, id_clean))
+                        _prop_helpers.addCleanName(id_clean, prp.get_id(), _displayNames, _duplicateNames)
+                    for prp in prop.get_struct().get_simplesequence():
+                        propType = self._getPropType(prp)
+                        vals = prp.get_values()
+                        if vals:
+                            defValue = [_convertType(propType, val) for val in vals.get_value()]
+                        else:
+                            defValue = None
+                        id_clean = _prop_helpers._cleanId(prp)
+                        # Adds struct member
+                        members.append((prp.get_id(), propType, defValue, id_clean))
+                        _prop_helpers.addCleanName(id_clean, prp.get_id(), _displayNames, _duplicateNames)
                     
                     structSeqDefValue = None
                     structValues = prop.get_structvalue()
                     if len(structValues) != 0:
                         structSeqDefValue = []
                         for structValue in structValues:
-                            propRefs = structValue.get_propsref()
                             newValue = {}
-                            for propRef in propRefs:
+                            for propRef in structValue.get_simpleref():
                                 id_ = propRef.get_refid()
                                 _propType = None
                                 _value = None
                                 for _id, pt, dv, cv in members:
                                     if _id == str(id_):
                                         _propType = pt
-                                if isinstance(propRef, _parsers.prf.simpleRef):
-                                    value = propRef.get_value()
-                                    if str(value) == str(None):
-                                        _value = None
-                                    else:
-                                        _value = _convertType(_propType, value)
-                                elif isinstance(propRef, _parsers.prf.simpleSequenceRef):
-                                    values = propRef.get_values()
-                                    if not values:
-                                        _value = None
-                                    else:
-                                        _value = [_convertType(_propType, val) for val in values.get_value()]
+                                value = propRef.get_value()
+                                if str(value) == str(None):
+                                    _value = None
+                                else:
+                                    _value = _convertType(_propType, value)
+                                newValue[str(id_)] = _value
+                            for propRef in structValue.get_simplesequenceref():
+                                id_ = propRef.get_refid()
+                                _propType = None
+                                _value = None
+                                for _id, pt, dv, cv in members:
+                                    if _id == str(id_):
+                                        _propType = pt
+                                values = propRef.get_values()
+                                if not values:
+                                    _value = None
+                                else:
+                                    _value = [_convertType(_propType, val) for val in values.get_value()]
                                 newValue[str(id_)] = _value
                             structSeqDefValue.append(newValue)
                 kindList = []
                 for k in prop.get_configurationkind():
                     kindList.append(k.get_kindtype())
-                p = _prop_helpers.structSequenceProperty(id=prop.get_id(), structID=prop.get_struct().get_id(), valueType=members, kinds=kindList, props=prop.get_struct().get_props(), compRef=weakref.proxy(self), defValue=structSeqDefValue, mode=prop.get_mode())
+                p = _prop_helpers.structSequenceProperty(id=prop.get_id(), structID=prop.get_struct().get_id(), valueType=members, kinds=kindList, props=prop.get_struct().get_simple()+prop.get_struct().get_simplesequence(), compRef=weakref.proxy(self), defValue=structSeqDefValue, mode=prop.get_mode())
                 id_clean = _prop_helpers._cleanId(prop)
                 p.clean_name = _prop_helpers.addCleanName(id_clean, prop.get_id(), _displayNames, _duplicateNames)
                 propertySet.append(p)

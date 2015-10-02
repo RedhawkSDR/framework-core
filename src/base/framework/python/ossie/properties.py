@@ -32,6 +32,7 @@ import traceback
 import StringIO
 import types
 import struct
+import inspect
 
 # From section 1.3 of the CORBA Python language mapping
 __TYPE_MAP = {
@@ -274,6 +275,16 @@ def struct_fields(value):
     if fields is None:
         fields = [p for p in clazz.__dict__.itervalues() if isinstance(p, simple_property)]
         fields += [p for p in clazz.__dict__.itervalues() if isinstance(p, simpleseq_property)]
+    members = inspect.getmembers(value)
+    for member in members:
+        if isinstance(member[1], simple_property) or isinstance(member[1], simpleseq_property):
+            foundMatch = False
+            for field in fields:
+                if member[1].id_ == field.id_:
+                    foundMatch = True
+                    break
+            if not foundMatch:
+                fields += [member[1]]
     return fields
 
 def struct_values(value):
@@ -1656,7 +1667,7 @@ class PropertyStorage:
                         raise CF.PropertySet.InvalidConfiguration(msg='callback function '+self._changeListeners[id_].func_name+' has the wrong number of arguments',invalidProperties=prop)
                     self._changeListeners[id_](id_, oldvalue, newvalue)
                 else:
-                    self.__resource._log.warning("Value has not changed on configure for property "+id_+". Not triggering callback")
+                    self.__resource._log.debug("Value has not changed on configure for property "+id_+". Not triggering callback")
         for callback in self._genericListeners:
             callback(id_, oldvalue, newvalue)
         

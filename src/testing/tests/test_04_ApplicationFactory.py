@@ -270,6 +270,7 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         items = comp_contents.split('\x00')
         self.assertEqual(len(domMgr._get_applications()), 1)
         
+        self.assertEqual(items.count('emptytestprop'),0)
         self.assertEqual(items.count('testprop'),1)
         props=[CF.DataType(id='testprop',value=any.to_any(None))]
         retprops = app._get_registeredComponents()[0].componentObject.query(props)

@@ -209,6 +209,7 @@ protected:
     void incrementFile (std::string);
     // Decrement the loadedFiles counter
     void decrementFile (std::string);
+    void removeDuplicateFiles(std::string fileName);
     // Map that keeps track of how many times a file was loaded
     std::map<std::string, int> loadedFiles;
     // Data structure that keeps track of the type of file that was loaded
@@ -230,6 +231,8 @@ protected:
     LoadableDevice_impl(); // No default constructor
     LoadableDevice_impl(LoadableDevice_impl&); // No copying
     void _init();
+    std::map<std::string, time_t> cacheTimestamps;
+    std::map<std::string, std::vector<std::string> > duplicate_filenames;
 
     void _loadTree(CF::FileSystem_ptr fs, std::string remotePath, boost::filesystem::path& localPath, std::string fileKey);
     void _deleteTree(const std::string &fileKey);

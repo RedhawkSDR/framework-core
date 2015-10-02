@@ -24,6 +24,7 @@ class commandline_prop_base : public Component, protected ThreadedComponent
         // Member variables exposed as properties
         /// Property: testprop
         std::string testprop;
+        std::string emptytestprop;
 
     private:
 };

@@ -595,7 +595,7 @@ ComponentInfo* ComponentInfo::buildComponentInfoFromSPDFile(CF::FileManager_ptr 
           }
           if (isExec)
               continue;
-          if (cprop[i]->isCommandLine()) {
+          if (cprop[i]->isCommandLine() and (not cprop[i]->isNone())) {
             newComponent->addExecParameter(convertPropertyToDataType(cprop[i]));
           } else {
             newComponent->addConstructProperty(convertPropertyToDataType(cprop[i]));

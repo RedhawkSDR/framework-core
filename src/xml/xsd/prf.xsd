@@ -227,7 +227,6 @@ defined.</xs:documentation></xs:annotation></xs:element>
     <xs:attribute name="name" type="xs:string"/>
     <xs:attribute name="type" type="PropertyValueType" use="required"/>
     <xs:attribute default="false" name="complex" type="IsComplex"/>
-    <xs:attribute default="false" name="commandline" type="IsCommandLine"/>
     <xs:attribute default="false" name="optional" type="IsOptional"/>
   </xs:complexType>
   <xs:complexType name="struct">

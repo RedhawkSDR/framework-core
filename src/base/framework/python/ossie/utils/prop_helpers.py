@@ -171,7 +171,18 @@ def getPropNameDict(prf):
       
         nameDict[str(tagbase)] = str(struct.get_id())
         tagbase = tagbase + "."
-        for prop in struct.get_props():
+        for prop in struct.get_simple():
+            if prop.get_name() == None:
+                name = prop.get_id()
+            else:
+                name = prop.get_name()
+            if nameDict.has_key( tagbase + str(name) ):
+                print "WARN: struct element with duplicate name %s" % tagbase
+                continue
+
+            nameDict[str(tagbase + str(name))] = str(prop.get_id())
+            
+        for prop in struct.get_simplesequence():
             if prop.get_name() == None:
                 name = prop.get_id()
             else:
@@ -199,7 +210,18 @@ def getPropNameDict(prf):
         struct = structSequence.get_struct()
 
         # pull out all of the elements of the struct
-        for prop in struct.get_props():
+        for prop in struct.get_simple():
+            # make sure this struct element's name is unique
+            if prop.get_name() == None:
+                name = prop.get_id()
+            else:
+                name = prop.get_name()
+            if nameDict.has_key( tagbase + str(name)):
+                print "WARN: property with non-unique name %s" % name
+                continue
+
+            nameDict[str(tagbase + str(name))] = str(prop.get_id())
+        for prop in struct.get_simplesequence():
             # make sure this struct element's name is unique
             if prop.get_name() == None:
                 name = prop.get_id()
@@ -399,14 +421,13 @@ class Property(object):
             for prop in self.compRef._prf.get_struct():
                 if prop.id_ == self.id:
                     first = True
-                    for sprop in prop.get_props():
-                      if sprop.__class__==_parsers.prf.simple:
+                    for sprop in prop.get_simple():
                         defVal,value, type, kinds,enums = self._getStructsSimpleProps(sprop,prop)
                         structTable.append(sprop.get_id(),type,str(defVal),str(value),enums)
                         if first:
                             print "% -*s %s" % (17,"Kinds: ", ', '.join(kinds))
                             first = False
-                      if sprop.__class__==_parsers.prf.simpleSequence:
+                    for sprop in prop.get_simplesequence():
                         defVal,values,type,kinds,enums = self._getStructsSimpleSeqProps(sprop, prop)
                         structTable.append(sprop.get_id(),type,defVal,values,enums)
                         if first:
@@ -424,7 +445,9 @@ class Property(object):
                 for kind in prop.get_configurationkind():
                     kinds.append(kind.get_kindtype())
                 if prop.id_ == self.id and prop.get_struct() != None:
-                    for prop in prop.get_struct().get_props():
+                    for prop in prop.get_struct().get_simple():
+                        structTable.append(prop.id_, prop.get_type())
+                    for prop in prop.get_struct().get_simplesequence():
                         structTable.append(prop.id_, prop.get_type())
             print "% -*s %s" % (17,"Kinds: ", ', '.join(kinds))
             print "\nStruct\n======"
