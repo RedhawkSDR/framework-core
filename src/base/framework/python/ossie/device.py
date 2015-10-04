@@ -727,7 +727,10 @@ class LoadableDevice(Device):
                     foundValue = True
                     break
             if not foundValue:
-                os.environ['PYTHONPATH'] = os.environ['PYTHONPATH']+':'+currentdir+'/'+aggregateChange+':'
+                newpath = currentdir+'/'+aggregateChange
+                ppath = os.environ['PYTHONPATH']
+                if ppath.find(newpath) == -1 : 
+                     os.environ['PYTHONPATH'] = newpath+':'+os.environ['PYTHONPATH']
             matchesPattern = True
             self._log.debug("LOAD -SHARED (PY-2)  PYTHONPATH:" + str(os.environ['PYTHONPATH']) )
         except:
