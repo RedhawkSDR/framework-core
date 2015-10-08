@@ -515,11 +515,6 @@ public abstract class Device extends Resource implements DeviceOperations {
             throw new InvalidState(invalidState);
         }
 
-        if (usageState == UsageType.BUSY) {
-            logger.warn("Cannot allocate capacity: System is BUSY");
-            return false;
-        }
-
         // Check for obviously invalid properties up front.
         validateAllocProps(capacities);
 

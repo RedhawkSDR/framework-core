@@ -264,6 +264,19 @@ ossie::AllocationResult AllocationManager_impl::allocateDeployment(const std::st
     return std::make_pair(std::string(), boost::shared_ptr<ossie::DeviceNode>());
 }
 
+bool AllocationManager_impl::hasListenerAllocation(const CF::Properties& requestedProperties)
+{
+    std::string listenerAllocationId("FRONTEND::listener_allocation");
+    
+    for (unsigned int i=0; i<requestedProperties.length(); i++) {
+        std::string requestId(requestedProperties[i].id);
+        if (requestId == listenerAllocationId) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool AllocationManager_impl::allocateDevice(const CF::Properties& requestedProperties, ossie::DeviceNode& node, CF::Properties& allocatedProperties, const std::vector<std::string>& processorDeps, const std::vector<ossie::SPD::NameVersionPair>& osDeps)
 {
     if (!ossie::corba::objectExists(node.device)) {
@@ -271,7 +284,7 @@ bool AllocationManager_impl::allocateDevice(const CF::Properties& requestedPrope
         return false;
     }
     try {
-        if (node.device->usageState() == CF::Device::BUSY) {
+        if ((node.device->usageState() == CF::Device::BUSY) and not(hasListenerAllocation(requestedProperties))) {
             return false;
         }
     } catch ( ... ) {

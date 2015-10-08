@@ -98,6 +98,8 @@ class AllocationManager_impl: public virtual POA_CF::AllocationManager
                 throw CF::AllocationManager::InvalidAllocationId(invalidAllocations);
             }
         }
+        
+        bool hasListenerAllocation(const CF::Properties& requestedProperties);
 
         // Local interface for persistance support
         void restoreLocalAllocations(const ossie::AllocationTable& localAllocations);

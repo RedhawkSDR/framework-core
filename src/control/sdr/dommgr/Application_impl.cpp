@@ -725,7 +725,58 @@ throw (CORBA::SystemException, CF::PortSupplier::UnknownPort)
 
 CF::PortSupplier::PortInfoSequence* Application_impl::getPortSet ()
 {
-	return new CF::PortSupplier::PortInfoSequence();
+    CF::PortSupplier::PortInfoSequence_var retval = new CF::PortSupplier::PortInfoSequence();
+    std::vector<CF::PortSupplier::PortInfoSequence_var> comp_portsets;
+    for (ossie::ComponentList::iterator _component_iter=this->_components.begin(); _component_iter!=this->_components.end(); _component_iter++) {
+        try {
+            CF::Resource_ptr comp = CF::Resource::_narrow(_component_iter->componentObject);
+            comp_portsets.push_back(comp->getPortSet());
+        } catch ( ... ) {
+            // failed to get the port set from the component
+        }
+    }
+    for (std::map<std::string, CORBA::Object_var>::iterator _port_val=_ports.begin(); _port_val!=_ports.end(); _port_val++) {
+        for (std::vector<CF::PortSupplier::PortInfoSequence_var>::iterator comp_portset=comp_portsets.begin(); comp_portset!=comp_portsets.end(); comp_portset++) {
+            for (unsigned int i=0; i<(*comp_portset)->length(); i++) {
+                try {
+                    if (_port_val->second->_is_equivalent((*comp_portset)[i].obj_ptr)) {
+                        CF::PortSupplier::PortInfoType info;		
+                        info.obj_ptr = (*comp_portset)[i].obj_ptr;
+                        info.name = (*comp_portset)[i].name;
+                        info.repid =(*comp_portset)[i].repid;
+                        info.description = (*comp_portset)[i].description;
+                        info.direction = (*comp_portset)[i].direction;
+                        ossie::corba::push_back(retval, info);
+                    }
+                } catch ( ... ) {
+                    // unable to add port reference
+                }
+            }
+        }
+    }
+    if (_ports.size() != retval->length()) {
+        // some of the components are unreachable and the list is incomplete
+        for (std::map<std::string, CORBA::Object_var>::iterator _port_val=_ports.begin(); _port_val!=_ports.end(); _port_val++) {
+            bool foundPort = false;
+            for (unsigned int i=0; i<retval->length(); i++) {
+                std::string retvalPortName(retval[i].name);
+                if (retvalPortName == _port_val->first) {
+                    foundPort = true;
+                    break;
+                }
+            }
+            if (not foundPort) {
+                CF::PortSupplier::PortInfoType info;		
+                info.obj_ptr = CORBA::Object::_nil();
+                info.name = _port_val->first.c_str();
+                info.repid = "";
+                info.description = "";
+                info.direction = "";
+                ossie::corba::push_back(retval, info);
+            }
+        }
+    }
+	return retval._retn();
 }
 
 

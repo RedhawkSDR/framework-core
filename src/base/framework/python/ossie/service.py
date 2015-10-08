@@ -70,7 +70,7 @@ def patchService(target):
     # logging context 
     def saveLoggingContext(self, logcfg_url, oldstyle_loglevel, rscCtx ):
 
-        if self.name:
+        if hasattr(self, 'name') and self.name :
             self.initLogging(self.name)
         elif rscCtx:
             self.initLogging(rscCtx.name)
