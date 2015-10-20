@@ -723,10 +723,10 @@ throw (CORBA::SystemException, CF::PortSupplier::UnknownPort)
     }
 }
 
-CF::PortSupplier::PortInfoSequence* Application_impl::getPortSet ()
+CF::PortSet::PortInfoSequence* Application_impl::getPortSet ()
 {
-    CF::PortSupplier::PortInfoSequence_var retval = new CF::PortSupplier::PortInfoSequence();
-    std::vector<CF::PortSupplier::PortInfoSequence_var> comp_portsets;
+    CF::PortSet::PortInfoSequence_var retval = new CF::PortSet::PortInfoSequence();
+    std::vector<CF::PortSet::PortInfoSequence_var> comp_portsets;
     for (ossie::ComponentList::iterator _component_iter=this->_components.begin(); _component_iter!=this->_components.end(); _component_iter++) {
         try {
             CF::Resource_ptr comp = CF::Resource::_narrow(_component_iter->componentObject);
@@ -736,11 +736,11 @@ CF::PortSupplier::PortInfoSequence* Application_impl::getPortSet ()
         }
     }
     for (std::map<std::string, CORBA::Object_var>::iterator _port_val=_ports.begin(); _port_val!=_ports.end(); _port_val++) {
-        for (std::vector<CF::PortSupplier::PortInfoSequence_var>::iterator comp_portset=comp_portsets.begin(); comp_portset!=comp_portsets.end(); comp_portset++) {
+        for (std::vector<CF::PortSet::PortInfoSequence_var>::iterator comp_portset=comp_portsets.begin(); comp_portset!=comp_portsets.end(); comp_portset++) {
             for (unsigned int i=0; i<(*comp_portset)->length(); i++) {
                 try {
                     if (_port_val->second->_is_equivalent((*comp_portset)[i].obj_ptr)) {
-                        CF::PortSupplier::PortInfoType info;		
+                        CF::PortSet::PortInfoType info;
                         info.obj_ptr = (*comp_portset)[i].obj_ptr;
                         info.name = (*comp_portset)[i].name;
                         info.repid =(*comp_portset)[i].repid;
@@ -766,7 +766,7 @@ CF::PortSupplier::PortInfoSequence* Application_impl::getPortSet ()
                 }
             }
             if (not foundPort) {
-                CF::PortSupplier::PortInfoType info;		
+                CF::PortSet::PortInfoType info;
                 info.obj_ptr = CORBA::Object::_nil();
                 info.name = _port_val->first.c_str();
                 info.repid = "";

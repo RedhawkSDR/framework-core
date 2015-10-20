@@ -101,7 +101,7 @@ public:
     CORBA::Object_ptr getPort (const char*)
         throw (CORBA::SystemException, CF::PortSupplier::UnknownPort);
 
-    CF::PortSupplier::PortInfoSequence* getPortSet ();
+    CF::PortSet::PortInfoSequence* getPortSet ();
         
     void runTest (CORBA::ULong, CF::Properties&)
         throw (CORBA::SystemException, CF::UnknownProperties, CF::TestableObject::UnknownTest);

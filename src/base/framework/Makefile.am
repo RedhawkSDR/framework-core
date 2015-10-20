@@ -23,6 +23,7 @@ AM_CPPFLAGS = -I../include
 lib_LTLIBRARIES = libossiecf.la
 libossiecf_la_SOURCES = AggregateDevice_impl.cpp \
                         PortSupplier_impl.cpp \
+                        PortSet_impl.cpp \
                         Device_impl.cpp \
                         PropertySet_impl.cpp \
                         LifeCycle_impl.cpp \

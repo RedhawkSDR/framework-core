@@ -99,6 +99,7 @@ import CF.UnknownIdentifier;
 import CF.InvalidIdentifier;
 import CF.LifeCyclePackage.InitializeError;
 import CF.LifeCyclePackage.ReleaseError;
+import CF.PortSetPackage.PortInfoType;
 import CF.PortSupplierPackage.UnknownPort;
 import CF.PropertyEmitterPackage.AlreadyInitialized;
 import CF.PropertySetPackage.InvalidConfiguration;
@@ -493,60 +494,60 @@ public abstract class Resource extends Logging implements ResourceOperations, Ru
         logger.trace("initializeProperties() - end");
     }
 
-	public CF.PortSupplierPackage.PortInfoType[] getPortSet () {
-		final ArrayList<CF.PortSupplierPackage.PortInfoType> ports = new ArrayList<CF.PortSupplierPackage.PortInfoType>();
+    public PortInfoType[] getPortSet () {
+        final ArrayList<PortInfoType> ports = new ArrayList<PortInfoType>();
 
-		for (String name : this.nativePorts.keySet()) {
-			CF.PortSupplierPackage.PortInfoType info = new CF.PortSupplierPackage.PortInfoType();
-			try {
-				info.obj_ptr = getPort(name);
-			} catch (UnknownPort ex) {
-				continue;
-			}
-			info.name = name;
-			omnijni.Servant port = this.nativePorts.get(name);
-			if (port instanceof PortBase) {
-				PortBase cast = (PortBase)port;
-				info.repid = cast.getRepid();
-				info.direction = cast.getDirection();				
-			} else {
-				info.repid = "IDL:CORBA/Object:1.0";
-				info.direction = "direction";
-			}
-			if (this.portDescriptions.containsKey(name)) {
-				info.description = this.portDescriptions.get(name);
-			} else {
-				info.description = "";
-			}
-			ports.add(info);
-		}
-		for (String name : this.portServants.keySet()) {
-			CF.PortSupplierPackage.PortInfoType info = new CF.PortSupplierPackage.PortInfoType();
-			try {
-				info.obj_ptr = getPort(name);
-			} catch (UnknownPort ex) {
-				continue;
-			}
-			info.name = name;
-			Servant port = this.portServants.get(name);
-			if (port instanceof PortBase) {
-				PortBase cast = (PortBase)port; 
-				info.repid = cast.getRepid();
-				info.direction = cast.getDirection();			
-			} else {
-				info.repid = "IDL:CORBA/Object:1.0";
-				info.direction = "direction";
-			}
-			if (this.portDescriptions.containsKey(name)) {
-				info.description = this.portDescriptions.get(name);
-			} else {
-				info.description = "";
-			}
-			ports.add(info);
-		}
-		
-		return ports.toArray(new CF.PortSupplierPackage.PortInfoType[0]);
-	}
+        for (String name : this.nativePorts.keySet()) {
+            PortInfoType info = new PortInfoType();
+            try {
+                info.obj_ptr = getPort(name);
+            } catch (UnknownPort ex) {
+                continue;
+            }
+            info.name = name;
+            omnijni.Servant port = this.nativePorts.get(name);
+            if (port instanceof PortBase) {
+                PortBase cast = (PortBase)port;
+                info.repid = cast.getRepid();
+                info.direction = cast.getDirection();
+            } else {
+                info.repid = "IDL:CORBA/Object:1.0";
+                info.direction = "direction";
+            }
+            if (this.portDescriptions.containsKey(name)) {
+                info.description = this.portDescriptions.get(name);
+            } else {
+                info.description = "";
+            }
+            ports.add(info);
+        }
+        for (String name : this.portServants.keySet()) {
+            PortInfoType info = new PortInfoType();
+            try {
+                info.obj_ptr = getPort(name);
+            } catch (UnknownPort ex) {
+                continue;
+            }
+            info.name = name;
+            Servant port = this.portServants.get(name);
+            if (port instanceof PortBase) {
+                PortBase cast = (PortBase)port;
+                info.repid = cast.getRepid();
+                info.direction = cast.getDirection();
+            } else {
+                info.repid = "IDL:CORBA/Object:1.0";
+                info.direction = "direction";
+            }
+            if (this.portDescriptions.containsKey(name)) {
+                info.description = this.portDescriptions.get(name);
+            } else {
+                info.description = "";
+            }
+            ports.add(info);
+        }
+
+        return ports.toArray(new PortInfoType[0]);
+    }
 
     /**
      * {@inheritDoc}

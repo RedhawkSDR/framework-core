@@ -22,6 +22,7 @@ pkginclude_HEADERS = AggregateDevice_impl.h \
              LoadableDevice_impl.h \
              Port_impl.h \
              PortSupplier_impl.h \
+             PortSet_impl.h \
              PropertySet_impl.h \
              Logging_impl.h \
              Resource_impl.h \

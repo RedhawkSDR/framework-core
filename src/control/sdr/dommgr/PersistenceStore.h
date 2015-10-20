@@ -98,7 +98,6 @@ namespace ossie {
         std::string profile;
         std::string identifier;
         std::string contextName;
-        std::string contextIOR;
         CosNaming::NamingContext_var context;
         std::vector<ossie::DeviceAssignmentInfo> componentDevices;
         ossie::ComponentList components;

@@ -27,7 +27,7 @@
 #include "Logging_impl.h"
 #include "Port_impl.h"
 #include "LifeCycle_impl.h"
-#include "PortSupplier_impl.h"
+#include "PortSet_impl.h"
 #include "PropertySet_impl.h"
 #include "TestableObject_impl.h"
 #include "ossie/logging/loghelpers.h"
@@ -41,7 +41,7 @@ class Resource_impl:
 #ifdef BEGIN_AUTOCOMPLETE_IGNORE
     public virtual POA_CF::Resource, 
 #endif
-    public PropertySet_impl, public PortSupplier_impl, public LifeCycle_impl, public TestableObject_impl, public Logging_impl
+    public PropertySet_impl, public PortSet_impl, public LifeCycle_impl, public TestableObject_impl, public Logging_impl
 {
     ENABLE_LOGGING
 

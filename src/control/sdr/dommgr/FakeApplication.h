@@ -54,7 +54,7 @@ public:
         
     CORBA::Object_ptr getPort (const char*);
 
-    CF::PortSupplier::PortInfoSequence* getPortSet ();
+    CF::PortSet::PortInfoSequence* getPortSet ();
         
     void runTest (CORBA::ULong, CF::Properties&);
     

@@ -46,4 +46,5 @@ sdr/dom/components/C1/C1.spd.xml
 sdr/dom/waveforms/affinity_test1/affinity_test1.sad.xml
 sdr/dom/waveforms/affinity_test2/affinity_test2.sad.xml
 sdr/dom/waveforms/affinity_test3/affinity_test3.sad.xml
-
+sdr/dom/components/commandline_prop/cpp/commandline_prop
+sdr/dom/components/nocommandline_prop/cpp/nocommandline_prop

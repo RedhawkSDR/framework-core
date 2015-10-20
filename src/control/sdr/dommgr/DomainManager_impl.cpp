@@ -368,10 +368,6 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
         const std::string& deviceManagerId = ii->first;
         const ConnectionList& connections = ii->second;
         LOG_TRACE(DomainManager_impl, "Restoring port connections for DeviceManager " << deviceManagerId);
-        if (findDeviceManagerById(deviceManagerId) == _registeredDeviceManagers.end()) {
-            LOG_WARN(DomainManager_impl, "DeviceManager " << deviceManagerId << " no longer exists, not restoring port connections");
-            continue;
-        }
         for (ConnectionList::const_iterator jj = connections.begin(); jj != connections.end(); ++jj) {
             LOG_TRACE(DomainManager_impl, "Restoring port connection " << jj->identifier);
             _connectionManager.restoreConnection(deviceManagerId, *jj);
@@ -409,14 +405,13 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
          ++i) {
         LOG_TRACE(DomainManager_impl, "Attempting to restore application  " << i->name << " " << i->identifier << " " << i->profile);
         try {
-            CosNaming::NamingContext_var context = CosNaming::NamingContext::_narrow(ossie::corba::stringToObject(i->contextIOR));
-            if (ossie::corba::objectExists(context)) {
-                LOG_TRACE(DomainManager_impl, "Creating application " << i->identifier << " " << _domainName << " " << i->contextName << " " << i->contextIOR);
+            if (ossie::corba::objectExists(i->context)) {
+                LOG_TRACE(DomainManager_impl, "Creating application " << i->identifier << " " << _domainName << " " << i->contextName);
                 Application_impl* _application = new Application_impl (i->identifier.c_str(), 
                                        i->name.c_str(), i->profile.c_str(), 
                                        this, 
                                        i->contextName, 
-                                       context,
+                                       i->context,
                                        i->aware_application,
                                        CosNaming::NamingContext::_nil() );
                 LOG_TRACE(DomainManager_impl, "Restored " << i->connections.size() << " connections");

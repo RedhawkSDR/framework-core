@@ -877,6 +877,9 @@ module CF {
                       in string name
                       )
         raises (CF::PortSupplier::UnknownPort);
+    };
+    /* The PortSet interface extends PortSupplier to add the ability to list the available ports. */
+    interface PortSet : PortSupplier {
       /* The PortInfoType defines a type for returning information about a port in the getPortSet function. */
       struct PortInfoType {
         Object obj_ptr;
@@ -891,7 +894,7 @@ module CF {
       PortInfoSequence getPortSet ();
     };
     /* The Resource interface provides a common interface for the control and configuration of a software component. */
-  interface Resource : LifeCycle, TestableObject, PropertyEmitter, PortSupplier, Logging {
+  interface Resource : LifeCycle, TestableObject, PropertyEmitter, PortSet, Logging {
       /* This exception indicates that an error occurred during an attempt to start the Resource. The message provides additional information describing the reason for the error. */
       exception StartError {
         CF::ErrorNumberType errorNumber;
@@ -1124,7 +1127,7 @@ module CF {
                 CF::ExecutableDevice::ExecuteFail);
     };
     /* The DeviceManager interface is used to manage a set of logical Devices and services. */
-    interface DeviceManager : PropertyEmitter, PortSupplier {
+    interface DeviceManager : PropertyEmitter, PortSet {
       /* This structure provides the object reference and name of services that have registered with the DeviceManager. */
       struct ServiceType {
         Object serviceObject;

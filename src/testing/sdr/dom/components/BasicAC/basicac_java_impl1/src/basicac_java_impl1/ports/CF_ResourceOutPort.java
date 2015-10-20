@@ -203,11 +203,11 @@ public class CF_ResourceOutPort extends UsesPort<ResourceOperations> implements 
         return retval;
     }
 
-	public CF.PortSupplierPackage.PortInfoType[] getPortSet()
-	{
-	  	CF.PortSupplierPackage.PortInfoType[] retval = new CF.PortSupplierPackage.PortInfoType[1];
-	  	return retval;
-	}
+    public CF.PortSetPackage.PortInfoType[] getPortSet()
+    {
+        CF.PortSetPackage.PortInfoType[] retval = new CF.PortSetPackage.PortInfoType[1];
+        return retval;
+    }
 
     /**
      * @generated

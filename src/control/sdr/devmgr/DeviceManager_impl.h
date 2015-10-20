@@ -33,7 +33,7 @@
 #include <ossie/ossieSupport.h>
 #include <ossie/DeviceManagerConfiguration.h>
 #include <ossie/PropertySet_impl.h>
-#include <ossie/PortSupplier_impl.h>
+#include <ossie/PortSet_impl.h>
 #include <ossie/FileManager_impl.h>
 #include <ossie/Properties.h>
 #include <ossie/SoftPkg.h>
@@ -44,7 +44,7 @@
 class DeviceManager_impl: 
     public virtual POA_CF::DeviceManager,
     public PropertySet_impl,
-    public PortSupplier_impl
+    public PortSet_impl
 {
     ENABLE_LOGGING
 

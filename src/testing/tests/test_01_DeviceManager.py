@@ -328,7 +328,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         nodebooter, devMgr = self.launchDeviceManager("/nodes/cmdline_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
         
-        status,output = commands.getstatusoutput('ps -ef | grep cmdline_dev')
+        status,output = commands.getstatusoutput('ps -ww -f | grep cmdline_dev')
         lines = output.split('\n')
         for line in lines:
           if 'IOR' in line:
@@ -346,7 +346,7 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         nodebooter, devMgr = self.launchDeviceManager("/nodes/nocmdline_node/DeviceManager.dcd.xml")
         self.assertNotEqual(devMgr, None)
         
-        status,output = commands.getstatusoutput('ps -ef | grep cmdline_dev')
+        status,output = commands.getstatusoutput('ps -ww -f | grep cmdline_dev')
         lines = output.split('\n')
         for line in lines:
           if 'IOR' in line:
