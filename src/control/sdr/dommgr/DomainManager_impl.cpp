@@ -789,6 +789,7 @@ DomainManager_impl::applications (void) throw (CORBA::SystemException)
 {
     TRACE_ENTER(DomainManager_impl);
     boost::recursive_mutex::scoped_lock lock(stateAccess);
+    boost::recursive_mutex::scoped_lock lock2(appAccess);
 
     CF::DomainManager::ApplicationSequence_var result = new CF::DomainManager::ApplicationSequence();
     map_to_sequence(result, _applications);
@@ -1791,7 +1792,7 @@ DomainManager_impl::addApplication(Application_impl* new_app)
         appNode.aware_application = new_app->_isAware;
         appNode.ports = new_app->_ports;
         // Adds external properties
-        for (std::map<std::string, std::pair<std::string, CF::Resource_ptr> >::const_iterator it = new_app->_properties.begin();
+        for (std::map<std::string, std::pair<std::string, CF::Resource_var> >::const_iterator it = new_app->_properties.begin();
                 it != new_app->_properties.end();
                 ++it) {
             std::string extId = it->first;

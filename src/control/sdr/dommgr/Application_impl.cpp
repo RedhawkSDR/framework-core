@@ -402,7 +402,7 @@ throw (CF::UnknownProperties, CORBA::SystemException)
         configProperties.length(0);
 
         // Loop through each external property and add it to the batch with its respective component
-        for (std::map<std::string, std::pair<std::string, CF::Resource_ptr> >::const_iterator prop = _properties.begin();
+        for (std::map<std::string, std::pair<std::string, CF::Resource_var> >::const_iterator prop = _properties.begin();
                 prop != _properties.end(); ++prop) {
             // Gets the property mapping info
             std::string extId = prop->first;
@@ -1123,7 +1123,7 @@ void Application_impl::addExternalProperty (const std::string& propId, const std
         throw std::runtime_error("External Property name " + externalId + " is already in use");
     }
 
-    _properties[externalId] = std::pair<std::string, CF::Resource_ptr>(propId, comp);
+    _properties[externalId] = std::pair<std::string, CF::Resource_var>(propId, CF::Resource::_duplicate(comp));
 }
 
 bool Application_impl::checkConnectionDependency (Endpoint::DependencyType type, const std::string& identifier) const
@@ -1212,7 +1212,7 @@ void Application_impl::registerComponent (CF::Resource_ptr resource)
 
 std::string Application_impl::getExternalPropertyId(std::string compIdIn, std::string propIdIn)
 {
-    for (std::map<std::string, std::pair<std::string, CF::Resource_ptr> >::const_iterator prop = _properties.begin();
+    for (std::map<std::string, std::pair<std::string, CF::Resource_var> >::const_iterator prop = _properties.begin();
             prop != _properties.end(); ++prop) {
         // Gets the property mapping info
         std::string extId = prop->first;
