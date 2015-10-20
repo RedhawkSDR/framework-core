@@ -1183,7 +1183,7 @@ void createHelper::setUpExternalProperties(
         }
 
         // Get the component from the compref identifier.
-        CF::Resource_ptr comp = lookupComponentByInstantiationId(prop->comprefid);
+        CF::Resource_var comp = lookupComponentByInstantiationId(prop->comprefid);
         if (CORBA::is_nil(comp)) {
             LOG_ERROR(ApplicationFactory_impl, "Invalid comprefid (" << prop->comprefid << ") given for an external property");
             throw(CF::ApplicationFactory::CreateApplicationError(CF::CF_NOTSET, "Invalid comprefid given for external property"));

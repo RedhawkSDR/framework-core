@@ -404,8 +404,6 @@ static void initializeDaemon (
     // Clear umask.
     umask(0);
 
-    chdir("/");
-
     // Redirect stdin, stdout and stderr to /dev/null.
     freopen("/dev/null", "r", stdin);
     freopen("/dev/null", "w", stdout);

@@ -175,7 +175,7 @@ private:
     CF::Components _registeredComponents;
 
     std::map<std::string, CORBA::Object_var> _ports;
-    std::map<std::string, std::pair<std::string, CF::Resource_ptr> > _properties;
+    std::map<std::string, std::pair<std::string, CF::Resource_var> > _properties;
 
     bool release_already_called;
     boost::mutex releaseObjectLock;
