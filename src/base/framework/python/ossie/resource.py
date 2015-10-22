@@ -461,7 +461,7 @@ class Resource(object):
                direction = 'Provides'
            if repid == 'IDL:ExtendedEvent/MessageEvent:1.0':
                direction = 'Bidir'
-           info = CF.PortSupplier.PortInfoType(obj_ptr, name, repid, description, direction)
+           info = CF.PortSet.PortInfoType(obj_ptr, name, repid, description, direction)
            portList.append(info)
 
        return portList
