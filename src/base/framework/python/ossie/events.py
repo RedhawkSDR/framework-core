@@ -19,7 +19,7 @@
 #
 
 import sys
-import time
+import time as _time
 import threading
 import Queue
 import copy
@@ -279,7 +279,7 @@ class ChannelManager:
             # fail (as though it still existed).
             eventChannel.destroy()
             while not eventChannel._non_existent():
-                time.sleep(0.1)
+                _time.sleep(0.1)
         except:
             pass
     
@@ -331,15 +331,19 @@ class MessageConsumerPort(ExtendedEvent__POA.MessageEvent, threading.Thread):
     def __init__(self, thread_sleep=0.1):
         self.consumer_lock = threading.Lock()
         threading.Thread.__init__(self)
+        self._terminateMe=False
+        self._pauseMe=True
+        self.state = threading.Condition()
         self.setDaemon(True)
         self.actionQueue = Queue.Queue()
         self.thread_sleep = thread_sleep
-        self.start()
         self._messages = {}
         self._allMsg = []
         self._connections = {}
         self.consumers = {}
         self.supplier_admin = self.SupplierAdmin_i(self)
+        self.startPort()
+
 
     def registerMessage(self, msgid, msgstruct, callback):
         if msgid != None:
@@ -379,42 +383,78 @@ class MessageConsumerPort(ExtendedEvent__POA.MessageEvent, threading.Thread):
     # CosEventChannelAdmin.EventChannel
     def for_suppliers(self):
         return self.supplier_admin._this()
+
+    def startPort(self):
+        if not self.is_alive():
+            self._terminateMe = False
+            self.start()
+        self._pauseMe = False
+        try:
+           self.state.acquire()
+           self.state.notify()
+        finally:
+           self.state.release()
+
+    def stopPort(self):
+        self._pauseMe=True
+
+
+    def terminate(self, timeout=None):
+        self._pauseMe=False
+        self._terminateMe = True
+        try:
+           self.state.acquire()
+           self.state.notify()
+        finally:
+           self.state.release()
+        try:
+           self.join(timeout)
+        except:
+            pass
     
     def run(self):
-        while True:
-            while not self.actionQueue.empty():
-                action, payload = self.actionQueue.get()
-                if action == 'destroy':
-                    self.consumer_lock.acquire()
-                    for consumer in self.consumers:
-                        if consumer == payload:
-                            consumer = self.consumers.pop(consumer)
-                            consumer.existence_lock.acquire()
-                            consumer.existence_lock.release()
-                            del consumer
-                            break
-                    self.consumer_lock.release()
-                elif action == 'message':
-                    values = payload.value(CF._tc_Properties)
-                    if values is None:
-                        print 'WARNING: Unrecognized message type', payload.typecode()
-                    for value in values:
-                        id = value.id
-                        if id in self._messages:
-                            msgstruct, callback = self._messages[id]
-                            value = struct_from_any(value.value, msgstruct)
-                            try:
-                                callback(id, value)
-                            except Exception, e:
-                                print "Callback for message "+str(id)+" failed with exception: "+str(e)
-                        for allMsg in self._allMsg:
-                            callback = allMsg[1]
-                            try:
-                                callback(id, value)
-                            except Exception, e:
-                                print "Callback for message "+str(id)+" failed with exception: "+str(e)
-            else:
-                time.sleep(self.thread_sleep)
+         while not self._terminateMe:
+              if self._pauseMe:
+                   try:
+                     self.state.acquire()
+                     self.state.wait() 
+                   finally:
+                     self.state.release()
+
+              while not self._pauseMe and not self._terminateMe :
+                while not self.actionQueue.empty():
+                    action, payload = self.actionQueue.get()
+                    if action == 'destroy':
+                        self.consumer_lock.acquire()
+                        for consumer in self.consumers:
+                            if consumer == payload:
+                                consumer = self.consumers.pop(consumer)
+                                consumer.existence_lock.acquire()
+                                consumer.existence_lock.release()
+                                del consumer
+                                break
+                        self.consumer_lock.release()
+                    elif action == 'message':
+                        values = payload.value(CF._tc_Properties)
+                        if values is None:
+                            print 'WARNING: Unrecognized message type', payload.typecode()
+                        for value in values:
+                            id = value.id
+                            if id in self._messages:
+                                msgstruct, callback = self._messages[id]
+                                value = struct_from_any(value.value, msgstruct)
+                                try:
+                                    callback(id, value)
+                                except Exception, e:
+                                    print "Callback for message "+str(id)+" failed with exception: "+str(e)
+                            for allMsg in self._allMsg:
+                                callback = allMsg[1]
+                                try:
+                                    callback(id, value)
+                                except Exception, e:
+                                    print "Callback for message "+str(id)+" failed with exception: "+str(e)
+                else:
+                    _time.sleep(self.thread_sleep)
 
 class MessageSupplierPort(CF__POA.Port):
     class Supplier_i(CosEventComm__POA.PushSupplier):
@@ -438,8 +478,9 @@ class MessageSupplierPort(CF__POA.Port):
             print connection._NP_RepositoryId
             self.portInterfaceAccess.release()
             return
-        self.portInterfaceAccess.release()
         self._connections[str(connectionId)] = self._connectSupplierToEventChannel(channel)
+        self.portInterfaceAccess.release()
+
 
     def disconnectPort (self, connectionId):
         self.portInterfaceAccess.acquire()

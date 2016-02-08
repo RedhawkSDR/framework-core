@@ -855,7 +855,6 @@ DomainManager_impl::applications (void) throw (CORBA::SystemException)
 {
     TRACE_ENTER(DomainManager_impl);
     boost::recursive_mutex::scoped_lock lock(stateAccess);
-    boost::recursive_mutex::scoped_lock lock2(appAccess);
 
     CF::DomainManager::ApplicationSequence_var result = new CF::DomainManager::ApplicationSequence(_applications);
     TRACE_EXIT(DomainManager_impl)
@@ -1630,43 +1629,20 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
 
         // Release all applications that are using this device
         // THIS BEHAVIOR ISN'T SPECIFIED IN SCA, BUT IT MAKES GOOD SENSE
-        bool done = false;
-        unsigned int startCounter = 0;
-        while ((!done) and (_applications.length() > 0)) {  // this additional loop is needed to make sure that the application sequence is correctly managed
-            for (unsigned int i = startCounter; i < _applications.length(); i++) {
-                CF::Application_ptr app = _applications[i];
-                if (CORBA::is_nil(app)) {
-                    if (i == (_applications.length()-1)) {
-                        done = true;
-                    }
-                    startCounter++;
-                    continue;
-                }
-
-                CF::DeviceAssignmentSequence_var compDevices = app->componentDevices();
-                bool foundMatch = false;
-                for  (unsigned int j = 0; j < compDevices->length(); j++) {
-                    if (strcmp((*deviceNode)->identifier.c_str(), compDevices[j].assignedDeviceId) == 0) {
-                        LOG_WARN(DomainManager_impl, "Releasing application that depends on registered device " << (*deviceNode)->identifier)
-                        app->releaseObject();
-                        foundMatch = true;
-                        break;  // No need to call releaseObject twice
-                    }
-                }
-                if (foundMatch) {
-                    startCounter--;
-                    if (startCounter > _applications.length())
-                        startCounter = 0;
-                    break;
-                }
-                if (i == (_applications.length()-1)) {
-                    startCounter++;
-                    done = true;
-                }
+        CF::DomainManager::ApplicationSequence appsToRelease;
+        for (size_t index = 0; index < _applications.length(); ++index) {
+            CF::Application_ptr app = _applications[index];
+            if (applicationDependsOnDevice(app, (*deviceNode)->identifier)) {
+                LOG_WARN(DomainManager_impl, "Releasing application that depends on registered device " << (*deviceNode)->identifier);
+                int offset = appsToRelease.length();
+                appsToRelease.length(offset+1);
+                appsToRelease[offset] = CF::Application::_duplicate(app);
             }
         }
 
-
+        for (size_t index = 0; index < appsToRelease.length(); ++index) {
+            appsToRelease[index]->releaseObject();
+        }
     } CATCH_LOG_ERROR(DomainManager_impl, "Releasing stale applications from stale device failed");
 
     // Sent event here (as opposed to unregisterDevice), so we see the event on regular
@@ -2015,7 +1991,7 @@ void
 DomainManager_impl::addApplication(Application_impl* new_app)
 {
     TRACE_ENTER(DomainManager_impl)
-    boost::recursive_mutex::scoped_lock lock(appAccess);
+    boost::recursive_mutex::scoped_lock lock(stateAccess);
 
     LOG_TRACE(DomainManager_impl, "Attempting to add application to AppSeq with id: " << ossie::corba::returnString(new_app->identifier()));
 
@@ -2094,7 +2070,7 @@ void
 DomainManager_impl::removeApplication(std::string app_id)
 {
     TRACE_ENTER(DomainManager_impl)
-    boost::recursive_mutex::scoped_lock lock(appAccess);
+    boost::recursive_mutex::scoped_lock lock(stateAccess);
 
     LOG_TRACE(DomainManager_impl, "Attempting to remove application from AppSeq with id: " << app_id)
 
@@ -2909,6 +2885,18 @@ ossie::ServiceList::iterator DomainManager_impl::findServiceByType (const std::s
         }
     }
     return node;
+}
+
+
+bool DomainManager_impl::applicationDependsOnDevice(CF::Application_ptr application, const std::string& deviceId)
+{
+    CF::DeviceAssignmentSequence_var compDevices = application->componentDevices();
+    for  (size_t index = 0; index < compDevices->length(); ++index) {
+        if (deviceId == static_cast<const char*>(compDevices[index].assignedDeviceId)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 

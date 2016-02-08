@@ -636,6 +636,24 @@ class PyPropertiesTest(scatest.CorbaTestCase):
         post_props = self._app.query([])
         self.assertEqual(len(pre_props), len(post_props))
 
+    def test_toPyValueIntString(self):
+        from ossie import properties
+        tests={}
+        tests['octet']= [ (10,10), (0x10, 16 ), (0o10, 8 ), ('10', 10), ('0x10', 16 ), ('0o10', 8 ) ]
+        tests['short']= [ (10,10), (0x10, 16 ), (0o10, 8 ), ('10', 10), ('0x10', 16 ), ('0o10', 8 ) ]
+        tests['ushort']= [ (11,11), (0x11, 17 ), (0o11, 9 ), ('11', 11), ('0x11', 17 ), ('0o11', 9 ) ]
+        tests['long']= [ (100,100), (0x100, 256 ), (0o100, 64 ), ('100', 100), ('0x100', 256 ), ('0o100', 64 ) ]
+        tests['ulong']= [ (101,101), (0x101, 257 ), (0o101, 65 ), ('101', 101), ('0x101', 257 ), ('0o101', 65 ) ]
+        tests['longlong']= [ (1000,1000), (0x1000, 4096 ), (0o1000, 512 ), ('1000', 1000), ('0x1000', 4096 ), ('0o1000', 512 ) ]
+        tests['ulonglong']= [ (1001,1001), (0x1001, 4097 ), (0o1001, 513 ), ('1001', 1001), ('0x1001', 4097 ), ('0o1001', 513 ) ]
+
+        for k,r in tests.items():
+            for v in r:
+               res=properties.to_pyvalue( v[0],k)
+               self.assertEqual(res,v[1] )
+
+        self.assertRaises(ValueError,properties.to_pyvalue, '0o100','float')
+
 class PyCallbacksTest(scatest.CorbaTestCase):
     def test_Callbacks(self):
         comp = sb.launch('PyCallbacks')

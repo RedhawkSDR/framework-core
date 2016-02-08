@@ -250,6 +250,8 @@ protected:
     ossie::ServiceList::iterator findServiceByName (const std::string& name);
     ossie::ServiceList::iterator findServiceByType (const std::string& repId);
 
+    bool applicationDependsOnDevice (CF::Application_ptr application, const std::string& deviceId);
+
     void createEventChannels (void);
     void destroyEventChannels (void);
     void connectToOutgoingEventChannel (void);
@@ -264,7 +266,6 @@ protected:
     ossie::PersistenceStore db;
 
     boost::recursive_mutex stateAccess;
-    boost::recursive_mutex appAccess;
 
     // The PersistenceStore is used to persist the state of the following members
     ossie::DomainManagerList _registeredDomainManagers;

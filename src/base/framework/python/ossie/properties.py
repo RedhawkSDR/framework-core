@@ -174,7 +174,13 @@ def to_pyvalue(data, type_):
             if type_.find("complex") == 0:
                 data = _toPyComplex(data, type_)
             else:
-                data = pytype(data)
+               if pytype in [int, long] :
+                  if type(data) in (str,unicode):
+                      data = pytype(data,0)
+                  else:
+                      data = pytype(data)
+               else:
+                  data = pytype(data)
     return data
 
 def to_xmlvalue(data, type_):

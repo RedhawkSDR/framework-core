@@ -151,6 +151,8 @@ private:
     Application_impl (); // No default constructor
     Application_impl(Application_impl&);  // No copying
 
+    bool stopComponent(CF::Resource_ptr component);
+
     const std::string _identifier;
 
     std::string sadProfile;

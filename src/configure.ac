@@ -110,7 +110,8 @@ fi
 # Get the XSD version
 AC_MSG_CHECKING([xsd version])
 xsd_version=`${XSD} version 2>&1 | head -n 1 | awk '{print $8}'`
-if test "x$xsd_version" != "x3.3.0"; then
+oldest_version=`echo -e "${xsd_version}\n3.3.0" | sort -t '.' -k 1,1 -k 2,2 -k 3,3 -k 4,4 -g | head -n 1`
+if test "x$oldest_version" != "x3.3.0"; then
     AC_MSG_FAILURE([XSD version 3.3.0 required])
 else
     AC_MSG_RESULT([$xsd_version])

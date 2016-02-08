@@ -127,6 +127,7 @@ class MessageSink(helperBase, PortSupplier):
     def __init__(self, messageId = None, messageFormat = None, messageCallback = None):
         helperBase.__init__(self)
         PortSupplier.__init__(self)
+        self._flowOn = False
         self._messagePort = None
         self._messageId = messageId
         self._messageFormat = messageFormat
@@ -137,6 +138,11 @@ class MessageSink(helperBase, PortSupplier):
             'Port Name': 'msgIn'
             }
 
+    def __del__(self):
+        if self._messagePort:
+            self._messagePort.terminate()
+            self._messagePort = None
+
     def messageCallback(self, msgId, msgData):
         print msgId, msgData
 
@@ -144,9 +150,10 @@ class MessageSink(helperBase, PortSupplier):
         try:
             if self._messageCallback == None:
                 self._messageCallback = self.messageCallback
-            self._messagePort = _events.MessageConsumerPort(thread_sleep=0.1)
-            self._messagePort.registerMessage(self._messageId,
-                                         self._messageFormat, self._messageCallback)
+            if  self._messagePort == None:
+                self._messagePort = _events.MessageConsumerPort(thread_sleep=0.1)
+                self._messagePort.registerMessage(self._messageId,
+                                             self._messageFormat, self._messageCallback)
             return self._messagePort._this()
         except Exception, e:
             log.error("MessageSink:getPort(): failed " + str(e))
@@ -157,10 +164,21 @@ class MessageSink(helperBase, PortSupplier):
         PortSupplier.api(self)
 
     def start(self):
-        pass
+        if self._messagePort :  self._messagePort.startPort()
+        self._flowOn = True
 
     def stop(self):
-        pass
+        if self._messagePort:  self._messagePort.stopPort()
+        self._flowOn = False
+
+    def releaseObject(self):
+        self.terminate()
+        helperBase.releaseObject(self)
+
+    def terminate(self):
+        if self._messagePort:  
+             self._messagePort.terminate()
+             self._messagePort = None
 
     def eos(self):
         return False
@@ -172,6 +190,7 @@ class MessageSource(helperBase, PortSupplier):
     def __init__(self, messageId = None, messageFormat = None):
         helperBase.__init__(self)
         PortSupplier.__init__(self)
+        self._flowOn = False
         self._messagePort = None
         self._messageId = messageId
         self._messageFormat = messageFormat
@@ -182,6 +201,7 @@ class MessageSource(helperBase, PortSupplier):
             }
 
     def sendMessage(self, msg):
+        if not self._flowOn: return
         outmsg = None
         if hasattr(msg, 'getId'): # this is a struct
             outgoing = [_CF.DataType(id=msg.getId(),value=_properties.struct_to_any(msg))]
@@ -204,17 +224,20 @@ class MessageSource(helperBase, PortSupplier):
 
     def getPort(self, portName):
         try:
-            self._messagePort = _events.MessageSupplierPort()
+            if self._messagePort == None:
+                 self._messagePort = _events.MessageSupplierPort()
             return self._messagePort._this()
         except Exception, e:
             log.error("MessageSource:getPort(): failed " + str(e))
         return None
 
     def connectPort(self, connection, connectionId):
-        self._messagePort.connectPort(connection, connectionId)
+        if self._messagePort:
+            self._messagePort.connectPort(connection, connectionId)
 
     def disconnectPort(self, connectionId):
-        self._messagePort.disconnectPort(connectionId)
+        if self._messagePort:
+            self._messagePort.disconnectPort(connectionId)
 
     def getUsesPort(self):
         try:
@@ -231,10 +254,10 @@ class MessageSource(helperBase, PortSupplier):
         PortSupplier.api(self)
 
     def start(self):
-        pass
+        self._flowOn = True
 
     def stop(self):
-        pass
+        self._flowOn = False
 
     def eos(self):
         return False
@@ -1066,23 +1089,24 @@ class DataSource(_SourceBase):
                      pktSize):
 
         # If necessary, break data into chunks of pktSize for each pushPacket
-        if str(type(data)) == "<type 'list'>":
-            while len(data) > 0:
-                _EOS = EOS
-                if len(data) >= pktSize and EOS == True:
-                    _EOS = False
+        if isinstance(data, list):
+            # Pre-calculate the time offset per packet
+            sampleTimePerPush = pktSize / self._sampleRate
+            if self._sri and self._sri.mode == 1:
+                sampleTimePerPush /= 2.0
+
+            # Stride through the data by packet size
+            for startIdx in xrange(0, len(data), pktSize):
+                # Only send an EOS with the packet if EOS was given and this is
+                # the last packet
+                packetEOS = EOS and (startIdx + pktSize) >= len(data)
                 self._pushPacket(arraySrcInst,
-                                 data[:pktSize],
+                                 data[startIdx:startIdx+pktSize],
                                  currentSampleTime,
-                                 _EOS,
+                                 packetEOS,
                                  streamID,
                                  srcPortType)
-                dataSize = len(data[:pktSize])
-                if self._sri != None:
-                    if self._sri.mode == 1:
-                        dataSize = dataSize / 2
-                currentSampleTime = currentSampleTime + dataSize/self._sampleRate
-                data = data[pktSize:]
+                currentSampleTime += sampleTimePerPush
         else:
             self._pushPacket(arraySrcInst,
                              data,

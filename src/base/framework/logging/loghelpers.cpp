@@ -37,6 +37,7 @@
 #include <ossie/ossieSupport.h>
 #include <ossie/debug.h>
 #include <ossie/logging/loghelpers.h>
+#include <dlfcn.h>
 
 #ifdef   HAVE_LOG4CXX
 #include <log4cxx/logger.h>
@@ -50,7 +51,6 @@
 #include <log4cxx/helpers/bytearrayinputstream.h>
 #include <log4cxx/stream.h>
 #include <fstream>
-#include <dlfcn.h>
 #include "StringInputStream.h"
 #else
 #include "rh_logger_cfg.h"                       // this class spoofs the log4cxx configuration calls, when log4cxx is disabled

@@ -2307,3 +2307,40 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         app.releaseObject()
         apps = domMgr._get_applications()
         self.assertEqual(len(apps),0)
+
+    def test_StopAllComponents(self):
+        nb, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        self.assertNotEqual(domMgr, None)
+
+        nb, devMgr = self.launchDeviceManager('/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml', debug=self.debuglevel)
+        self.assertNotEqual(devMgr, None)
+
+        # Create the application, which is pre-configured such that the last
+        # component in the start order (and hence, first in stop) will fail on
+        # stop().
+        domMgr.installApplication('/waveforms/fail_stop/fail_stop.sad.xml')
+        appFact = domMgr._get_applicationFactories()[0]
+        self.assertEqual(appFact._get_name(), 'fail_stop')
+        app = appFact.create(appFact._get_name(), [], [])
+        app.start()
+
+        # Pre-condition: check that all the components are started
+        components = app._get_registeredComponents()
+        for comp in components:
+            self.assertTrue(comp.componentObject._get_started())
+
+        self.assertRaises(CF.Resource.StopError, app.stop)
+
+        # Count the number of components that still report as started to make
+        # sure that the rest were stopped
+        started_count = 0
+        for comp in components:
+            if comp.componentObject._get_started():
+                started_count += 1
+        self.assertEqual(started_count, len(components) - 1)
+
+        # Turn off fail on stop so that releaseObject() doesn't complain
+        props = [CF.DataType('fail_stop', any.to_any(False))]
+        for comp in components:
+            comp.componentObject.configure(props)
+        app.releaseObject()

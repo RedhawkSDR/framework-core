@@ -27,6 +27,8 @@ import os
 import Queue
 from ossie.utils import sb
 from ossie.utils import type_helpers
+from ossie import properties as _properties
+import threading
 globalsdrRoot = os.environ['SDRROOT']
 import sys
 import time
@@ -1305,6 +1307,24 @@ class BulkioTest(unittest.TestCase):
         data = self.readFile(self.TEMPFILE)
         self.assertEqual(xmldata, data)
 
+    def test_DataSourceEOS(self):
+        """
+        Verify that DataSource sends EOS properly for pushes that exceed
+        bytesPerPush.
+        """
+        source = sb.DataSource(dataFormat='float', bytesPerPush=1024)
+        sink = sb.DataSink()
+        source.connect(sink)
+        sb.start()
+        # Use an integer multiple of bytesPerPush (in this case 4X) to check
+        # that exact boundaries don't break EOS
+        source.push([float(x) for x in xrange(1024)], EOS=True)
+
+        # Wait up to 2 seconds for EOS to be received
+        start = time.time()
+        while not sink.eos() and (time.time() - start) < 2.0:
+            time.sleep(0.1)
+        self.assertTrue(sink.eos())
 
         #TODO if BULKIO ever gets folded into core framework these tests can be used
         # to add them proper components must be created
@@ -1368,4 +1388,92 @@ class BulkioTest(unittest.TestCase):
 #            self.assertEquals(temp._componentName in names, True)
 
 
+class MessagePortTest(scatest.CorbaTestCase):
+    def setUp(self):
+        sb.setDEBUG(True)
+        self.test_comp = "Sandbox"
+        # Flagrant violation of sandbox API: if the sandbox singleton exists,
+        # clean up previous state and dispose of it.
+        if sb.domainless._sandbox:
+            sb.domainless._sandbox.shutdown()
+            sb.domainless._sandbox = None
 
+    def tearDown(self):
+        sb.domainless._getSandbox().shutdown()
+        sb.setDEBUG(False)
+        os.environ['SDRROOT'] = globalsdrRoot
+
+    def test_MessageSink(self):
+        
+        class MCB:
+           def __init__(self, cond):
+               self.cond = cond
+               self.msg=None
+               self.count=0
+
+           def msgCallback(self, id, msg):
+               self.msg = _properties.prop_to_dict(msg)
+               self.count = self.count + 1
+               self.cond.acquire()
+               self.cond.notify()
+               self.cond.release()
+
+           def reset(self):
+               self.msg=None
+               self.count=0
+
+        def wait_for_msg(cond, timeout=2.0):       
+            cond.acquire()
+            cond.wait(timeout)
+            cond.release()
+                        
+        msrc = sb.MessageSource()
+        cond = threading.Condition()
+        mcb = MCB(cond)
+        msink = sb.MessageSink( messageCallback=mcb.msgCallback )
+        msrc.connect(msink)
+        # Simple messages come across properties list which translates into the following
+        # {'sb_struct': {'sb': 'testing 1'}}
+ 
+
+        msrc.sendMessage("testing 1")
+        wait_for_msg(cond)
+        self.assertEquals( mcb.msg, None )
+        sb.start()
+        msrc.sendMessage("testing 2")
+        wait_for_msg(cond)
+        msg = mcb.msg['sb_struct']['sb']
+        self.assertEquals( msg, "testing 2")
+        sb.stop()
+
+        # terminate this sink object
+        msink.releaseObject()
+
+        # create new sink and connect to source 
+        msink = sb.MessageSink( messageCallback=mcb.msgCallback )
+        msrc.connect(msink)
+
+        # try and send message....wait should expire and msg == none
+        mcb.reset()
+        msrc.sendMessage("testing 3")
+        wait_for_msg(cond)
+        self.assertEquals( mcb.msg, None)
+
+        sb.start()
+        msrc.sendMessage("testing 4")
+        wait_for_msg(cond)
+        msg = mcb.msg['sb_struct']['sb']
+        self.assertEquals( msg, "testing 4")
+        mcb.reset()
+        msrc.sendMessage("testing 5")
+        wait_for_msg(cond)
+        msg = mcb.msg['sb_struct']['sb']
+        self.assertEquals( msg, "testing 5")
+        sb.stop()
+
+        #  reset receiver and cycle sandbox state
+        mcb.reset()
+        sb.start()
+        sb.stop()
+        self.assertEquals( mcb.msg, None)
+        msink.releaseObject()

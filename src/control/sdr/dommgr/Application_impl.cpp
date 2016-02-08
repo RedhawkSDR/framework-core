@@ -20,6 +20,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <sstream>
 
 #include <ossie/debug.h>
 #include <ossie/CorbaUtils.h>
@@ -175,31 +176,55 @@ throw (CORBA::SystemException, CF::Resource::StartError)
 }
 
 
+bool Application_impl::stopComponent (CF::Resource_ptr component)
+{
+    std::string identifier;
+    try {
+        identifier = ossie::corba::returnString(component->identifier());
+    } catch (const CORBA::SystemException& ex) {
+        LOG_ERROR(Application_impl, "CORBA::" << ex._name() << " getting component identifier");
+        return false;
+    } catch (...) {
+        LOG_ERROR(Application_impl, "Unknown exception getting component identifier");
+        return false;
+    }
+    LOG_TRACE(Application_impl, "Calling stop for " << identifier);
+
+    const unsigned long timeout = 3; // seconds
+    omniORB::setClientCallTimeout(component, timeout * 1000);
+    try {
+        component->stop();
+        return true;
+    } catch (const CF::Resource::StopError& error) {
+        LOG_ERROR(Application_impl, "Failed to stop " << identifier << "; CF::Resource::StopError '" << error.msg << "'");
+    } CATCH_LOG_ERROR(Application_impl, "Failed to stop " << identifier);
+    return false;
+}
+
 void Application_impl::stop ()
 throw (CORBA::SystemException, CF::Resource::StopError)
 {
     if (CORBA::is_nil(assemblyController)) { return; }
 
-    unsigned long timeout = 3; // seconds
-    try {
-        LOG_TRACE(Application_impl, "Calling stop on assembly controller");
-
-        // Stop the components in the reverse order they were started
-        for (int i = (int)(_appStartSeq.size()-1); i >= 0; i--){
-            std::string msg = "Calling stop for ";
-            msg = msg.append(ossie::corba::returnString(_appStartSeq[i]->identifier()));
-            LOG_TRACE(Application_impl, msg);
-
-            omniORB::setClientCallTimeout(_appStartSeq[i], timeout * 1000);
-            _appStartSeq[i]-> stop();
+    int failures = 0;
+    // Stop the components in the reverse order they were started
+    for (int i = (int)(_appStartSeq.size()-1); i >= 0; i--){
+        if (!stopComponent(_appStartSeq[i])) {
+            failures++;
         }
+    }
 
-        omniORB::setClientCallTimeout(assemblyController, timeout * 1000);
-        assemblyController->stop ();
-    } catch( CF::Resource::StopError& se ) {
-        LOG_ERROR(Application_impl, "Stop failed with CF::Resource::StopError")
-        throw;
-    } CATCH_THROW_LOG_ERROR(Application_impl, "Stop failed", CF::Resource::StopError(CF::CF_ESRCH, "Object might not exist"))
+    LOG_TRACE(Application_impl, "Calling stop on assembly controller");
+    if (!stopComponent(assemblyController)) {
+        failures++;
+    }
+    if (failures > 0) {
+        std::ostringstream oss;
+        oss << failures << " component(s) failed to stop";
+        const std::string message = oss.str();
+        LOG_ERROR(Application_impl, "Stopping " << _identifier << "; " << message);
+        throw CF::Resource::StopError(CF::CF_NOTSET, message.c_str());
+    }
 }
 
 void Application_impl::configure (const CF::Properties& configProperties)
@@ -581,13 +606,17 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
 {
     TRACE_ENTER(Application_impl)
 
-    // make sure releaseObject hasn't already been called
-    boost::mutex::scoped_lock lock(releaseObjectLock);
-    if (release_already_called) {
-        LOG_DEBUG(Application_impl, "skipping release because release has already been called")
-        return;
-    } else {
-        release_already_called = true;
+    // Make sure releaseObject hasn't already been called, but only hold the
+    // lock long enough to check to prevent a potential priority inversion with
+    // the domain's stateAccess mutex
+    {
+        boost::mutex::scoped_lock lock(releaseObjectLock);
+        if (release_already_called) {
+            LOG_DEBUG(Application_impl, "skipping release because release has already been called");
+            return;
+        } else {
+            release_already_called = true;
+        }
     }
     
     LOG_DEBUG(Application_impl, "Releasing application");
