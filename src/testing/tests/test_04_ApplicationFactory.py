@@ -2262,3 +2262,63 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
                 pass
 
         self.assertEqual(orphans, 0)
+
+    def _test_ValgrindCppDevice(self, appFact, valgrind):
+        # Clear the device cache to prevent false positives
+        deviceCacheDir = os.path.join(scatest.getSdrPath(), "dev", ".ExecutableDevice_node", "ExecutableDevice1")
+        shutil.rmtree(deviceCacheDir, ignore_errors=True)
+
+        os.environ['VALGRIND'] = valgrind
+        try:
+            nb, devMgr = self.launchDeviceManager('/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml')
+        finally:
+            del os.environ['VALGRIND']
+        self.assertNotEqual(devMgr, None)
+
+        # Create the application and create a lookup table of component IDs to
+        # PIDs, then check that there is a log file for that PID in the device
+        # cache next to the profile (this only works as long as the entry point
+        # is in the same directory as the XML profile)
+        app = appFact.create(appFact._get_name(), [], [])
+        components = dict((c.componentId, c.processId) for c in app._get_componentProcessIds())
+        for comp in app._get_registeredComponents():
+            # The software profile starts with '/' (because it's relative to
+            # SDRROOT), so use concatenation instead of os.path.join()
+            cacheDir = deviceCacheDir + os.path.dirname(comp.softwareProfile)
+            logfile = os.path.join(cacheDir, 'valgrind.%d.log' % components[comp.identifier])
+            self.assertTrue(os.path.exists(logfile))
+
+        app.releaseObject()
+
+        devMgr.shutdown()
+
+    def test_ValgrindCppDevice(self):
+        """
+        Checks that the 'VALGRIND' environment variable can be used to run
+        components launched by an ExecutableDevice with Valgrind.
+        """
+        # Make sure that valgrind exists and is in the path
+        valgrind = scatest.which('valgrind')
+        if not valgrind:
+            raise RuntimeError('Valgrind is not installed')
+
+        nb, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+
+        # For best results, use an application with C++ components
+        domMgr.installApplication("/waveforms/CppsoftpkgDep/CppsoftpkgDep.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+        appFact = domMgr._get_applicationFactories()[0]
+
+        # Let the executable device find valgrind on the path
+        self._test_ValgrindCppDevice(appFact, '')
+
+        # Set an explicit path to valgrind, using a symbolic link to a non-path
+        # location as an additional check
+        altpath = os.path.join(scatest.getSdrPath(), 'valgrind')
+        os.symlink(valgrind, altpath)
+        try:
+            self._test_ValgrindCppDevice(appFact, altpath)
+        finally:
+            os.unlink(altpath)

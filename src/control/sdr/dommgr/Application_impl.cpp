@@ -269,13 +269,17 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
 {
     TRACE_ENTER(Application_impl)
 
-    // make sure releaseObject hasn't already been called
-    boost::mutex::scoped_lock lock(releaseObjectLock);
-    if (release_already_called) {
-        LOG_DEBUG(Application_impl, "skipping release because release has already been called")
-        return;
-    } else {
-        release_already_called = true;
+    // Make sure releaseObject hasn't already been called, but only hold the
+    // lock long enough to check to prevent a potential priority inversion with
+    // the domain's stateAccess mutex
+    {
+        boost::mutex::scoped_lock lock(releaseObjectLock);
+        if (release_already_called) {
+            LOG_DEBUG(Application_impl, "skipping release because release has already been called");
+            return;
+        } else {
+            release_already_called = true;
+        }
     }
     
     LOG_DEBUG(Application_impl, "Releasing application");

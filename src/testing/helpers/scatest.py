@@ -137,6 +137,16 @@ def createTestDomain():
     for xmlFile in glob.glob(os.path.join(devMgrSrc, '*.xml')):
         updateLink(xmlFile, os.path.join(devMgrDest, os.path.basename(xmlFile)))
 
+def which(command):
+    """
+    Searches the path for the executable specified in 'command'.
+    """
+    for path in os.environ['PATH'].split(os.pathsep):
+        execpath = os.path.join(path, command)
+        if os.path.isfile(execpath) and os.access(execpath, os.X_OK):
+            return execpath
+    return None
+
 
 DEBUG_NODEBOOTER=False
 GDB_CMD_FILE=None

@@ -42,6 +42,7 @@
 #endif
 
 #include <errno.h>
+#include <libgen.h>
 
 #include "ossie/ExecutableDevice_impl.h"
 
@@ -194,29 +195,47 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::execute (
         PID = new_pid;
     } else {
 // in child process
+        DEBUG(3, ExecutableDevice_impl, "chmod'ing " << argv[0]);
+        struct stat stat_buf;
+        stat(argv[0], &stat_buf);
+        chmod(argv[0], stat_buf.st_mode | S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+
         if (getenv("VALGRIND")) {
-            char* new_argv[24];
-            strcpy(new_argv[0], "/usr/local/bin/valgrind");
+            char** new_argv = new char*[size+2];
+            char* valgrind = getenv("VALGRIND");
+            if (strlen(valgrind) == 0) {
+                // Assume that valgrind is somewhere on the path; set the
+                // variable to NULL to flag that it has to be run with execvp
+                new_argv[0] = const_cast<char *>("valgrind");
+                valgrind = NULL;
+            } else {
+                // Environment variable is path to valgrind executable
+                new_argv[0] = valgrind;
+            }
+            // Put the log file in the cache next to the component entrypoint;
+            // include the pid to avoid clobbering existing files
             string logFile = "--log-file=";
-            logFile += argv[0];
+            name_temp = strdup(argv[0]);
+            logFile += dirname(name_temp);
+            free(name_temp);
+            logFile += "/valgrind.%p.log";
             new_argv[1] = (char*)logFile.c_str();
+
+            // Copy the remaining arguments
             unsigned int i;
             for (i = 2; argv[i-2]; i++) {
                 new_argv[i] = argv[i-2];
             }
             new_argv[i] = NULL;
-            DEBUG(3, ExecutableDevice_impl, "chmod'ing " << new_argv[0])
-            struct stat stat_buf;
-            stat(new_argv[0], &stat_buf);
-            chmod(new_argv[0], stat_buf.st_mode | S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-            DEBUG(3, ExecutableDevice_impl, "execv'ing " << new_argv[0])
-            execv(new_argv[0], new_argv);
+            DEBUG(3, ExecutableDevice_impl, "execv'ing " << new_argv[0] << " " << new_argv[1] << " " << argv[0]);
+            if (valgrind == NULL) {
+                // Find valgrind in the path
+                execvp(new_argv[0], new_argv);
+            } else {
+                execv(new_argv[0], new_argv);
+            }
         } else {
-            DEBUG(3, ExecutableDevice_impl, "chmod'ing " << argv[0])
             DEBUG(3, ExecutableDevice_impl, "execv'ing " << argv[0])
-            struct stat stat_buf;
-            stat(argv[0], &stat_buf);
-            chmod(argv[0], stat_buf.st_mode | S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
             execv(argv[0], argv);
         }
 

@@ -224,6 +224,8 @@ protected:
     ossie::ServiceList::iterator findServiceByName (const std::string& name);
     ossie::ServiceList::iterator findServiceByType (const std::string& repId);
 
+    bool applicationDependsOnDevice (CF::Application_ptr application, const std::string& deviceId);
+
 #if ENABLE_EVENTS
     void createEventChannels (void);
     void destroyEventChannels (void);

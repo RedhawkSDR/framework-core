@@ -20,6 +20,7 @@
 
 import os
 import sys
+import time
 
 from ossie.cf import CF
 import ossie.parsers.sad
@@ -27,7 +28,7 @@ import ossie.parsers.sad
 import jackhammer
 
 class CreateApp(jackhammer.Jackhammer):
-    def initialize (self, sadFile):
+    def initialize (self, sadFile, delay=0.0):
         try:
             self.domMgr.installApplication(sadFile)
         except CF.DomainManager.ApplicationAlreadyInstalled:
@@ -36,6 +37,7 @@ class CreateApp(jackhammer.Jackhammer):
         sad = ossie.parsers.sad.parse(domRoot + sadFile)
         id = sad.get_id()
         self.count=0
+        self.delay = float(delay)
         for appFact in self.domMgr._get_applicationFactories():
             if appFact._get_identifier() == id:
                 self.appFact = appFact
@@ -45,8 +47,8 @@ class CreateApp(jackhammer.Jackhammer):
 
     def test (self, id):
 	#print "Starting..... thread:" + str(id) + " application :" + str(self.count)
-        app = self.appFact.create(self.appFact._get_name(), [], [])
-        app.stop()
+        app = self.appFact.create('%s-%d' % (self.appFact._get_name(), id), [], [])
+        time.sleep(self.delay)
         app.releaseObject()
         self.count = self.count + 1
 

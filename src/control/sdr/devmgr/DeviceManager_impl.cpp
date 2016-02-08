@@ -752,11 +752,19 @@ void DeviceManager_impl::createDeviceExecStatement(
 
     deviceMgrIOR = ossie::corba::objectToString(myObj);
     if (getenv("VALGRIND")) {
-        new_argv[new_argc] =  "/usr/local/bin/valgrind";
+        const char* valgrind = getenv("VALGRIND");
+        if (strlen(valgrind) > 0) {
+            // Environment variable is path to valgrind executable
+            new_argv[new_argc] = valgrind;
+        } else {
+            // Assume that valgrind is somewhere on the path
+            new_argv[new_argc] =  "valgrind";
+        }
         new_argc++;
-        std::string logFile = "--log-file=";
-        logFile += codeFilePath;
-        new_argv[new_argc] = (char*)logFile.c_str();
+        // Put the log file in the current working directory, which will be the
+        // device's cache directory; include the pid to avoid clobbering
+        // existing files
+        new_argv[new_argc] = "--log-file=valgrind.%p.log";
         new_argc++;
     }
     new_argv[new_argc] = (char*)codeFilePath.c_str();
@@ -960,7 +968,12 @@ void DeviceManager_impl::createDeviceThread(
                                   instanceprops) ;
 
         // now exec - we should not return from this
-        execv(new_argv[0], (char * const*) new_argv);
+        if (strcmp(new_argv[0], "valgrind") == 0) {
+            // Find valgrind in the path
+            execvp(new_argv[0], (char * const*) new_argv);
+        } else {
+            execv(new_argv[0], (char * const*) new_argv);
+        }
 
         LOG_ERROR(DeviceManager_impl, new_argv[0] << " did not execute : " << strerror(errno));
         exit(-1);
