@@ -180,7 +180,6 @@ module CF {
        Look for an existing Event Channel object being managed. If the Event Channel
        is not found then add a new Event Channel object 
   
-       Finally, register the publisher member (pub) of the EventPublisher with the event channel
     */
     EventChannelReg registerResource( in EventRegistration req)  
           raises ( InvalidChannelName, 

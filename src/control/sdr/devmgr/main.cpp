@@ -156,12 +156,15 @@ int sigprocessor(void ) {
       // check for SIGCHLD
       LOG_TRACE(DeviceManager, "Signals are active....." << sig_fd);
       if ( si.ssi_signo == SIGCHLD) {
-          if (si.ssi_code != SIGHUP) {
-            LOG_INFO(DeviceManager, "Child (pid:" << si.ssi_pid << ") died with signal "<<si.ssi_code);
-          } else {
-            LOG_TRACE(DeviceManager, "Child (pid:" << si.ssi_pid << ") exited normally");
+          // Only concerned with children that exited; the status will be reported by
+          // the DeviceManager's child handler
+          switch (si.ssi_code) {
+          case CLD_EXITED:
+          case CLD_KILLED:
+          case CLD_DUMPED:
+              child_exit(si.ssi_signo);
+              break;
           }
-          child_exit(si.ssi_signo);
       }
 
       // check if we need to exit...

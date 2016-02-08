@@ -168,7 +168,8 @@ class EventChannelManager: public virtual EventChannelManagerBase {
   struct ChannelRegistration {
     std::string                      channel_name;
     std::string                      fqn;
-    ossie::events::EventChannel_var   channel;
+    ossie::events::EventChannel_var  channel;
+    bool                             autoRelease;
     bool                             release;
     RegIdList                        registrants;
 

@@ -36,6 +36,15 @@ throw (CF::LifeCycle::InitializeError, CORBA::SystemException)
     //getLogger()->setLevel( rh_logger::Level::getTrace());
 }
 
+void ECM_CPP_i::releaseObject() 
+throw (CF::LifeCycle::ReleaseError, CORBA::SystemException) 
+{
+  pub.reset();
+  sub.reset();
+  ECM_CPP_base::releaseObject();
+}
+
+
 /***********************************************************************************************
 
     Basic functionality:

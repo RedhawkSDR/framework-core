@@ -12,6 +12,150 @@ REDHAWK_CPP_NAMESPACE_BEGIN
 
 namespace events {
 
+  //
+  // used for boost shared pointer instantion when user
+  // supplied callback is provided
+  //
+  struct null_deleter  {
+    void operator()(void const *) const
+    {
+    }
+  };
+
+  DomainEventReader::DomainEventReader()
+  {
+    // individual message handlers
+    msg_handlers.push_back( &DomainEventReader::_objectMsgHandler );
+    msg_handlers.push_back( &DomainEventReader::_resourceMsgHandler );
+    msg_handlers.push_back( &DomainEventReader::_terminationMsgHandler );
+    msg_handlers.push_back( &DomainEventReader::_addRemoveMsgHandler );
+  }
+
+  DomainEventReader::DomainEventReader( SubscriberPtr sub ) : 
+    sub(sub) 
+  {
+    // individual message handlers
+    msg_handlers.push_back( &DomainEventReader::_objectMsgHandler );
+    msg_handlers.push_back( &DomainEventReader::_resourceMsgHandler );
+    msg_handlers.push_back( &DomainEventReader::_terminationMsgHandler );
+    msg_handlers.push_back( &DomainEventReader::_addRemoveMsgHandler );
+    // establish generic callback for our subscriber
+    sub->setDataArrivedListener( this, &DomainEventReader::_eventMsgHandler );
+  };
+
+  void  DomainEventReader::subscribe( SubscriberPtr inSub ) {
+    sub = inSub;
+    sub->setDataArrivedListener( this, &DomainEventReader::_eventMsgHandler );
+  }
+
+  void  DomainEventReader::subscribe( ) {
+    if ( sub ) {
+      sub->setDataArrivedListener( this, &DomainEventReader::_eventMsgHandler );
+    }
+  }
+
+  void  DomainEventReader::unsubscribe( ) {
+    if ( sub ) {
+      sub->disconnect();
+      sub.reset();
+    }
+
+  }
+
+
+  void DomainEventReader::setObjectListener( DomainEventReader::ObjectStateListener *cb ) {
+    obj_cbs.push_back( boost::shared_ptr< ObjectStateListener >(cb, null_deleter()) );
+  }
+
+  void DomainEventReader::setResourceListener( DomainEventReader::ResourceStateListener *cb ) {
+    rsc_cbs.push_back( boost::shared_ptr< ResourceStateListener >(cb, null_deleter()) );
+  }
+
+  void DomainEventReader::setTerminationListener( DomainEventReader::TerminationListener *cb ) {
+    term_cbs.push_back( boost::shared_ptr< TerminationListener >(cb, null_deleter()) );
+  }
+  void DomainEventReader::setAddRemoveListener( DomainEventReader::AddRemoveListener *cb ) {
+    addrm_cbs.push_back( boost::shared_ptr< AddRemoveListener >(cb, null_deleter()) );
+  }
+
+  void DomainEventReader::_eventMsgHandler( const CORBA::Any & data ) {
+
+    EventMsgHandlers::iterator i = msg_handlers.begin();
+    for( ; i != msg_handlers.end(); i++ ) {
+      DomainEventReader::EventMsgHandler func = *i;
+      if ( (this->*func)(data) ) break;
+    }
+
+  }
+  bool  DomainEventReader::_objectMsgHandler( const CORBA::Any & data ) {
+    const StandardEvent::StateChangeEventType *rmsg;
+    if ( data >>= rmsg ) {
+      ObjectStateChangeEvent evt;
+        evt.prod_id = rmsg->producerId;
+        evt.source_id = rmsg->sourceId;
+        evt.category = rmsg->stateChangeCategory;
+        evt.from  = rmsg->stateChangeFrom;
+        evt.to = rmsg->stateChangeTo;
+      ObjectListeners::iterator i = obj_cbs.begin();
+      for( ; i != obj_cbs.end(); i++ ) {
+        (*(*i))( evt );
+      }
+      return true;
+    }
+    return false;
+  }
+
+  bool  DomainEventReader::_resourceMsgHandler( const CORBA::Any & data ) {
+    const ExtendedEvent::ResourceStateChangeEventType *rmsg;
+    if ( data >>= rmsg ) {
+        ResourceStateChangeEvent evt;
+        evt.source_id = rmsg->sourceId;
+        evt.source_name = rmsg->sourceName;
+        evt.from  = rmsg->stateChangeFrom;
+        evt.to = rmsg->stateChangeTo;
+      ResourceListeners::iterator i = rsc_cbs.begin();
+      for( ; i != rsc_cbs.end(); i++ ) {
+        (*(*i))( evt );
+      }
+      return true;
+    }
+    return false;
+  }
+
+  bool  DomainEventReader::_terminationMsgHandler( const CORBA::Any & data ) {
+    const StandardEvent::AbnormalComponentTerminationEventType *rmsg;
+    if ( data >>= rmsg ) {
+      ComponentTerminationEvent evt;
+      evt.device_id = rmsg->deviceId;
+      evt.application_id = rmsg->applicationId;
+      evt.component_id = rmsg->componentId;
+      TerminationListeners::iterator i = term_cbs.begin();
+      for( ; i != term_cbs.end(); i++ ) {
+        (*(*i))( evt );
+      }
+      return true;
+    }
+    return false;
+  }
+
+  bool  DomainEventReader::_addRemoveMsgHandler( const CORBA::Any & data ) {
+    const StandardEvent::DomainManagementObjectAddedEventType *rmsg;
+    if ( data >>= rmsg ) {
+      DomainStateEvent evt;
+      evt.prod_id = rmsg->producerId;      
+      evt.source_id = rmsg->sourceId;
+      evt.source_name = rmsg->sourceName;
+      evt.category = rmsg->sourceCategory;
+      evt.obj = rmsg->sourceIOR;
+      AddRemoveListeners::iterator i = addrm_cbs.begin();
+      for( ; i != addrm_cbs.end(); i++ ) {
+        (*(*i))( evt );
+      }
+      return true;
+    }
+    return false;
+  }
+
 
   DomainEventWriter::DomainEventWriter( PublisherPtr pub ) : pub(pub) {};
 
@@ -982,12 +1126,13 @@ int Publisher::disconnect(const int retries,  const int retry_wait )
   // used for boost shared pointer instantion when user
   // supplied callback is provided
   //
+  /**
   struct null_deleter  {
     void operator()(void const *) const
     {
     }
   };
-
+  **/
   /*
    * Wrap Callback functions as ConnectionEventListener objects
    */

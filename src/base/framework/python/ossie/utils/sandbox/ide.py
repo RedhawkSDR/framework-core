@@ -68,13 +68,24 @@ class IDESdrRoot(SdrRoot):
 
 
 class IDEMixin(object):
-    def __init__(self, execparams):
+    def __init__(self, execparams, initProps, configProps):
         self._execparams = execparams
+        self._initProps = initProps
+        self._configProps = configProps
 
     def _launch(self):
-        execparams = self._getExecparams()
-        execparams.update(self._execparams)
-        ref = self._sandbox._createResource(self._profile, self._instanceName, execparams, self._impl)
+        # Pack the execparams into an array of string-valued properties
+        properties = [CF.DataType(k, to_any(str(v))) for k, v in self._execparams.iteritems()]
+        # Pack the remaining props by having the component do the conversion
+        properties.extend(self._itemToDataType(k,v) for k,v in self._initProps.iteritems())
+        properties.extend(self._itemToDataType(k,v) for k,v in self._configProps.iteritems())
+
+        # Tell the IDE to launch a specific implementation, if given
+        if self._impl is not None:
+            properties.append(CF.DataType('__implementationID', to_any(self._impl)))
+
+        ref = self._sandbox._createResource(self._profile, self._instanceName, properties)
+
         # The IDE sandbox API only allows us to specify the instance name, not
         # the identifier, so update by querying the component itself
         self._refid = ref._get_identifier()
@@ -89,13 +100,10 @@ class IDEMixin(object):
 
 
 class IDESandboxComponent(SandboxComponent, IDEMixin):
-    def __init__(self, sandbox, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window, timeout, autokick=True):
+    def __init__(self, sandbox, profile, spd, scd, prf, instanceName, refid, impl, execparams,
+                 initProps, configProps):
         SandboxComponent.__init__(self, sandbox, profile, spd, scd, prf, instanceName, refid, impl)
-        IDEMixin.__init__(self, execparams)
-
-        if autokick:
-            self._kick()
-
+        IDEMixin.__init__(self, execparams, initProps, configProps)
         self._parseComponentXMLFiles()
         self._buildAPI()
 
@@ -143,7 +151,7 @@ class IDESandbox(Sandbox):
         }
 
     def __init__(self, ideRef):
-        super(IDESandbox, self).__init__(autoInit=False)
+        super(IDESandbox, self).__init__()
         self.__ide = ideRef
         self.__components = {}
         self.__services = {}
@@ -168,18 +176,19 @@ class IDESandbox(Sandbox):
         # "valid"
         return True
 
-    def _createResource(self, profile, name, execparams={}, impl=None):
+    def _launch(self, profile, spd, scd, prf, instanceName, refid, impl, execparams,
+                initProps, initialize, configProps, debugger, window, timeout):
+        # Determine the class for the component type and create a new instance.
+        clazz = self.__comptypes__[scd.get_componenttype()]
+        comp = clazz(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, initProps, configProps)
+        comp._kick()
+        return comp
+
+    def _createResource(self, profile, name, qualifiers=[]):
         log.debug("Creating resource '%s' with profile '%s'", name, profile)
 
-        # Pack the execparams into an array of string-valued properties
-        properties = [CF.DataType(k, to_any(str(v))) for k, v in execparams.iteritems()]
-
-        # Tell the IDE to launch a specific implementation, if given
-        if impl is not None:
-            properties.append(CF.DataType('__implementationID', to_any(impl)))
-
         rescFactory = self.__ide.getResourceFactoryByProfile(profile)
-        return rescFactory.createResource(name, properties)
+        return rescFactory.createResource(name, qualifiers)
 
     def _registerComponent(self, component):
         self.__components[component._instanceName] = component
@@ -238,7 +247,7 @@ class IDESandbox(Sandbox):
                 # Create the component/device sandbox wrapper, disabling the
                 # automatic launch since it is already running
                 spd, scd, prf = self.getSdrRoot().readProfile(profile)
-                comp = clazz(self, profile, spd, scd, prf, instanceName, refid, impl, {}, None, None, None, False)
+                comp = clazz(self, profile, spd, scd, prf, instanceName, refid, impl, {}, {}, {})
                 comp.ref = resource
                 self.__components[instanceName] = comp
             except Exception, e:

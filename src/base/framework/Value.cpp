@@ -176,12 +176,12 @@ const Value& ValueSequence::operator[] (size_t index) const
 
 void ValueSequence::push_back(const Value& value)
 {
-    ossie::corba::push_back(this, value);
+    ossie::corba::push_back(*this, value);
 }
 
 void ValueSequence::push_back(const CORBA::Any& value)
 {
-    ossie::corba::push_back(this, value);
+    ossie::corba::push_back(*this, value);
 }
 
 ValueSequence::iterator ValueSequence::begin()

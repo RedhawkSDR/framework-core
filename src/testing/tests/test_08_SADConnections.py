@@ -312,3 +312,37 @@ class SADConnectionsTest(scatest.CorbaTestCase):
         self.assertEqual(expectedId, actualId)
 
 
+    def test_ExternalPorts_getPortSet(self):
+        # CF-1285
+        self._createApp('ExternalPort')
+
+        #  grab list of external ports
+        plist = self._app.getPortSet()
+
+        nports = len(plist)
+        self.assertEqual(nports, 2 )
+
+        # check name and direction of each port
+        self.assertEqual(plist[0].name, 'resource_in')
+        self.assertEqual(plist[0].direction.upper(), 'PROVIDES')
+
+        # check name and direction of each port
+        self.assertEqual(plist[1].name, 'resource_out')
+        self.assertEqual(plist[1].direction.upper(), 'USES')
+
+        component = self._getComponents()['PortTest1']
+        plist = component.getPortSet()
+        nports = len(plist)
+        self.assertEqual(nports, 7 )
+        self.assertEqual(plist[0].name, 'resource_in')
+        self.assertEqual(plist[0].direction.upper(), 'PROVIDES')
+
+        component = self._getComponents()['PortTest2']
+        plist = component.getPortSet()
+        pinfo = filter(lambda x : x.name == 'resource_out', plist)
+        nports = len(plist)
+        self.assertEqual(nports, 7 )
+        self.assertEqual(pinfo[0].name, 'resource_out')
+        self.assertEqual(pinfo[0].direction.upper(), 'USES')
+
+

@@ -109,7 +109,7 @@ const Value& PropertyMap::operator[] (const std::string& id) const
 
 void PropertyMap::push_back(const CF::DataType& property)
 {
-    ossie::corba::push_back(this, property);
+    ossie::corba::push_back(*this, property);
 }
 
 PropertyMap::iterator PropertyMap::begin()

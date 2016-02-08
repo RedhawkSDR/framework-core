@@ -325,7 +325,15 @@ void DomainConnectionManager::deviceManagerUnregistered(const std::string& devic
 void DomainConnectionManager::deviceRegistered(const std::string& deviceId)
 {
     TRACE_ENTER(DomainConnectionManager);
-    tryPendingConnections_(Endpoint::COMPONENT, deviceId);
+    try {
+        tryPendingConnections_(Endpoint::COMPONENT, deviceId);
+    } catch ( ossie::InvalidConnection &e ) {
+        std::ostringstream err;
+        err << "Invalid connection: "<<e.what();
+        LOG_WARN(DomainConnectionManager, err.str())
+    } catch ( ... ) {
+        LOG_WARN(DomainConnectionManager, "An error happened while trying to resolve the pending connections");
+    }
     TRACE_EXIT(DomainConnectionManager);
 }
 
@@ -339,7 +347,15 @@ void DomainConnectionManager::deviceUnregistered(const std::string& deviceId)
 void DomainConnectionManager::serviceRegistered(const std::string& serviceName)
 {
     TRACE_ENTER(DomainConnectionManager);
-    tryPendingConnections_(Endpoint::SERVICENAME, serviceName);
+    try {
+        tryPendingConnections_(Endpoint::SERVICENAME, serviceName);
+    } catch ( ossie::InvalidConnection &e ) {
+        std::ostringstream err;
+        err << "Invalid connection: "<<e.what();
+        LOG_WARN(DomainConnectionManager, err.str())
+    } catch ( ... ) {
+        LOG_WARN(DomainConnectionManager, "An error happened while trying to resolve the pending connections");
+    }
     TRACE_EXIT(DomainConnectionManager);
 }
 
@@ -353,7 +369,15 @@ void DomainConnectionManager::serviceUnregistered(const std::string& serviceName
 void DomainConnectionManager::applicationRegistered(const std::string& applicationId)
 {
     TRACE_ENTER(DomainConnectionManager);
-    tryPendingConnections_(Endpoint::APPLICATION, applicationId);
+    try {
+        tryPendingConnections_(Endpoint::APPLICATION, applicationId);
+    } catch ( ossie::InvalidConnection &e ) {
+        std::ostringstream err;
+        err << "Invalid connection: "<<e.what();
+        LOG_WARN(DomainConnectionManager, err.str())
+    } catch ( ... ) {
+        LOG_WARN(DomainConnectionManager, "An error happened while trying to resolve the pending connections");
+    }
     TRACE_EXIT(DomainConnectionManager);
 }
 
@@ -428,15 +452,28 @@ void DomainConnectionManager::breakConnections_(Endpoint::DependencyType type, c
     boost::mutex::scoped_lock lock(_connectionLock);
     for (ConnectionTable::iterator devMgr = _connectionsByRequester.begin(); devMgr != _connectionsByRequester.end(); ++devMgr) {
         // Go through the list of connections for each DeviceManager to check
-        // for connections that have the given dependency, and disconnect the
-        // uses side.
+        // for connections that have the given dependency
         ConnectionList& connections = devMgr->second;
-        for (ConnectionList::iterator connection = connections.begin(); connection != connections.end(); ++connection) {
-            if (!connection->connected || !connection->checkDependency(type, identifier)) {
-                continue;
+        for (ConnectionList::iterator connection = connections.begin(); connection != connections.end(); ) {
+            bool remove = false;
+            if (connection->checkDependency(type, identifier)) {
+                // If the connection does not allow deferral of this dependency
+                // (e.g, an application is going away), remove the connection
+                if (!connection->allowDeferral(type, identifier)) {
+                    remove = true;
+                }
+                // If the connection is still connected, break it
+                if (connection->connected) {
+                    LOG_TRACE(DomainConnectionManager, "Breaking connection " << connection->identifier);
+                    connection->disconnect(_domainLookup);
+                }
             }
-            LOG_TRACE(DomainConnectionManager, "Breaking connection " << connection->identifier);
-            connection->disconnect(_domainLookup);
+            if (remove) {
+                LOG_TRACE(DomainConnectionManager, "Removing connection " << connection->identifier << " that does not allow deferral");
+                connection = connections.erase(connection);
+            } else {
+                ++connection;
+            }
         }
     }
 
@@ -665,11 +702,16 @@ bool ConnectionNode::connect(ConnectionManager& manager)
 
     if (CORBA::is_nil(usesObject) || CORBA::is_nil(providesPort)) {
         LOG_TRACE(ConnectionNode, "Unable to establish a connection because one or more objects cannot be resolved (i.e.: cannot create an event channel or device is not available)");
-        if (uses->allowDeferral() && provides->allowDeferral()) {
+        if (allowDeferral()) {
             LOG_DEBUG(ConnectionNode, "Connection is deferred to a later date");
             return false;
+        } else {
+            if (!uses->isResolved() && !uses->allowDeferral()) {
+                throw InvalidConnection("Uses endpoint for "+identifier+" cannot be resolved or deferred");
+            } else {
+                throw InvalidConnection("Provides endpoint for "+identifier+" cannot be resolved or deferred");
+            }
         }
-        throw InvalidConnection("Connection cannot be deferred");
     }
 
     CF::Port_var usesPort = ossie::corba::_narrowSafe<CF::Port>(usesObject);
@@ -738,6 +780,19 @@ bool ConnectionNode::allowDeferral()
     }
 
     if (!(provides->isResolved() || provides->allowDeferral())) {
+        return false;
+    }
+
+    return true;
+}
+
+bool ConnectionNode::allowDeferral(Endpoint::DependencyType type, const std::string& identifier)
+{
+    if (uses->checkDependency(type, identifier) && !uses->allowDeferral()) {
+        return false;
+    }
+
+    if (provides->checkDependency(type, identifier) && !provides->allowDeferral()) {
         return false;
     }
 

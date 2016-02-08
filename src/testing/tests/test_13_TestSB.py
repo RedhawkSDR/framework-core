@@ -27,6 +27,8 @@ import os
 import Queue
 from ossie.utils import sb
 from ossie.utils import type_helpers
+from ossie import properties as _properties
+import threading
 globalsdrRoot = os.environ['SDRROOT']
 import sys
 import time
@@ -154,6 +156,38 @@ class SBTestTest(scatest.CorbaTestCase):
     def test_relativePath(self):
         comp = sb.launch('sdr/dom/components/Sandbox/Sandbox.spd.xml')
         self.assertComponentCount(1)
+
+    def test_propertyInitialization(self):
+        """
+        Tests for the correct initialization of 'property' kind properties
+        based on whether command line is set, and overrides via launch().
+        """
+        # First, test with defaults
+        comp = sb.launch('sdr/dom/components/property_init/property_init.spd.xml')
+        self.assertFalse('initial' in comp.cmdline_args)
+        self.assertFalse('cmdline' in comp.initialize_props)
+        comp.releaseObject()
+
+        # Test with (correct) overrides
+        comp = sb.launch('sdr/dom/components/property_init/property_init.spd.xml',
+                         execparams={'cmdline':'override'}, configure={'initial':'override'})
+        self.assertFalse('initial' in comp.cmdline_args)
+        self.assertFalse('cmdline' in comp.initialize_props)
+        self.assertEquals('override', comp.cmdline)
+        self.assertEquals('override', comp.initial)
+        comp.releaseObject()
+
+        # Test with misplaced command line property
+        comp = sb.launch('sdr/dom/components/property_init/property_init.spd.xml',
+                         configure={'cmdline':'override'})
+        self.assertFalse('initial' in comp.cmdline_args)
+        self.assertFalse('cmdline' in comp.initialize_props)
+        self.assertEquals('override', comp.cmdline)
+        comp.releaseObject()
+
+        # A non-command line property in the wrong override should throw an exception
+        self.assertRaises(ValueError, sb.launch, 'sdr/dom/components/property_init/property_init.spd.xml',
+                          execparams={'initial':'override'})
 
     def test_nestedSoftPkgDeps(self):
         cwd = os.getcwd()
@@ -1216,6 +1250,24 @@ class SBTestTest(scatest.CorbaTestCase):
         test.my_long="2KB"
         self.assertEqual(test.my_long,2048)
 
+    def test_MessageSource(self):
+        source = sb.MessageSource(messageId='test_message')
+        comp = sb.launch('MessageReceiverPy')
+        source.connect(comp)
+        sb.start()
+
+        # As a pre-condition, there should have been no messages yet
+        self.assertEqual(comp.received_messages, [])
+
+        source.sendMessage({'item_float':0.0, 'item_string':'first'})
+
+        # Wait until the component has time to process the message
+        timeout = time.time() + 1.0
+        while len(comp.received_messages) == 0 and time.time() < timeout:
+            time.sleep(0.1)
+
+        self.assertEqual(len(comp.received_messages), 1)
+        self.assertEqual(comp.received_messages[0], "test_message,0.0,'first'")
 
 
 class BulkioTest(unittest.TestCase):
@@ -1424,12 +1476,45 @@ class BulkioTest(unittest.TestCase):
         data = self.readFile(self.TEMPFILE)
         self.assertEqual(xmldata, data)
 
+    def test_DataSourceEOS(self):
+        """
+        Verify that DataSource sends EOS properly for pushes that exceed
+        bytesPerPush.
+        """
+        source = sb.DataSource(dataFormat='float', bytesPerPush=1024)
+        sink = sb.DataSink()
+        source.connect(sink)
+        sb.start()
+        # Use an integer multiple of bytesPerPush (in this case 4X) to check
+        # that exact boundaries don't break EOS
+        source.push([float(x) for x in xrange(1024)], EOS=True)
+
+        # Wait up to 2 seconds for EOS to be received
+        start = time.time()
+        while not sink.eos() and (time.time() - start) < 2.0:
+            time.sleep(0.1)
+        self.assertTrue(sink.eos())
 
         #TODO if BULKIO ever gets folded into core framework these tests can be used
         # to add them proper components must be created
         # 1 with multiple good connections
         # 1 with no good connections
         # 1 with a good connection
+     
+    def test_DataSinkSubsize(self):
+        src=sb.DataSource(dataFormat='short',subsize=5)
+        snk=sb.DataSink()
+        src.connect(snk)
+        sb.start()
+        src.push([1,2,3,4,5,6,7,8,9,10], EOS=True)
+        start = time.time()
+        while not snk.eos() and (time.time() - start) < 2.0:
+            time.sleep(0.1)
+        data=snk.getData()
+        self.assertTrue(snk.eos())
+        self.assertEquals(len(data),2)
+        self.assertEquals(len(data[0]),5)
+        self.assertEquals(len(data[1]),5)
 
 #    def test_connections(self):
 #        a = sb.launch(self.test_comp)
@@ -1487,4 +1572,92 @@ class BulkioTest(unittest.TestCase):
 #            self.assertEquals(temp._componentName in names, True)
 
 
+class MessagePortTest(scatest.CorbaTestCase):
+    def setUp(self):
+        sb.setDEBUG(True)
+        self.test_comp = "Sandbox"
+        # Flagrant violation of sandbox API: if the sandbox singleton exists,
+        # clean up previous state and dispose of it.
+        if sb.domainless._sandbox:
+            sb.domainless._sandbox.shutdown()
+            sb.domainless._sandbox = None
 
+    def tearDown(self):
+        sb.domainless._getSandbox().shutdown()
+        sb.setDEBUG(False)
+        os.environ['SDRROOT'] = globalsdrRoot
+
+    def test_MessageSink(self):
+        
+        class MCB:
+           def __init__(self, cond):
+               self.cond = cond
+               self.msg=None
+               self.count=0
+
+           def msgCallback(self, id, msg):
+               self.msg = _properties.prop_to_dict(msg)
+               self.count = self.count + 1
+               self.cond.acquire()
+               self.cond.notify()
+               self.cond.release()
+
+           def reset(self):
+               self.msg=None
+               self.count=0
+
+        def wait_for_msg(cond, timeout=2.0):       
+            cond.acquire()
+            cond.wait(timeout)
+            cond.release()
+                        
+        msrc = sb.MessageSource()
+        cond = threading.Condition()
+        mcb = MCB(cond)
+        msink = sb.MessageSink( messageCallback=mcb.msgCallback )
+        msrc.connect(msink)
+        # Simple messages come across properties list which translates into the following
+        # {'sb_struct': {'sb': 'testing 1'}}
+ 
+
+        msrc.sendMessage("testing 1")
+        wait_for_msg(cond)
+        self.assertEquals( mcb.msg, None )
+        sb.start()
+        msrc.sendMessage("testing 2")
+        wait_for_msg(cond)
+        msg = mcb.msg['sb_struct']['sb']
+        self.assertEquals( msg, "testing 2")
+        sb.stop()
+
+        # terminate this sink object
+        msink.releaseObject()
+
+        # create new sink and connect to source 
+        msink = sb.MessageSink( messageCallback=mcb.msgCallback )
+        msrc.connect(msink)
+
+        # try and send message....wait should expire and msg == none
+        mcb.reset()
+        msrc.sendMessage("testing 3")
+        wait_for_msg(cond)
+        self.assertEquals( mcb.msg, None)
+
+        sb.start()
+        msrc.sendMessage("testing 4")
+        wait_for_msg(cond)
+        msg = mcb.msg['sb_struct']['sb']
+        self.assertEquals( msg, "testing 4")
+        mcb.reset()
+        msrc.sendMessage("testing 5")
+        wait_for_msg(cond)
+        msg = mcb.msg['sb_struct']['sb']
+        self.assertEquals( msg, "testing 5")
+        sb.stop()
+
+        #  reset receiver and cycle sandbox state
+        mcb.reset()
+        sb.start()
+        sb.stop()
+        self.assertEquals( mcb.msg, None)
+        msink.releaseObject()

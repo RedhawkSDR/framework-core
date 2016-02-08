@@ -38,6 +38,7 @@
 #include <ossie/Properties.h>
 #include <ossie/SoftPkg.h>
 #include <ossie/Events.h>
+#include <ossie/affinity.h>
 
 #include <dirent.h>
 
@@ -233,7 +234,7 @@ private:
     
     void getOverloadprops(
         std::map<std::string, std::string>&           overloadprops, 
-        const std::vector<ossie::ComponentProperty*>& instanceprops,
+        const ossie::ComponentPropertyList&           instanceprops,
         const ossie::Properties&                      deviceProperties);
 
     CF::Properties getResourceOptions( const ossie::ComponentInstantiation& instantiation);
@@ -264,7 +265,7 @@ private:
         const std::string&                            usageName,
         const std::vector<ossie::ComponentPlacement>& componentPlacements,
         const std::string&                            compositeDeviceIOR,
-        const std::vector<ossie::ComponentProperty*>& instanceprops) ;
+        const ossie::ComponentPropertyList&           instanceprops) ;
 
     void createDeviceThreadAndHandleExceptions(
         const ossie::ComponentPlacement&              componentPlacement,
@@ -276,7 +277,7 @@ private:
         const ossie::ComponentInstantiation&          instantiation,
         const std::vector<ossie::ComponentPlacement>& componentPlacements,
         const std::string&                            compositeDeviceIOR,
-        const std::vector<ossie::ComponentProperty*>& instanceprops);
+        const ossie::ComponentPropertyList&           instanceprops);
 
     void createDeviceThread(
         const ossie::ComponentPlacement&              componentPlacement,
@@ -290,7 +291,7 @@ private:
         const std::string&                            usageName,
         const std::vector<ossie::ComponentPlacement>& componentPlacements,
         const std::string&                            compositeDeviceIOR,
-        const std::vector<ossie::ComponentProperty*>& instanceprops);
+        const ossie::ComponentPropertyList&           instanceprops);
 
     typedef std::list<std::pair<std::string,std::string> > ExecparamList;
 
@@ -303,7 +304,7 @@ private:
         const ossie::ComponentInstantiation&          instantiation,
         const std::string&                            usageName,
         const std::string&                            compositeDeviceIOR,
-        const std::vector<ossie::ComponentProperty*>& instanceprops);
+        const ossie::ComponentPropertyList&           instanceprops);
 
     bool loadSPD(
         ossie::SoftPkg&                    SPDParser,

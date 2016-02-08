@@ -42,9 +42,10 @@ void Component::setAdditionalParameters(std::string &softwareProfile, std::strin
     Resource_impl::setAdditionalParameters(softwareProfile, application_registrar_ior, nic);
     this->_net = new redhawk::NetworkContainer(nic);
     CORBA::Object_var applicationRegistrarObject = orb->string_to_object(application_registrar_ior.c_str());
-    CF::ApplicationRegistrar_ptr applicationRegistrar = ossie::corba::_narrowSafe<CF::ApplicationRegistrar>(applicationRegistrarObject);
+    CF::ApplicationRegistrar_var applicationRegistrar = ossie::corba::_narrowSafe<CF::ApplicationRegistrar>(applicationRegistrarObject);
     if (!CORBA::is_nil(applicationRegistrar)) {
-        this->_app = new redhawk::ApplicationContainer(applicationRegistrar->app());
+      CF::Application_var app = applicationRegistrar->app();
+        this->_app = new redhawk::ApplicationContainer(app);
         return;
     }
     this->_app = new redhawk::ApplicationContainer();

@@ -19,7 +19,7 @@
 #
 
 dnl Update this version number immedately after a release
-AC_INIT([ossie],[2.0.0])
+AC_INIT([ossie],[2.0.1])
 #AM_INIT_AUTOMAKE(nostdinc)
 # allows filenames over 99 characters long during dist
 AM_INIT_AUTOMAKE([1.9 tar-pax subdir-objects])
@@ -109,7 +109,8 @@ fi
 # Get the XSD version
 AC_MSG_CHECKING([xsd version])
 xsd_version=`${XSD} version 2>&1 | head -n 1 | awk '{print $8}'`
-if test "x$xsd_version" != "x3.3.0"; then
+oldest_version=`echo -e "${xsd_version}\n3.3.0" | sort -t '.' -k 1,1 -k 2,2 -k 3,3 -k 4,4 -g | head -n 1`
+if test "x$oldest_version" != "x3.3.0"; then
     AC_MSG_FAILURE([XSD version 3.3.0 required])
 else
     AC_MSG_RESULT([$xsd_version])
@@ -118,7 +119,7 @@ AC_CHECK_HEADER([xsd/cxx/config.hxx], [], [AC_MSG_ERROR([missing XSD headers])])
 AC_CHECK_PROG([XMLCATALOG], [xmlcatalog], [xmlcatalog], [no])
 AM_CONDITIONAL(HAVE_XMLCATALOG, test $XMLCATALOG != "no")
 
-# add numa support to affinity module                                
+# add numa support to affinity module
 AC_ARG_ENABLE([affinity], AS_HELP_STRING([--enable-affinity], [Enable numa affinity processing]))
    AC_MSG_CHECKING([Adding support for numa affinity processing])
 if test "x$enable_affinity" = "xyes"; then
@@ -328,6 +329,10 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dev/devices/GPP/cpp/Makefile \
                 testing/sdr/dev/devices/java_dev/java/Makefile \
                 testing/sdr/dev/services/BasicService_java/java/Makefile \
+                testing/sdr/dom/deps/cpp_dep1/cpp/Makefile \
+                testing/sdr/dom/deps/cpp_dep1/cpp/cpp_dep1.pc \
+                testing/sdr/dom/deps/cpp_dep2/cpp/Makefile \
+                testing/sdr/dom/deps/cpp_dep2/cpp/cpp_dep2.pc \
                 testing/sdr/dom/components/CppCallbacks/cpp/Makefile \
                 testing/sdr/dom/components/TestCppProps/Makefile \
                 testing/sdr/dom/components/TestJavaProps/Makefile \
@@ -355,6 +360,7 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dom/components/TestAllPropTypes/java/Makefile \
                 testing/sdr/dom/components/TestLoggingAPI/cpp/Makefile \
                 testing/sdr/dom/components/cpp_comp/cpp/Makefile \
+                testing/sdr/dom/components/cpp_with_deps/cpp/Makefile \
                 testing/sdr/dom/components/TestLoggingAPI/java/Makefile \
                 testing/sdr/dom/components/C1/cpp/Makefile \
                 testing/sdr/dom/components/C2/cpp/Makefile \

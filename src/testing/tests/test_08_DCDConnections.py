@@ -99,6 +99,20 @@ class DCDConnectionsTest(scatest.CorbaTestCase):
         device = devMgr2._get_registeredDevices()[0]
         self.assertEqual(len(device.runTest(0, [])), 1)
 
+    def test_BadServiceToService(self):
+        svcBooter, svcMgr = self.launchDeviceManager("/nodes/svc_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(svcMgr, None)
+        _id = None
+        _id = self._domMgr._get_identifier()
+        self.assertNotEqual(_id, None)
+
+    def test_DeviceToNameservice(self):
+        svcBooter, svcMgr = self.launchDeviceManager("/nodes/prop_svc_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(svcMgr, None)
+        _id = None
+        _id = self._domMgr._get_identifier()
+        self.assertNotEqual(_id, None)
+
     def test_MultipleService(self):
         svcBooter, svcMgr = self.launchDeviceManager("/nodes/test_BasicService_node/DeviceManager.dcd.xml")
         self.assertNotEqual(svcMgr, None)

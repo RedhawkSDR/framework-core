@@ -171,6 +171,25 @@ void DomainManager_impl::sendResourceStateChange( const std::string &source_id,
   ewriter.sendResourceStateChange( evt );
 }
 
+
+
+void DomainManager_impl::handleIDMChannelMessages( const CORBA::Any &msg ) {
+
+  const StandardEvent::AbnormalComponentTerminationEventType *termMsg;
+  if ( msg >>= termMsg ) {
+    LOG_WARN(DomainManager_impl, "Abormal Component Termination, Reporting Device: " << termMsg->deviceId << " Application/Component " << 
+             termMsg->applicationId << "/" << termMsg->componentId );
+  }
+
+}
+
+
+void DomainManager_impl::idmTerminationMessages( const redhawk::events::ComponentTerminationEvent &termMsg ) {
+  LOG_WARN(DomainManager_impl, "Abormal Component Termination, Reporting Device: " << termMsg.device_id << " Application/Component " << 
+             termMsg.application_id << "/" << termMsg.component_id );
+}
+
+
 void DomainManager_impl::establishDomainManagementChannels() {
 
     // Create Outgoing Domain Management (ODM) event channel
@@ -201,9 +220,11 @@ void DomainManager_impl::establishDomainManagementChannels() {
       //
       try{
         cname = redhawk::events::IDM_Channel_Spec;
-        _idm_subscriber = subscriber( cname  );
-        if ( _idm_subscriber ) {
+        DOM_Subscriber_ptr  idmSubscriber = subscriber( cname  );
+        if ( idmSubscriber ) {
           LOG_INFO(DomainManager_impl, "Domain Channel: " << cname << " created.");
+          _idm_reader.setTerminationListener( this, &DomainManager_impl::idmTerminationMessages );
+          _idm_reader.subscribe( subscriber( cname  ) );
         }
         else {
           throw -1;
@@ -236,10 +257,7 @@ void DomainManager_impl::disconnectDomainManagementChannels() {
       }
 
       try {
-        if ( _idm_subscriber ) {
-          _idm_subscriber->disconnect();
-          _idm_subscriber.reset();
-        }
+        _idm_reader.unsubscribe();
       }
       catch(...){ 
         RH_NL_ERROR("DomainManager", "Error disconnecting from IDM Channel. ");
@@ -396,10 +414,7 @@ void DomainManager_impl::destroyEventChannels()
 
       try {
         RH_NL_DEBUG("DomainManager", "Disconnect IDM CHANNEL. " );
-        if ( _idm_subscriber ) {
-          _idm_subscriber->disconnect();
-          _idm_subscriber.reset();
-        }
+        _idm_reader.unsubscribe();
       }
       catch(...){ 
         RH_NL_ERROR("DomainManager", "Error Destroying IDM Channel. ");

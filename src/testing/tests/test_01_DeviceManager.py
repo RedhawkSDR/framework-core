@@ -27,6 +27,7 @@ import commands
 import CosNaming
 import tempfile
 import commands
+import shutil
 
 java_support = runtestHelpers.haveJavaSupport('../Makefile')
 
@@ -1097,3 +1098,42 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         # Makes sure that all children are dead
         self.assertEquals(len(getChildren(devmgr_nb.pid)), 0)
 
+    def _test_Valgrind(self, valgrind):
+        # Clear the device cache to prevent false positives
+        deviceCacheDir = os.path.join(scatest.getSdrCache(), ".ExecutableDevice_node", "ExecutableDevice1")
+        shutil.rmtree(deviceCacheDir, ignore_errors=True)
+
+        os.environ['VALGRIND'] = valgrind
+        try:
+            # Checking that the node and device launch as expected
+            nb, devMgr = self.launchDeviceManager("/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml")
+        finally:
+            del os.environ['VALGRIND']
+
+        self.assertFalse(devMgr is None)
+        self.assertEquals(len(devMgr._get_registeredDevices()), 1, msg='device failed to launch with valgrind')
+        children = getChildren(nb.pid)
+        self.assertEqual(len(children), 1)
+        devMgr.shutdown()
+
+        # Check that a valgrind logfile exists
+        logfile = os.path.join(deviceCacheDir, 'valgrind.%s.log' % children[0])
+        self.assertTrue(os.path.exists(logfile))
+
+    def test_ValgrindOption(self):
+        # Make sure that valgrind exists and is in the path
+        valgrind = scatest.which('valgrind')
+        if not valgrind:
+            raise RuntimeError('Valgrind is not installed')
+
+        # Let the device manager find valgrind on the path
+        self._test_Valgrind('')
+
+        # Set an explicit path to valgrind, using a symbolic link to a non-path
+        # location as an additional check
+        altpath = os.path.join(scatest.getSdrPath(), 'valgrind')
+        os.symlink(valgrind, altpath)
+        try:
+            self._test_Valgrind(altpath)
+        finally:
+            os.unlink(altpath)

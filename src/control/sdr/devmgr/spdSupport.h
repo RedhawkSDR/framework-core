@@ -36,6 +36,7 @@
 #include <ossie/exceptions.h>
 #include <ossie/ossieparser.h>
 #include <ossie/componentProfile.h>
+#include <ossie/affinity.h>
 
 //
 // Follows model from applicationSupport.h, except with the removal of
@@ -202,6 +203,7 @@ namespace ossie
         void addConstructProperty(CF::DataType dt);
 
         void overrideProperty(const ossie::ComponentProperty* propref);
+        void overrideProperty(const ossie::ComponentProperty& propref);
         void overrideProperty(const char* id, const CORBA::Any& value);
         void overrideSimpleProperty(const char* id, const std::string value);
 

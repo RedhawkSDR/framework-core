@@ -289,20 +289,19 @@ description (const ::std::string& description)
 }
 
 void properties_pimpl::
-simple (ossie::SimpleProperty* simple)
+simple (const ossie::SimpleProperty& simple)
 {
     LOG_TRACE(prf_parser, "Adding simple property")
     assert(_prf.get() != 0);
-    assert(simple != 0);
-    _prf->addProperty(simple);
+    _prf->addProperty(simple.clone());
 }
 
 void properties_pimpl::
-simplesequence (ossie::SimpleSequenceProperty* simplesequence)
+simplesequence (const ossie::SimpleSequenceProperty& simplesequence)
 {
-    LOG_TRACE(prf_parser, "Adding simple sequence property " << simplesequence->getID())
-    assert(_prf.get() != 0);
-    _prf->addProperty(simplesequence);
+  LOG_TRACE(prf_parser, "Adding simple sequence property " << simplesequence.getID());
+  assert(_prf.get() != 0);
+  _prf->addProperty(simplesequence.clone());
 }
 
 void properties_pimpl::
@@ -311,19 +310,19 @@ test ()
 }
 
 void properties_pimpl::
-struct_ (ossie::StructProperty* struct_)
+struct_ (const ossie::StructProperty& struct_)
 {
-    LOG_TRACE(prf_parser, "Adding struct property " << struct_->getID())
-    assert(_prf.get() != 0);
-    _prf->addProperty(struct_);
+  LOG_TRACE(prf_parser, "Adding struct property " << struct_.getID());
+  assert(_prf.get() != 0);
+  _prf->addProperty(struct_.clone());
 }
 
 void properties_pimpl::
-structsequence (ossie::StructSequenceProperty* structsequence)
+structsequence (const ossie::StructSequenceProperty& structsequence)
 {
-    LOG_TRACE(prf_parser, "Adding struct sequence property " << structsequence->getID())
-    assert(_prf.get() != 0);
-    _prf->addProperty(structsequence);
+  LOG_TRACE(prf_parser, "Adding struct sequence property " << structsequence.getID());
+  assert(_prf.get() != 0);
+  _prf->addProperty(structsequence.clone());
 }
 
 std::auto_ptr<ossie::PRF> properties_pimpl::
@@ -406,14 +405,16 @@ pre ()
     _mode    = "";
     _action  = "";
     _optional = "";
-
+    _commandline = "";
     _kinds.clear();
     _value.reset();
+
 }
 
 void simple_pimpl::
 description (const ::std::string& description)
 {
+  
 }
 
 void simple_pimpl::
@@ -501,16 +502,17 @@ commandline (const ::std::string& commandline)
     _commandline = commandline;
 }
 
-ossie::SimpleProperty* simple_pimpl::
+const ossie::SimpleProperty& simple_pimpl::
 post_simple ()
 {
   if (_value.get()  != 0) {
-      LOG_TRACE(prf_parser, "simple_pimpl post " << _id << " " << _name << " " << _value->c_str())
-      return new ossie::SimpleProperty(_id, _name, _type, _mode, _action, _kinds, _value.get(), _complex, _commandline, _optional);
+    LOG_TRACE(prf_parser, "simple_pimpl post " << _id << " " << _name << " " << _value->c_str());
+      _prop = ossie::SimpleProperty(_id, _name, _type, _mode, _action, _kinds, _value.get(), _complex, _commandline, _optional);
   } else {
-      LOG_TRACE(prf_parser, "simple_pimpl post " << _id << " " << _name << " None")
-      return new ossie::SimpleProperty(_id, _name, _type, _mode, _action, _kinds, 0, _complex, _commandline, _optional);
+    LOG_TRACE(prf_parser, "simple_pimpl post " << _id << " " << _name << " None");
+      _prop = ossie::SimpleProperty(_id, _name, _type, _mode, _action, _kinds, 0, _complex, _commandline, _optional);
   }
+  return _prop;
 }
 
 // simpleRef_pimpl
@@ -519,24 +521,22 @@ post_simple ()
 void simpleRef_pimpl::
 pre ()
 {
-    simple = new ossie::SimplePropertyRef();
+  simple =  ossie::SimplePropertyRef();
 }
 
 void simpleRef_pimpl::
 refid (const ::std::string& refid)
 {
-    assert (simple != 0);
-    simple->_id = refid;
+    simple._id = refid;
 }
 
 void simpleRef_pimpl::
 value (const ::std::string& value)
 {
-    assert (simple != 0);
-    simple->_value = value;
+    simple._value = value;
 }
 
-ossie::SimplePropertyRef* simpleRef_pimpl::
+const ossie::SimplePropertyRef& simpleRef_pimpl::
 post_simpleRef ()
 {
     return simple;
@@ -548,24 +548,23 @@ post_simpleRef ()
 void simpleSequenceRef_pimpl::
 pre ()
 {
-    simplesequence = new ossie::SimpleSequencePropertyRef();
+  simplesequence._values.clear();
+  simplesequence = ossie::SimpleSequencePropertyRef();
 }
 
 void simpleSequenceRef_pimpl::
 refid (const ::std::string& refid)
 {
-    assert(simplesequence != 0);
-    simplesequence->_id = refid;
+    simplesequence._id = refid;
 }
 
 void simpleSequenceRef_pimpl::
 values (const ::std::vector<std::string>& values)
 {
-    assert(simplesequence != 0);
-    simplesequence->_values = values;
+  simplesequence._values = values;
 }
 
-ossie::SimpleSequencePropertyRef* simpleSequenceRef_pimpl::
+const ossie::SimpleSequencePropertyRef& simpleSequenceRef_pimpl::
 post_simpleSequenceRef ()
 {
     return simplesequence;
@@ -672,10 +671,10 @@ optional (const ::std::string& optional)
     _optional = optional;
 }
 
-ossie::SimpleSequenceProperty* simpleSequence_pimpl::
+const ossie::SimpleSequenceProperty& simpleSequence_pimpl::
 post_simpleSequence ()
 {
-    return new ossie::SimpleSequenceProperty(_id, 
+  _prop = ossie::SimpleSequenceProperty(_id, 
                                              _name, 
                                              _type, 
                                              _mode, 
@@ -684,6 +683,8 @@ post_simpleSequence ()
                                              _values,
                                              _complex,
 					     _optional);
+
+  return _prop;
 }
 
 // struct_pimpl
@@ -692,6 +693,7 @@ post_simpleSequence ()
 void struct_pimpl::
 pre ()
 {
+
     _id = "";
     _name = "";
     _type = "";
@@ -706,17 +708,15 @@ description (const ::std::string& desciption)
 }
 
 void struct_pimpl::
-simple (ossie::SimpleProperty* property)
+simple (const ossie::SimpleProperty& property)
 {
-    _value.push_back(const_cast<ossie::Property*>(property->clone()));
-    delete property;
+   _value.push_back(const_cast<ossie::Property*>(property.clone()));
 }
 
 void struct_pimpl::
-simplesequence (ossie::SimpleSequenceProperty* property)
+simplesequence (const ossie::SimpleSequenceProperty& property)
 {
-    _value.push_back(const_cast<ossie::Property*>(property->clone()));
-    delete property;
+    _value.push_back(const_cast<ossie::Property*>(property.clone()));
 }
 
 void struct_pimpl::
@@ -743,22 +743,21 @@ name (const ::std::string& name)
     _name = name;
 }
 
-ossie::StructProperty* struct_pimpl::
+const ossie::StructProperty& struct_pimpl::
 post_struct ()
 {
     LOG_TRACE(prf_parser, "struct_pimpl post " << _id << " " << _name);
     for (std::vector<std::string>::const_iterator ii = _kinds.begin(); ii != _kinds.end(); ++ii) {
         LOG_TRACE(prf_parser, "    kind " << *ii);
     }
-    std::vector<ossie::Property*>::iterator i;
+    
+    ossie::PropertyList::const_iterator i;
     for (i = _value.begin(); i != _value.end(); ++i) {
-        LOG_TRACE(prf_parser, "    value " << **i)
+        LOG_TRACE(prf_parser, "    value " << *i)
     }
-    ossie::StructProperty* retval = new ossie::StructProperty(_id, _name, _mode, _kinds, _value);
-    for (i = _value.begin(); i != _value.end(); ++i) {
-	    delete *i;
-    }
-    return retval;
+
+     _prop = ossie::StructProperty(_id, _name, _mode, _kinds, _value);
+    return _prop;
 }
 
 // structSequence_pimpl
@@ -772,8 +771,8 @@ pre ()
     _type = "";
     _mode = "";
     _kinds.clear();
-    _struct.reset(0);
     _values.clear();
+    _struct = ossie::StructProperty();  // resets internal values vector
 }
 
 void structSequence_pimpl::
@@ -782,52 +781,60 @@ description (const ::std::string& description)
 }
 
 void structSequence_pimpl::
-struct_ (ossie::StructProperty* structProp)
+struct_ (const ossie::StructProperty& structProp)
 {
-    _struct.reset(structProp);
+ _struct = structProp;
 }
 
 void structSequence_pimpl::
-structvalue (const std::map<std::string, ossie::ComponentProperty*>& value)
+structvalue (const ossie::ComponentPropertyMap& value)
 {
     std::vector<ossie::Property*> propValue;
-    const std::vector<ossie::Property*>& defaults = _struct->getValue();
+    std::vector<ossie::Property*> rmprops;
+    const std::vector<ossie::Property*>& defaults = _struct.getValue();
     for (std::vector<ossie::Property*>::const_iterator prop = defaults.begin(); prop != defaults.end(); ++prop) {
         const std::string id = (*prop)->getID();
-        std::map<std::string, ossie::ComponentProperty*>::const_iterator ii = value.find(id);
+        ossie::ComponentPropertyMap::const_iterator ii = value.find(id);
         if (ii != value.end()) {
-	    if (dynamic_cast<const ossie::SimpleProperty*>(*prop) != NULL) {
+          ossie::Property *p=NULL;
+          if (dynamic_cast<const ossie::SimpleProperty*>(*prop) != NULL) {
 		const ossie::SimpleProperty* simp = dynamic_cast<const ossie::SimpleProperty*>(*prop);
-                std::string val = static_cast<ossie::SimplePropertyRef*>(ii->second)->getValue();
-                propValue.push_back(new ossie::SimpleProperty(id, 
-                                                              simp->getName(), 
-                                                              simp->getType(), 
-                                                              simp->getMode(), 
-                                                              simp->getAction(), 
-                                                              simp->getKinds(), 
-                                                              val, 
-                                                              simp->getComplex(),
-                                                              simp->getCommandLine(),
-							      simp->getOptional()));
+                std::string val = static_cast<const ossie::SimplePropertyRef *>(ii->second)->getValue();
+                p = new ossie::SimpleProperty(id, 
+                                              simp->getName(), 
+                                              simp->getType(), 
+                                              simp->getMode(), 
+                                              simp->getAction(), 
+                                              simp->getKinds(), 
+                                              val, 
+                                              simp->getComplex(),
+                                              simp->getCommandLine(),
+                                              simp->getOptional());
+                  rmprops.push_back(p);
             
    	    } else if (dynamic_cast<const ossie::SimpleSequenceProperty*>(*prop) != NULL) {
                 const ossie::SimpleSequenceProperty* simpseq = dynamic_cast<const ossie::SimpleSequenceProperty*>(*prop);
-                std::vector<std::string> vals = static_cast<ossie::SimpleSequencePropertyRef*>(ii->second)->getValues();
-                propValue.push_back(new ossie::SimpleSequenceProperty(id,
-                                                                      simpseq->getName(),
-                                                                      simpseq->getType(),
-                                                                      simpseq->getMode(),
-                                                                      simpseq->getAction(),
-                                                                      simpseq->getKinds(),
-                                                                      vals,
-                                                                      simpseq->getComplex(),
-								      simpseq->getOptional()));
+                std::vector<std::string> vals = static_cast<const ossie::SimpleSequencePropertyRef *>(ii->second)->getValues();
+                p = new ossie::SimpleSequenceProperty(id,
+                                                      simpseq->getName(),
+                                                      simpseq->getType(),
+                                                      simpseq->getMode(),
+                                                      simpseq->getAction(),
+                                                      simpseq->getKinds(),
+                                                      vals,
+                                                      simpseq->getComplex(),
+                                                      simpseq->getOptional());
+                rmprops.push_back(p);
             } else {
-                propValue.push_back(*prop);
+                p = *prop;
             }
+
+            propValue.push_back(p);
 	}
     }
-    _values.push_back(ossie::StructProperty(_struct->getID(), _struct->getName(), _struct->getMode(), _struct->getKinds(), propValue));
+    _values.push_back(ossie::StructProperty(_struct.getID(), _struct.getName(), _struct.getMode(), _struct.getKinds(), propValue));
+    // clean up unused properties..
+    for ( std::vector<ossie::Property *>::iterator i = rmprops.begin(); i != rmprops.end(); ++i) { if ( *i ) delete *i;  }
 }
 
 void structSequence_pimpl::
@@ -854,10 +861,11 @@ name (const ::std::string& name)
     _name = name;
 }
 
-ossie::StructSequenceProperty* structSequence_pimpl::
+const ossie::StructSequenceProperty& structSequence_pimpl::
 post_structSequence ()
 {
-    return new ossie::StructSequenceProperty(_id, _name, _mode, *_struct, _kinds, _values);
+    _prop = ossie::StructSequenceProperty(_id, _name, _mode, _struct, _kinds, _values);
+    return _prop;
 }
 
 // structValue_pimpl
@@ -866,40 +874,25 @@ post_structSequence ()
 void structValue_pimpl::
 pre ()
 {
-    _values.clear();
+  _values.clear();
 }
 
 void structValue_pimpl::
-simpleref (ossie::SimplePropertyRef* simpleref)
+simpleref (const ossie::SimplePropertyRef& simpleref)
 {
-    assert(simpleref != 0);
-    _values[simpleref->_id] = simpleref->clone();
-    delete simpleref;
+  _values.insert(simpleref._id,std::auto_ptr<ossie::ComponentProperty>(simpleref.clone()) );
 }
 
 void structValue_pimpl::
-simplesequenceref (ossie::SimpleSequencePropertyRef* simplesequenceref)
+simplesequenceref (const ossie::SimpleSequencePropertyRef& simplesequenceref)
 {
-    assert(simplesequenceref != 0);
-    _values[simplesequenceref->_id] = simplesequenceref->clone();
-    delete simplesequenceref;
+  _values.insert(simplesequenceref._id,std::auto_ptr<ossie::ComponentProperty>(simplesequenceref.clone()) );
 }
 
-::std::map<std::string, ossie::ComponentProperty*> structValue_pimpl::
+const ossie::ComponentPropertyMap& structValue_pimpl::
 post_structValue ()
 {
-    std::map<std::string, ossie::ComponentProperty*> retval;
-    std::map<std::string, ossie::ComponentProperty*>::iterator it;
-    for (it=_values.begin(); it!=_values.end(); ++it) {
-        if (dynamic_cast<ossie::SimplePropertyRef*>(it->second) != NULL) {
-            retval[it->first] = static_cast<ossie::SimplePropertyRef*>(it->second)->clone();
-            delete it->second;
-        } else if (dynamic_cast<ossie::SimpleSequencePropertyRef*>(it->second) != NULL) {
-            retval[it->first] = static_cast<ossie::SimpleSequencePropertyRef*>(it->second)->clone();
-            delete it->second;
-        }
-    }
-    return retval;
+  return _values;
 }
 
 // test_pimpl

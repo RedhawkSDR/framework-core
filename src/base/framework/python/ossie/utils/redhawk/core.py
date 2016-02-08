@@ -19,7 +19,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-
+import traceback
 import atexit as _atexit
 import os as _os
 from ossie.cf import CF as _CF
@@ -40,6 +40,7 @@ from ossie.utils import idllib
 from ossie.utils.model import _Port
 from ossie.utils.model import _readProfile
 from ossie.utils.model import _idllib
+from ossie.utils.model import ConnectionManager as _ConnectionManager
 from ossie.utils.model import *
 from ossie.utils.notify import notification
 from ossie.utils import weakobj
@@ -49,6 +50,7 @@ from component import Component
 from device import Device, createDevice
 from service import Service
 from model import DomainObjectList
+from model import IteratorContainer
 from ossie.utils.model import QueryableBase
 
 # Limit exported symbols
@@ -191,7 +193,7 @@ class App(_CF__POA.Application, Resource):
             except:
                 pass
         return retval
-    
+
     def _get_componentImplementations(self):
         retval = None
         if self.ref:
@@ -406,9 +408,25 @@ class App(_CF__POA.Application, Resource):
             placements = sad.get_partitioning().get_componentplacement()
             componentfileref = None
             for placement in placements:
+                if componentfileref:
+                    break
                 for inst in placement.get_componentinstantiation():
                     if inst.get_id() == instanceId:
                         componentfileref = placement.get_componentfileref().get_refid()
+                        break
+            if not componentfileref: # maybe it's in the host collocation
+                collocations = sad.get_partitioning().get_hostcollocation()
+                for collocation in collocations:
+                    if componentfileref:
+                        break
+                    placements = collocation.get_componentplacement()
+                    for placement in placements:
+                        if componentfileref:
+                            break
+                        for inst in placement.get_componentinstantiation():
+                            if inst.get_id() == instanceId:
+                                componentfileref = placement.get_componentfileref().get_refid()
+                                break
             if not componentfileref:
                 continue
             spd_file = None
@@ -548,7 +566,7 @@ class App(_CF__POA.Application, Resource):
             log.warn('providesPortName and providesName provided; using only providesName')
         if usesPortName != None and usesName != None:
             log.warn('usesPortName and usesName provided; using only usesPortName')
-        connections = ConnectionManager.instance().getConnections()
+        connections = _ConnectionManager.instance().getConnections()
         while True:
             connectionId = 'adhoc_connection_%d' % (self._connectioncount)
             if not connectionId in connections:
@@ -561,7 +579,7 @@ class App(_CF__POA.Application, Resource):
         return self.comps[i]
 
 
-class DeviceManager(_CF__POA.DeviceManager, QueryableBase, PropertySet):
+class DeviceManager(_CF__POA.DeviceManager, QueryableBase, PropertyEmitter, PortSet):
     """The DeviceManager is a descriptor for an logical grouping of devices.
 
        Relevant member data:
@@ -744,14 +762,6 @@ class DeviceManager(_CF__POA.DeviceManager, QueryableBase, PropertySet):
                 raise
         return retval
     
-    def getPort(self, name):
-        retval = None
-        if self.ref:
-            try:
-                retval = self.ref.getPort(name)
-            except:
-                raise
-        return retval
     
     def configure(self, props):
         if self.ref:
@@ -885,7 +895,289 @@ class DeviceManager(_CF__POA.DeviceManager, QueryableBase, PropertySet):
             pass
 
 
-class Domain(_CF__POA.DomainManager, QueryableBase, PropertySet):
+class AllocationManager(CorbaObject):
+    LOCAL_DEVICES=_CF.AllocationManager.LOCAL_DEVICES
+    ALL_DEVICES=_CF.AllocationManager.ALL_DEVICES
+    AUTHORIZED_DEVICES=_CF.AllocationManager.AUTHORIZED_DEVICES
+    LOCAL_ALLOCATIONS=_CF.AllocationManager.LOCAL_ALLOCATIONS
+    ALL_ALLOCATIONS=_CF.AllocationManager.ALL_ALLOCATIONS
+
+    def __init__(self, ref=None):
+        CorbaObject.__init__(self, ref)
+
+
+    @property
+    def allDevices(self):
+        if self.ref:
+            try:
+               return self.ref._get_allDevices()
+            except: 
+               pass
+        return []
+
+    @property
+    def authorizedDevices(self):
+        if self.ref:
+            try:
+               return self.ref._get_authorizedDevices()
+            except: 
+               pass
+        return []
+
+    @property
+    def localDevices(self):
+        if self.ref:
+            try:
+                return self.ref._get_localDevices()
+            except: 
+               pass
+        return []
+
+    @property
+    def getDomainMgr(self):
+        retval = None
+        if self.ref:
+            try:
+                retval = self.ref._get_domainMgr()
+            except:
+                pass
+        return retval
+
+    def createRequest(self, requestId, props, pools=[], devices=[], sourceId=''):
+        if type(props) == dict:
+            props=properties.props_from_dict(props)
+
+        return _CF.AllocationManager.AllocationRequestType(requestId, props, pools, devices, sourceId)
+
+    def allocate( self, allocationRequests=[], local=False ):
+        retval=[]
+        if self.ref:
+            try:
+                if local:
+                   retval = self.ref.allocateLocal( allocationRequests )
+                else:
+                   retval = self.ref.allocate( allocationRequests )
+            except:
+                raise
+        return retval
+
+    def deallocate( self, allocationIds=[] ):
+        if self.ref:
+            try:
+                self.ref.deallocate( allocationIds )
+            except:
+                raise
+
+    def allocations( self, allocationIds=[], local=False ):
+        retval=[]
+        if self.ref:
+            try:
+                if local:
+                   retval = self.ref.localAllocations( allocationIds )
+                else:
+                   retval = self.ref.allocations( allocationIds )
+            except:
+                raise
+        return retval
+
+
+    def listDevices( self, deviceScope=ALL_DEVICES, count=0 ):
+        retval = ([],None)
+        if self.ref:
+            try:
+                retval = self.ref.listDevices( deviceScope, count )
+                if len(retval) > 1 and retval[1]:
+                   return ( retval[0], IteratorContainer("DeviceLocationList", retval[1]) )
+            except:
+                raise
+        return retval
+
+    def listAllocations( self, allocationScope=ALL_DEVICES, count=0 ):
+        retval = ([],None)
+        if self.ref:
+            try:
+                retval = self.ref.listAllocations( allocationScope, count )
+                if len(retval) > 1 and retval[1]:
+                   return ( retval[0], IteratorContainer("AllocationsList", retval[1]) )
+            except:
+                raise
+        return retval
+
+class ConnectionManager(CorbaObject):
+
+    ENDPOINT_APPLICATION=_CF.ConnectionManager.ENDPOINT_APPLICATION 
+    ENDPOINT_DEVICE=_CF.ConnectionManager.ENDPOINT_DEVICE
+    ENDPOINT_SERVICE=_CF.ConnectionManager.ENDPOINT_SERVICE
+    ENDPOINT_EVENTCHANNEL=_CF.ConnectionManager.ENDPOINT_EVENTCHANNEL
+    ENDPOINT_COMPONENT=_CF.ConnectionManager.ENDPOINT_COMPONENT
+    ENDPOINT_DOMAINMANAGER=_CF.ConnectionManager.ENDPOINT_DOMAINMANAGER
+    ENDPOINT_DEVICEMANAGER=_CF.ConnectionManager.ENDPOINT_DEVICEMANAGER
+    ENDPOINT_OBJECTREF=_CF.ConnectionManager.ENDPOINT_OBJECTREF
+    def __init__(self, ref=None):
+        CorbaObject.__init__(self, ref)
+
+    @property
+    def connections(self):
+        if self.ref:
+            try:
+               return self.ref._get_connections()
+            except: 
+               pass
+        return []
+
+    def endPointRequest( self, rsc_id, port_name, endpoint_kind ):
+        restype = _CF.ConnectionManager.EndpointResolutionType(componentId=rsc_id)
+        if endpoint_kind == ENDPOINT_APPLICATION:
+            restype = _CF.ConnectionManager.EndpointResolutionType(applicationId=rsc_id)
+        if endpoint_kind == ENDPOINT_DEVICE:
+            restype = _CF.ConnectionManager.EndpointResolutionType(deviceId=rsc_id)
+        if endpoint_kind == ENDPOINT_SERVICE:
+            restype = _CF.ConnectionManager.EndpointResolutionType(serviceName=rsc_id)
+        if endpoint_kind == ENDPOINT_EVENTCHANNEL:
+            restype = _CF.ConnectionManager.EndpointResolutionType(channelName=rsc_id)
+        if endpoint_kind == ENDPOINT_DEVICEMANAGER:
+            restype = _CF.ConnectionManager.EndpointResolutionType(deviceMgr=rsc_id)
+        if endpoint_kind == ENDPOINT_OBJECTREF:
+            restype = _CF.ConnectionManager.EndpointResolutionType(objectRef=rsc_id)
+        return _CF.ConnectionManager.EndpointRequest(restype, port_name)
+
+    def applicationEndPoint( self, app_id, port_name ) :
+        restype = _CF.ConnectionManager.EndpointResolutionType(applicationId=app_id)
+        return _CF.ConnectionManager.EndpointRequest(restype, port_name)
+
+    def deviceEndPoint( self, dev_id, port_name ) :
+        restype = _CF.ConnectionManager.EndpointResolutionType(deviceId=dev_id)
+        return _CF.ConnectionManager.EndpointRequest(restype, port_name)
+
+    def componentEndPoint( self, comp_id, port_name ) :
+        restype = _CF.ConnectionManager.EndpointResolutionType(componentId=comp_id)
+        return _CF.ConnectionManager.EndpointRequest(restype, port_name)
+
+    def serviceEndPoint( self, svc_name, port_name ) :
+        restype = _CF.ConnectionManager.EndpointResolutionType(serviceName=svc_name)
+        return _CF.ConnectionManager.EndpointRequest(restype, port_name)
+
+    def eventChannelEndPoint( self, channel_name, port_name ) :
+        restype = _CF.ConnectionManager.EndpointResolutionType(channelName=channel_name)
+        return _CF.ConnectionManager.EndpointRequest(restype, port_name)
+
+    def deviceMgrEndPoint( self, devMgr_name, port_name ) :
+        restype = _CF.ConnectionManager.EndpointResolutionType(deviceMgrId=devMgr_name)
+        return _CF.ConnectionManager.EndpointRequest(restype, port_name)
+
+    def objectRefEndPoint( self, obj_ref, port_name ) :
+        restype = _CF.ConnectionManager.EndpointResolutionType(objectRef=obj_ref)
+        return _CF.ConnectionManager.EndpointRequest(restype, port_name)
+
+
+    def connect( self, usesEndPoint, providesEndPoint, requesterId, connectionId ):
+        retval=None
+        if self.ref:
+            try:
+                retval = self.ref.connect(usesEndPoint, providesEndPoint, requesterId, connectionId )
+            except:
+                raise
+        return retval
+
+    def disconnect( self, connectionRecordId ):
+        if self.ref:
+            try:
+                self.ref.disconnect( connectionRecordId )
+            except:
+                raise
+
+    def listConnections( self, count=0 ):
+        retval = ([],None)
+        if self.ref:
+            try:
+                retval = self.ref.listConnections(count )
+                if len(retval) > 1 and retval[1]:
+                   return ( retval[0], IteratorContainer("ConnectionsList", retval[1]) )
+            except:
+                raise
+        return retval
+
+
+class EventChannelManager(CorbaObject):
+
+    def __init__(self, ref=None):
+        CorbaObject.__init__(self, ref)
+
+    def release( self, channelName ):
+        if self.ref:
+            try:
+                retval = self.ref.release(channelName)
+            except:
+                raise
+
+    def create( self, channelName ):
+        retval=None
+        if self.ref:
+            try:
+                retval = self.ref.create(channelName)
+            except:
+                raise
+        return retval
+
+    def createForRegistrations( self, channelName ):
+        retval=None
+        if self.ref:
+            try:
+                retval=self.ref.createForRegistrations( channelName )
+            except:
+                raise
+        return retval
+
+    def markForRegistrations( self, channelName ):
+        if self.ref:
+            try:
+                self.ref.markForRegistrations( channelName )
+            except:
+                raise
+
+    def registerResource( self, channelName, reg_id="" ):
+        retval=None
+        if self.ref:
+            try:
+                reg = _CF.EventChannelManager.EventRegistration( channelName, reg_id ) 
+                retval = self.ref.registerResource( reg )
+            except:
+                raise
+        return retval
+
+    def unregister( self, channelName, reg_id ):
+        if self.ref:
+            try:
+                reg = _CF.EventChannelManager.EventRegistration( channelName, reg_id ) 
+                self.ref.unregister( reg )
+            except:
+                raise
+
+    def listChannels( self, count=0 ):
+        retval = ([],None)
+        if self.ref:
+            try:
+                retval = self.ref.listChannels(count)
+                if len(retval) > 1 and retval[1]:
+                   return ( retval[0], IteratorContainer("ChannelList", retval[1]) )
+            except:
+                raise
+        return retval
+
+    def listRegistrants( self, channelName="", count=0 ):
+        retval = ([],None)
+        if self.ref:
+            try:
+                retval = self.ref.listRegistrants(channelName, count )
+                if len(retval) > 1 and retval[1]:
+                   return ( retval[0], IteratorContainer("ChannelRegistrationList", retval[1]) )
+            except:
+                raise
+        return retval
+
+
+
+class Domain(_CF__POA.DomainManager, QueryableBase, PropertyEmitter):
     """The Domain is a descriptor for a Domain Manager.
     
         The main functionality that can be exercised by this class is:
@@ -961,6 +1253,9 @@ class Domain(_CF__POA.DomainManager, QueryableBase, PropertySet):
         self.location = location
         self.__odmListener = None
         self.__idmListener = None
+        self.__allocationMgr = None
+        self.__connectionMgr = None
+        self.__eventChannelMgr = None
         
         # create orb reference
         self.orb = _CORBA.ORB_init(_sys.argv, _CORBA.ORB_ID)
@@ -1367,6 +1662,30 @@ class Domain(_CF__POA.DomainManager, QueryableBase, PropertySet):
             except:
                 raise
     
+    def getAllocationMgr(self):
+        if self.ref and self.__allocationMgr == None :
+            try:
+                self.__allocationMgr = AllocationManager(self.ref._get_allocationMgr())
+            except:
+                raise
+        return self.__allocationMgr
+
+    def getConnectionMgr(self):
+        if self.ref and self.__connectionMgr == None :
+            try:
+                self.__connectionMgr = ConnectionManager(self.ref._get_connectionMgr())
+            except:
+                raise
+        return self.__connectionMgr
+
+    def getEventChannelMgr(self):
+        if self.ref and self.__eventChannelMgr == None :
+            try:
+                self.__eventChannelMgr = EventChannelManager(self.ref._get_eventChannelMgr())
+            except:
+                raise
+        return self.__eventChannelMgr
+
     # End external Domain Manager API
     ########################################
     
@@ -1527,3 +1846,7 @@ class Domain(_CF__POA.DomainManager, QueryableBase, PropertySet):
 
     def __serviceRemovedEvent(self, event):
         self.serviceUnregistered(event.sourceName)
+
+
+
+

@@ -11,7 +11,7 @@ class ECM_CPP_i : public ECM_CPP_base
         ~ECM_CPP_i();
         int serviceFunction();
         void initialize() throw  (CF::LifeCycle::InitializeError, CORBA::SystemException);
-
+        void releaseObject() throw (CF::LifeCycle::ReleaseError, CORBA::SystemException);
 
         redhawk::events::ManagerPtr ecm;
         redhawk::events::PublisherPtr pub;

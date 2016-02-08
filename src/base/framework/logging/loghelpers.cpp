@@ -101,6 +101,7 @@ namespace ossie {
       LogConfigFactory   factory;
       LogConfigFactoryHolder(): library(NULL), factory(NULL){};
       ~LogConfigFactoryHolder() {
+        close();
       };
       void close() {
         if (library) dlclose(library);
@@ -135,11 +136,16 @@ namespace ossie {
         }
         _logcfg.factory=logcfg_factory;
 
-        //std::cout << "ossie.logging: Found libossielogcfg.so for LOGGING_CONFIG_URI resolution." << std::endl;
+        RH_NL_DEBUG( "ossie.logging",  "ossie.logging: Found libossielogcfg.so for LOGGING_CONFIG_URI resolution." );
       }
       catch( std::exception &e){
       }
       catch( int e){
+        if ( e == 2 ) { // library symbol look up error
+          if ( _logcfg.library ) dlclose(_logcfg.library); 
+          _logcfg.library = 0;
+        }
+        
       }
 
     }
@@ -1129,6 +1135,7 @@ namespace ossie {
 
     void Terminate() {
       log4cxx::LogManager::shutdown();
+      _logcfg_resolver.reset();
    }
 
 

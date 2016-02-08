@@ -22,6 +22,16 @@
 
 using namespace ossie;
 
+
+//
+// clone method for boost pointer containers
+//
+
+ComponentProperty *ossie::new_clone(const ComponentProperty &a) {
+  return a.clone();
+}
+
+
 //
 // ComponentFile
 //
@@ -36,12 +46,10 @@ const char* ComponentFile::getID() const {
 //
 // ComponentProperty
 //
-ComponentProperty::~ComponentProperty() {
-};
-
 const char* ComponentProperty::getID() const {
     return _id.c_str();
 }
+
 
 //
 // SimplePropertyRef
@@ -50,56 +58,64 @@ const char* SimplePropertyRef::getValue() const {
     return _value.c_str();
 }
 
-ComponentProperty* SimplePropertyRef::clone() const {
+ComponentProperty* SimplePropertyRef::_clone() const {
     return new SimplePropertyRef(*this);
 }
 
-const std::string SimplePropertyRef::asString() const {
+const std::string SimplePropertyRef::_asString() const {
     return "simpleref " +  _id;
 }
 
 //
 // SimpleSequencePropertyRef
 //
-ComponentProperty* SimpleSequencePropertyRef::clone() const {
+ComponentProperty* SimpleSequencePropertyRef::_clone() const {
     return new SimpleSequencePropertyRef(*this);
 }
 
-const std::vector<std::string>& SimpleSequencePropertyRef::getValues() const {
+const SimpleSequencePropertyRef::ValuesList & SimpleSequencePropertyRef::getValues() const {
     return _values;
 }
 
-const std::string SimpleSequencePropertyRef::asString() const {
+const std::string SimpleSequencePropertyRef::_asString() const {
     return "simpleseqref " +  _id;
 }
 
 //
 // StructPropertyRef
 //
-ComponentProperty* StructPropertyRef::clone() const {
+StructPropertyRef::~StructPropertyRef() {
+}
+
+
+ComponentProperty* StructPropertyRef::_clone() const {
     return new StructPropertyRef(*this);
 }
 
-const std::map<std::string, ComponentProperty*>& StructPropertyRef::getValue() const {
+const StructPropertyRef::ValuesMap & StructPropertyRef::getValue() const {
     return _values;
 }
 
-const std::string StructPropertyRef::asString() const {
+const std::string StructPropertyRef::_asString() const {
     return "structref " +  _id;
 }
 
 //
 // StructSequencePropertyRef
 //
-ComponentProperty* StructSequencePropertyRef::clone() const {
+StructSequencePropertyRef::~StructSequencePropertyRef() {
+}
+
+
+ComponentProperty* StructSequencePropertyRef::_clone() const {
     return new StructSequencePropertyRef(*this);
 }
 
-const std::vector<std::map<std::string, ComponentProperty*> >& StructSequencePropertyRef::getValues() const {
+const StructSequencePropertyRef::ValuesList & StructSequencePropertyRef::getValues() const {
     return _values;
 }
 
-const std::string StructSequencePropertyRef::asString() const {
+const std::string StructSequencePropertyRef::_asString() const {
     return "structseqref " +  _id;
 }
 
@@ -117,30 +133,22 @@ ComponentInstantiation::ComponentInstantiation(const ComponentInstantiation& oth
     namingservicename = other.namingservicename;
     affinityProperties  = other.affinityProperties;
     loggingConfig  = other.loggingConfig;
-    std::vector<ComponentProperty*>::const_iterator i;
-    for (i = other.properties.begin(); i != other.properties.end(); ++i) {
-        properties.push_back((*i)->clone());
-    }
+    properties = other.properties;
+
 }
 
-ComponentInstantiation& ComponentInstantiation::operator=(ComponentInstantiation other) {
+ComponentInstantiation& ComponentInstantiation::operator=(const ComponentInstantiation &other) {
     instantiationId = other.instantiationId;
     _startOrder = other._startOrder;
     usageName = other.usageName;
     namingservicename = other.namingservicename;
-    properties.resize(other.properties.size());
-    properties.swap(other.properties);
+    properties = other.properties;
     affinityProperties  = other.affinityProperties;
     loggingConfig  = other.loggingConfig;
     return *this;
 }
 
 ComponentInstantiation::~ComponentInstantiation() {
-    std::vector<ComponentProperty*>::iterator i;
-    for (i = properties.begin(); i != properties.end(); ++i) {
-        delete *i;
-    }
-    properties.clear();
 }
 
 const char* ComponentInstantiation::getID() const {
@@ -159,7 +167,7 @@ const char* ComponentInstantiation::getUsageName() const {
     }
 }
 
-const std::vector<ComponentProperty*>& ComponentInstantiation::getProperties() const {
+const ossie::ComponentPropertyList & ComponentInstantiation::getProperties() const {
     return properties;
 }
 

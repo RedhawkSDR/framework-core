@@ -52,12 +52,17 @@ namespace ossie {
         Property() {}
 
         Property(const std::string& id, 
-             const std::string& name, 
-             const std::string& mode, 
-             const std::string& action, 
-             const std::vector<std::string>& kinds) :
-            id(id), name(name), mode(mode), action(action), kinds(kinds)
-        {}
+                 const std::string& name, 
+                 const std::string& mode, 
+                 const std::string& action, 
+                 const std::vector<std::string>& kinds);
+
+        Property(const std::string& id, 
+                 const std::string& name, 
+                 const std::string& mode, 
+                 const std::string& action, 
+                 const std::vector<std::string>& kinds,
+                 const std::string& cmdline );
 
         virtual ~Property();
 
@@ -97,9 +102,10 @@ namespace ossie {
         std::string id;
         std::string name;
         std::string mode;
-        std::string commandline;
         std::string action;
         std::vector <std::string> kinds;
+        std::string commandline;
+
         
         // Pure virtual functions
         virtual void override(const Property* otherProp) = 0;
@@ -236,6 +242,19 @@ namespace ossie {
 	    }
 	}
 
+        StructProperty(const std::string& id, 
+                   const std::string& name, 
+                   const std::string& mode, 
+                   const std::vector<std::string>& configurationkinds,
+                       const ossie::PropertyList & value) :
+            Property(id, name, mode, "external", configurationkinds) 
+        {
+          ossie::PropertyList::const_iterator it;
+	    for(it=value.begin(); it != value.end(); ++it) {
+                this->value.push_back(const_cast<Property*>(it->clone()));
+	    }
+	}
+
 	StructProperty(const StructProperty& other) :
           Property(other.id, other.name, other.mode, other.action, other.kinds)
         {
@@ -249,6 +268,8 @@ namespace ossie {
         virtual bool isNone() const;
         virtual const std::string asString() const;
         virtual const Property* clone() const;
+
+        StructProperty &operator=(const StructProperty& src);
 
         const std::vector<Property*>& getValue() const ;
 
@@ -286,6 +307,16 @@ namespace ossie {
         }
 
         virtual ~StructSequenceProperty();
+
+        StructSequenceProperty(const StructSequenceProperty &src ) :
+        Property(src.id, src.name, src.mode, src.action, src.kinds),
+          structdef(src.structdef),
+          values(src.values)
+        {
+        }
+
+        StructSequenceProperty & operator=( const StructSequenceProperty &src );
+        
         virtual bool isNone() const;
         virtual const std::string asString() const;
         virtual const Property* clone() const;
@@ -409,7 +440,7 @@ namespace ossie {
         /*
          * Overrides properties with values from another source
          */
-        void override(const std::vector<ossie::ComponentProperty*>& values);
+        void override(const ossie::ComponentPropertyList & values);
 
     protected:
         Properties(const Properties&) // Hide copy constructor

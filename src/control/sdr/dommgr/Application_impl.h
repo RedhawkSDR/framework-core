@@ -172,6 +172,8 @@ private:
 
     void registerComponent(CF::Resource_ptr resource);
 
+    bool stopComponent(CF::Resource_ptr component);
+
     bool _checkRegistrations(std::set<std::string>& identifiers);
 
     const std::string _identifier;

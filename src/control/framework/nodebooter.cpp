@@ -140,8 +140,8 @@ void loadPRFExecParams (const std::string& prfFile, ExecParams& execParams)
     try {
         prf.load(prfStream);
     } catch (const ossie::parser_error& ex) {
-        LOG_ERROR(nodebooter, "Failed to parse PRF file " << prfStream);
-        LOG_ERROR(nodebooter, ex.what());
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(ex.what());
+        LOG_ERROR(nodebooter, "Failed to parse PRF file " << prfStream<< ". " << parser_error_line << "The XML parser returned the following error: " << ex.what());
         exit(EXIT_FAILURE);
     }
     prfStream.close();
@@ -186,8 +186,8 @@ static pid_t launchSPD (
     try {
         spd.load(spdStream, spdFile);
     } catch (const ossie::parser_error& ex) {
-        LOG_ERROR(nodebooter, "Failed to parse SPD file " << spdFile);
-        LOG_ERROR(nodebooter, ex.what());
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(ex.what());
+        LOG_ERROR(nodebooter, "Failed to parse SPD file " << spdFile << ". " << parser_error_line << "The XML parser returned the following error: " << ex.what());
         exit(EXIT_FAILURE);
     }
     spdStream.close();
@@ -504,8 +504,8 @@ void startDomainManager(
     try {
         dmd.load(dmdStream);
     } catch (const ossie::parser_error& ex) {
-        LOG_ERROR(nodebooter, "Failed to parse DMD file " << dcdFile);
-        LOG_ERROR(nodebooter, ex.what());
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(ex.what());
+        LOG_ERROR(nodebooter, "Failed to parse DMD file " << dcdFile << ". " << parser_error_line << "The XML parser returned the following error: " << ex.what());
         exit(EXIT_FAILURE);
     }
     dmdStream.close();
@@ -606,8 +606,8 @@ void startDeviceManager(
     try {
         dcd.load(dcdStream);
     } catch (const ossie::parser_error& ex) {
-        LOG_ERROR(nodebooter, "Failed to parse DCD file " << dcdFile);
-        LOG_ERROR(nodebooter, ex.what());
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(ex.what());
+        LOG_ERROR(nodebooter, "Failed to parse DCD file " << dcdFile << ". " << parser_error_line << "The XML parser returned the following error: " << ex.what());
         exit(EXIT_FAILURE);
     }
     dcdStream.close();

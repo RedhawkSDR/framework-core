@@ -62,13 +62,35 @@ class CppLoggingConfig(scatest.CorbaTestCase):
 
 
     def test_setNamedLogLevel(self):
+        # Check that the component can change to the following levels through function setLogLevel:
+        #     CF.LogLevels.OFF
+        #     CF.LogLevels.FATAL
+        #     CF.LogLevels.ERROR
+        #     CF.LogLevels.WARN
+        #     CF.LogLevels.INFO
+        #     CF.LogLevels.DEBUG
+        #     CF.LogLevels.TRACE
         self.comp.ref.setLogLevel( "", CF.LogLevels.OFF );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.OFF );
         self.comp.ref.setLogLevel( "", CF.LogLevels.FATAL );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.FATAL );
         self.comp.ref.setLogLevel( "", CF.LogLevels.ERROR );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.ERROR );
         self.comp.ref.setLogLevel( "", CF.LogLevels.WARN );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.WARN );
         self.comp.ref.setLogLevel( "", CF.LogLevels.INFO );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.INFO );
         self.comp.ref.setLogLevel( "", CF.LogLevels.DEBUG );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.DEBUG );
         self.comp.ref.setLogLevel( "", CF.LogLevels.TRACE );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.TRACE );
 
     def test_log_level(self):
         self.comp.ref._set_log_level( CF.LogLevels.OFF );
@@ -184,12 +206,26 @@ if java_support:
 
     def test_setNamedLogLevel(self):
         self.comp.ref.setLogLevel( "", CF.LogLevels.OFF );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.OFF );
         self.comp.ref.setLogLevel( "", CF.LogLevels.FATAL );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.FATAL );
         self.comp.ref.setLogLevel( "", CF.LogLevels.ERROR );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.ERROR );
         self.comp.ref.setLogLevel( "", CF.LogLevels.WARN );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.WARN );
         self.comp.ref.setLogLevel( "", CF.LogLevels.INFO );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.INFO );
         self.comp.ref.setLogLevel( "", CF.LogLevels.DEBUG );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.DEBUG );
         self.comp.ref.setLogLevel( "", CF.LogLevels.TRACE );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.TRACE );
 
     def test_log_level(self):
         self.comp.ref._set_log_level( CF.LogLevels.OFF );
@@ -302,12 +338,26 @@ class PythonLoggingConfig(scatest.CorbaTestCase):
 
     def test_setNamedLogLevel(self):
         self.comp.ref.setLogLevel( "", CF.LogLevels.OFF );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.OFF );
         self.comp.ref.setLogLevel( "", CF.LogLevels.FATAL );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.FATAL );
         self.comp.ref.setLogLevel( "", CF.LogLevels.ERROR );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.ERROR );
         self.comp.ref.setLogLevel( "", CF.LogLevels.WARN );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.WARN );
         self.comp.ref.setLogLevel( "", CF.LogLevels.INFO );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.INFO );
         self.comp.ref.setLogLevel( "", CF.LogLevels.DEBUG );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.DEBUG );
         self.comp.ref.setLogLevel( "", CF.LogLevels.TRACE );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.TRACE );
 
     def test_log_level(self):
         self.comp.ref._set_log_level( CF.LogLevels.OFF );

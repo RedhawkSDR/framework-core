@@ -32,9 +32,11 @@
 #include <ossie/DeviceManagerConfiguration.h>
 #include <ossie/prop_utils.h>
 #include <ossie/CorbaUtils.h>
+#include <ossie/affinity.h>
 #include "applicationSupport.h"
 #include "PersistenceStore.h"
 #include "ossie/PropertyMap.h"
+
 
 using namespace ossie;
 
@@ -405,7 +407,8 @@ bool SoftpkgInfo::parseProfile(CF::FileManager_ptr fileMgr)
         spd.load(spd_file, _spdFileName.c_str());
         spd_file.close();
     } catch (const ossie::parser_error& e) {
-        LOG_ERROR(SoftpkgInfo, "building component info problem; error parsing spd; " << e.what());
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(e.what());
+        LOG_ERROR(SoftpkgInfo, "building component info problem; error parsing spd. " << parser_error_line << "The XML parser returned the following error: " << e.what());
         return false;
     } catch (...) {
         LOG_ERROR(SoftpkgInfo, "building component info problem; unknown error parsing spd;");
@@ -506,7 +509,8 @@ ComponentInfo* ComponentInfo::buildComponentInfoFromSPDFile(CF::FileManager_ptr 
             newComponent->scd.load(_scd);
             _scd.close();
         } catch (ossie::parser_error& e) {
-            LOG_ERROR(ComponentInfo, "building component info problem; error parsing scd; " << e.what());
+            std::string parser_error_line = ossie::retrieveParserErrorLineNumber(e.what());
+            LOG_ERROR(ComponentInfo, "building component info problem; error parsing scd. " << parser_error_line << "The XML parser returned the following error: " << e.what());
             delete newComponent;
             return 0;
         } catch( ... ) {
@@ -525,7 +529,8 @@ ComponentInfo* ComponentInfo::buildComponentInfoFromSPDFile(CF::FileManager_ptr 
             LOG_TRACE(ComponentInfo, "Closing PRF file")
             _prf.close();
         } catch (ossie::parser_error& e) {
-            LOG_ERROR(ComponentInfo, "building component info problem; error parsing prf; " << e.what());
+            std::string parser_error_line = ossie::retrieveParserErrorLineNumber(e.what());
+            LOG_ERROR(ComponentInfo, "building component info problem; error parsing prf. " << parser_error_line << "The XML parser returned the following error: " << e.what());
             delete newComponent;
             return 0;
         } catch( ... ) {
@@ -595,8 +600,10 @@ ComponentInfo* ComponentInfo::buildComponentInfoFromSPDFile(CF::FileManager_ptr 
           }
           if (isExec)
               continue;
-          if (cprop[i]->isCommandLine() and (not cprop[i]->isNone())) {
-            newComponent->addExecParameter(convertPropertyToDataType(cprop[i]));
+          if (cprop[i]->isCommandLine()) {
+            if (not cprop[i]->isNone()) {
+                newComponent->addExecParameter(convertPropertyToDataType(cprop[i]));
+            }
           } else {
             newComponent->addConstructProperty(convertPropertyToDataType(cprop[i]));
           }
@@ -687,7 +694,7 @@ void ComponentInfo::setAffinity( const AffinityProperties &affinity_props )
 {
   
   for (unsigned int i = 0; i < affinity_props.size(); ++i) {
-    ossie::ComponentProperty* propref = affinity_props[i];
+    const ossie::ComponentProperty* propref = &(affinity_props[i]);
     std::string propId = propref->getID();
     LOG_DEBUG(ComponentInfo, "Affinity property id = " << propId);
     const Property* prop = _affinity_prf.getProperty(propId);

@@ -179,7 +179,8 @@ void DomainManager_impl::parseDMDProfile()
         configuration.load(dmdStream);
         dmdStream.close();
     } catch (const parser_error& e) {
-        LOG_FATAL(DomainManager_impl, "Stopping domain manager; error parsing domain manager configuration " <<  _domainManagerProfile << "; " << e.what())
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(e.what());
+        LOG_FATAL(DomainManager_impl, "Stopping domain manager; error parsing domain manager configuration " <<  _domainManagerProfile << ". " << parser_error_line << "The XML parser returned the following error: " << e.what())
         _exit(EXIT_FAILURE);
     } catch (const std::ios_base::failure& e) {
         LOG_FATAL(DomainManager_impl, "Stopping domain manager; IO error reading domain manager configuration; " << e.what())
@@ -789,7 +790,6 @@ DomainManager_impl::applications (void) throw (CORBA::SystemException)
 {
     TRACE_ENTER(DomainManager_impl);
     boost::recursive_mutex::scoped_lock lock(stateAccess);
-    boost::recursive_mutex::scoped_lock lock2(appAccess);
 
     CF::DomainManager::ApplicationSequence_var result = new CF::DomainManager::ApplicationSequence();
     map_to_sequence(result, _applications);
@@ -1008,14 +1008,19 @@ void DomainManager_impl::_local_registerDeviceManager (CF::DeviceManager_ptr dev
             dcdParser.load(dcd);
             dcd.close();
         } catch ( ossie::parser_error& e ) {
-            LOG_ERROR(DomainManager_impl, "failed device manager registration; error parsing device manager DCD " << deviceMgr->deviceConfigurationProfile() << "; " << e.what())
+            std::string parser_error_line = ossie::retrieveParserErrorLineNumber(e.what());
+            LOG_ERROR(DomainManager_impl, "failed device manager registration; error parsing device manager DCD " << deviceMgr->deviceConfigurationProfile() << ". " << parser_error_line << "The XML parser returned the following error: " << e.what())
             throw(CF::DomainManager::RegisterError());
         }
 
         const std::vector<Connection>& connections = dcdParser.getConnections();
 
-        for(size_t ii = 0; ii < connections.size(); ++ii) {
-            _connectionManager.addConnection(dcdParser.getName(), connections[ii]);
+        for (size_t ii = 0; ii < connections.size(); ++ii) {
+            try {
+                _connectionManager.addConnection(dcdParser.getName(), connections[ii]);
+            } catch (const ossie::InvalidConnection& ex) {
+                LOG_ERROR(DomainManager_impl, "Ignoring unresolvable connection: " << ex.what());
+            }
         }
         try {
             db.store("CONNECTIONS", _connectionManager.getConnections());
@@ -1444,13 +1449,9 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
         // THIS BEHAVIOR ISN'T SPECIFIED IN SCA, BUT IT MAKES GOOD SENSE
         std::vector<Application_impl*> releasedApps;
         for (ApplicationTable::iterator app = _applications.begin(); app != _applications.end(); ++app) {
-            CF::DeviceAssignmentSequence_var compDevices = app->second->componentDevices();
-            for (unsigned int j = 0; j < compDevices->length(); j++) {
-                if (device_id == (const char*)compDevices[j].assignedDeviceId) {
-                    app->second->_add_ref();
-                    releasedApps.push_back(app->second);
-                    break;
-                }
+            if (applicationDependsOnDevice(app->second, device_id)) {
+                app->second->_add_ref();
+                releasedApps.push_back(app->second);
             }
         }
 
@@ -1460,8 +1461,6 @@ ossie::DeviceList::iterator DomainManager_impl::_local_unregisterDevice (ossie::
             app->releaseObject();
             app->_remove_ref();
         }
-
-
     } CATCH_LOG_ERROR(DomainManager_impl, "Releasing stale applications from stale device failed");
 
     // Sent event here (as opposed to unregisterDevice), so we see the event on regular
@@ -1546,11 +1545,19 @@ CF::Application_ptr DomainManager_impl::createApplication(const char* profileFil
 {
     TRACE_ENTER(DomainManager_impl);
 
-    ApplicationFactory_impl factory(profileFileName, _domainName, this);
-    CF::Application_var application = factory.create(name, initConfiguration, deviceAssignments);
+    try {
+       ApplicationFactory_impl factory(profileFileName, _domainName, this);
+       CF::Application_var application = factory.create(name, initConfiguration, deviceAssignments);
+       TRACE_EXIT(DomainManager_impl);
+       return application._retn();
+    }
+    catch( CF::DomainManager::ApplicationInstallationError& ex ) {
+      LOG_ERROR(DomainManager_impl, "Create application FAILED, reason: " << ex.msg );
+      // rethrow as invalid profile... 
+      throw CF::InvalidProfile();
+    }
 
     TRACE_EXIT(DomainManager_impl);
-    return application._retn();
 }
 
 
@@ -1590,51 +1597,25 @@ void DomainManager_impl::_local_installApplication (const char* profileFileName)
 //               that is currently installed because it is the installed factory that
 //               provides the value of profileFileName
 
-    SoftwareAssembly sadParser;
-
     try {
         // check the profile ends with .sad.xml, warn if it doesn't
         if ((strstr (profileFileName, ".sad.xml")) == NULL)
             { LOG_WARN(DomainManager_impl, "File " << profileFileName << " should end with .sad.xml."); }
 
-        LOG_INFO(DomainManager_impl, "Installing application " << profileFileName);
-        this->validate (profileFileName);
-        
-        LOG_TRACE(DomainManager_impl, "Parsing SAD file");
-        try {
-            File_stream _sad(_fileMgr, profileFileName);
-            sadParser.load( _sad );
-            _sad.close();
-        } catch (ossie::parser_error& e ) {
-            LOG_ERROR(DomainManager_impl, "not installing application;  error parsing SAD file: " << profileFileName << "; " << e.what());
-            throw(CF::InvalidProfile());
-        } catch ( ... ) {
-            LOG_ERROR(DomainManager_impl, "not installing application;  unexpected error parsing SAD file: " << profileFileName << "; ");
-            throw(CF::DomainManager::ApplicationInstallationError());
-        }
+        LOG_TRACE(DomainManager_impl, "installApplication: Createing new AppFac");
+        ApplicationFactory_impl* appFact = new ApplicationFactory_impl(profileFileName, this->_domainName, this);
+        const std::string appFactoryId = appFact->getID();
 
         // Check if application factory already exists for this profile
-        const std::string appFactoryId = sadParser.getID();
         LOG_TRACE(DomainManager_impl, "Installing application ID " << appFactoryId);
         if (_applicationFactories.count(appFactoryId)) {
-            LOG_INFO(DomainManager_impl, "Application " << sadParser.getName() << " with id " << sadParser.getID()
+            LOG_INFO(DomainManager_impl, "Application " << appFact->getName() << " with id " << appFact->getID()
                      << " already installed (Application Factory already exists)");
+            delete appFact;
+            appFact=NULL;
             throw CF::DomainManager::ApplicationAlreadyInstalled();
         }
 
-        LOG_TRACE(DomainManager_impl, "Loading component placements");
-// query the SAD for all ComponentPlacement's
-        std::vector<ComponentPlacement> sadComponents = sadParser.getAllComponents();
-
-// query each ComponentPlacement for its SPD file
-        LOG_TRACE(DomainManager_impl, "installApplication: Validating " << sadComponents.size() << " SPDs");
-        std::vector<ComponentPlacement>::const_iterator _iterator = sadComponents.begin ();
-        while (_iterator != sadComponents.end ()) {
-            this->validateSPD( sadParser.getSPDById(_iterator->getFileRefId()));
-            ++_iterator;
-        }
-        LOG_TRACE(DomainManager_impl, "installApplication: Adding new AppFac");
-        ApplicationFactory_impl* appFact = new ApplicationFactory_impl(profileFileName, this->_domainName, this);
         std::string activationId = _domainName + "/" + appFactoryId;
         PortableServer::ObjectId_var oid = ossie::corba::activatePersistentObject(appFact_poa, appFact, activationId);
         _applicationFactories[appFactoryId] = appFact;
@@ -1648,6 +1629,9 @@ void DomainManager_impl::_local_installApplication (const char* profileFileName)
     } catch (CF::FileException& ex) {
         LOG_ERROR(DomainManager_impl, "installApplication: While validating the SAD profile: " << ex.msg);
         throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+    } catch( CF::InvalidFileName& ex ) {
+        LOG_ERROR(DomainManager_impl, "installApplication: Invalid file name: " << profileFileName);
+        throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, "Invalid file name");
     } catch (CF::DomainManager::ApplicationInstallationError& e) {
         LOG_TRACE(DomainManager_impl, "rethrowing ApplicationInstallationError" << e.msg);
         throw;
@@ -1765,7 +1749,7 @@ void
 DomainManager_impl::addApplication(Application_impl* new_app)
 {
     TRACE_ENTER(DomainManager_impl)
-    boost::recursive_mutex::scoped_lock lock(appAccess);
+    boost::recursive_mutex::scoped_lock lock(stateAccess);
 
     LOG_TRACE(DomainManager_impl, "Attempting to add application to AppSeq with id: " << ossie::corba::returnString(new_app->identifier()));
 
@@ -1813,9 +1797,10 @@ DomainManager_impl::addApplication(Application_impl* new_app)
         }
 
     } catch (...) {
+        const std::string identifier = ossie::corba::returnString(new_app->identifier());        
         ostringstream eout;
         eout << "Could not add new application to AppSeq; ";
-        eout << " application id: " << new_app->identifier() << "; ";
+        eout << " application id: " << identifier << "; ";
         eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
         LOG_ERROR(DomainManager_impl, eout.str());
         throw CF::DomainManager::ApplicationInstallationError(CF::CF_EFAULT, eout.str().c_str());
@@ -1828,7 +1813,7 @@ void
 DomainManager_impl::removeApplication(std::string app_id)
 {
     TRACE_ENTER(DomainManager_impl)
-    boost::recursive_mutex::scoped_lock lock(appAccess);
+    boost::recursive_mutex::scoped_lock lock(stateAccess);
 
     LOG_TRACE(DomainManager_impl, "Attempting to remove application from AppSeq with id: " << app_id)
 
@@ -2146,150 +2131,6 @@ ossie::ServiceList::iterator DomainManager_impl::_local_unregisterService(ossie:
 }
 
 
-void
-DomainManager_impl::validate (const char* _profile)
-{
-    TRACE_ENTER(DomainManager_impl)
-
-    if (_profile == NULL) {
-        TRACE_EXIT(DomainManager_impl)
-        return;
-    }
-
-// verify the application's SAD exists in DomainManager FileSystem
-    LOG_TRACE(DomainManager_impl, "Validating that profile " << _profile << " exists");
-    if (!_fileMgr->exists (_profile)) {
-        string msg = "File ";
-        msg += _profile;
-        msg += " does not exist.";
-
-        throw CF::FileException (CF::CF_ENOENT, msg.c_str());
-    }
-}
-
-
-void
-DomainManager_impl::validateSPD (const char* _spdProfile, int _cnt) throw (CF::DomainManager::ApplicationInstallationError)
-{
-    TRACE_ENTER(DomainManager_impl)
-
-    if (_spdProfile == NULL) {
-        TRACE_EXIT(DomainManager_impl)
-        return;
-    }
-
-    try {
-        LOG_TRACE(DomainManager_impl, "Validating SPD " << _spdProfile);
-        this->validate (_spdProfile);
-
-        // check the filename ends with the extension given in the spec
-        if ((strstr (_spdProfile, ".spd.xml")) == NULL)
-            { LOG_ERROR(DomainManager_impl, "File " << _spdProfile << " should end with .spd.xml"); }
-        LOG_TRACE(DomainManager_impl, "validating " << _spdProfile);
-
-        SoftPkg spdParser;
-        try {
-            File_stream _spd(_fileMgr, _spdProfile);
-            spdParser.load( _spd, _spdProfile );
-            _spd.close();
-        } catch (ossie::parser_error& ex) {
-            LOG_ERROR(DomainManager_impl, "SPD file failed validation; parser error on file " << _spdProfile << "; " << ex.what());
-            throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.what());
-        } catch (CF::InvalidFileName ex) {
-            LOG_ERROR(DomainManager_impl, "Failed to validate SPD due to invalid file name " << ex.msg);
-            throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
-        } catch (CF::FileException ex) {
-            LOG_ERROR(DomainManager_impl, "Failed to validate SPD due to file exception" << ex.msg);
-            throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
-        } catch ( ... ) {
-            LOG_ERROR(DomainManager_impl, "Unexpected error validating PRF " << _spdProfile);
-            throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, "");
-        }
-
-        // query SPD for PRF
-        if (spdParser.getPRFFile() != 0) {
-            LOG_TRACE(DomainManager_impl, "validating " << spdParser.getPRFFile());
-            try {
-                this->validate (spdParser.getPRFFile ());
-
-                // check the file name ends with the extension given in the spec
-                if (spdParser.getPRFFile() && (strstr (spdParser.getPRFFile (), ".prf.xml")) == NULL) {
-                    LOG_ERROR(DomainManager_impl, "File " << spdParser.getPRFFile() << " should end in .prf.xml.");
-                }
-
-                LOG_TRACE(DomainManager_impl, "Creating file stream")
-                File_stream prfStream(_fileMgr, spdParser.getPRFFile());
-                LOG_TRACE(DomainManager_impl, "Loading parser")
-                Properties prfParser(prfStream);
-                LOG_TRACE(DomainManager_impl, "Closing stream")
-                prfStream.close();
-            } catch (ossie::parser_error& ex ) {
-                LOG_ERROR(DomainManager_impl, "Error validating PRF " << spdParser.getPRFFile() << ex.what());
-                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.what());
-            } catch (CF::InvalidFileName ex) {
-                LOG_ERROR(DomainManager_impl, "Failed to validate PRF due to invalid file name " << ex.msg);
-                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
-            } catch (CF::FileException ex) {
-                LOG_ERROR(DomainManager_impl, "Failed to validate PRF due to file exception" << ex.msg);
-                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
-            } catch ( ... ) {
-                LOG_ERROR(DomainManager_impl, "Unexpected error validating PRF " << spdParser.getPRFFile());
-                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, "");
-            }
-        } else {
-            LOG_TRACE(DomainManager_impl, "No PRF file to validate")
-        }
-
-        if (spdParser.getSCDFile() != 0) {
-            // query SPD for SCD
-            LOG_TRACE(DomainManager_impl, "validating " << spdParser.getSCDFile());
-            this->validate (spdParser.getSCDFile ());
-
-            // Check the filename ends with  the extension given in the spec
-            if ((strstr (spdParser.getSCDFile (), ".scd.xml")) == NULL)
-                { LOG_ERROR(DomainManager_impl, "File " << spdParser.getSCDFile() << " should end with .scd.xml."); }
-
-            try {
-                File_stream _scd(_fileMgr, spdParser.getSCDFile());
-                ComponentDescriptor scdParser (_scd);
-                _scd.close();
-            } catch (ossie::parser_error& ex) {
-                LOG_ERROR(DomainManager_impl, "SCD file failed validation; parser error on file " << spdParser.getSCDFile() << "; " << ex.what());
-                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.what());
-            } catch (CF::InvalidFileName ex) {
-                LOG_ERROR(DomainManager_impl, "Failed to validate SCD due to invalid file name " << ex.msg);
-                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
-            } catch (CF::FileException ex) {
-                LOG_ERROR(DomainManager_impl, "Failed to validate SCD due to file exception" << ex.msg);
-                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
-            } catch ( ... ) {
-                LOG_ERROR(DomainManager_impl, "Unexpected error validating PRF " << spdParser.getSCDFile());
-                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, "");
-            }
-        } else if (spdParser.isScaCompliant()) {
-            LOG_ERROR(DomainManager_impl, "SCA compliant component is missing SCD file reference");
-            throw CF::DomainManager::ApplicationInstallationError(CF::CF_EBADF, "SCA compliant components require SCD file");
-        } else {
-            LOG_TRACE(DomainManager_impl, "No SCD file to validate")
-        }
-
-    } catch (CF::InvalidFileName& ex) {
-        LOG_ERROR(DomainManager_impl, "Failed to validate SPD due to " << ex.msg);
-        throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
-    } catch (CF::FileException& ex) {
-        LOG_ERROR(DomainManager_impl, "Failed to validate SPD due to " << ex.msg);
-        throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
-    } catch (CF::DomainManager::ApplicationInstallationError& ex) {
-        throw;
-    } catch ( ... ) {
-        LOG_ERROR(DomainManager_impl, "Unexpected error validating SPD " << _spdProfile);
-        throw CF::DomainManager::ApplicationInstallationError ();
-    }
-}
-
-
-
-
 CF::Resource_ptr DomainManager_impl::lookupComponentByInstantiationId(const std::string& identifier)
 {
     boost::recursive_mutex::scoped_lock lock(stateAccess);
@@ -2528,6 +2369,18 @@ Application_impl* DomainManager_impl::findApplicationById (const std::string& id
 }
 
 
+bool DomainManager_impl::applicationDependsOnDevice(Application_impl* application, const std::string& deviceId)
+{
+    CF::DeviceAssignmentSequence_var compDevices = application->componentDevices();
+    for  (size_t index = 0; index < compDevices->length(); ++index) {
+        if (deviceId == static_cast<const char*>(compDevices[index].assignedDeviceId)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 void DomainManager_impl::parseDeviceProfile (ossie::DeviceNode& node)
 {
     CF::FileSystem_var devMgrFS = node.devMgr.deviceManager->fileSys();
@@ -2538,7 +2391,8 @@ void DomainManager_impl::parseDeviceProfile (ossie::DeviceNode& node)
         File_stream spd(devMgrFS, node.softwareProfile.c_str());
         node.spd.load(spd, node.softwareProfile);
     } catch (const ossie::parser_error& error) {
-        LOG_WARN(DomainManager_impl, "Error parsing SPD for device " << node.identifier << ": " << error.what());
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(error.what());
+        LOG_WARN(DomainManager_impl, "Error parsing SPD for device " << node.identifier << ". " << parser_error_line << "The XML parser returned the following error: " << error.what());
     } catch (...) {
         LOG_WARN(DomainManager_impl, "Unable to cache SPD for device " << node.identifier);
     }
@@ -2550,7 +2404,8 @@ void DomainManager_impl::parseDeviceProfile (ossie::DeviceNode& node)
             File_stream prf(devMgrFS, node.spd.getPRFFile());
             node.prf.load(prf);
         } catch (const ossie::parser_error& error) {
-            LOG_WARN(DomainManager_impl, "Error parsing PRF for device " << node.identifier << ": " << error.what());
+            std::string parser_error_line = ossie::retrieveParserErrorLineNumber(error.what());
+            LOG_WARN(DomainManager_impl, "Error parsing PRF for device " << node.identifier << ". " << parser_error_line << "The XML parser returned the following error: " << error.what());
         } catch (...) {
             LOG_WARN(DomainManager_impl, "Unable to cache PRF for device " << node.identifier);
         }
@@ -2567,7 +2422,8 @@ void DomainManager_impl::parseDeviceProfile (ossie::DeviceNode& node)
                 File_stream prf_file(devMgrFS, impl->getPRFFile());
                 node.prf.join(prf_file);
             } catch (const ossie::parser_error& error) {
-                LOG_WARN(DomainManager_impl, "Error parsing implementation-specific PRF for device " << node.identifier << ": " << error.what());
+            std::string parser_error_line = ossie::retrieveParserErrorLineNumber(error.what());
+                LOG_WARN(DomainManager_impl, "Error parsing implementation-specific PRF for device " << node.identifier << ". " << parser_error_line << "The XML parser returned the following error: " << error.what());
             } catch (...) {
                 LOG_WARN(DomainManager_impl, "Unable to cache implementation-specific PRF for device " << node.identifier);
             }
@@ -2582,7 +2438,8 @@ void DomainManager_impl::parseDeviceProfile (ossie::DeviceNode& node)
         File_stream dcd_file(devMgrFS, deviceManagerProfile.c_str());
         dcd.load(dcd_file);
     } catch (const ossie::parser_error& error) {
-        LOG_WARN(DomainManager_impl, "Error parsing DCD overrides for device " << node.identifier << ": " << error.what());
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(error.what());
+        LOG_WARN(DomainManager_impl, "Error parsing DCD overrides for device " << node.identifier << ". " << parser_error_line << "The XML parser returned the following error: " << error.what());
     } catch (...) {
         LOG_WARN(DomainManager_impl, "Unable to cache DCD overrides for device " << node.identifier);
     }

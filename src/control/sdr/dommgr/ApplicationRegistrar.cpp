@@ -44,10 +44,25 @@ CF::DomainManager_ptr ApplicationRegistrar_impl::domMgr()
 }
 
 void ApplicationRegistrar_impl::registerComponent(const char * Name, CF::Resource_ptr obj) throw (CF::InvalidObjectReference, CF::DuplicateName, CORBA::SystemException) {
-    ossie::corba::bindObjectToContext(obj, _context, Name);
-    _application->registerComponent(obj);
+  if ( !CORBA::is_nil(_context) ) {
+      CosNaming::Name_var cosName = ossie::corba::stringToName(Name);
+      try {
+        _context->bind( cosName, obj );
+      }
+      catch(CosNaming::NamingContext::AlreadyBound&) {
+        try {
+            _context->rebind( cosName, obj );
+        }
+        catch(...){
+        }
+      }
+      if (!CORBA::is_nil(obj)) {
+        _application->registerComponent(obj);
+      }
+  }
 }
-
+    
+   
 // CosNaming::NamingContext interface (supported)
 void ApplicationRegistrar_impl::bind(const CosNaming::Name &Name, CORBA::Object_ptr obj) throw (CosNaming::NamingContext::NotFound, 
         CosNaming::NamingContext::CannotProceed, CosNaming::NamingContext::InvalidName, CosNaming::NamingContext::AlreadyBound, CORBA::SystemException) {

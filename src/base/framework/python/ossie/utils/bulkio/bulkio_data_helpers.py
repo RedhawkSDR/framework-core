@@ -290,6 +290,10 @@ class ArraySink(object):
             if length is None:
                 # No length specified; get all of the data.
                 length = len(self.data)
+            if self.sri.subsize != 0:
+                if float(length)/self.sri.subsize != length/self.sri.subsize:
+                    print 'The requested length divided by the subsize ('+str(length)+'/'+str(self.sri.subsize)+') is not a whole number. Cannot return framed data'
+                    return (None,None)
 
             # Wait for there to be enough data.
             while len(self.data) < length and self._isActive():
@@ -310,13 +314,24 @@ class ArraySink(object):
                     rettime.append((l,t))
                 if length_to_erase != None:
                     del self.timestamps[:length_to_erase]
-                retval = self.data[:length]
+                if self.sri.subsize == 0:
+                    retval = self.data[:length]
+                else:
+                    retval = []
+                    for idx in range(length/self.sri.subsize):
+                        retval.append(self.data[idx*self.sri.subsize:(idx+1)*self.sri.subsize])
                 del self.data[:length]
                 return (retval, rettime)
 
             # No length was provided, or length is equal to the length of data.
             # Return all data and timestamps.
-            (retval, rettime) = (self.data, self.timestamps)
+            if self.sri.subsize == 0:
+                (retval, rettime) = (self.data, self.timestamps)
+            else:
+                retval = []
+                for idx in range(length/self.sri.subsize):
+                    retval.append(self.data[idx*self.sri.subsize:(idx+1)*self.sri.subsize])
+                rettime = self.timestamps
             self.data = []
             self.timestamps = []
             return (retval, rettime)

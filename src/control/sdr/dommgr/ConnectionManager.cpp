@@ -105,9 +105,8 @@ ossie::Endpoint* ConnectionManager_impl::requestToEndpoint(const CF::ConnectionM
 char* ConnectionManager_impl::connect(const CF::ConnectionManager::EndpointRequest& usesEndpoint, const CF::ConnectionManager::EndpointRequest& providesEndpoint, const char* requesterId, const char* connectionId)
 {
     // If no connection ID was given, generate one
-    std::string _connectionId = ossie::corba::returnString(connectionId);
-    std::string _requesterId = ossie::corba::returnString(requesterId);
-    if (_connectionId.size() == 0) {
+    std::string _connectionId = connectionId;
+    if (_connectionId.empty()) {
         _connectionId = ossie::generateUUID();
     }
 
@@ -127,9 +126,8 @@ char* ConnectionManager_impl::connect(const CF::ConnectionManager::EndpointReque
 
 void ConnectionManager_impl::disconnect(const char* connectionRecordId)
 {
-    std::string _connectionRecordId = ossie::corba::returnString(connectionRecordId);
     try {
-        _domainManager->_connectionManager.breakConnection(_connectionRecordId);
+        _domainManager->_connectionManager.breakConnection(connectionRecordId);
     } catch ( ossie::InvalidConnection &e) {
         std::ostringstream err;
         err << "Unable to remove a connection: "<<e.what();

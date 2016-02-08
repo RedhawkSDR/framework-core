@@ -175,7 +175,13 @@ def to_pyvalue(data, type_):
             if type_.find("complex") == 0:
                 data = _toPyComplex(data, type_)
             else:
-                data = pytype(data)
+               if pytype in [int, long] :
+                  if type(data) in (str,unicode):
+                      data = pytype(data,0)
+                  else:
+                      data = pytype(data)
+               else:
+                  data = pytype(data)
     return data
 
 def to_xmlvalue(data, type_):
@@ -1131,11 +1137,14 @@ class simple_property(_property):
             simp.add_kind(ossie.parsers.prf.kind(kindtype=kind))
 
         xml = StringIO.StringIO()
-        simp.export(xml, level)
+        simp.export(xml, level, name_='simple')
         return xml.getvalue()
 
     def initialize(self, obj):
         self.set(obj, self.defvalue)
+
+    def _fromAny(self, value):
+        return to_pyvalue(any.from_any(value), self.type_)
 
     def _toAny(self, value):
         return to_tc_value(value, self.type_)
@@ -1218,11 +1227,21 @@ class simpleseq_property(_sequence_property):
             simpseq.set_values(values)
 
         xml = StringIO.StringIO()
-        simpseq.export(xml, level)
+        simpseq.export(xml, level, name_='simplesequence')
         return xml.getvalue()
 
     def initialize(self, obj):
         self.set(obj, self.defvalue)
+
+    def _fromAny(self, value):
+        values = any.from_any(value)
+        if values is None:
+            return None
+        if self.type_ in ('char', 'octet'):
+            return values
+        if not isinstance(values, list):
+            raise ValueError('value is not a sequence')
+        return [to_pyvalue(v, self.type_) for v in values]
 
     def _toAny(self, value):
         if value is None:
@@ -1322,7 +1341,7 @@ class struct_property(_property):
                                                 description=attr.__doc__,
                                                 value=to_xmlvalue(attr.defvalue, attr.type_),
                                                 units=attr.units)
-                struct.add_prop(simp)
+                struct.add_simple(simp)
             elif type(attr) is simpleseq_property:
                 simpseq = ossie.parsers.prf.simpleSequence(id_=attr.id_,
                                                            type_=attr.type_,
@@ -1330,10 +1349,10 @@ class struct_property(_property):
                                                            description=attr.__doc__,
                                                            values=[to_xmlvalue(v, attr.type_) for v in attr.defvalue],
                                                            units=attr.units)
-                struct.add_prop(simpseq)
+                struct.add_simplesequence(simpseq)
 
         xml = StringIO.StringIO()
-        struct.export(xml, level)
+        struct.export(xml, level, name_='struct')
         return xml.getvalue()
 
     def compareValues(self, oldValue, newValue):
@@ -1430,14 +1449,14 @@ class structseq_property(_sequence_property):
                                                 name=attr.name, 
                                                 description=attr.__doc__,
                                                 units=attr.units)
-                struct.add_prop(simp)
+                struct.add_simple(simp)
             elif type(attr) is simpleseq_property: 
                 simpseq = ossie.parsers.prf.simpleSequence(id_=attr.id_, 
                                                            type_=attr.type_,
                                                            name=attr.name, 
                                                            description=attr.__doc__,
                                                            units=attr.units)
-                struct.add_prop(simpseq)
+                struct.add_simplesequence(simpseq)
         structseq.set_struct(struct)
 
         if self.defvalue:
@@ -1455,7 +1474,7 @@ class structseq_property(_sequence_property):
                 structseq.add_structvalue(structval)
 
         xml = StringIO.StringIO()
-        structseq.export(xml, level)
+        structseq.export(xml, level, name_='structsequence')
         return xml.getvalue()
         
     def initialize(self, obj):

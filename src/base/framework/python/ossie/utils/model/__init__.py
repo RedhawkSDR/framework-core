@@ -393,6 +393,30 @@ class PortSupplier(object):
             manager.unregisterConnection(connectionId)
 
 
+class PortSet(PortSupplier):
+    __log = log.getChild('PortSet')
+
+    def __init__(self):
+        PortSupplier.__init__(self)
+
+    def getPort(self, name):
+        retval = None
+        if self.ref:
+            try:
+              retval = self.ref.getPort(name)
+            except:
+              raise
+        return retval
+
+    def getPortSet(self):
+        retval = None
+        if self.ref:
+            try:
+              retval = self.ref.getPortSet()
+            except:
+              pass
+        return retval
+
 class PropertySet(object):
     __log = log.getChild('PropertySet')
 
@@ -417,19 +441,6 @@ class PropertySet(object):
     def _itemToDataType(self, name, value):
         prop = self._findProperty(name)
         return _CF.DataType(prop.id, prop.toAny(value))
-
-    def construct(self, props):
-        self.__log.trace("construct('%s')", str(props))
-        if not self.ref:
-            pass
-        try:
-            # Turn a dictionary of Python values into a list of CF Properties
-            props = [self._itemToDataType(k,v) for k,v in props.iteritems()]
-        except AttributeError:
-            # Assume the exception occurred because props is not a dictionary
-            pass
-        self.ref.construct(props)
-
 
     def configure(self, props):
         self.__log.trace("configure('%s')", str(props))
@@ -456,12 +467,11 @@ class PropertySet(object):
         self.ref.initializeProperties(props)
             
     def query(self, props):
-        if True:
-            self.__log.trace("query('%s')", str(props))
-            if self.ref:
-                return self.ref.query(props)
-            else:
-                return None
+        self.__log.trace("query('%s')", str(props))
+        if self.ref:
+            return self.ref.query(props)
+        else:
+            return None
    
     def api(self, externalPropInfo=None):
         properties = [p for p in self._properties if 'property' in p.kinds or 'configure' in p.kinds or 'execparam' in p.kinds]
@@ -534,6 +544,24 @@ class PropertySet(object):
         table.write()
 
 
+class PropertyEmitter(PropertySet):
+    __log = log.getChild('PropertyEmitter')
+
+    def __init__(self):
+        PropertySet.__init__(self)
+
+    
+    def registerPropertyListener( self, obj, prop_ids=[], interval=1.0):
+        self.__log.trace("registerPropertyListener('%s')", str(prop_ids))
+        if self.ref:
+            return self.ref.registerPropertyListener(obj, prop_ids, interval )
+        return None
+
+    def unregisterPropertyListener( self, reg_id ):
+        self.__log.trace("unregisterPropertyListener reg: ('%s')", str(reg_id))
+        if self.ref:
+            self.ref.unregisterPropertyListener(reg_id )
+
 class Service(CorbaObject):
     def __init__(self, ref, profile, spd, scd, prf, instanceName, refid, impl):
         CorbaObject.__init__(self, ref)
@@ -603,7 +631,8 @@ class Service(CorbaObject):
         self.ref.setLogConfigURL( log_config_url )
 
 
-class Resource(CorbaObject, PortSupplier, PropertySet):
+##class Resource(CorbaObject, PortSupplier, PropertySet):
+class Resource(CorbaObject, PortSet, PropertyEmitter):
     __log = log.getChild('Resource')
 
     def __init__(self, ref=None):
@@ -646,13 +675,6 @@ class Resource(CorbaObject, PortSupplier, PropertySet):
         if self.ref:
             self.ref.initialize()
             
-    def getPort(self, name):
-        self.__log.trace("getPort('%s')", name)
-        if self.ref:
-            return self.ref.getPort(name)
-        else:
-            return None
-
     def runTest(self, testid, props):
         if self.ref:
             return self.ref.runTest(testid, props)
@@ -668,21 +690,29 @@ class Resource(CorbaObject, PortSupplier, PropertySet):
 
     def log_level(self, newLogLevel=None ):
         if newLogLevel == None:
-            return self.ref._get_log_level()
+            if self.ref:
+               return self.ref._get_log_level()
         else:
-            self.ref._set_log_level( newLogLevel )
+            if self.ref:
+               self.ref._set_log_level( newLogLevel )
 
     def setLogLevel(self, logid, newLogLevel ):
-        self.ref.setLogLevel( logid, newLogLevel )
+        if self.ref:
+           self.ref.setLogLevel( logid, newLogLevel )
 
     def getLogConfig(self):
-        return self.ref.getLogConfig()
+        if self.ref:
+           return self.ref.getLogConfig()
+        else:
+           None
 
     def setLogConfig(self, new_log_config):
-        self.ref.setLogConfig( new_log_config )
+        if self.ref:
+           self.ref.setLogConfig( new_log_config )
 
     def setLogConfigURL(self, log_config_url):
-        self.ref.setLogConfigURL( log_config_url )
+        if self.ref:
+           self.ref.setLogConfigURL( log_config_url )
     
 
 class Device(Resource):
@@ -899,7 +929,7 @@ class QueryableBase(object):
                         modes=("readwrite", "writeonly", "readonly"), \
                         action=("external"), \
                         includeNil=True,
-                        commandline=False):
+                        commandline=None):
         """
         A useful utility function that extracts specified property types from
         the PRF file and turns them into a _CF.PropertySet
@@ -921,8 +951,14 @@ class QueryableBase(object):
             if _prop_helpers.isMatch(prop, modes, kinds, action):
                 if prop.get_value() == None and includeNil == False:
                     continue
-                if (prop.get_commandline() == 'false') and ('property' in kinds) and (commandline==True):
+
+                # Only command line if the attribute is explicitly set to true
+                isCommandline = prop.get_commandline() == 'true'
+                # If a preference was given, skip over properties that are/are
+                # not command line
+                if commandline is not None and commandline != isCommandline:
                     continue
+
                 propType = self._getPropType(prop)
                 try:
                     enum = prop.get_enumerations().get_enumeration()
@@ -947,7 +983,7 @@ class QueryableBase(object):
                 propertySet.append(p)
         # Simple Sequences
         for prop in self._prf.get_simplesequence():
-            if _prop_helpers.isMatch(prop, modes, kinds, action):
+            if not commandline and _prop_helpers.isMatch(prop, modes, kinds, action):
                 values = prop.get_values()
                 propType = self._getPropType(prop)
                 if values:
@@ -970,7 +1006,7 @@ class QueryableBase(object):
 
         # Structures
         for structProp in self._prf.get_struct():
-            if _prop_helpers.isMatch(structProp, modes, kinds, action):
+            if not commandline and _prop_helpers.isMatch(structProp, modes, kinds, action):
                 members = []
                 structDefValue = {}
                 for prop in structProp.get_simple():
@@ -1021,7 +1057,7 @@ class QueryableBase(object):
 
         # Struct Sequence
         for prop in self._prf.get_structsequence():
-            if _prop_helpers.isMatch(prop, modes, kinds, action):
+            if not commandline and _prop_helpers.isMatch(prop, modes, kinds, action):
                 if prop.get_struct() != None:
                     members = []
                     #get the struct definition

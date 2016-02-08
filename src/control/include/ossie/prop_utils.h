@@ -38,6 +38,7 @@ namespace ossie
 {
     CF::DataType convertPropertyToDataType(const Property* prop);
     CF::DataType convertPropertyRefToDataType(const ComponentProperty* prop);
+    CF::DataType convertPropertyRefToDataType(const ComponentProperty& prop);
     CF::DataType convertPropertyToDataType(const SimpleProperty* prop);
     CF::DataType convertPropertyToDataType(const SimpleSequenceProperty* prop);
     CF::DataType convertPropertyToDataType(const StructProperty* prop);
@@ -70,8 +71,10 @@ namespace ossie
     CORBA::Any convertAnyToPropertyType(const CORBA::Any& value, const StructProperty* prop);
     CORBA::Any convertAnyToPropertyType(const CORBA::Any& value, const StructSequenceProperty* prop);
 
-    void convertComponentProperties( const std::vector< ossie::ComponentProperty*>&cp_props,
+    void convertComponentProperties( const ossie::ComponentPropertyList &cp_props,
                                      CF::Properties &cf_props );
+    
+    std::string retrieveParserErrorLineNumber(std::string message);
 
 }
 

@@ -135,6 +135,7 @@ def patchService(target):
     target._releaseObject=None
     if callable(getattr(target, "releaseObject", None)):
         target._releaseObject = getattr(target, "releaseObject", None)
+    target._ecm = None
     target.getDeviceManager = types.MethodType(getDeviceManager,target)
     target.getDomainManager = types.MethodType(getDomainManager,target)
     target.saveLoggingContext = types.MethodType(saveLoggingContext,target)
@@ -259,20 +260,20 @@ def start_service(serviceclass, thread_policy=None):
             if devMgr != None:
                 devMgr.unregisterService(component_Var, execparams["SERVICE_NAME"])
         except:
-            logging.exception("Error while unregistering service")
+            logging.warning("Error while unregistering service")
             
         if component_Obj != None and callable(getattr(component_Obj, "terminateService", None)):
             try:
                 component_Obj.terminateService()
             except:
-                logging.exception("Error releasing service object")
+                logging.warning("Error releasing service object")
                 
         # Call to a deprecated exit function.
         if component_Obj != None and callable(getattr(component_Obj, "releaseObject", None)):
             try:
                 component_Obj.releaseObject()
             except:
-                logging.exception("Error releasing service object")
+                logging.warning("Error releasing service object")
             
     finally:
         if orb:

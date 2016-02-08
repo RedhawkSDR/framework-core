@@ -30,8 +30,6 @@
 #include <string>
 #include <memory>
 #include "ossie/ossieparser.h"
-#include "ossie/affinity.h"
-
 
 namespace ossie {
     /*
@@ -56,15 +54,40 @@ namespace ossie {
     public:
         std::string _id;
 
-        virtual ~ComponentProperty();
+        ComponentProperty() {};
+
+        virtual ~ComponentProperty() {};
 
         const char* getID() const;
+        
+        ComponentProperty* clone() const {
+          return _clone();
+        }       
+        
+        const std::string asString() const {
+          return _asString();
+        }
+        
 
-        virtual ComponentProperty* clone() const = 0;
+    protected:
+    ComponentProperty( const ComponentProperty &a ):
+        _id(a._id)
+          {};
+
+        void operator=( const ComponentProperty &src) {
+          _id = src._id;
+        };
+        
+    private:
+        virtual const std::string _asString() const = 0;
+
     
-        virtual const std::string asString() const = 0;
-    }
-    ;
+        virtual ComponentProperty* _clone() const = 0;
+
+    };
+
+    ComponentProperty *new_clone(const ComponentProperty &a);
+
     template< typename charT, typename Traits>
     std::basic_ostream<charT, Traits>& operator<<(std::basic_ostream<charT, Traits> &out, const ComponentProperty& prop)
     {
@@ -77,13 +100,15 @@ namespace ossie {
      */
     class SimplePropertyRef : public ComponentProperty {
     public:
-        std::string _value;
+      
+      std::string _value;
+      
+      const char* getValue() const;
 
-        const char* getValue() const;
-
-        virtual ComponentProperty* clone() const;
+    private:
+        ComponentProperty* _clone() const;
         
-        virtual const std::string asString() const;
+        const std::string _asString() const;
     };
 
     /*
@@ -91,13 +116,15 @@ namespace ossie {
      */
     class SimpleSequencePropertyRef : public ComponentProperty {
     public:
-        std::vector<std::string> _values;
+      typedef std::vector<std::string> ValuesList;
 
-        virtual ComponentProperty* clone() const;
+      const ValuesList & getValues() const;
 
-        const std::vector<std::string>& getValues() const;
-
-        virtual const std::string asString() const;
+      ValuesList _values;
+   
+    private:
+        ComponentProperty* _clone() const;
+        const std::string  _asString() const;
     };
 
     /*
@@ -105,21 +132,33 @@ namespace ossie {
      */
     class StructPropertyRef : public ComponentProperty {
     public:
-	std::map<std::string, ComponentProperty*> _values;
-        virtual ComponentProperty* clone() const;
-        const std::map<std::string, ComponentProperty*>& getValue() const;
-        virtual const std::string asString() const;
+      typedef ComponentPropertyMap  ValuesMap;
+      
+      virtual ~StructPropertyRef();
+      const ValuesMap & getValue() const;
+
+      ValuesMap   _values;
+
+    private:
+      ComponentProperty* _clone() const;
+      const std::string  _asString() const;
     };
 
     /*
      *
      */
     class StructSequencePropertyRef : public ComponentProperty {
-        public:
-            std::vector<std::map<std::string, ComponentProperty*> > _values;
-            virtual ComponentProperty* clone() const;
-            const std::vector<std::map<std::string, ComponentProperty*> >& getValues() const;
-            virtual const std::string asString() const;
+    public:
+      typedef std::vector< ossie::ComponentPropertyMap > ValuesList;
+
+           virtual ~StructSequencePropertyRef();
+           const ValuesList & getValues() const;
+
+           ValuesList _values;
+    private:
+           ComponentProperty* _clone() const;
+           const std::string  _asString() const;
+
     };
 
     /*
@@ -128,12 +167,12 @@ namespace ossie {
     class ComponentInstantiation {
     public:
       typedef std::pair<std::string,std::string>  LoggingConfig;
-      typedef std::vector< ComponentProperty * >  AffinityProperties;
+      typedef ossie::ComponentPropertyList        AffinityProperties;
 
         std::string instantiationId;
         ossie::optional_value<std::string> namingservicename;
         ossie::optional_value<std::string> usageName;
-        std::vector<ComponentProperty*> properties;
+        ossie::ComponentPropertyList       properties;
         std::string _startOrder;
         AffinityProperties affinityProperties;
         LoggingConfig loggingConfig;
@@ -142,7 +181,7 @@ namespace ossie {
 
         ComponentInstantiation(const ComponentInstantiation& other);
 
-        ComponentInstantiation& operator=(ComponentInstantiation other);
+        ComponentInstantiation& operator=(const ComponentInstantiation &other);
 
         virtual ~ComponentInstantiation();
 
@@ -153,7 +192,7 @@ namespace ossie {
 
         const char* getUsageName() const;
 
-        const std::vector<ComponentProperty*>& getProperties() const;
+        const ossie::ComponentPropertyList & getProperties() const;
 
         const LoggingConfig &getLoggingConfig() const;
 

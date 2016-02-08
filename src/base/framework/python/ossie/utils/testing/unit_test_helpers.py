@@ -175,10 +175,10 @@ class ScaComponentTestCase(unittest.TestCase):
                                   configure=configure, initialize=initialize, objType=objType, debugger=debugger)
         else:
             # spd file path passed in to unit test is relative to current component tests directory (i.e. "..")
-            # IDE unit test requires spd file path relative to sca file system
+            # IDE unit test requires spd file path relative to redhawk file system
             componentName = str(self.spd.get_name())
-            sca_file_system_spd_file = "components/" + componentName + "/" + self.spd_file[3:]
-            component = sb.launch(sca_file_system_spd_file, impl=self.impl, execparams=execparams,
+            rh_file_system_spd_file = "components/" + componentName + "/" + self.spd_file[3:]
+            component = sb.launch(rh_file_system_spd_file, impl=self.impl, execparams=execparams,
                                   configure=configure, initialize=initialize, objType=objType, debugger=debugger)
         self.comp_obj = component.ref
         self.comp = component
@@ -403,6 +403,9 @@ class ScaComponentTestCase(unittest.TestCase):
                     # Got an expected error, so we should continue
                     continue
 
+class RHComponentTestCase(ScaComponentTestCase):
+    pass
+
 class ScaComponentTestProgram(unittest.TestProgram):
     USAGE = """\
 Usage: %(progName)s [options] [test] [...]
@@ -471,5 +474,8 @@ Examples:
                 result = self.testRunner.run(self.test)
                 self.results.append(result)
         #sys.exit(not result.wasSuccessful())
+
+class RHComponentTestProgram(ScaComponentTestProgram):
+    pass
                
-main = ScaComponentTestProgram
+main = RHComponentTestProgram

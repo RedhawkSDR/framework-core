@@ -250,6 +250,7 @@ void Logging_impl::setLogConfigURL( const char *in_url ) {
 void Logging_impl::setLogLevel( const char *logger_id, const CF::LogLevel newLevel ) 
   throw (CF::UnknownIdentifier)
 {
+  _logLevel = newLevel;
   if ( logLevelCallback ) {
     (*logLevelCallback)(logger_id, newLevel);
   }

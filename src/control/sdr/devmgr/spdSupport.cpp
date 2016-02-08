@@ -354,7 +354,8 @@ bool SoftpkgInfo::parseProfile(CF::FileSystem_ptr fileSys)
         spd.load(spd_file, _spdFileName.c_str());
         spd_file.close();
     } catch (const ossie::parser_error& e) {
-        LOG_ERROR(SoftpkgInfo, "building component info problem; error parsing spd; " << e.what());
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(e.what());
+        LOG_ERROR(SoftpkgInfo, "building component info problem; error parsing spd; " << parser_error_line << "The XML parser returned the following error: " << e.what());
         return false;
     } catch (...) {
         LOG_ERROR(SoftpkgInfo, "building component info problem; unknown error parsing spd;");
@@ -437,7 +438,8 @@ void ResourceInfo::LoadResource(CF::FileSystem_ptr fileSys,
             newComponent.scd.load(_scd);
             _scd.close();
         } catch (ossie::parser_error& e) {
-            LOG_ERROR(ResourceInfo, "building component info problem; error parsing scd; " << e.what());
+            std::string parser_error_line = ossie::retrieveParserErrorLineNumber(e.what());
+            LOG_ERROR(ResourceInfo, "building component info problem; error parsing scd; " << parser_error_line << "The XML parser returned the following error: " << e.what());
             throw 0;
         } catch( ... ) {
             LOG_ERROR(ResourceInfo, "building component info problem; unknown error parsing scd;");
@@ -454,7 +456,8 @@ void ResourceInfo::LoadResource(CF::FileSystem_ptr fileSys,
             LOG_TRACE(ResourceInfo, "Closing PRF file")
             _prf.close();
         } catch (ossie::parser_error& e) {
-            LOG_ERROR(ResourceInfo, "building component info problem; error parsing prf; " << e.what());
+            std::string parser_error_line = ossie::retrieveParserErrorLineNumber(e.what());
+            LOG_ERROR(ResourceInfo, "building component info problem; error parsing prf; " << parser_error_line << "The XML parser returned the following error: " << e.what());
             throw  0;
         } catch( ... ) {
             LOG_ERROR(ResourceInfo, "building component info problem; unknown error parsing prf;");
@@ -629,7 +632,7 @@ void ResourceInfo::setIsScaCompliant(bool _isScaCompliant)
 void ResourceInfo::setAffinity( const AffinityProperties &affinity_props )
 {
   for (unsigned int i = 0; i < affinity_props.size(); ++i) {
-    ossie::ComponentProperty* propref = affinity_props[i];
+    const ossie::ComponentProperty* propref = &affinity_props[i];
     std::string propId = propref->getID();
     RH_NL_DEBUG("ResourceInfo", "Affinity property id = " << propId);
     const Property* prop = _affinity_prf.getProperty(propId);
@@ -673,6 +676,10 @@ void ResourceInfo::addConstructProperty(CF::DataType dt)
     addProperty(dt, ctorProperties);
 }
 
+void ResourceInfo::overrideProperty(const ossie::ComponentProperty& propref) {
+  overrideProperty(&propref);
+}
+
 void ResourceInfo::overrideProperty(const ossie::ComponentProperty* propref) {
     std::string propId = propref->getID();
     LOG_TRACE(ResourceInfo, "Instantiation property id = " << propId)
@@ -686,6 +693,7 @@ void ResourceInfo::overrideProperty(const ossie::ComponentProperty* propref) {
     CF::DataType dt = overridePropertyValue(prop, propref);
     overrideProperty(dt.id, dt.value);
 }
+
 
 void ResourceInfo::overrideSimpleProperty(const char* id, const std::string value)
 {

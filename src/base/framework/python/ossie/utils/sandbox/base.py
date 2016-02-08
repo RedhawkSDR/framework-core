@@ -20,7 +20,6 @@
 
 import os
 import logging
-import copy
 import warnings as _warnings
 import time
 
@@ -92,8 +91,7 @@ class SdrRoot(object):
 
 
 class Sandbox(object):
-    def __init__(self, autoInit=True):
-        self._autoInit = autoInit
+    def __init__(self):
         self._eventChannels = {}
 
     def createEventChannel(self, name, exclusive=False):
@@ -159,12 +157,10 @@ class Sandbox(object):
 
     def launch(self, descriptor, instanceName=None, refid=None, impl=None,
                debugger=None, window=None, execparams={}, configure={},
-               initialize=True, timeout=None, objType=None, property={}):
-        if descriptor[0] == '~':
-            descriptor = os.path.expanduser('~')+descriptor[1:]
+               initialize=True, timeout=None, objType=None):
         sdrRoot = self.getSdrRoot()
+
         # Parse the component XML profile.
-        
         profile = sdrRoot.findProfile(descriptor, objType)
         if not profile:
             return None
@@ -178,70 +174,108 @@ class Sandbox(object):
         if comptype not in self.__comptypes__:
             raise NotImplementedError, "No support for component type '%s'" % comptype
 
+        # Generate/check instance name.
         if not instanceName:
             instanceName = self._createInstanceName(name, comptype)
         elif not self._checkInstanceName(instanceName, comptype):
             raise ValueError, "User-specified instance name '%s' already in use" % (instanceName,)
 
+        # Generate/check identifier.
         if not refid:
             refid = str(uuid4())
         elif not self._checkInstanceId(refid, comptype):
             raise ValueError, "User-specified identifier '%s' already in use" % (refid,)
 
+        # If possible, determine the correct placement of properties
+        execparams, initProps, configure = self._sortOverrides(prf, execparams, configure)
+
         # Determine the class for the component type and create a new instance.
-        clazz = self.__comptypes__[comptype]
-        comp = clazz(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window, timeout)
-        # Services don't get initialized or configured
-        if comptype == 'service':
-            return comp
-        
-        # wait till object is in the run loop.... if not then raise...
-        try:
-           retries=3
-           while retries > 0 :
-             try:
-               comp.ref._non_existent()
-               retries = 0
-             except:
-                retries -= 1
-                if retries == 0:
-                   raise
-                time.sleep(.001)
-        except:
-             log.exception('Failure in component to resolve')
-
-
-        if property is not None:
-            initvals = copy.deepcopy(comp._propRef)
-            initvals.update(property)
-            try:
-                comp.initializeProperties(initvals)
-            except:
-                log.exception('Failure in component configuration')
-                
-        # Initialize the component unless asked not to (if the subclass has not
-        # disabled automatic initialization).
-        if initialize and self._autoInit:
-            comp.initialize()
-        
-        # Configure component with default values unless requested not to (e.g.,
-        # when launched from a SAD file).
-        if configure is not None:
-            # Make a copy of the default properties, and update with the passed-in
-            # properties
-            initvals = copy.deepcopy(comp._configRef)
-            initvals.update(configure)
-            try:
-                comp.configure(initvals)
-            except:
-                log.exception('Failure in component configuration')
-        return comp
+        return self._launch(profile, spd, scd, prf, instanceName, refid, impl, execparams,
+                            initProps, initialize, configure, debugger, window, timeout)
 
     def shutdown(self):
         # Clean up any event channels created by this sandbox instance.
         for channel in self._eventChannels.values():
             channel.destroy()
         self._eventChannels = {}
+
+    def _sortOverrides(self, prf, execparams, configure):
+        if not prf:
+            # No PRF file, assume the properties are correct as-is
+            return execparams, {}, configure
+
+        # Classify the PRF properties by which stage of initialization they get
+        # set: 'commandline', 'initialize', 'configure' or None (not settable).
+        stages = {}
+        for prop, stage in self._getInitializationStages(prf):
+            stages[str(prop.get_id())] = stage
+            if prop.get_name():
+                name = str(prop.get_name())
+                # Only add name if there isn't already something by the same key
+                if not name in stages:
+                    stages[name] = stage
+
+        # Check properties that do not belong in execparams
+        arguments = {}
+        for key, value in execparams.iteritems():
+            if key in stages and stages[key] != 'commandline':
+                raise ValueError("Non-command line property '%s' given in execparams" % key)
+            arguments[key] = value
+
+        # Sort configure properties into the appropriate stage of initialization
+        initProps = {}
+        if configure is not None:
+            configProps = {}
+            for key, value in configure.iteritems():
+                if not key in stages:
+                    log.warning("Unknown property '%s'" , key)
+                    continue
+                stage = stages[key]
+                if stage == 'commandline':
+                    arguments[key] = value
+                elif stage == 'initialize':
+                    initProps[key] = value
+                elif stage == 'configure':
+                    configProps[key] = value
+                else:
+                    log.warning("Property '%s' cannot be set at launch", key)
+        else:
+            configProps = None
+
+        return arguments, initProps, configProps
+
+    def _getInitializationStage(self, prop, kinds, commandline=False):
+        # Helper method to classify the initialization stage for a particular
+        # property. The caller provides the type-specific information (kinds,
+        # commandline).
+        if kinds:
+            kinds = set(k.get_kindtype() for k in kinds)
+        else:
+            kinds = set(('configure',))
+        if 'execparam' in kinds:
+            return 'commandline'
+        elif 'property' in kinds:
+            if commandline:
+                return 'commandline'
+            else:
+                return 'initialize'
+        elif 'configure' in kinds and prop.get_mode() != 'readonly':
+            return 'configure'
+        else:
+            return None
+
+    def _getInitializationStages(self, prf):
+        # Helper method to turn all of the PRF properties into an iterable sequence
+        # of (property, stage) pairs.
+        for prop in prf.get_simple():
+            isCommandline = prop.get_commandline() == 'true'
+            yield prop, self._getInitializationStage(prop, prop.get_kind(), isCommandline)
+        for prop in prf.get_simplesequence():
+            yield prop, self._getInitializationStage(prop, prop.get_kind())
+        for prop in prf.get_struct():
+            yield prop, self._getInitializationStage(prop, prop.get_configurationkind())
+        for prop in prf.get_structsequence():
+            yield prop, self._getInitializationStage(prop, prop.get_configurationkind())
 
 
 class SandboxComponent(ComponentBase):
@@ -256,7 +290,7 @@ class SandboxComponent(ComponentBase):
             if prop.defValue is None:
                 continue
             self._configRef[str(prop.id)] = prop.defValue
-        for prop in self._getPropertySet(kinds=('property',), modes=('readwrite', 'writeonly', 'readonly'), includeNil=False):
+        for prop in self._getPropertySet(kinds=('property',), includeNil=False, commandline=False):
             if prop.defValue is None:
                 continue
             self._propRef[str(prop.id)] = prop.defValue

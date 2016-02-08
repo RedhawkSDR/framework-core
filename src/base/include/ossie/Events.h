@@ -204,6 +204,140 @@ namespace events {
   };
 
 
+  class DomainEventReader {
+  public:
+    DomainEventReader( SubscriberPtr sub );
+    DomainEventReader();
+    virtual ~DomainEventReader(){
+      unsubscribe();
+    };
+
+    template< typename T > 
+    class ReaderListener {
+    public:
+      virtual void operator() ( const T & ) = 0;
+      virtual ~ReaderListener() {};
+
+    };
+
+    template <class T, typename DT >
+      class MemberCBListener : public ReaderListener<DT>
+    {
+    public:
+      typedef boost::shared_ptr< MemberCBListener< T, DT > > SPtr;
+      
+      typedef void (T::*MemberFn)( const DT &data );
+
+      static SPtr Create( T &target, MemberFn func ){
+        return SPtr( new MemberCBListener(target, func ) );
+      };
+
+      virtual void operator() ( const DT &data )
+      {
+        (target_.*func_)(data);
+      }
+
+      MemberCBListener ( T& target,  MemberFn func) :
+      target_(target),
+        func_(func)
+        {
+        }
+    private:
+      T& target_;
+      MemberFn func_;
+    };
+
+
+    typedef ReaderListener< ObjectStateChangeEvent >      ObjectStateListener;
+    typedef ReaderListener< ResourceStateChangeEvent >    ResourceStateListener;
+    typedef ReaderListener< ComponentTerminationEvent >   TerminationListener;
+    typedef ReaderListener< DomainStateEvent >            AddRemoveListener;
+
+    typedef boost::shared_ptr< ObjectStateListener >            ObjectStateListenerPtr;
+    typedef boost::shared_ptr< ResourceStateListener >          ResourceStateListenerPtr;
+    typedef boost::shared_ptr< TerminationListener >            TerminationListenerPtr;
+    typedef boost::shared_ptr< AddRemoveListener >              AddRemoveListenerPtr;
+
+    template< typename T > inline
+      void setObjectListener(T &target, void (T::*func)( const ObjectStateChangeEvent &data )  ) {
+      obj_cbs.push_back( boost::make_shared< MemberCBListener< T, ObjectStateChangeEvent > >( boost::ref(target), func ) );
+    };
+
+    template< typename T > inline
+      void setObjectListener(T *target, void (T::*func)( const ObjectStateChangeEvent &data  )  ) {
+      obj_cbs.push_back( boost::make_shared< MemberCBListener< T, ObjectStateChangeEvent > >( boost::ref(*target), func ));
+    };
+
+    template< typename T > inline
+      void setResourceListener(T &target, void (T::*func)( const ResourceStateChangeEvent &data )  ) {
+      rsc_cbs.push_back(boost::make_shared< MemberCBListener< T, ResourceStateChangeEvent > >( boost::ref(target), func ));
+    };
+
+    template< typename T > inline
+      void setResourceListener(T *target, void (T::*func)( const ResourceStateChangeEvent &data  )  ) {
+      rsc_cbs.push_back(boost::make_shared< MemberCBListener< T, ResourceStateChangeEvent > >( boost::ref(*target), func ));
+    };
+
+    template< typename T > inline
+      void setTerminationListener(T &target, void (T::*func)( const ComponentTerminationEvent &data )  ) {
+      term_cbs.push_back( boost::make_shared< MemberCBListener< T, ComponentTerminationEvent > >( boost::ref(target), func ));
+    };
+
+    template< typename T > inline
+      void setTerminationListener(T *target, void (T::*func)( const ComponentTerminationEvent &data  )  ) {
+      term_cbs.push_back( boost::make_shared< MemberCBListener< T, ComponentTerminationEvent > >( boost::ref(*target), func ));
+    };
+
+    template< typename T > inline
+      void setAddRemoveListener(T &target, void (T::*func)( const  DomainStateEvent &data )  ) {
+      addrm_cbs.push_back( boost::make_shared< MemberCBListener< T, DomainStateEvent > >( boost::ref(target), func ) );
+    };
+
+    template< typename T > inline
+      void setAddRemoveListener(T *target, void (T::*func)( const  DomainStateEvent &data  )  ) {
+      addrm_cbs.push_back( boost::make_shared< MemberCBListener< T, DomainStateEvent > >( boost::ref(*target), func ));
+    };
+
+
+    void setObjectListener(  ObjectStateListener *cb );
+    void setResourceListener( ResourceStateListener *cb );
+    void setTerminationListener( TerminationListener *cb );
+    void setAddRemoveListener( AddRemoveListener *cb ); 
+
+    void subscribe( SubscriberPtr sub );
+    void subscribe( );
+    void unsubscribe();
+
+  private:
+
+    typedef std::vector< ObjectStateListenerPtr >    ObjectListeners;
+    typedef std::vector< ResourceStateListenerPtr >  ResourceListeners;
+    typedef std::vector< TerminationListenerPtr >    TerminationListeners;
+    typedef std::vector< AddRemoveListenerPtr >      AddRemoveListeners;
+
+    typedef bool (DomainEventReader::*EventMsgHandler)( const CORBA::Any & msg );
+    typedef std::vector< DomainEventReader::EventMsgHandler >     EventMsgHandlers;
+
+    void  _eventMsgHandler( const CORBA::Any &msg  );
+    bool  _objectMsgHandler( const CORBA::Any & msg );
+    bool  _resourceMsgHandler( const CORBA::Any & msg );
+    bool  _terminationMsgHandler( const CORBA::Any & msg );
+    bool  _addRemoveMsgHandler( const CORBA::Any & msg );
+
+    SubscriberPtr             sub;
+    
+    ObjectListeners           obj_cbs;
+    ResourceListeners         rsc_cbs;
+    TerminationListeners      term_cbs;
+    AddRemoveListeners        addrm_cbs;
+    
+    EventMsgHandlers          msg_handlers;
+    
+
+  };
+
+
+
   class EM_Publisher;
   class EM_Subscriber;
 
@@ -322,11 +456,11 @@ namespace events {
       int retval=0;
       try {
         CORBA::Any data;
-        RH_NL_DEBUG("Publisher", "Creating event message object for proxy.");
+        RH_NL_TRACE("Publisher", "Creating event message object for proxy.");
         data <<= msg;
         if (!CORBA::is_nil(proxy)) {
           proxy->push(data);
-          RH_NL_DEBUG("Publisher", "Message sent downstream......");
+          RH_NL_TRACE("Publisher", "Message sent downstream......");
         }
         else{
           retval=-1;
@@ -336,7 +470,7 @@ namespace events {
         retval=-1;
       }
 
-      RH_NL_DEBUG("Publisher", "push(msg) retval" << retval );
+      RH_NL_TRACE("Publisher", "push(msg) retval" << retval );
       return retval;
     }
 
@@ -345,11 +479,11 @@ namespace events {
       int retval=0;
       try {
         CORBA::Any data;
-        RH_NL_DEBUG("Publisher", "Creating event message object for proxy.");
+        RH_NL_TRACE("Publisher", "Creating event message object for proxy.");
         data <<= msg;
         if (!CORBA::is_nil(proxy)) {
           proxy->push(data);
-          RH_NL_DEBUG("Publisher", "Message sent downstream......");
+          RH_NL_TRACE("Publisher", "Message sent downstream......");
         }
         else{
           retval=-1;
@@ -358,7 +492,7 @@ namespace events {
       catch( CORBA::Exception& ex) {
         retval=-1;
       }
-      RH_NL_DEBUG("Publisher", "push(*msg) retval" << retval );
+      RH_NL_TRACE("Publisher", "push(*msg) retval" << retval );
       return retval;
     }
 

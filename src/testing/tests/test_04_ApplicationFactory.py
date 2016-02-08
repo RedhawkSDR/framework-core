@@ -256,6 +256,23 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         app.releaseObject()
         self.assertEqual(len(domMgr._get_applications()), 0)
 
+    def test_PartialStructConfiguration(self):
+        nodebooter, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_GPP_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication("/waveforms/TestComponentProperty_w/TestComponentProperty_w.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        appFact = domMgr._get_applicationFactories()[0]
+
+        app = appFact.create(appFact._get_name(), [], [])
+        self.assertEqual(len(domMgr._get_applications()), 1)
+        number_components = len(app._get_registeredComponents())
+        self.assertEqual(number_components, 1)
+        app.releaseObject()
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
     def test_commandline_props(self):
         nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)
@@ -448,8 +465,8 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
-        domMgr.installApplication("/waveforms/MalformedComponentFile/MalformedComponentFile.sad.xml")
-        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertRaises( CF.DomainManager.ApplicationInstallationError, domMgr.installApplication,"/waveforms/MalformedComponentFile/MalformedComponentFile.sad.xml" )
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
         self.assertEqual(len(domMgr._get_applications()), 0)
 
         # Ensure the expected device is available
@@ -459,13 +476,6 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         self.assertEqual(len(devMgr._get_registeredDevices()), 1)
         device = devMgr._get_registeredDevices()[0]
 
-        appFact = domMgr._get_applicationFactories()[0]
-        self.assertRaises(CF.ApplicationFactory.CreateApplicationError, appFact.create, appFact._get_name(), [], [])
-
-        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
-        self.assertEqual(len(domMgr._get_applications()), 0)
-        domMgr.uninstallApplication(appFact._get_identifier())
-        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
 
     def test_MalformedACFile(self):
         # test basic operation of launching an application and checking allocation capacities
@@ -2411,6 +2421,38 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
 
         self.assertEqual(orphans, 0)
 
+    def test_CppGppOrphanProcesses(self):
+        """
+        Tests that all child processes associated with a component get
+        terminated with that component.
+        """
+        nb, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+
+        nb, devMgr = self.launchDeviceManager('/nodes/test_GPP_node/DeviceManager.dcd.xml')
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication('/waveforms/orphaned_child/orphaned_child.sad.xml')
+
+        appFact = domMgr._get_applicationFactories()[0]
+        self.assertEqual(appFact._get_name(), 'orphaned_child')
+
+        app = appFact.create(appFact._get_name(), [], [])
+        pid = app._get_componentProcessIds()[0].processId
+        children = [int(line) for line in commands.getoutput('ps --ppid %d --no-headers -o pid' % (pid,)).split()]
+
+        app.releaseObject()
+
+        orphans = 0
+        for pid in children:
+            try:
+                os.kill(pid, 9)
+                orphans += 1
+            except OSError:
+                pass
+
+        self.assertEqual(orphans, 0)
+
     def test_HangingStopAndRelease(self):
         """
         Tests that all child processes associated with a component get
@@ -2434,3 +2476,100 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         app.releaseObject()
         apps = domMgr._get_applications()
         self.assertEqual(len(apps),0)
+
+    def test_StopAllComponents(self):
+        nb, domMgr = self.launchDomainManager(debug=self.debuglevel)
+        self.assertNotEqual(domMgr, None)
+
+        nb, devMgr = self.launchDeviceManager('/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml', debug=self.debuglevel)
+        self.assertNotEqual(devMgr, None)
+
+        # Create the application, which is pre-configured such that the last
+        # component in the start order (and hence, first in stop) will fail on
+        # stop().
+        domMgr.installApplication('/waveforms/fail_stop/fail_stop.sad.xml')
+        appFact = domMgr._get_applicationFactories()[0]
+        self.assertEqual(appFact._get_name(), 'fail_stop')
+        app = appFact.create(appFact._get_name(), [], [])
+        app.start()
+
+        # Pre-condition: check that all the components are started
+        components = app._get_registeredComponents()
+        for comp in components:
+            self.assertTrue(comp.componentObject._get_started())
+
+        self.assertRaises(CF.Resource.StopError, app.stop)
+
+        # Count the number of components that still report as started to make
+        # sure that the rest were stopped
+        started_count = 0
+        for comp in components:
+            if comp.componentObject._get_started():
+                started_count += 1
+        self.assertEqual(started_count, len(components) - 1)
+
+        # Turn off fail on stop so that releaseObject() doesn't complain
+        props = [CF.DataType('fail_stop', any.to_any(False))]
+        for comp in components:
+            comp.componentObject.configure(props)
+        app.releaseObject()
+
+    def _test_ValgrindCppDevice(self, appFact, valgrind):
+        # Clear the device cache to prevent false positives
+        deviceCacheDir = os.path.join(scatest.getSdrCache(), ".ExecutableDevice_node", "ExecutableDevice1")
+        shutil.rmtree(deviceCacheDir, ignore_errors=True)
+
+        os.environ['VALGRIND'] = valgrind
+        try:
+            nb, devMgr = self.launchDeviceManager('/nodes/test_ExecutableDevice_node/DeviceManager.dcd.xml')
+        finally:
+            del os.environ['VALGRIND']
+        self.assertNotEqual(devMgr, None)
+
+        # Create the application and create a lookup table of component IDs to
+        # PIDs, then check that there is a log file for that PID in the device
+        # cache next to the profile (this only works as long as the entry point
+        # is in the same directory as the XML profile)
+        app = appFact.create(appFact._get_name(), [], [])
+        components = dict((c.componentId, c.processId) for c in app._get_componentProcessIds())
+        for comp in app._get_registeredComponents():
+            # The software profile starts with '/' (because it's relative to
+            # SDRROOT), so use concatenation instead of os.path.join()
+            cacheDir = deviceCacheDir + os.path.dirname(comp.softwareProfile)
+            logfile = os.path.join(cacheDir, 'valgrind.%d.log' % components[comp.identifier])
+            self.assertTrue(os.path.exists(logfile))
+
+        app.releaseObject()
+
+        devMgr.shutdown()
+
+    def test_ValgrindCppDevice(self):
+        """
+        Checks that the 'VALGRIND' environment variable can be used to run
+        components launched by an ExecutableDevice with Valgrind.
+        """
+        # Make sure that valgrind exists and is in the path
+        valgrind = scatest.which('valgrind')
+        if not valgrind:
+            raise RuntimeError('Valgrind is not installed')
+
+        nb, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+
+        # For best results, use an application with C++ components
+        domMgr.installApplication("/waveforms/CppsoftpkgDep/CppsoftpkgDep.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+        appFact = domMgr._get_applicationFactories()[0]
+
+        # Let the executable device find valgrind on the path
+        self._test_ValgrindCppDevice(appFact, '')
+
+        # Set an explicit path to valgrind, using a symbolic link to a non-path
+        # location as an additional check
+        altpath = os.path.join(scatest.getSdrPath(), 'valgrind')
+        os.symlink(valgrind, altpath)
+        try:
+            self._test_ValgrindCppDevice(appFact, altpath)
+        finally:
+            os.unlink(altpath)

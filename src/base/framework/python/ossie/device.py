@@ -1058,9 +1058,9 @@ class LoadableDevice(Device):
 class ExecutableDevice(LoadableDevice):
 
     STOP_SIGNALS = ((signal.SIGINT, 2),
-                    (signal.SIGQUIT, 3),
-                    (signal.SIGTERM, 15),
-                    (signal.SIGKILL, 0.1))
+                    (signal.SIGQUIT, 2),
+                    (signal.SIGTERM, 2),
+                    (signal.SIGKILL, 0.5))
 
     def __init__(self, devmgr, identifier, label, softwareProfile, compositeDevice, execparams, propertydefs=(),loggerName=None):
         LoadableDevice.__init__(self, devmgr, identifier, label, softwareProfile, compositeDevice, execparams, propertydefs,loggerName=loggerName)

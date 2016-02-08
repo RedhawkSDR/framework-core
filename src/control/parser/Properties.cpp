@@ -167,10 +167,10 @@ void Properties::join(ossie::Properties& props) throw (ossie::parser_error) {
     LOG_TRACE(Properties, "Done merging property sets, cleaning up")
 }
 
-void Properties::override(const std::vector<ComponentProperty*>& values)
+void Properties::override(const ossie::ComponentPropertyList & values)
 {
-    for (std::vector<ComponentProperty*>::const_iterator iter = values.begin(); iter != values.end(); ++iter) {
-        const ComponentProperty* new_value = *iter;
+  for ( ossie::ComponentPropertyList::const_iterator iter = values.begin(); iter != values.end(); ++iter) {
+    const ComponentProperty* new_value = &(*iter);
         Property* property = const_cast<Property*>(getProperty(new_value->getID()));
         if (!property) {
             LOG_TRACE(Properties, "Skipping override of non-existent property " << new_value->getID());
@@ -240,9 +240,29 @@ const std::vector<const Property*>& Properties::getFactoryParamProperties() cons
 /*
  * Property class
  */
+
+Property::Property(const std::string& id, 
+             const std::string& name, 
+             const std::string& mode, 
+             const std::string& action, 
+             const std::vector<std::string>& kinds) :
+             id(id), name(name), mode(mode), action(action), kinds(kinds),
+               commandline("false")
+{};
+
+Property::Property(const std::string& id, 
+                   const std::string& name, 
+                   const std::string& mode, 
+                   const std::string& action, 
+                   const std::vector<std::string>& kinds, 
+                   const std::string& cmdline ):
+  id(id), name(name), mode(mode), action(action), kinds(kinds),
+  commandline(cmdline)
+{};
+
 Property::~Property()
 {
-} 
+}
 
 bool Property::isAllocation() const
 {
@@ -431,7 +451,7 @@ std::string Property::mapPrimitiveToComplex(const std::string& type) const
     /*
      * else do nothing.  Either the primitive to complex
      * conversion has already been completed, or there
-     * is an invalid type.  In the event of an invalid
+     * is an invalid type.  In the event of an invalid"const ossie::SPD::SoftPkgRef&"; 
      * type, let downstream checks catch the error.
      */ 
 
@@ -451,7 +471,10 @@ SimpleProperty::SimpleProperty(const std::string& id,
                                const std::string& complex_,
                                const std::string& commandline_,
                                const std::string& optional) :
-Property(id, name, mode, action, kinds), value(value), _complex(complex_), optional(optional)
+  Property(id, name, mode, action, kinds, commandline_ ), 
+  value(value), 
+  _complex(complex_),
+  optional(optional)
 {
     commandline = commandline_;
     if (_complex.compare("true") == 0) {
@@ -683,6 +706,36 @@ const Property* SimpleSequenceProperty::clone() const {
  */
 StructProperty::~StructProperty()
 {
+  std::vector<Property*>::iterator i;
+  for (i = value.begin(); i != value.end(); ++i) {
+    if ( *i ) delete *i;
+  }
+  value.clear();
+}
+
+
+StructProperty& StructProperty::operator=(const StructProperty& src) 
+{
+  id = src.id;
+  name =src.name;
+  mode=src.mode;
+  commandline = src.commandline;
+  action=src.action;
+  kinds=src.kinds;
+  /// clean out my old...
+  std::vector<Property*>::iterator i;
+  for (i = value.begin(); i != value.end(); ++i) {
+    if ( *i ) delete *i;
+  }
+  value.clear();
+
+  // bring in the new...
+  std::vector<Property*>::const_iterator it;
+  for(it=src.value.begin(); it != src.value.end(); ++it) {
+    this->value.push_back(const_cast<Property*>((*it)->clone()));
+  }
+
+  return *this;
 }
 
 bool StructProperty::isNone() const {
@@ -744,6 +797,20 @@ const Property* StructProperty::getField(const std::string& fieldId) const {
 StructSequenceProperty::~StructSequenceProperty()
 {
 }
+
+StructSequenceProperty& StructSequenceProperty::operator=( const StructSequenceProperty &src ) 
+{
+  id = src.id;
+  name =src.name;
+  mode=src.mode;
+  commandline = src.commandline;
+  action=src.action;
+  kinds=src.kinds;
+  structdef = src.structdef;
+  values = values;
+  return *this;
+}
+
 
 bool StructSequenceProperty::isNone() const {
     return (values.size() == 0);

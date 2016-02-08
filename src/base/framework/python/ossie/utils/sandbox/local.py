@@ -22,6 +22,7 @@ import os
 import logging
 import fnmatch
 import time
+import copy
 
 from ossie import parsers
 from ossie.utils.model import Service, Resource, Device
@@ -84,6 +85,9 @@ class LocalSdrRoot(SdrRoot):
     def findProfile(self, descriptor, objType=None):
         if not descriptor:
             raise RuntimeError, 'No component descriptor given'
+        # Handle user home directory paths
+        if descriptor.startswith('~'):
+            descriptor = os.path.expanduser(descriptor)
         # Override base class behavior if descriptor points to a file regardless
         # of SDRROOT setting.
         if os.path.isfile(descriptor):
@@ -135,7 +139,7 @@ class LocalSandboxComponent(SandboxComponent, LocalMixin):
                  execparams, debugger, window, timeout):
         SandboxComponent.__init__(self, sdrroot, profile, spd, scd, prf, instanceName, refid, impl)
         LocalMixin.__init__(self, execparams, debugger, window, timeout)
-        
+
         self._kick()
 
         self._parseComponentXMLFiles()
@@ -239,7 +243,7 @@ class LocalSandbox(Sandbox):
         }
     
     def __init__(self, sdrroot):
-        super(LocalSandbox, self).__init__(autoInit=True)
+        super(LocalSandbox, self).__init__()
         self.__components = {}
         self.__services = {}
         self._sdrroot = LocalSdrRoot(sdrroot)
@@ -272,6 +276,58 @@ class LocalSandbox(Sandbox):
             if refid == component._refid:
                 return False
         return True
+
+    def _launch(self, profile, spd, scd, prf, instanceName, refid, impl, execparams,
+                initProps, initialize, configProps, debugger, window, timeout):
+        # Determine the class for the component type and create a new instance.
+        comptype = scd.get_componenttype()
+        clazz = self.__comptypes__[comptype]
+        comp = clazz(self, profile, spd, scd, prf, instanceName, refid, impl, execparams, debugger, window, timeout)
+
+        try:
+            # Occasionally, when a lot of components are launched from the
+            # sandbox, omniORB may have a cached connection where the other end
+            # has terminated (this is particularly a problem with Java, because
+            # the Sun ORB never closes connections on shutdown). If the new
+            # component just happens to have the same TCP/IP address and port,
+            # the first time we try to reach the component, it will get a
+            # CORBA.COMM_FAILURE exception even though the reference is valid.
+            # In this case, a call to _non_existent() should cause omniORB to
+            # clean up the stale socket, and subsequent calls behave normally.
+            comp.ref._non_existent()
+        except:
+            pass
+
+        # Services don't get initialized or configured
+        if comptype == 'service':
+            return comp
+
+        # Initialize the component unless asked not to.
+        if initialize:
+            # Set initial property values for 'property' kind properties
+            initvals = copy.deepcopy(comp._propRef)
+            initvals.update(initProps)
+            try:
+                comp.initializeProperties(initvals)
+            except:
+                log.exception('Failure in component property initialization')
+
+            # Actually initialize the component
+            comp.initialize()
+
+        # Configure component with default values unless requested not to (e.g.,
+        # when launched from a SAD file).
+        if configProps is not None:
+            # Make a copy of the default properties, and update with any passed-in
+            # properties that were not already passed to initializeProperties()
+            initvals = copy.deepcopy(comp._configRef)
+            initvals.update(configProps)
+            try:
+                comp.configure(initvals)
+            except:
+                log.exception('Failure in component configuration')
+
+        return comp
 
     def getComponents(self):
         return self.__components.values()

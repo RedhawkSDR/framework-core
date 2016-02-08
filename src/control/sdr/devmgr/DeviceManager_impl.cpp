@@ -107,7 +107,8 @@ void DeviceManager_impl::parseDCDProfile(
         DCDParser.load(_dcd);
         _dcd.close();
     } catch ( ossie::parser_error& e ) {
-        LOG_FATAL(DeviceManager_impl, "exiting device manager; failure parsing DCD file " << _deviceConfigurationProfile << "; " << e.what());
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(e.what());
+        LOG_FATAL(DeviceManager_impl, "exiting device manager; failure parsing DCD file " << _deviceConfigurationProfile << ". " << parser_error_line << "The XML parser returned the following error: " << e.what());
         throw std::runtime_error(e.what());
     } catch ( std::exception& ex ) {
         std::ostringstream eout;
@@ -211,7 +212,8 @@ bool DeviceManager_impl::loadSPD(
         SPDParser.load( _spd, spdFile);  
         _spd.close();
     } catch ( ossie::parser_error& e ) {
-        LOG_FATAL(DeviceManager_impl, "stopping device manager; error parsing SPD " << spdFile << "; " << e.what());
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(e.what());
+        LOG_FATAL(DeviceManager_impl, "stopping device manager; error parsing SPD " << spdFile << ". " << parser_error_line << "The XML parser returned the following error: " << e.what());
         throw std::runtime_error("unexpected error");
     } catch ( std::exception& ex ) {
         std::ostringstream eout;
@@ -335,7 +337,8 @@ void DeviceManager_impl::parseSpd(
         devmgrspdparser.load(spd, devmgrsoftpkg.c_str());
         spd.close();
     } catch (ossie::parser_error& e) {
-        LOG_ERROR(DeviceManager_impl, "creating device manager error; error parsing spd " << devmgrsoftpkg << "; " << e.what());
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(e.what());
+        LOG_ERROR(DeviceManager_impl, "creating device manager error; error parsing spd " << devmgrsoftpkg << ". " << parser_error_line << "The XML parser returned the following error: " << e.what());
         throw std::runtime_error("unexpected error");
     } catch ( std::exception& ex ) {
         std::ostringstream eout;
@@ -491,11 +494,11 @@ CF::Properties DeviceManager_impl::getResourceOptions( const ossie::ComponentIns
 
 void DeviceManager_impl::getOverloadprops(
         std::map<std::string, std::string>& overloadprops, 
-        const std::vector<ComponentProperty*>& instanceprops,
+        const ossie::ComponentPropertyList& instanceprops,
         const ossie::Properties& deviceProperties) {
 
     std::vector<const Property*>::const_iterator jprops_iter;
-    std::vector<ComponentProperty*>::const_iterator iprops_iter;
+    ossie::ComponentPropertyList::const_iterator iprops_iter;
 
     const std::vector<const Property*>& deviceExecParams = deviceProperties.getExecParamProperties();
     LOG_TRACE(DeviceManager_impl, "getting exec params. Num properties: " << deviceExecParams.size());
@@ -527,11 +530,11 @@ void DeviceManager_impl::getOverloadprops(
         // see if this exec param has been overloaded (NOTE: we know that execparams are simple elements via the spec)
         for (iprops_iter = instanceprops.begin(); iprops_iter != instanceprops.end(); iprops_iter++) {
             // property has been overloaded in instantiation from DCD
-            if (strcmp((*iprops_iter)->getID(), (*jprops_iter)->getID()) == 0) {
-                if (dynamic_cast<const SimplePropertyRef*>(*iprops_iter) == NULL) {
+            if (strcmp( iprops_iter->getID(), (*jprops_iter)->getID()) == 0) {
+              if (dynamic_cast<const SimplePropertyRef *>( &(*iprops_iter))  == NULL) {
                     LOG_WARN(DeviceManager_impl, "ignoring attempt to override exec param with non-simple ref");
                 } else {
-                    const SimplePropertyRef* simpleref = dynamic_cast<const SimplePropertyRef*>(*iprops_iter);
+                  const SimplePropertyRef * simpleref = dynamic_cast<const SimplePropertyRef *>( &(*iprops_iter));
                     // do some error checking - the property should have one value
                     if (simpleref->getValue() == 0) {
                         LOG_WARN(DeviceManager_impl, "value is empty for property: " << simpleref->getID());
@@ -573,11 +576,11 @@ void DeviceManager_impl::getOverloadprops(
         // see if this property has been overloaded (NOTE: we know that property are simple elements via the spec)
         for (iprops_iter = instanceprops.begin(); iprops_iter != instanceprops.end(); iprops_iter++) {
             // property has been overloaded in instantiation from DCD
-            if (strcmp((*iprops_iter)->getID(), (*jprops_iter)->getID()) == 0) {
-                if (dynamic_cast<const SimplePropertyRef*>(*iprops_iter) == NULL) {
+            if (strcmp( iprops_iter->getID(), (*jprops_iter)->getID()) == 0) {
+              if (dynamic_cast<const SimplePropertyRef*>(&(*iprops_iter)) == NULL) {
                     LOG_WARN(DeviceManager_impl, "ignoring attempt to override property with non-simple ref");
                 } else {
-                    const SimplePropertyRef* simpleref = dynamic_cast<const SimplePropertyRef*>(*iprops_iter);
+                const SimplePropertyRef* simpleref = dynamic_cast<const SimplePropertyRef*>(&(*iprops_iter));
                     // do some error checking - the property should have one value
                     if (simpleref->getValue() == 0) {
                         LOG_WARN(DeviceManager_impl, "value is empty for property: " << simpleref->getID());
@@ -609,8 +612,9 @@ bool DeviceManager_impl::loadScdToParser(
         scd.close();
         success = true;
     } catch (ossie::parser_error& ex) {
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(ex.what());
         LOG_ERROR(DeviceManager_impl, 
-                  "SCD file failed validation; parser error on file " <<  scdpath << "; " << ex.what());
+                  "SCD file failed validation; parser error on file " <<  scdpath << ". " << parser_error_line << "The XML parser returned the following error: " << ex.what());
     } catch (CF::InvalidFileName ex) {
         LOG_ERROR(DeviceManager_impl, "Failed to validate SCD due to invalid file name " << ex.msg);
     } catch (CF::FileException ex) {
@@ -699,21 +703,28 @@ void DeviceManager_impl::createDeviceExecStatement(
         const std::string&                            usageName,
         const std::vector<ossie::ComponentPlacement>& componentPlacements,
         const std::string&                            compositeDeviceIOR,
-        const std::vector<ComponentProperty*>&        instanceprops) {
+        const ossie::ComponentPropertyList&          instanceprops) {
     
     // DO not put any LOG calls in this method, as it is called beteen
     // fork() and execv().
         
-    std::vector<ComponentProperty*>::const_iterator iprops_iter;
+    ossie::ComponentPropertyList::const_iterator iprops_iter;
 
     std::string logcfg_path("");
     deviceMgrIOR = ossie::corba::objectToString(myObj);
     if (getenv("VALGRIND")) {
-      new_argv.push_back("/usr/local/bin/valgrind");
-      std::string logFile = "--log-file=";
-      logFile += codeFilePath;
-      new_argv.push_back(logFile );
-
+        const char* valgrind = getenv("VALGRIND");
+        if (strlen(valgrind) > 0) {
+            // Environment variable is path to valgrind executable
+            new_argv.push_back(valgrind);
+        } else {
+            // Assume that valgrind is somewhere on the path
+            new_argv.push_back("valgrind");
+        }
+        // Put the log file in the current working directory, which will be the
+        // device's cache directory; include the pid to avoid clobbering
+        // existing files
+        new_argv.push_back("--log-file=valgrind.%p.log");
     }
     // argv[0] program executable
     new_argv.push_back(codeFilePath);             
@@ -744,9 +755,9 @@ void DeviceManager_impl::createDeviceExecStatement(
     // get logging info if available
     logging_uri = "";      
     for (iprops_iter = instanceprops.begin(); iprops_iter != instanceprops.end(); iprops_iter++) {
-        if ((strcmp((*iprops_iter)->getID(), "LOGGING_CONFIG_URI") == 0)
-                && (dynamic_cast<const SimplePropertyRef*>(*iprops_iter) != NULL)) {
-            const SimplePropertyRef* simpleref = dynamic_cast<const SimplePropertyRef*>(*iprops_iter);
+        if ((strcmp(iprops_iter->getID(), "LOGGING_CONFIG_URI") == 0)
+            && (dynamic_cast<const SimplePropertyRef*>(&(*iprops_iter)) != NULL)) {
+          const SimplePropertyRef* simpleref = dynamic_cast<const SimplePropertyRef*>(&(*iprops_iter));
             logging_uri = simpleref->getValue();
             break;
         }
@@ -826,7 +837,7 @@ DeviceManager_impl::ExecparamList DeviceManager_impl::createDeviceExecparams(
         const ossie::ComponentInstantiation&          instantiation,
         const std::string&                            usageName,
         const std::string&                            compositeDeviceIOR,
-        const std::vector<ossie::ComponentProperty*>& instanceprops)
+        const ossie::ComponentPropertyList&           instanceprops)
 {
     // DO not put any LOG calls in this method, as it is called beteen
     // fork() and execv().
@@ -856,12 +867,12 @@ DeviceManager_impl::ExecparamList DeviceManager_impl::createDeviceExecparams(
 
     ossie::logging::LogConfigUriResolverPtr      log_cfg_resolver = ossie::logging::GetLogConfigUriResolver();
 
-    std::vector<ComponentProperty*>::const_iterator iprops_iter;
+    ossie::ComponentPropertyList::const_iterator iprops_iter;
     logging_uri = "";
     for (iprops_iter = instanceprops.begin(); iprops_iter != instanceprops.end(); iprops_iter++) {
-        if ((strcmp((*iprops_iter)->getID(), "LOGGING_CONFIG_URI") == 0)
-                && (dynamic_cast<const SimplePropertyRef*>(*iprops_iter) != NULL)) {
-            const SimplePropertyRef* simpleref = dynamic_cast<const SimplePropertyRef*>(*iprops_iter);
+        if ((strcmp(iprops_iter->getID(), "LOGGING_CONFIG_URI") == 0)
+            && (dynamic_cast<const SimplePropertyRef*>(&(*iprops_iter)) != NULL)) {
+          const SimplePropertyRef* simpleref = dynamic_cast<const SimplePropertyRef*>(&(*iprops_iter));
             logging_uri = simpleref->getValue();
             break;
         }
@@ -934,7 +945,7 @@ void DeviceManager_impl::createDeviceThreadAndHandleExceptions(
         const ossie::ComponentInstantiation&          instantiation,
         const std::vector<ossie::ComponentPlacement>& componentPlacements,
         const std::string&                            compositeDeviceIOR,
-        const std::vector<ComponentProperty*>&        instanceprops) {
+        const ossie::ComponentPropertyList&        instanceprops) {
 
     try {
         std::string devcache; 
@@ -983,7 +994,7 @@ void DeviceManager_impl::createDeviceThread(
         const std::string&                            usageName,
         const std::vector<ossie::ComponentPlacement>& componentPlacements,
         const std::string&                            compositeDeviceIOR,
-        const std::vector<ComponentProperty*>&        instanceprops) {
+        const ossie::ComponentPropertyList&        instanceprops) {
  
     LOG_DEBUG(DeviceManager_impl, "Launching " << componentType << " file " 
                                   << codeFilePath << " Usage name " 
@@ -1157,8 +1168,11 @@ void DeviceManager_impl::createDeviceThread(
           }
 
           // now exec - we should not return from this
-          //execv(new_argv[0], (char * const*) new_argv);
-          execv(argv[0], &argv[0]);
+          if (strcmp(argv[0], "valgrind") == 0) {
+              execvp(argv[0], &argv[0]);
+          } else {
+              execv(argv[0], &argv[0]);
+          }
 
           LOG_ERROR(DeviceManager_impl, new_argv[0] << " did not execute : " << strerror(errno));
           exit(-1);
@@ -1440,7 +1454,7 @@ void DeviceManager_impl::postConstructor (
             recordComponentInstantiationId(instantiation, matchedDeviceImpl);
 
             // get overloaded properties for exec params
-            const std::vector<ComponentProperty*>& instanceprops = instantiation.getProperties();
+            const ossie::ComponentPropertyList & instanceprops = instantiation.getProperties();
             std::map<std::string, std::string> overloadprops;
 
             getOverloadprops(overloadprops, instanceprops, deviceProperties);
@@ -1559,7 +1573,7 @@ void DeviceManager_impl::postConstructor (
             recordComponentInstantiationId(instantiation, matchedDeviceImpl);
 
             // get overloaded properties for exec params
-            const std::vector<ComponentProperty*>& instanceprops = instantiation.getProperties();
+            const ossie::ComponentPropertyList & instanceprops = instantiation.getProperties();
             std::map<std::string, std::string> overloadprops;
 
             getOverloadprops(overloadprops, instanceprops, deviceProperties);
@@ -1718,7 +1732,8 @@ bool DeviceManager_impl::joinPRFProperties (const std::string& prfFile, ossie::P
             return true;
         }
     } catch (const ossie::parser_error& ex) {
-        LOG_ERROR(DeviceManager_impl, "XML parser error '" << ex.what() << "' in PRF file " << prfFile);
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(ex.what());
+        LOG_ERROR(DeviceManager_impl, "Error parsing PRF file " << prfFile << ". " << parser_error_line << "The XML parser returned the following error: " << ex.what());
     } CATCH_LOG_ERROR(DeviceManager_impl, "Failure parsing PRF file " << prfFile);
 
     return false;
@@ -1939,10 +1954,10 @@ throw (CORBA::SystemException, CF::InvalidObjectReference)
 
   // override device properties in DCD file
   const ComponentInstantiation& instantiation = DCDParser.getComponentInstantiationById(deviceid);
-  const std::vector<ComponentProperty*>& overrideProps = instantiation.getProperties();
+  const ossie::ComponentPropertyList& overrideProps = instantiation.getProperties();
   // Check for any overrides from DCD componentproperites
   for (unsigned int j = 0; j < overrideProps.size (); j++) {
-    LOG_TRACE(DeviceManager_impl, "Override  Properties prop id " << overrideProps[j]->getID());
+    LOG_TRACE(DeviceManager_impl, "Override  Properties prop id " << overrideProps[j].getID());
     spdinfo.overrideProperty( overrideProps[j] );
   }
 
@@ -2568,17 +2583,20 @@ bool DeviceManager_impl::decrement_registeredDevices(CF::Device_ptr registeredDe
 
 void DeviceManager_impl::local_unregisterDevice(CF::Device_ptr device, const std::string& label)
 {
+  try {
     // Unbind device from the naming service
     CosNaming::Name_var tmpDeviceName = ossie::corba::stringToName(label);
     devMgrContext->unbind(tmpDeviceName);
+  } CATCH_LOG_ERROR(DeviceManager_impl, "Unable to unbind device: " << label )
 
-    // Per SR:490, don't unregisterDevice from the domain manager if we are SHUTTING_DOWN
-    if (_adminState == DEVMGR_REGISTERED) {
-        try {
-            _dmnMgr->unregisterDevice(device);
-        } catch( ... ) {
-        }
+  // Per SR:490, don't unregisterDevice from the domain manager if we are SHUTTING_DOWN
+  if (_adminState == DEVMGR_REGISTERED) {
+    try {
+      _dmnMgr->unregisterDevice(device);
+    } catch( ... ) {
     }
+  }
+
 }
 
 /*

@@ -159,11 +159,11 @@ namespace sad
     virtual void
     componentinstantiation (const ::ossie::ComponentInstantiation&);
 
-    virtual ::ossie::ComponentPlacement
+    virtual const ::ossie::ComponentPlacement&
     post_componentplacement ();
     
     private:
-    std::auto_ptr<ossie::ComponentPlacement> componentPlacement;
+    ossie::ComponentPlacement componentPlacement;
   };
 
   class componentfileref_pimpl: public virtual componentfileref_pskel
@@ -192,7 +192,7 @@ namespace sad
     usagename (const ::std::string&);
 
     virtual void
-    componentproperties (const ::std::vector<ossie::ComponentProperty*>&);
+      componentproperties ( const ossie::ComponentPropertyList&);
 
     virtual void
     findcomponent (const ::std::string&);
@@ -204,17 +204,16 @@ namespace sad
     startorder (const ::std::string&);
 
     virtual void
-    affinity (const  ossie::ComponentInstantiation::AffinityProperties &);
+    affinity (const  ossie::ComponentInstantiation::AffinityProperties&);
 
     virtual void
-      loggingconfig (const ossie::ComponentInstantiation::LoggingConfig &);
+      loggingconfig (const ossie::ComponentInstantiation::LoggingConfig&);
 
-    virtual ::ossie::ComponentInstantiation
+    virtual const ::ossie::ComponentInstantiation&
     post_componentinstantiation ();
     
     private:
-    std::auto_ptr<ossie::ComponentInstantiation> componentInstantiation;
-    std::string _startorder;
+    ossie::ComponentInstantiation componentInstantiation;
   };
 
   class affinity_pimpl: public virtual affinity_pskel
@@ -224,18 +223,18 @@ namespace sad
     pre ();
 
     virtual void
-    simpleref (ossie::SimplePropertyRef*);
+    simpleref (const ossie::SimplePropertyRef&);
 
     virtual void
-    simplesequenceref (ossie::SimpleSequencePropertyRef*);
+    simplesequenceref (const ossie::SimpleSequencePropertyRef&);
 
     virtual void
-    structref (ossie::StructPropertyRef*);
+    structref ( const ossie::StructPropertyRef&);
 
     virtual void
-    structsequenceref (ossie::StructSequencePropertyRef*);
+    structsequenceref (const ossie::StructSequencePropertyRef&);
 
-    ossie::ComponentInstantiation::AffinityProperties
+    const ossie::ComponentInstantiation::AffinityProperties&
     post_affinity ();
 
     private:
@@ -251,7 +250,8 @@ namespace sad
 
     virtual void level (const ::std::string&);
 
-    virtual ossie::ComponentInstantiation::LoggingConfig post_loggingconfig ();
+    virtual const ossie::ComponentInstantiation::LoggingConfig&
+     post_loggingconfig ();
     
     private:
     ossie::ComponentInstantiation::LoggingConfig  info;
@@ -266,22 +266,22 @@ namespace sad
     pre ();
 
     virtual void
-    simpleref (ossie::SimplePropertyRef*);
+    simpleref (const ossie::SimplePropertyRef&);
 
     virtual void
-    simplesequenceref (ossie::SimpleSequencePropertyRef*);
+    simplesequenceref (const ossie::SimpleSequencePropertyRef&);
 
     virtual void
-    structref (ossie::StructPropertyRef*);
+    structref (const ossie::StructPropertyRef&);
 
     virtual void
-    structsequenceref (ossie::StructSequencePropertyRef*);
+    structsequenceref (const ossie::StructSequencePropertyRef&);
 
-    virtual ::std::vector<ossie::ComponentProperty*>
+    virtual const ossie::ComponentPropertyList&
     post_componentproperties ();
     
     private:
-    ::std::vector<ossie::ComponentProperty*> componentProperties;
+    ossie::ComponentPropertyList  componentProperties;
   };
 
   class findcomponent_pimpl: public virtual findcomponent_pskel
@@ -379,16 +379,16 @@ namespace sad
     pre ();
 
     virtual void
-    simpleref (ossie::SimplePropertyRef*);
+    simpleref (const ossie::SimplePropertyRef&);
 
     virtual void
-    simplesequenceref (ossie::SimpleSequencePropertyRef*);
+    simplesequenceref (const ossie::SimpleSequencePropertyRef&);
 
     virtual void
-    structref (ossie::StructPropertyRef*);
+    structref ( const ossie::StructPropertyRef&);
 
     virtual void
-    structsequenceref (ossie::StructSequencePropertyRef*);
+    structsequenceref (const ossie::StructSequencePropertyRef&);
 
     virtual void
     post_resourcefactoryproperties ();
@@ -406,11 +406,11 @@ namespace sad
     virtual void
     value (const ::std::string&);
 
-    virtual ossie::SimplePropertyRef*
+    virtual const ossie::SimplePropertyRef&
     post_simpleref ();
     
     private:
-    ossie::SimplePropertyRef* simple;
+    ossie::SimplePropertyRef simple;
   };
 
   class simplesequenceref_pimpl: public virtual simplesequenceref_pskel
@@ -425,10 +425,10 @@ namespace sad
     virtual void
     refid (const ::std::string&);
 
-    virtual ossie::SimpleSequencePropertyRef*
+    virtual const ossie::SimpleSequencePropertyRef&
     post_simplesequenceref ();
     private:
-    ossie::SimpleSequencePropertyRef* simpleseq;
+    ossie::SimpleSequencePropertyRef simpleseq;
   };
 
   class structref_pimpl: public virtual structref_pskel
@@ -438,19 +438,19 @@ namespace sad
     pre ();
 
     virtual void
-    simpleref (ossie::SimplePropertyRef*);
+    simpleref (const ossie::SimplePropertyRef&);
 
     virtual void
-    simplesequenceref (ossie::SimpleSequencePropertyRef*);
+    simplesequenceref (const ossie::SimpleSequencePropertyRef&);
 
     virtual void
     refid (const ::std::string&);
 
-    virtual ossie::StructPropertyRef*
+    virtual const ossie::StructPropertyRef&
     post_structref ();
 
     private:
-    ossie::StructPropertyRef* structref;
+    ossie::StructPropertyRef structref;
   };
 
   class structsequenceref_pimpl: public virtual structsequenceref_pskel
@@ -460,16 +460,16 @@ namespace sad
     pre ();
 
     virtual void
-    structvalue (const ::std::map<std::string, ossie::ComponentProperty*>&);
+      structvalue (const ossie::ComponentPropertyMap& value);
 
     virtual void
     refid (const ::std::string&);
 
-    virtual ossie::StructSequencePropertyRef*
+    virtual const ossie::StructSequencePropertyRef&
     post_structsequenceref ();
 
     private:
-    ossie::StructSequencePropertyRef* structsequenceref;
+    ossie::StructSequencePropertyRef  structsequenceref;
   };
 
   class structvalue_pimpl: public virtual structvalue_pskel
@@ -479,16 +479,16 @@ namespace sad
     pre ();
 
     virtual void
-    simpleref (ossie::SimplePropertyRef*);
+    simpleref (const ossie::SimplePropertyRef&);
  
     virtual void
-    simplesequenceref (ossie::SimpleSequencePropertyRef*);
+    simplesequenceref (const ossie::SimpleSequencePropertyRef&);
 
-    virtual ::std::map<std::string, ossie::ComponentProperty*>
+    virtual const ossie::ComponentPropertyMap&
     post_structvalue ();
 
     private:
-    std::map<std::string, ossie::ComponentProperty*> values;
+    ossie::ComponentPropertyMap  values;
   };
 
   class values_pimpl: public virtual values_pskel
@@ -867,16 +867,16 @@ namespace sad
       propertyref (const ossie::SoftwareAssembly::PropertyRef&);
 
       virtual void
-      simpleref (ossie::SimplePropertyRef*);
+      simpleref (const ossie::SimplePropertyRef&);
 
       virtual void
-      simplesequenceref (ossie::SimpleSequencePropertyRef*);
+      simplesequenceref (const ossie::SimpleSequencePropertyRef&);
 
       virtual void
-      structref (ossie::StructPropertyRef*);
+        structref (const ossie::StructPropertyRef&);
 
       virtual void
-      structsequenceref (ossie::StructSequencePropertyRef*);
+      structsequenceref (const ossie::StructSequencePropertyRef&);
 
       virtual void
       id (const ::std::string&);
@@ -889,7 +889,6 @@ namespace sad
 
   private:
       std::auto_ptr<ossie::SoftwareAssembly::UsesDevice> uses;
-      //std::vector<ossie::SoftwareAssembly::PropertyRef> dependencies;
   };
 
   class propertyref_pimpl: public virtual propertyref_pskel

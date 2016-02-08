@@ -47,6 +47,7 @@ class ApplicationFactory_impl: public virtual POA_CF::ApplicationFactory
     ENABLE_LOGGING
 
 private:
+    
     ApplicationFactory_impl();  // Node default constructor
     ApplicationFactory_impl(ApplicationFactory_impl&);  // No copying
 
@@ -69,6 +70,11 @@ private:
     // Support for creating a new waveform naming context
     std::string getWaveformContextName(std::string name);
     std::string getBaseWaveformContext(std::string waveform_context);
+
+    static void ValidateFileLocation ( CF::FileManager_ptr fileMgr, const std::string &profile );
+    static void ValidateSoftPkgDep( CF::FileManager_ptr fileMgr, const std::string &profile );
+    static void ValidateSPD ( CF::FileManager_ptr fileMgr, const std::string &profile, const bool require_prf=true, const bool require_scd=true );
+    static void ValidateSPD (CF::FileManager_ptr fileMgr, ossie::SoftPkg &spd, const std::string &profile, const bool require_prf=true, const bool require_scd=true );
 
 public:
     ApplicationFactory_impl (const std::string& softwareProfile, 
@@ -97,6 +103,9 @@ public:
     char* softwareProfile () throw (CORBA::SystemException) {
         return CORBA::string_dup(_softwareProfile.c_str());
     }
+
+    const std::string & getID () { return _identifier; }
+    const std::string & getName () { return _name; }
 
     // allow createHelper to have access to ApplicationFactory_impl
     friend class createHelper;
@@ -132,6 +141,12 @@ public ossie::DeviceLookup
 {
 
 public:
+    struct componentReservation {
+        std::string id;
+        float       reservation;
+    };
+    std::vector<componentReservation> componentReservations;
+    
     typedef std::map<std::string,std::string> DeviceAssignmentMap;
 
     createHelper (const ApplicationFactory_impl& appFact,
@@ -171,6 +186,7 @@ private:
     ossie::DeviceList _registeredDevices;
     ossie::DeviceList _executableDevices;
     PlacementList     _requiredComponents;
+    std::map<std::string,float> specialized_reservations;
 
     //
     // List of used devices allocated during application creation

@@ -93,8 +93,8 @@ namespace ossie
             APPLICATION
         } DependencyType;
 
-        Endpoint() { identifier__ = std::string("");};
-        virtual ~Endpoint() { };
+        Endpoint() { }
+        virtual ~Endpoint() { }
         CORBA::Object_ptr resolve(ConnectionManager& manager);
         CORBA::Object_ptr object();
         std::string getIdentifier();
@@ -153,6 +153,7 @@ namespace ossie
         void disconnect(DomainLookup* domainLookup);
 
         bool allowDeferral();
+        bool allowDeferral(Endpoint::DependencyType type, const std::string& identifier);
         bool checkDependency(Endpoint::DependencyType type, const std::string& identifier) const;
 
         // Default ctor and assignment exist only for deserialization support.

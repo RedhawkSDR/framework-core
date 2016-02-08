@@ -95,7 +95,6 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertEquals(len(self._rhDom.apps), 0)
         self.assertEquals(len(self._rhDom._get_applications()), 0)
 
-
     def test_largeShutdown(self):
         for i in range(16):
             self._rhDom.createApplication('TestCppProps')
@@ -113,6 +112,23 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertEquals(len(self._rhDom._get_applications()), 0)
         self.assertEquals(len(self._rhDom.apps), 0)
 
+    def test_apiHostCollocation(self):
+        app = self._rhDom.createApplication("/waveforms/through_w/through_w.sad.xml")
+        provides_ports = object.__getattribute__(app,'_providesPortDict')
+        self.assertEquals(provides_ports, {})
+        uses_ports = object.__getattribute__(app,'_usesPortDict')
+        self.assertEquals(uses_ports, {})
+        app.api()
+        provides_ports = object.__getattribute__(app,'_providesPortDict')
+        self.assertEquals(len(provides_ports), 1)
+        self.assertEquals(provides_ports.keys()[0], 'input')
+        self.assertEquals(provides_ports['input']['Port Interface'], 'IDL:CF/LifeCycle:1.0')
+        self.assertEquals(provides_ports['input']['Port Name'], 'input')
+        uses_ports = object.__getattribute__(app,'_usesPortDict')
+        self.assertEquals(uses_ports.keys()[0], 'output')
+        self.assertEquals(uses_ports['output']['Port Interface'], 'IDL:CF/LifeCycle:1.0')
+        self.assertEquals(uses_ports['output']['Port Name'], 'output')
+        
     def test_appListSync(self):
         app = self._rhDom.createApplication("/waveforms/TestCppProps/TestCppProps.sad.xml")
         self.assertNotEqual(app, None, "Application not created")
@@ -201,7 +217,7 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         app.my_struct_name.struct_ulong_name = 4294967295
         app.my_struct_name.struct_longlong_name = 9223372036854775807
         app.my_struct_name.struct_ulonglong_name = 18446744073709551615
-	app.my_struct_name.struct_seq_octet_name[1] = 255
+        app.my_struct_name.struct_seq_octet_name[1] = 255
         app.my_struct_name.struct_seq_short_name[1] = 32767
         app.my_struct_name.struct_seq_ushort_name[1] = 65535
         app.my_struct_name.struct_seq_long_name[1] = 2147483647
@@ -215,7 +231,7 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertEquals(app.my_struct_name.struct_ulong_name, 4294967295)
         self.assertEquals(app.my_struct_name.struct_longlong_name, 9223372036854775807)
         self.assertEquals(app.my_struct_name.struct_ulonglong_name, 18446744073709551615)
-	self.assertEquals(app.my_struct_name.struct_seq_octet_name[1], 255)
+        self.assertEquals(app.my_struct_name.struct_seq_octet_name[1], 255)
         self.assertEquals(app.my_struct_name.struct_seq_short_name[1], 32767)
         self.assertEquals(app.my_struct_name.struct_seq_ushort_name[1], 65535)
         self.assertEquals(app.my_struct_name.struct_seq_long_name[1], 2147483647)
@@ -231,7 +247,7 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         app.my_struct_name.struct_ulong_name = 0
         app.my_struct_name.struct_longlong_name = -9223372036854775808
         app.my_struct_name.struct_ulonglong_name = 0
-	app.my_struct_name.struct_seq_octet_name[0] = 0
+        app.my_struct_name.struct_seq_octet_name[0] = 0
         app.my_struct_name.struct_seq_short_name[0] = -32768
         app.my_struct_name.struct_seq_ushort_name[0] = 0
         app.my_struct_name.struct_seq_long_name[0] = -2147483648
@@ -245,7 +261,7 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertEquals(app.my_struct_name.struct_ulong_name, 0)
         self.assertEquals(app.my_struct_name.struct_longlong_name, -9223372036854775808)
         self.assertEquals(app.my_struct_name.struct_ulonglong_name, 0)
-	self.assertEquals(app.my_struct_name.struct_seq_octet_name[0], 0)
+        self.assertEquals(app.my_struct_name.struct_seq_octet_name[0], 0)
         self.assertEquals(app.my_struct_name.struct_seq_short_name[0], -32768)
         self.assertEquals(app.my_struct_name.struct_seq_ushort_name[0], 0)
         self.assertEquals(app.my_struct_name.struct_seq_long_name[0], -2147483648)
@@ -261,13 +277,13 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_ulong_name.configureValue, 4294967296)
         self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_longlong_name.configureValue, 9223372036854775808)
         self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_ulonglong_name.configureValue, 18446744073709551616)
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_octet_name.configureValue, [0, 256])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_short_name.configureValue, [0, 32768])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_ushort_name.configureValue, [0, 65536])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_long_name.configureValue, [0, 2147483648])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_ulong_name.configureValue, [0, 4294967296])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_longlong_name.configureValue, [0, 9223372036854775808])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_ulonglong_name.configureValue, [0, 18446744073709551616])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_octet_name.configureValue, [0, 256])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_short_name.configureValue, [0, 32768])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_ushort_name.configureValue, [0, 65536])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_long_name.configureValue, [0, 2147483648])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_ulong_name.configureValue, [0, 4294967296])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_longlong_name.configureValue, [0, 9223372036854775808])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_ulonglong_name.configureValue, [0, 18446744073709551616])
 
         # Test one beyond lower bound
         self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_octet_name.configureValue, -1)
@@ -277,13 +293,13 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_ulong_name.configureValue, -1)
         self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_longlong_name.configureValue, -9223372036854775809)
         self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_ulonglong_name.configureValue, -1)
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_octet_name.configureValue, [-1, 0])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_short_name.configureValue, [-32769, 0])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_ushort_name.configureValue, [-1, 0])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_long_name.configureValue, [-2147483649, 0])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_ulong_name.configureValue, [-1, 0])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_longlong_name.configureValue, [-9223372036854775809, 0])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_ulonglong_name.configureValue, [-1, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_octet_name.configureValue, [-1, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_short_name.configureValue, [-32769, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_ushort_name.configureValue, [-1, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_long_name.configureValue, [-2147483649, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_ulong_name.configureValue, [-1, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_longlong_name.configureValue, [-9223372036854775809, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_struct_name.struct_seq_ulonglong_name.configureValue, [-1, 0])
 
         # Makes sure the struct can be set without error
         # NB: This test used to use names instead of ids, which silently failed in 1.8.
@@ -377,7 +393,7 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         app.my_structseq_name[1].ss_longlong_name = -9223372036854775808
         app.my_structseq_name[0].ss_ulonglong_name = 18446744073709551615
         app.my_structseq_name[1].ss_ulonglong_name = 0
-	app.my_structseq_name[0].ss_seq_octet_name[1] = 255
+        app.my_structseq_name[0].ss_seq_octet_name[1] = 255
         app.my_structseq_name[1].ss_seq_octet_name[0] = 0
         app.my_structseq_name[0].ss_seq_short_name[1] = 32767
         app.my_structseq_name[1].ss_seq_short_name[0] = -32768
@@ -405,7 +421,7 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertEquals(app.my_structseq_name[1].ss_longlong_name, -9223372036854775808)
         self.assertEquals(app.my_structseq_name[0].ss_ulonglong_name, 18446744073709551615)
         self.assertEquals(app.my_structseq_name[1].ss_ulonglong_name, 0)
-	self.assertEquals(app.my_structseq_name[0].ss_seq_octet_name[1], 255)
+        self.assertEquals(app.my_structseq_name[0].ss_seq_octet_name[1], 255)
         self.assertEquals(app.my_structseq_name[1].ss_seq_octet_name[0], 0)
         self.assertEquals(app.my_structseq_name[0].ss_seq_short_name[1], 32767)
         self.assertEquals(app.my_structseq_name[1].ss_seq_short_name[0], -32768)
@@ -428,13 +444,13 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_ulong_name.configureValue, 4294967296)
         self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_longlong_name.configureValue, 9223372036854775808)
         self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_ulonglong_name.configureValue, 18446744073709551616)
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_octet_name.configureValue, [0, 256])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_short_name.configureValue, [0, 32768])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_ushort_name.configureValue, [0, 65536])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_long_name.configureValue, [0, 2147483648])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_ulong_name.configureValue, [0, 4294967296])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_longlong_name.configureValue, [0, 9223372036854775808])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_ulonglong_name.configureValue, [0, 18446744073709551616])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_octet_name.configureValue, [0, 256])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_short_name.configureValue, [0, 32768])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_ushort_name.configureValue, [0, 65536])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_long_name.configureValue, [0, 2147483648])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_ulong_name.configureValue, [0, 4294967296])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_longlong_name.configureValue, [0, 9223372036854775808])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[0].ss_seq_ulonglong_name.configureValue, [0, 18446744073709551616])
 
         # Test one beyond lower bound
         self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_octet_name.configureValue, -1)
@@ -444,13 +460,13 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_ulong_name.configureValue, -1)
         self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_longlong_name.configureValue, -9223372036854775809)
         self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_ulonglong_name.configureValue, -1)
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_octet_name.configureValue, [-1, 0])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_short_name.configureValue, [-32769, 0])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_ushort_name.configureValue, [-1, 0])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_long_name.configureValue, [-2147483649, 0])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_ulong_name.configureValue, [-1, 0])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_longlong_name.configureValue, [-9223372036854775809, 0])
-	self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_ulonglong_name.configureValue, [-1, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_octet_name.configureValue, [-1, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_short_name.configureValue, [-32769, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_ushort_name.configureValue, [-1, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_long_name.configureValue, [-2147483649, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_ulong_name.configureValue, [-1, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_longlong_name.configureValue, [-9223372036854775809, 0])
+        self.assertRaises(type_helpers.OutOfRangeException, app.my_structseq_name[1].ss_seq_ulonglong_name.configureValue, [-1, 0])
 
         # Make sure entire struct seq can be set without error
         new_value = [{'ss_octet': 100, 'ss_short': 101, 'ss_ushort': 102, 'ss_long': 103,
@@ -469,8 +485,8 @@ class RedhawkModuleTest(scatest.CorbaTestCase):
         for item in new_value:
             for name in item.iterkeys():
                 if isinstance(item[name], list):
-		    for i in item[name]:
-			i += 100
+                    for i in item[name]:
+                        i += 100
                 else:
                     item[name] = item[name] + 100
         app.my_structseq_name[0] = new_value[0]

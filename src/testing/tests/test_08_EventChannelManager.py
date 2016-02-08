@@ -74,7 +74,7 @@ class EventChannelManager(scatest.CorbaTestCase):
         time.sleep(5)
         components = app._get_registeredComponents()
         for component in components:
-            print component.componentObject._get_identifier()
+            #print component.componentObject._get_identifier()
             if 'ECM' in component.componentObject._get_identifier():
                 stuff = component.componentObject.query([])
         
@@ -106,7 +106,7 @@ class EventChannelManager(scatest.CorbaTestCase):
         time.sleep(5)
         components = app._get_registeredComponents()
         for component in components:
-            print component.componentObject._get_identifier()
+            #print component.componentObject._get_identifier()
             if 'ECM' in component.componentObject._get_identifier():
                 stuff = component.componentObject.query([])
         
@@ -140,7 +140,7 @@ class EventChannelManager(scatest.CorbaTestCase):
         time.sleep(5)
         components = app._get_registeredComponents()
         for component in components:
-            print component.componentObject._get_identifier()
+            #print component.componentObject._get_identifier()
             if 'ECM' in component.componentObject._get_identifier():
                 stuff = component.componentObject.query([])
         
@@ -155,3 +155,125 @@ class EventChannelManager(scatest.CorbaTestCase):
 
 
         app.releaseObject()
+
+class EventChannelManagerRedhawkUtils(scatest.CorbaTestCase):
+    def setUp(self):
+        self._domBooter, self._domMgr = self.launchDomainManager()
+        from ossie.utils import redhawk
+        d=None
+        d = redhawk.Domain(self._domMgr._get_name())
+        self.assertNotEqual(d, None )
+
+        # Get Event Channel Manager
+        self.ecm=None
+        self.ecm = d.getEventChannelMgr()
+
+        self.assertNotEqual(self.ecm, None )
+        self.assertNotEqual(self.ecm.ref, None )
+
+    def tearDown(self):
+        try:
+            self._app.stop()
+            self._app.releaseObject()
+        except AttributeError:
+            pass
+
+        try:
+            self._devMgr.shutdown()
+        except AttributeError:
+            pass
+
+        try:
+            self.terminateChild(self._devBooter)
+        except AttributeError:
+            pass
+
+        try:
+            self.terminateChild(self._domBooter)
+        except AttributeError:
+            pass
+
+        # Do all application and node booter shutdown before calling the base
+        # class tearDown, or failures will occur.
+        scatest.CorbaTestCase.tearDown(self)
+
+
+
+    def test_ECM_redhawkUtilsAccess(self):
+
+        self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", self._domMgr)
+        self.assertNotEqual(self._devBooter, None)
+
+        # get list of channels (should be ODM/IDM
+        clist,citer = self.ecm.listChannels(2)
+        self.assertEqual(citer, None )
+        self.assertEqual(len(clist), 2 )
+
+        # access list via iterator
+        clist,citer = self.ecm.listChannels()
+        self.assertEqual(clist, [] )
+        
+        ch=citer.next_one()
+        self.assertEqual(ch.channel_name, 'IDM_Channel')
+        ch=citer.next_one()
+        self.assertEqual(ch.channel_name, 'ODM_Channel')
+        ch=citer.next_one()
+        self.assertEqual(ch, None)
+
+        # test registration listeners
+        clist,citer = self.ecm.listRegistrants('IDM_Channel')
+        self.assertEqual(clist, [] )
+        ch=citer.next_one()
+        self.assertNotEqual(ch.channel_name,None)
+        ch=citer.next_one()
+        self.assertNotEqual(ch.channel_name,None)
+        ch=citer.next_one()
+        self.assertEqual(ch, None)
+
+        clist,citer = self.ecm.listRegistrants('IDM_Channel', 2)
+        self.assertEqual(citer, None )
+        self.assertEqual(len(clist), 2 )
+
+        # test event channel creation
+        ch = self.ecm.create('ecm_test')
+        self.assertNotEqual(ch, None)
+
+        self.assertRaises( CF.EventChannelManager.ChannelAlreadyExists, self.ecm.create, 'ecm_test') 
+
+        self.ecm.markForRegistrations( 'ecm_test' ) 
+        self.assertRaises( CF.EventChannelManager.ChannelDoesNotExist, self.ecm.markForRegistrations, 'ecm_doesnotexists') 
+
+        ch = self.ecm.createForRegistrations('ecm_test2')
+        self.assertNotEqual(ch, None)
+
+        self.assertRaises( CF.EventChannelManager.ChannelAlreadyExists, self.ecm.createForRegistrations, 'ecm_test2') 
+
+        reg = self.ecm.registerResource('ecm_test2')
+        self.assertNotEqual(reg, None)
+
+        self.assertRaises( CF.EventChannelManager.InvalidChannelName, self.ecm.registerResource, 'ecm_doesnotexists:bad_name') 
+
+        # test unregister method
+
+        # test exceptions during unregister
+        self.assertRaises( CF.EventChannelManager.RegistrationDoesNotExist, self.ecm.unregister, 'ecm_test2', '' )
+
+        self.ecm.unregister('ecm_test2', reg.reg.reg_id)
+
+        reg = self.ecm.registerResource('ecm_test2')
+        self.assertNotEqual(reg, None)
+
+        self.assertRaises( CF.EventChannelManager.ChannelDoesNotExist, self.ecm.unregister, 'ecm_test3', reg.reg.reg_id )
+
+        # test exceptions during release
+        self.assertRaises( CF.EventChannelManager.RegistrationsExists, self.ecm.release, 'ecm_test2' )
+
+        self.ecm.unregister('ecm_test2', reg.reg.reg_id)
+
+        self.assertRaises( CF.EventChannelManager.ChannelDoesNotExist, self.ecm.release, 'ecm_test2' )
+
+        self.ecm.release( 'ecm_test' )
+
+        self.assertRaises( CF.EventChannelManager.ChannelDoesNotExist, self.ecm.release, 'ecm_test')
+
+

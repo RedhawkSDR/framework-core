@@ -20,6 +20,7 @@
 
 import os
 import sys
+import time
 
 from omniORB.any import to_any
 
@@ -33,6 +34,7 @@ class CreateApp(jackhammer.Jackhammer):
         super(CreateApp,self).__init__(*args, **kwargs)
         self.__timeout = None
         self.__ignore_app = False
+        self.__delay = 0.0
 
     def initialize (self, sadFile):
         self.app_cnt = 0
@@ -58,7 +60,7 @@ class CreateApp(jackhammer.Jackhammer):
             try:
                 print "Creating  app: " + str( self.app_cnt ) 
                 app = self.appFact.create(self.appFact._get_name(), [], [])
-                app.stop()
+                time.sleep(self.__delay)
                 app.releaseObject()
                 print "Cleaned up app: " + str( self.app_cnt ) 
                 self.app_cnt += 1
@@ -66,17 +68,19 @@ class CreateApp(jackhammer.Jackhammer):
                 pass
         else:
             app = self.appFact.create(self.appFact._get_name(), [], [])
-            app.stop()
+            time.sleep(self.__delay)
             app.releaseObject()
 
     def options(self):
-        return '', ['timeout=','ignore']
+        return '', ['timeout=','ignore','delay=']
 
     def setOption(self, key, value):
         if key == '--timeout':
             self.__timeout = int(value)
-        if key == '--ignore':
+        elif key == '--ignore':
             self.__ignore_app = True
+        elif key == '--delay':
+            self.__delay = float(value)
         else:
             raise KeyError("Unknown option '%s'" % (key,))
 

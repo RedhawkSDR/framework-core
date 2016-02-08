@@ -62,7 +62,7 @@ void Resource_impl::setAdditionalParameters(std::string &softwareProfile, std::s
     CORBA::ORB_ptr orb = ossie::corba::Orb();
     CORBA::Object_var applicationRegistrarObject = CORBA::Object::_nil();
     try {
-      RH_NL_DEBUG("Resource", "narrow to Registrar object:" << application_registrar_ior );
+      RH_NL_TRACE("Resource", "narrow to Registrar object:" << application_registrar_ior );
       applicationRegistrarObject = orb->string_to_object(application_registrar_ior.c_str());
     } catch ( ... ) {
       RH_NL_WARN("Resource", "No  Registrar... create empty container");
@@ -72,15 +72,17 @@ void Resource_impl::setAdditionalParameters(std::string &softwareProfile, std::s
     CF::ApplicationRegistrar_ptr applicationRegistrar = ossie::corba::_narrowSafe<CF::ApplicationRegistrar>(applicationRegistrarObject);
     if (!CORBA::is_nil(applicationRegistrar)) {
       RH_NL_DEBUG("Resource", "Get DomainManager from Registrar object:" << application_registrar_ior );
-      this->_domMgr = new redhawk::DomainManagerContainer(applicationRegistrar->domMgr());
+      CF::DomainManager_var dm=applicationRegistrar->domMgr();
+      this->_domMgr = new redhawk::DomainManagerContainer(dm);
       return;
     }
 
     RH_NL_DEBUG("Resource", "Resolve DeviceManager...");
-    CF::DeviceManager_ptr devMgr = ossie::corba::_narrowSafe<CF::DeviceManager>(applicationRegistrarObject);
+    CF::DeviceManager_var devMgr = ossie::corba::_narrowSafe<CF::DeviceManager>(applicationRegistrarObject);
     if (!CORBA::is_nil(devMgr)) {
       RH_NL_DEBUG("Resource", "Resolving DomainManager from DeviceManager...");
-        this->_domMgr = new redhawk::DomainManagerContainer(devMgr->domMgr());
+        CF::DomainManager_var dm=devMgr->domMgr();
+        this->_domMgr = new redhawk::DomainManagerContainer(dm);
         return;
     }
 
@@ -288,12 +290,12 @@ void Resource_impl::start_component(Resource_impl::ctor_type ctor, int argc, cha
     if (!application_registrar_ior.empty()) {
         LOG_TRACE(Resource_impl, "Binding component to application context with name '" << name_binding << "'");
         CORBA::Object_var applicationRegistrarObject = orb->string_to_object(application_registrar_ior.c_str());
-        CF::ApplicationRegistrar_ptr applicationRegistrar = ossie::corba::_narrowSafe<CF::ApplicationRegistrar>(applicationRegistrarObject);
+        CF::ApplicationRegistrar_var applicationRegistrar = ossie::corba::_narrowSafe<CF::ApplicationRegistrar>(applicationRegistrarObject);
         if (!CORBA::is_nil(applicationRegistrar)) {
             applicationRegistrar->registerComponent(name_binding.c_str(), resource_obj);
         } else {
             // the registrar is not available (because the invoking infrastructure only uses the name service)
-            CosNaming::NamingContext_ptr applicationContext = ossie::corba::_narrowSafe<CosNaming::NamingContext>(applicationRegistrarObject);
+            CosNaming::NamingContext_var applicationContext = ossie::corba::_narrowSafe<CosNaming::NamingContext>(applicationRegistrarObject);
             ossie::corba::bindObjectToContext(resource_obj, applicationContext, name_binding);
         }
     } else {

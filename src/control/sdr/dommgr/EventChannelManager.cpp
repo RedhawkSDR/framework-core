@@ -115,6 +115,7 @@ void EventChannelManager::terminate ( const bool destroyChannels ) {
       ECM_DEBUG("terminate", "Removing Channel: " << iter->first );
       ECM_DEBUG("terminate", "    ChannelRecord: name:" << iter->second.channel_name );
       ECM_DEBUG("terminate", "    ChannelRecord: fqn:" << iter->second.fqn );
+      ECM_DEBUG("terminate", "    ChannelRecord: autoRelease:" << iter->second.autoRelease );
       ECM_DEBUG("terminate", "    ChannelRecord: release:" << iter->second.release );
       ECM_DEBUG("terminate", "    ChannelRecord: registrants:" << iter->second.registrants.size());
       ECM_DEBUG("terminate", "    ChannelRecord: channel:" << iter->second.channel);
@@ -193,7 +194,7 @@ const ossie::events::EventChannel_ptr EventChannelManager::findChannel( const st
       throw (CF::EventChannelManager::ChannelDoesNotExist());
     }
 
-    reg->release = true;
+    reg->autoRelease = true;
     ECM_DEBUG( "markForRegistrationr",  " EventChannel: " << cname << " marked for autoRelease" );
   }
 
@@ -247,6 +248,7 @@ const ossie::events::EventChannel_ptr EventChannelManager::findChannel( const st
     if ( reg->nregistrants() > 0 ) {
       ECM_DEBUG( "release", " Registrations still exists: " << channel_name );    
       // mark channel for deletion when registrations are emptied
+      reg->autoRelease = true;
       reg->release = true;
       throw (CF::EventChannelManager::RegistrationsExists());
     }
@@ -638,7 +640,7 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
         creg->registrants.erase(itr);
       }
 
-      if ( creg->registrants.size()==0 and creg->release ) {
+      if ( creg->registrants.size()==0 and creg->autoRelease ) {
         ECM_DEBUG("EventChannelManager", "NO MORE REGISTRATIONS, (AUTO-RELEASE IS ON), DELETING CHANNEL:" << cname  );        
         _deleteChannelRegistration(cname);
       }
@@ -1191,11 +1193,13 @@ EventChannelManager::ChannelRegistrationPtr EventChannelManager::_addChannelRegi
     _channels[cname].channel_name = cname;           // name known to the domain
     _channels[cname].fqn = fqn;                      // internal name registered with EventService
     _channels[cname].channel = ossie::events::EventChannel::_duplicate(channel);
-    _channels[cname].release = autoRelease;
+    _channels[cname].release = false;
+    _channels[cname].autoRelease = autoRelease;
     ret = &(_channels[cname]);
     ECM_TRACE("_addChannelRegistration", "Created ChannelRegistrationRecord, Event Channel/FQN : "<< cname << "/" << fqn );
     ECM_TRACE("addChannelRegistration", "    ChannelRecord: name:" << _channels[cname].channel_name );
     ECM_TRACE("addChannelRegistration", "    ChannelRecord: fqn:" << _channels[cname].fqn );
+    ECM_TRACE("addChannelRegistration", "    ChannelRecord: autoRelease:" << _channels[cname].autoRelease );
     ECM_TRACE("addChannelRegistration", "    ChannelRecord: release:" << _channels[cname].release );
     ECM_TRACE("addChannelRegistration", "    ChannelRecord: registrants:" << _channels[cname].registrants.size());
     ECM_TRACE("addChannelRegistration", "    ChannelRecord: channel:" << _channels[cname].channel);
@@ -1217,7 +1221,12 @@ EventChannelManager::ChannelRegistrationPtr EventChannelManager::_addChannelRegi
       if ( reg ) {
         if ( CORBA::is_nil( reg->channel) == false ){
           ECM_DEBUG("_deleteChannelRegistration", "Calling Destroy, Channel/EventChannel: "<< cname << "/" << reg->fqn);
-          reg->channel->destroy();
+          try {
+            reg->channel->destroy();
+          }
+          catch(...){
+            ECM_DEBUG("_deleteChannelRegistration", "Exception during destroy  EventService.. channel/EventChannel: "<< cname << "/" << reg->fqn);
+          }
           reg->channel = ossie::events::EventChannel::_nil();
           ECM_DEBUG("_deleteChannelRegistration", "Destory Completed, Channel/EventChannel: "<< cname << "/" << reg->fqn);
         }

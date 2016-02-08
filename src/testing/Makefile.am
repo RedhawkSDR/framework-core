@@ -38,6 +38,8 @@ SUBDIRS = sdr/dev/devices/ExecutableDevice \
           sdr/dev/devices/cpp_dev/cpp \
           sdr/dev/devices/GPP/cpp \
           sdr/dev/devices/java_dev/java \
+          sdr/dom/deps/cpp_dep1/cpp \
+          sdr/dom/deps/cpp_dep2/cpp \
           sdr/dom/components/TestCppProps \
           sdr/dom/components/linkedLibraryTest \
           sdr/dom/components/TestCppsoftpkgDeps \
@@ -63,7 +65,8 @@ SUBDIRS = sdr/dev/devices/ExecutableDevice \
           sdr/dom/components/commandline_prop/cpp \
           sdr/dom/components/nocommandline_prop/cpp \
           sdr/dom/components/foo/bar/comp/cpp \
-          sdr/dom/components/TestCppOptionalProps/cpp
+          sdr/dom/components/TestCppOptionalProps/cpp \
+          sdr/dom/components/cpp_with_deps/cpp
 
 if HAVE_JAVASUPPORT
 SUBDIRS += sdr/dev/devices/BasicTestDevice_java/java \

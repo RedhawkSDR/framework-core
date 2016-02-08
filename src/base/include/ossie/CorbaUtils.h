@@ -114,7 +114,7 @@ namespace ossie {
           // handle to naming service
           CosNaming::NamingContextExt_ptr         namingServiceCtx;
 
-          virtual ~OrbContext() {};
+          virtual ~OrbContext();
 
           OrbContext() {
             init();

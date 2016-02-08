@@ -45,6 +45,8 @@
 #include <errno.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <sys/time.h>
+#include <libgen.h>
 
 #include "ossie/ExecutableDevice_impl.h"
 #include "ossie/prop_helpers.h"
@@ -281,13 +283,24 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
     // assemble argument list
     std::vector<std::string> args = prepend_args;
     if (getenv("VALGRIND")) {
-        args.push_back("/usr/local/bin/valgrind");
+        char* valgrind = getenv("VALGRIND");
+        if (strlen(valgrind) == 0) {
+            // Assume that valgrind is somewhere on the path
+            args.push_back("valgrind");
+        } else {
+            // Environment variable is path to valgrind executable
+            args.push_back(valgrind);
+        }
+        // Put the log file in the cache next to the component entrypoint;
+        // include the pid to avoid clobbering existing files
         std::string logFile = "--log-file=";
-        logFile += path;
+        char* name_temp = strdup(path.c_str());
+        logFile += dirname(name_temp);
+        free(name_temp);
+        logFile += "/valgrind.%p.log";
         args.push_back(logFile);
-    } else {
-        args.push_back(path);
     }
+    args.push_back(path);
 
     LOG_DEBUG(ExecutableDevice_impl, "Building param list for process " << path);
     for (CORBA::ULong i = 0; i < parameters.length(); ++i) {
@@ -298,9 +311,6 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
     }
 
     LOG_DEBUG(ExecutableDevice_impl, "Forking process " << path);
-    if (prepend_args.size() != 0) {
-        path = prepend_args[0];
-    }
 
     std::vector<char*> argv(args.size() + 1, NULL);
     for (std::size_t i = 0; i < args.size(); ++i) {
@@ -350,11 +360,18 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
       // reset mutex in child...
       pthread_mutex_init(load_execute_lock.native_handle(),0);
       
+      // set the forked component as the process group leader
+      setpgid(getpid(), 0);
+      
       // Run executable
       while(true)
         {
-
-          returnval = execv(path.c_str(), &argv[0]);
+          if (strcmp(argv[0], "valgrind") == 0) {
+              // Find valgrind in the path
+              returnval = execvp(argv[0], &argv[0]);
+          } else {
+              returnval = execv(argv[0], &argv[0]);
+          }
 
           num_retries--;
           if( num_retries <= 0 || errno!=ETXTBSY)
@@ -418,7 +435,11 @@ CF::ExecutableDevice::ProcessID_Type ExecutableDevice_impl::do_execute (const ch
 void
 ExecutableDevice_impl::terminate (CF::ExecutableDevice::ProcessID_Type processId) throw (CORBA::SystemException, CF::ExecutableDevice::InvalidProcess, CF::Device::InvalidState)
 {
-
+    std::vector< std::pair< int, float > > _signals;
+    _signals.push_back(std::make_pair(SIGINT, 2));
+    _signals.push_back(std::make_pair(SIGQUIT, 2));
+    _signals.push_back(std::make_pair(SIGTERM, 2));
+    _signals.push_back(std::make_pair(SIGKILL, 0.5));
 // validate device state
     if (isLocked () || isDisabled ()) {
         printf ("Cannot terminate. System is either LOCKED or DISABLED.");
@@ -428,9 +449,31 @@ ExecutableDevice_impl::terminate (CF::ExecutableDevice::ProcessID_Type processId
     }
 
 // go ahead and terminate the process
-    int status;
-    kill(processId, SIGKILL);
-    waitpid(processId, &status, 0);
+    pid_t pgroup = getpgid(processId);
+    bool processes_dead = false;
+    for (std::vector< std::pair< int, float > >::iterator _signal=_signals.begin();_signal!=_signals.end();_signal++) {
+        killpg(pgroup, _signal->first);
+        int retval = 0;
+        bool timeout = false;
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        double begin_time = tv.tv_sec + (((float)tv.tv_usec)/1e6);
+        while ((retval != -1) and (not(timeout))) {
+            retval = killpg(pgroup, 0);
+            if (retval == -1) {
+                if (errno == ESRCH) {
+                    processes_dead = true;
+                }
+            } else {
+                usleep(100000);
+            }
+            gettimeofday(&tv, NULL);
+            double now = tv.tv_sec + (((double)tv.tv_usec)/1e6);
+            if (now > (begin_time+_signal->second)) {
+                timeout = true;
+            }
+        }
+    }
 }
 
 void  ExecutableDevice_impl::configure (const CF::Properties& capacities)

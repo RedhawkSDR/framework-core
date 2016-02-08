@@ -39,6 +39,7 @@ import containers
 
 import sys
 import CosNaming
+import CosEventChannelAdmin, CosEventChannelAdmin__POA
 import signal
 import getopt
 from Queue import Queue
@@ -137,6 +138,9 @@ class providesport(_port):
 #
 # Support Classes for handling PropertyChange Listeners
 #
+class  _PCL_Except(Exception):
+    def __init__(self,msg=""):
+        self.message = msg
 
 # Monitoring thread...
 class _PropertyChangeThread(ThreadedComponent):
@@ -161,9 +165,10 @@ class _EC_PropertyChangeListener(object):
                 self.ec = channel
                 self.pub = ossie.events.Publisher(ec)
             else:
-                raise -1
+                raise _PCL_Except("Cannot narrow to EventChannel")
         except:
-            raise -1
+            print traceback.format_exc()
+            raise _PCL_Except("Cannot narrow to EventChannel")
 
     def notify( self, prec, props ):
         retval=0
@@ -189,9 +194,10 @@ class _INF_PropertyChangeListener(object):
             if pcl:
                 self.listener = pcl
             else:
-                raise -1
+                raise _PCL_Except("Cannot narrow to PropertyChangeListener")
+
         except:
-            raise -1
+            raise _PCL_Except("Cannot narrow to PropertyChangeListener")
 
     def notify( self, prec, props ):
         retval=0
@@ -458,9 +464,10 @@ class Resource(object):
            if isinstance(portdef, usesport):
                direction = 'Uses'
            elif isinstance(portdef, providesport):
-               direction = 'Provides'
-           if repid == 'IDL:ExtendedEvent/MessageEvent:1.0':
-               direction = 'Bidir'
+               if repid == 'IDL:ExtendedEvent/MessageEvent:1.0':
+                   direction = 'Bidir'
+               else:
+                   direction = 'Provides'
            info = CF.PortSet.PortInfoType(obj_ptr, name, repid, description, direction)
            portList.append(info)
 
@@ -792,8 +799,8 @@ class Resource(object):
                 if self._props.has_id(prop.id) and self._props.isConfigurable(prop.id):
                     try:
                         self._props.configure(prop.id, prop.value)
-                    except ValueError, e:
-                        self._log.warning("Invalid value provided to configure for property %s %s", prop.id, e)
+                    except Exception, e:
+                        self._log.warning("Invalid value provided to configure for property %s: %s", prop.id, e)
                         notSet.append(prop)
                 else:
                     self._log.warning("Tried to configure non-existent, readonly, or property with action not equal to external %s", prop.id)

@@ -31,6 +31,7 @@ import java.nio.charset.Charset;
 import org.omg.CORBA.Any;
 import org.omg.CORBA.ORB;
 import org.omg.CORBA.OBJECT_NOT_EXIST;
+import org.omg.CORBA.COMM_FAILURE;
 import org.omg.CORBA.ORBPackage.InvalidName;
 import org.omg.PortableServer.*;
 import org.omg.PortableServer.POAManagerPackage.*;
@@ -156,18 +157,23 @@ public class utils {
                 }
                 
                 NamingContextExt ns = null;
+                java.util.logging.Level logger_level = java.util.logging.Logger.getLogger("javax.enterprise.resource.corba").getLevel();
                 try {
+                    java.util.logging.Logger.getLogger("javax.enterprise.resource.corba").setLevel(java.util.logging.Level.OFF);
                     org.omg.CORBA.Object tmp_ns = orb.resolve_initial_references("NameService");
                     ns = NamingContextExtHelper.narrow(tmp_ns);
                     if ( ns == null ) {
                         System.out.println("OrbContext::Init.... NameService unavailable");
                     }
                     //System.out.println("Found NameService.....");
+                } catch (COMM_FAILURE e) {
+                    // name service is not running. The component is probably running on the sandbox
                 } catch (final InvalidName e) {
                     System.out.println(e);
                 } catch (Exception e) {
                     System.out.println(e);
                 }
+                java.util.logging.Logger.getLogger("javax.enterprise.resource.corba").setLevel(logger_level);
             
                 _singleton = new OrbContext(orb, poa, ns);
             }

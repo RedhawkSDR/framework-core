@@ -163,6 +163,217 @@ static std::vector<ossie::SPD::NameVersionPair> mergeOsDeps(const ossie::Impleme
 
 PREPARE_LOGGING(ApplicationFactory_impl);
 
+void
+ApplicationFactory_impl::ValidateFileLocation( CF::FileManager_ptr fileMgr, const std::string &profile_file)
+{
+    TRACE_ENTER(ApplicationFactory_impl)
+
+    if (profile_file == "") {
+        TRACE_EXIT(ApplicationFactory_impl)
+        return;
+    }
+
+    // Verify file within the provided FileMgr
+    LOG_TRACE(ApplicationFactory_impl, "Validating that profile " << profile_file << " exists");
+    if (!fileMgr->exists (profile_file.c_str())) {
+        string msg = "File ";
+        msg += profile_file;
+        msg += " does not exist.";
+        throw CF::FileException (CF::CF_ENOENT, msg.c_str());
+    }
+}
+
+
+void ApplicationFactory_impl::ValidateSoftPkgDep (CF::FileManager_ptr fileMgr, const std::string& sfw_profile )  {
+  SoftPkg pkg;
+  ValidateSPD(fileMgr, pkg, sfw_profile, false, false );
+}
+
+void ApplicationFactory_impl::ValidateSPD(CF::FileManager_ptr fileMgr, 
+                                          const std::string& sfw_profile, 
+                                          const bool require_prf, 
+                                          const bool require_scd) {
+  SoftPkg pkg;
+  ValidateSPD(fileMgr, pkg, false, false );
+}
+
+void ApplicationFactory_impl::ValidateSPD(CF::FileManager_ptr fileMgr, 
+                                          SoftPkg &spdParser, 
+                                          const std::string& sfw_profile, 
+                                          const bool require_prf, 
+                                          const bool require_scd) {
+    TRACE_ENTER(ApplicationFactory_impl)
+
+    if ( sfw_profile == "" ) {
+      LOG_WARN( ApplicationFactory_impl, "No Software Profile Provided.");
+      throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, "No software profile provided");
+      TRACE_EXIT(ApplicationFactory_impl);
+    }
+
+    try {
+        LOG_TRACE(ApplicationFactory_impl, "Validating SPD " << sfw_profile);
+        ValidateFileLocation(fileMgr, sfw_profile);
+
+        // check the filename ends with the extension given in the spec
+        if ((strstr (sfw_profile.c_str(), ".spd.xml")) == NULL)
+            { LOG_ERROR(ApplicationFactory_impl, "File " << sfw_profile << " should end with .spd.xml"); }
+        LOG_TRACE(ApplicationFactory_impl, "validating " << sfw_profile);
+
+        try {
+          File_stream _spd(fileMgr, sfw_profile.c_str());
+            spdParser.load( _spd,  sfw_profile.c_str() );
+            _spd.close();
+        } catch (ossie::parser_error& ex) {
+            std::string parser_error_line = ossie::retrieveParserErrorLineNumber(ex.what());
+            LOG_ERROR(ApplicationFactory_impl, "SPD file failed validation; parser error on file " << sfw_profile << parser_error_line << "The XML parser returned the following error: " << ex.what());
+            throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.what());
+        } catch (CF::InvalidFileName ex) {
+            LOG_ERROR(ApplicationFactory_impl, "Failed to validate SPD due to invalid file name " << ex.msg);
+            throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+        } catch (CF::FileException ex) {
+            LOG_ERROR(ApplicationFactory_impl, "Failed to validate SPD due to file exception" << ex.msg);
+            throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+        } catch ( ... ) {
+            LOG_ERROR(ApplicationFactory_impl, "Unexpected error validating PRF " << sfw_profile);
+            throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, "");
+        }
+
+        //
+        // validate each implementation
+        //
+        const ossie::SPD::Implementations& impls = spdParser.getImplementations();
+        ossie::SPD::Implementations::const_iterator impl = impls.begin();
+        for( ; impl != impls.end(); impl++ ) {
+          
+          // validate code file exists
+          try {
+            boost::filesystem::path implPath = boost::filesystem::path( spdParser.getSPDPath()) /  impl->getCodeFile();
+            LOG_TRACE(ApplicationFactory_impl, "Validating Implmentation existance: " << implPath.string() );
+            ValidateFileLocation( fileMgr, implPath.string().c_str() );
+          } catch (CF::InvalidFileName ex) {
+            LOG_ERROR(ApplicationFactory_impl, "Invalid Code File,  PROFILE:" << sfw_profile << "  CODE:" << impl->getCodeFile());
+            throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+          } catch (CF::FileException ex) {
+            LOG_ERROR(ApplicationFactory_impl, "Invalid Code File,  PROFILE:" << sfw_profile << "  CODE:" << impl->getCodeFile());
+            throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+          } catch ( ... ) {
+            LOG_ERROR(ApplicationFactory_impl, "Unexpected error validating PRF " << spdParser.getPRFFile());
+            throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, "");
+          }
+
+          // validate all the soft package dependencies....
+          const ossie::SPD::SoftPkgDependencies& deps = impl->getSoftPkgDependencies();
+          ossie::SPD::SoftPkgDependencies::const_iterator dep = deps.begin();
+          for(; dep != deps.end(); dep++ ) {
+            try {
+              LOG_TRACE(ApplicationFactory_impl, "Validating Dependency: " << dep->localfile);
+              ValidateSoftPkgDep( fileMgr, dep->localfile.c_str() );
+            } catch (CF::InvalidFileName ex) {
+              LOG_ERROR(ApplicationFactory_impl, "Invalid Code File,  PROFILE:" << sfw_profile << "  CODE:" << impl->getCodeFile());
+              throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+            } catch (CF::FileException ex) {
+              LOG_ERROR(ApplicationFactory_impl, "Invalid Code File,  PROFILE:" << sfw_profile << "  CODE:" << impl->getCodeFile());
+              throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+            }
+            
+          }
+
+        }
+        
+        // query SPD for PRF
+        if (spdParser.getPRFFile() != 0) {
+            LOG_TRACE(ApplicationFactory_impl, "validating " << spdParser.getPRFFile());
+            try {
+              ValidateFileLocation ( fileMgr, spdParser.getPRFFile ());
+
+                // check the file name ends with the extension given in the spec
+                if (spdParser.getPRFFile() && (strstr (spdParser.getPRFFile (), ".prf.xml")) == NULL) {
+                    LOG_ERROR(ApplicationFactory_impl, "File " << spdParser.getPRFFile() << " should end in .prf.xml.");
+                }
+
+                LOG_TRACE(ApplicationFactory_impl, "Creating file stream")
+                File_stream prfStream(fileMgr, spdParser.getPRFFile());
+                LOG_TRACE(ApplicationFactory_impl, "Loading parser")
+                Properties prfParser(prfStream);
+                LOG_TRACE(ApplicationFactory_impl, "Closing stream")
+                prfStream.close();
+            } catch (ossie::parser_error& ex ) {
+                std::string parser_error_line = ossie::retrieveParserErrorLineNumber(ex.what());
+                LOG_ERROR(ApplicationFactory_impl, "Error validating PRF " << spdParser.getPRFFile() << ". " << parser_error_line << "The XML parser returned the following error: " << ex.what());
+                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.what());
+            } catch (CF::InvalidFileName ex) {
+              if ( require_prf ) {
+                LOG_ERROR(ApplicationFactory_impl, "Failed to validate PRF due to invalid file name " << ex.msg);
+                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+              }
+            } catch (CF::FileException ex) {
+              if ( require_prf ) {
+                LOG_ERROR(ApplicationFactory_impl, "Failed to validate PRF due to file exception" << ex.msg);
+                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+              }
+            } catch ( ... ) {
+                LOG_ERROR(ApplicationFactory_impl, "Unexpected error validating PRF " << spdParser.getPRFFile());
+                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, "");
+            }
+        } else {
+            LOG_TRACE(ApplicationFactory_impl, "No PRF file to validate")
+        }
+
+        if (spdParser.getSCDFile() != 0) {
+            try {
+              // query SPD for SCD
+              LOG_TRACE(ApplicationFactory_impl, "validating " << spdParser.getSCDFile());
+              ValidateFileLocation ( fileMgr, spdParser.getSCDFile ());
+
+              // Check the filename ends with  the extension given in the spec
+              if ((strstr (spdParser.getSCDFile (), ".scd.xml")) == NULL)
+                { LOG_ERROR(ApplicationFactory_impl, "File " << spdParser.getSCDFile() << " should end with .scd.xml."); }
+
+                File_stream _scd(fileMgr, spdParser.getSCDFile());
+                ComponentDescriptor scdParser (_scd);
+                _scd.close();
+            } catch (ossie::parser_error& ex) {
+                std::string parser_error_line = ossie::retrieveParserErrorLineNumber(ex.what());
+                LOG_ERROR(ApplicationFactory_impl, "SCD file failed validation; parser error on file " << spdParser.getSCDFile() << ". " << parser_error_line << "The XML parser returned the following error: " << ex.what());
+                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.what());
+            } catch (CF::InvalidFileName ex) {
+              if ( require_scd ){
+                LOG_ERROR(ApplicationFactory_impl, "Failed to validate SCD due to invalid file name " << ex.msg);
+                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+              }
+            } catch (CF::FileException ex) {
+              if ( require_scd ) {
+                LOG_ERROR(ApplicationFactory_impl, "Failed to validate SCD due to file exception" << ex.msg);
+                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+              }
+            } catch ( ... ) {
+                LOG_ERROR(ApplicationFactory_impl, "Unexpected error validating PRF " << spdParser.getSCDFile());
+                throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, "");
+            }
+        } else if (spdParser.isScaCompliant() and require_scd ) {
+            LOG_ERROR(ApplicationFactory_impl, "SCA compliant component is missing SCD file reference");
+            throw CF::DomainManager::ApplicationInstallationError(CF::CF_EBADF, "SCA compliant components require SCD file");
+        } else {
+            LOG_TRACE(ApplicationFactory_impl, "No SCD file to validate")
+        }
+
+    } catch (CF::InvalidFileName& ex) {
+        LOG_ERROR(ApplicationFactory_impl, "Failed to validate SPD due to " << ex.msg);
+        throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+    } catch (CF::FileException& ex) {
+        LOG_ERROR(ApplicationFactory_impl, "Failed to validate SPD due to " << ex.msg);
+        throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+    } catch (CF::DomainManager::ApplicationInstallationError& ex) {
+        throw;
+    } catch ( ... ) {
+        LOG_ERROR(ApplicationFactory_impl, "Unexpected error validating SPD " << sfw_profile);
+        throw CF::DomainManager::ApplicationInstallationError ();
+    }
+
+
+}
+
+
 ApplicationFactory_impl::ApplicationFactory_impl (const std::string& softwareProfile,
                                                   const std::string& domainName, 
                                                   DomainManager_impl* domainManager) :
@@ -198,22 +409,37 @@ ApplicationFactory_impl::ApplicationFactory_impl (const std::string& softwarePro
     }
 
     try {
-        File_stream _sad(_fileMgr, _softwareProfile.c_str());
-        _sadParser.load(_sad);
-        _sad.close();
+
+      LOG_INFO(ApplicationFactory_impl, "Installing application " << _softwareProfile.c_str());
+      ValidateFileLocation ( _fileMgr, _softwareProfile );
+
+      File_stream _sad(_fileMgr, _softwareProfile.c_str());
+      _sadParser.load(_sad);
+      _sad.close();
     } catch (const ossie::parser_error& ex) {
         ostringstream eout;
-        eout << "Failed to parse SAD file " << _softwareProfile << " " << ex.what();
+        std::string parser_error_line = ossie::retrieveParserErrorLineNumber(ex.what());
+        eout << "Failed to parse SAD file " << _softwareProfile << ". " << parser_error_line << "The XML parser returned the following error: " << ex.what();
         LOG_ERROR(ApplicationFactory_impl, eout.str());
         throw CF::DomainManager::ApplicationInstallationError(CF::CF_ENOENT, eout.str().c_str());
     } catch ( std::exception& ex ) {
         ostringstream eout;
-        eout << "The following standard exception occurred: "<<ex.what()<<" while loading "<<_softwareProfile;
+        eout << "The following standard exception occurred: "<<ex.what()<<" While loading "<<_softwareProfile;
+        LOG_ERROR(ApplicationFactory_impl, eout.str())
+        throw CF::DomainManager::ApplicationInstallationError(CF::CF_EBADF, eout.str().c_str());
+    } catch( CF::InvalidFileName& ex ) {
+        ostringstream eout;
+        eout << "The following InvalidFileName exception occurred, profile: " << _softwareProfile;
+        LOG_ERROR(ApplicationFactory_impl, eout.str());
+        throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, eout.str().c_str());
+    } catch ( const CF::FileException& ex ) {
+        ostringstream eout;
+        eout << "The following FileException occurred: "<<ex.msg<<" While loading "<<_softwareProfile;
         LOG_ERROR(ApplicationFactory_impl, eout.str())
         throw CF::DomainManager::ApplicationInstallationError(CF::CF_EBADF, eout.str().c_str());
     } catch ( const CORBA::Exception& ex ) {
         ostringstream eout;
-        eout << "The following CORBA exception occurred: "<<ex._name()<<" while loading "<<_softwareProfile;
+        eout << "The following CORBA exception occurred: "<<ex._name()<<" While loading "<<_softwareProfile;
         LOG_ERROR(ApplicationFactory_impl, eout.str())
         throw CF::DomainManager::ApplicationInstallationError(CF::CF_EBADF, eout.str().c_str());
     } catch( ... ) {
@@ -248,43 +474,74 @@ ApplicationFactory_impl::ApplicationFactory_impl (const std::string& softwarePro
     // Gets the assembly controller software profile by looping through each
     // component instantiation to find a matching ID to the AC's
     std::string assemblyControllerId = _sadParser.getAssemblyControllerRefId();
-    CORBA::String_var profile = "";
-    bool foundAc = false;
+    SoftPkg ac_spd;
+    CORBA::String_var ac_profile = "";
+    bool ac_found = false;
     std::vector<ComponentPlacement> components = _sadParser.getAllComponents();
     for (std::vector<ComponentPlacement>::const_iterator comp = components.begin();
-            comp != components.end() && !foundAc; ++comp) {
+            comp != components.end(); ++comp) {
+      SoftPkg comp_pkg;
+      std::string p_name;
+      try {
+        if ( _sadParser.getSPDById(comp->getFileRefId())) {
+            p_name = _sadParser.getSPDById(comp->getFileRefId());
+            LOG_DEBUG(ApplicationFactory_impl, "Validating...  COMP profile: " << p_name);
+            ValidateSPD( _fileMgr, comp_pkg, p_name.c_str() ) ;
+        }
+        else {
+          LOG_ERROR(ApplicationFactory_impl, "installApplication: invalid  componentfileref: " << comp->getFileRefId() );
+          throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, "installApplication: invalid  componentfileref"); 
+        }
+      } catch (CF::FileException& ex) {
+        LOG_ERROR(ApplicationFactory_impl, "installApplication: While validating the SAD profile: " << ex.msg);
+        throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, ex.msg);
+      } catch( CF::InvalidFileName& ex ) {
+        std::ostringstream eout;
+        eout << "Invalid file name: " << p_name;
+        LOG_ERROR(ApplicationFactory_impl, "installApplication: Invalid file name: " << p_name);
+        throw CF::DomainManager::ApplicationInstallationError (CF::CF_EBADF, eout.str().c_str());
+      } catch (CF::DomainManager::ApplicationInstallationError& e) {
+        LOG_TRACE(ApplicationFactory_impl, "rethrowing ApplicationInstallationError" << e.msg);
+        throw;
+      } catch ( std::exception& ex ) {
+        std::ostringstream eout;
+        eout << "The following standard exception occurred: "<<ex.what()<<" while restoring the application factories";
+        LOG_ERROR(ApplicationFactory_impl, eout.str());
+        throw CF::DomainManager::ApplicationInstallationError (CF::CF_NOTSET, eout.str().c_str());
+      } catch (...) {
+        LOG_ERROR(ApplicationFactory_impl, "unexpected exception occurred while installing application");
+        throw CF::DomainManager::ApplicationInstallationError (CF::CF_NOTSET, "unknown exception");
+      }
+
+      if ( !ac_found ) {
         std::vector<ComponentInstantiation> compInstantiations = comp->instantiations;
         for (std::vector<ComponentInstantiation>::const_iterator compInst = compInstantiations.begin();
-                compInst != compInstantiations.end() && !foundAc; ++compInst){
-            if (assemblyControllerId == compInst->instantiationId) {
-                profile = _sadParser.getSPDById(comp->getFileRefId());
-                foundAc = true;
-            }
+             compInst != compInstantiations.end(); ++compInst){
+          if (assemblyControllerId == compInst->instantiationId) {
+            ac_spd = comp_pkg;
+            ac_profile = _sadParser.getSPDById(comp->getFileRefId());
+            ac_found = true;
+            break;
+          }
         }
+      }
     }
 
     // Gets the assembly controllers properties
-    SoftPkg spd;
     Properties prf;
-    if (foundAc) {
-        if (profile == NULL) {
-            ostringstream eout;
-            eout << "Invalid assembly controller SPD filename";
-            LOG_ERROR(ApplicationFactory_impl, eout.str());
-            throw CF::DomainManager::ApplicationInstallationError(CF::CF_NOTSET, eout.str().c_str());
-        }
-        try {
-            File_stream _spd(_fileMgr, profile);
-            spd.load(_spd, static_cast<const char*>(profile));
-            _spd.close();
-        } catch( ... ) {
-            // Errors are reported at create time
-        }
-        if ( spd.getPRFFile() ) {
+    if (ac_found) {
+        if ( ac_spd.getPRFFile() ) {
+          std::string prf_file(ac_spd.getPRFFile());
             try {
-                File_stream _prf(_fileMgr, spd.getPRFFile());
+              File_stream _prf(_fileMgr, prf_file.c_str());
                 prf.load(_prf);
                 _prf.close();
+            } catch(ossie::parser_error& ex ) {
+              std::ostringstream os;
+              std::string parser_error_line = ossie::retrieveParserErrorLineNumber(ex.what());
+              os << "Invalid PRF file: " << prf_file << ". " << parser_error_line << "The XML parser returned the following error: " << ex.what();
+              LOG_ERROR(ApplicationFactory_impl, os.str() );
+              throw CF::DomainManager::ApplicationInstallationError(CF::CF_NOTSET, os.str().c_str());
             } catch( ... ) {
                 // Errors are reported at create time
             }
@@ -566,18 +823,18 @@ void createHelper::_consolidateAllocations(const ossie::ImplementationInfo::List
     for (ossie::ImplementationInfo::List::const_iterator impl= impls.begin(); impl != impls.end(); ++impl) {
         const std::vector<SPD::PropertyRef>& deps = (*impl)->getDependencyProperties();
         for (std::vector<SPD::PropertyRef>::const_iterator dep = deps.begin(); dep != deps.end(); ++dep) {
-            if (dynamic_cast<const SimplePropertyRef*>((*dep).property) != NULL) {
-                const SimplePropertyRef* dependency = dynamic_cast<const SimplePropertyRef*>((*dep).property);
+          ossie::ComponentProperty *prop = dep->property.get();
+          if (dynamic_cast<const SimplePropertyRef*>( prop ) != NULL) {
+                const SimplePropertyRef* dependency = dynamic_cast<const SimplePropertyRef*>(prop);
                 ossie::corba::push_back(allocs, convertPropertyToDataType(dependency));
-            } else if (dynamic_cast<const SimpleSequencePropertyRef*>((*dep).property) != NULL) {
-                const SimpleSequencePropertyRef* dependency = dynamic_cast<const SimpleSequencePropertyRef*>((*dep).property);
+            } else if (dynamic_cast<const SimpleSequencePropertyRef*>(prop) != NULL) {
+                const SimpleSequencePropertyRef* dependency = dynamic_cast<const SimpleSequencePropertyRef*>(prop);
                 ossie::corba::push_back(allocs, convertPropertyToDataType(dependency));
-            } else if (dynamic_cast<const ossie::StructPropertyRef*>((*dep).property) != NULL) {
-                const ossie::StructPropertyRef* dependency = dynamic_cast<const ossie::StructPropertyRef*>((*dep).property);
-                const std::map<std::string, ossie::ComponentProperty*> structval = dependency->getValue();
+            } else if (dynamic_cast<const ossie::StructPropertyRef*>(prop) != NULL) {
+                const ossie::StructPropertyRef* dependency = dynamic_cast<const ossie::StructPropertyRef*>(prop);
                 ossie::corba::push_back(allocs, convertPropertyToDataType(dependency));
-            } else if (dynamic_cast<const ossie::StructSequencePropertyRef*>((*dep).property) != NULL) {
-                const ossie::StructSequencePropertyRef* dependency = dynamic_cast<const ossie::StructSequencePropertyRef*>((*dep).property);
+            } else if (dynamic_cast<const ossie::StructSequencePropertyRef*>(prop) != NULL) {
+                const ossie::StructSequencePropertyRef* dependency = dynamic_cast<const ossie::StructSequencePropertyRef*>(prop);
                 ossie::corba::push_back(allocs, convertPropertyToDataType(dependency));
             }
         }
@@ -978,11 +1235,13 @@ throw (CORBA::SystemException,
     TRACE_ENTER(ApplicationFactory_impl);
     
     bool aware_application = true;
+    
     CF::Properties modifiedInitConfiguration;
 
     try {
-        ////////////////////////////////////////////////
-        // Check to see if this is an aware application
+        ///////////////////////////////////////////////////////////////////
+        // Check to see if this is an aware application and 
+        //  check to see if a different GPP reservation setting is defined
         const std::string aware_app_property_id(ExtendedCF::WKP::AWARE_APPLICATION);
         for (unsigned int initCount = 0; initCount < initConfiguration.length(); initCount++) {
             if (std::string(initConfiguration[initCount].id) == aware_app_property_id) {
@@ -992,13 +1251,37 @@ throw (CORBA::SystemException,
                     unsigned int idx_mod = 0;
                     if (rem_idx == initCount)
                         idx_mod = 1;
-                    modifiedInitConfiguration[rem_idx].id = initConfiguration[rem_idx+idx_mod].id;
-                    modifiedInitConfiguration[rem_idx].value = initConfiguration[rem_idx+idx_mod].value;
+                    modifiedInitConfiguration[rem_idx] = initConfiguration[rem_idx+idx_mod];
+                    //modifiedInitConfiguration[rem_idx].id = initConfiguration[rem_idx+idx_mod].id;
+                    //modifiedInitConfiguration[rem_idx].value = initConfiguration[rem_idx+idx_mod].value;
                 }
             }
         }
+        
         if (modifiedInitConfiguration.length() == 0) {
             modifiedInitConfiguration = initConfiguration;
+        }
+
+        const std::string specialized_reservation("SPECIALIZED_CPU_RESERVATION");
+        for (unsigned int initCount = 0; initCount < modifiedInitConfiguration.length(); initCount++) {
+            if (std::string(modifiedInitConfiguration[initCount].id) == specialized_reservation) {
+                CF::Properties *reservations;
+                if (modifiedInitConfiguration[initCount].value >>= reservations) {
+                    for (unsigned int rem_idx=0; rem_idx<reservations->length(); rem_idx++) {
+                        double value = 0;
+                        std::string component_id((*reservations)[rem_idx].id);
+                        if ((*reservations)[rem_idx].value >>= value) {
+                            specialized_reservations[component_id] = value;
+                        }
+                    }
+                } else {
+                    // the value of the any is of the wrong type
+                }
+                for (unsigned int rem_idx=initCount; rem_idx<modifiedInitConfiguration.length()-1; rem_idx++) {
+                    modifiedInitConfiguration[rem_idx] = modifiedInitConfiguration[rem_idx+1];
+                }
+                modifiedInitConfiguration.length(modifiedInitConfiguration.length()-1);
+            }
         }
 
         // Get a list of all device currently in the domain
@@ -1691,7 +1974,7 @@ void createHelper::_castRequestProperties(CF::Properties& allocationProperties, 
 {
     allocationProperties.length(offset+prop_refs.size());
     for (unsigned int i=0; i<prop_refs.size(); i++) {
-        allocationProperties[offset+i] = castProperty(prop_refs[i].property);
+      allocationProperties[offset+i] = castProperty(prop_refs[i].property.get());
     }
 }
 
@@ -1699,7 +1982,7 @@ void createHelper::_castRequestProperties(CF::Properties& allocationProperties, 
 {
     allocationProperties.length(offset+prop_refs.size());
     for (unsigned int i=0; i<prop_refs.size(); i++) {
-        allocationProperties[offset+i] = castProperty(prop_refs[i].property);
+      allocationProperties[offset+i] = castProperty(prop_refs[i].property.get());
     }
 }
 
@@ -1713,7 +1996,6 @@ CF::DataType createHelper::castProperty(const ossie::ComponentProperty* property
         return convertPropertyToDataType(dependency);
     } else if (dynamic_cast<const ossie::StructPropertyRef*>(property) != NULL) {
         const ossie::StructPropertyRef* dependency = dynamic_cast<const ossie::StructPropertyRef*>(property);
-        const std::map<std::string, ossie::ComponentProperty*> structval = dependency->getValue();
         return convertPropertyToDataType(dependency);
     } else if (dynamic_cast<const ossie::StructSequencePropertyRef*>(property) != NULL) {
         const ossie::StructSequencePropertyRef* dependency = dynamic_cast<const ossie::StructSequencePropertyRef*>(property);
@@ -1857,21 +2139,21 @@ void createHelper::getRequiredComponents()
         newComponent->setAffinity( instance.getAffinity() );
         newComponent->setLoggingConfig( instance.getLoggingConfig() );
 
-        const std::vector<ComponentProperty*>& ins_prop = instance.getProperties();
+        const ossie::ComponentPropertyList & ins_prop = instance.getProperties();
 
         int docker_image_idx = -1;
         for (unsigned int i = 0; i < ins_prop.size(); ++i) {
-            if (ins_prop[i]->_id == "__DOCKER_IMAGE__") {
+            if (ins_prop[i]._id == "__DOCKER_IMAGE__") {
                 docker_image_idx = i;
                 continue;
             }
-            newComponent->overrideProperty(ins_prop[i]);
+            newComponent->overrideProperty(&ins_prop[i]);
         }
 
         if (docker_image_idx > -1) {
             CF::Properties tmp;
             redhawk::PropertyMap& tmpProp = redhawk::PropertyMap::cast(tmp);
-            tmpProp["__DOCKER_IMAGE__"].setValue(dynamic_cast<const SimplePropertyRef*>(ins_prop[docker_image_idx])->getValue());
+            tmpProp["__DOCKER_IMAGE__"].setValue(dynamic_cast<const SimplePropertyRef &>(ins_prop[docker_image_idx]).getValue());
             newComponent->addExecParameter(tmpProp[0]);
         }
 
@@ -2252,6 +2534,21 @@ void createHelper::loadAndExecuteComponents(CF::ApplicationRegistrar_ptr _appReg
             ncior.id = "NAMING_CONTEXT_IOR";
             ncior.value <<= ossie::corba::objectToString(_appReg);
             component->addExecParameter(ncior);
+            
+            std::string sr_key;
+            if (this->specialized_reservations.find(std::string(component->getIdentifier())) != this->specialized_reservations.end()) {
+                sr_key = std::string(component->getIdentifier());
+            } else if (this->specialized_reservations.find(std::string(component->getUsageName())) != this->specialized_reservations.end()) {
+                sr_key = std::string(component->getUsageName());
+            }
+            if (not sr_key.empty()) {
+                CF::DataType spec_res;
+                spec_res.id = "RH::GPP::MODIFIED_CPU_RESERVATION_VALUE";
+                //std::stringstream ss;
+                //ss << this->specialized_reservations[sr_key];
+                spec_res.value <<= this->specialized_reservations[sr_key];
+                component->addExecParameter(spec_res);
+            }
 
             fs::path executeName;
             if ((implementation->getCodeType() == CF::LoadableDevice::EXECUTABLE) && (implementation->getEntryPoint().size() == 0)) {
@@ -2654,14 +2951,12 @@ void createHelper::configureComponents()
 
             if (component->isResource () && component->isConfigurable ()) {
                 CF::Properties partialStruct = component->containsPartialStructConfig();
+                bool partialWarn = false;
                 if (partialStruct.length() != 0) {
                     ostringstream eout;
-                    eout << "Failed to 'configure' Assembly Controller: '";
-                    eout << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId() << "' ";
-                    eout << " in waveform '"<< _waveformContextName<<"';";
-                    eout <<  "This component contains structure"<<partialStruct[0].id<<" with a mix of defined and nil values.";
-                    LOG_ERROR(ApplicationFactory_impl, eout.str());
-                    throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EIO, eout.str().c_str());
+                    eout <<  "Component " << component->getIdentifier() << " contains structure"<< partialStruct[0].id <<" with a mix of defined and nil values. The behavior for the component is undefined";
+                    LOG_WARN(ApplicationFactory_impl, eout.str());
+                    partialWarn = true;
                 }
                 try {
                     // try to configure the component
@@ -2677,6 +2972,9 @@ void createHelper::configureComponents()
                         eout << "(" << e.invalidProperties[propIdx].id << ",";
                         eout << ossie::any_to_string(e.invalidProperties[propIdx].value) << ")";
                     }
+                    if (partialWarn) {
+                        eout << ". Note that this component contains a property with a mix of defined and nil values.";
+                    }
                     eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
                     LOG_ERROR(ApplicationFactory_impl, eout.str());
                     throw CF::ApplicationFactory::InvalidInitConfiguration(e.invalidProperties);
@@ -2690,6 +2988,9 @@ void createHelper::configureComponents()
                         eout << "(" << e.invalidProperties[propIdx].id << ",";
                         eout << ossie::any_to_string(e.invalidProperties[propIdx].value) << ")";
                     }
+                    if (partialWarn) {
+                        eout << ". Note that this component contains a property with a mix of defined and nil values.";
+                    }
                     eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
                     LOG_ERROR(ApplicationFactory_impl, eout.str());
                     throw CF::ApplicationFactory::InvalidInitConfiguration(e.invalidProperties);
@@ -2699,6 +3000,9 @@ void createHelper::configureComponents()
                     eout << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId() << "' ";
                     eout << " in waveform '"<< _waveformContextName<<"';";
                     eout << "'configure' failed with Unknown Exception";
+                    if (partialWarn) {
+                        eout << ". Note that this component contains a property with a mix of defined and nil values.";
+                    }
                     eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
                     LOG_ERROR(ApplicationFactory_impl, eout.str());
                     throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL, eout.str().c_str());
@@ -2745,14 +3049,12 @@ void createHelper::configureComponents()
             
             if (component->isResource () && component->isConfigurable ()) {
                 CF::Properties partialStruct = component->containsPartialStructConfig();
+                bool partialWarn = false;
                 if (partialStruct.length() != 0) {
                     ostringstream eout;
-                    eout << "Failed to 'configure' Assembly Controller: '";
-                    eout << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId() << "' ";
-                    eout << " in waveform '"<< _waveformContextName<<"';";
-                    eout <<  "This component contains structure"<<partialStruct[0].id<<" with a mix of defined and nil values.";
-                    LOG_ERROR(ApplicationFactory_impl, eout.str());
-                    throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EIO, eout.str().c_str());
+                    eout <<  "Component " << component->getIdentifier() << " contains structure"<< partialStruct[0].id <<" with a mix of defined and nil values. The behavior for the component is undefined";
+                    LOG_WARN(ApplicationFactory_impl, eout.str());
+                    partialWarn = true;
                 }
                 try {
                     // try to configure the component
@@ -2768,6 +3070,9 @@ void createHelper::configureComponents()
                         eout << "(" << e.invalidProperties[propIdx].id << ",";
                         eout << ossie::any_to_string(e.invalidProperties[propIdx].value) << ")";
                     }
+                    if (partialWarn) {
+                        eout << ". Note that this component contains a property with a mix of defined and nil values.";
+                    }
                     eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
                     LOG_ERROR(ApplicationFactory_impl, eout.str());
                     throw CF::ApplicationFactory::InvalidInitConfiguration(e.invalidProperties);
@@ -2781,6 +3086,9 @@ void createHelper::configureComponents()
                         eout << "(" << e.invalidProperties[propIdx].id << ",";
                         eout << ossie::any_to_string(e.invalidProperties[propIdx].value) << ")";
                     }
+                    if (partialWarn) {
+                        eout << ". Note that this component contains a property with a mix of defined and nil values.";
+                    }
                     eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
                     LOG_ERROR(ApplicationFactory_impl, eout.str());
                     throw CF::ApplicationFactory::InvalidInitConfiguration(e.invalidProperties);
@@ -2790,6 +3098,9 @@ void createHelper::configureComponents()
                     eout << component->getName() << "' with component id: '" << component->getIdentifier() << " assigned to device: '"<<component->getAssignedDeviceId() << "' ";
                     eout << " in waveform '"<< _waveformContextName<<"';";
                     eout << "'configure' failed with Unknown Exception";
+                    if (partialWarn) {
+                        eout << ". Note that this component contains a property with a mix of defined and nil values.";
+                    }
                     eout << " error occurred near line:" <<__LINE__ << " in file:" <<  __FILE__ << ";";
                     LOG_ERROR(ApplicationFactory_impl, eout.str());
                     throw CF::ApplicationFactory::CreateApplicationError(CF::CF_EINVAL, eout.str().c_str());
@@ -2880,7 +3191,9 @@ void createHelper::_cleanupFailedCreate()
 
     LOG_TRACE(ApplicationFactory_impl, "Removing all bindings from naming context");
     try {
+      if ( _appFact._domainManager && !_appFact._domainManager->bindToDomain() ) {
         ossie::corba::unbindAllFromContext(_waveformContext);
+      }
     } CATCH_LOG_WARN(ApplicationFactory_impl, "Could not unbind contents of naming context");
 
     CosNaming::Name DNContextname;

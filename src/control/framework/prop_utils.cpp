@@ -70,6 +70,10 @@ CF::DataType ossie::convertPropertyRefToDataType(const ComponentProperty* prop) 
     return CF::DataType();
 }
 
+CF::DataType ossie::convertPropertyRefToDataType(const ComponentProperty& prop) {
+  return convertPropertyRefToDataType(&prop);
+}
+
 CF::DataType ossie::overridePropertyValue(const Property* prop, const ComponentProperty* compprop) {
     if (dynamic_cast<const SimpleProperty*>(prop) != NULL) {
         const SimpleProperty* simp = dynamic_cast<const SimpleProperty*>(prop);
@@ -199,7 +203,7 @@ CF::DataType ossie::overridePropertyValue(const SimpleSequenceProperty* prop, co
     return dataType;
 }
 
-static CF::Properties overrideStructValues(const StructProperty* prop, const std::map<std::string, ComponentProperty*>& values)
+static CF::Properties overrideStructValues(const StructProperty* prop, const ossie::ComponentPropertyMap & values)
 {
     const std::vector<Property*>& props = prop->getValue();
     LOG_TRACE(prop_utils, "structure has " << props.size() << " elements");
@@ -208,7 +212,7 @@ static CF::Properties overrideStructValues(const StructProperty* prop, const std
     for (CORBA::ULong ii = 0; ii < structval.length(); ++ii) {
         const Property* property = props[ii];
         const std::string id = property->getID();
-        std::map<std::string, ComponentProperty*>::const_iterator itemoverride = values.find(id);
+        ossie::ComponentPropertyMap::const_iterator itemoverride = values.find(id);
         if (itemoverride == values.end()) {
             LOG_TRACE(prop_utils, "using default value for struct element " << id);
             structval[ii] = convertPropertyToDataType(property);
@@ -226,7 +230,7 @@ static CF::Properties overrideStructValues(const StructProperty* prop, const std
     return structval;
 }
 
-static CF::Properties overrideStructValues(const StructProperty* prop, const std::map<std::string, ComponentProperty*>& values, const CF::Properties& configureProperties)
+static CF::Properties overrideStructValues(const StructProperty* prop, const ossie::ComponentPropertyMap & values, const CF::Properties& configureProperties)
 {
     const std::vector<Property*>& props = prop->getValue();
     LOG_TRACE(prop_utils, "structure has " << props.size() << " elements");
@@ -235,7 +239,7 @@ static CF::Properties overrideStructValues(const StructProperty* prop, const std
     for (CORBA::ULong ii = 0; ii < structval.length(); ++ii) {
         const Property* property = props[ii];
         const std::string id = property->getID();
-        std::map<std::string, ComponentProperty*>::const_iterator itemoverride = values.find(id);
+        ossie::ComponentPropertyMap::const_iterator itemoverride = values.find(id);
         if (dynamic_cast<const SimplePropertyRef*>(itemoverride->second) != NULL) {
             if (itemoverride == values.end()) {
                 LOG_TRACE(prop_utils, "using default value for struct element " << id);
@@ -362,7 +366,7 @@ CF::DataType ossie::overridePropertyValue(const StructSequenceProperty* prop, co
     if (structsequenceref) {
         LOG_TRACE(prop_utils, "overriding structsequence property id " << dataType.id);
 
-        const std::vector<std::map<std::string, ComponentProperty*> >& overrideValues = structsequenceref->getValues();
+        const StructSequencePropertyRef::ValuesList& overrideValues = structsequenceref->getValues();
         LOG_TRACE(prop_utils, "structsequence has " << overrideValues.size() << " values");
 
         CORBA::AnySeq values;
@@ -533,7 +537,7 @@ CF::DataType ossie::convertPropertyToDataType(const StructPropertyRef* prop) {
     dataType.id = CORBA::string_dup(prop->getID());
     
     CF::Properties structval_;
-    std::map<std::string, ComponentProperty*>::const_iterator i;
+    StructPropertyRef::ValuesMap::const_iterator i;
     for (i = prop->getValue().begin(); i != prop->getValue().end(); ++i) {
         CF::DataType dt;
         dt = convertPropertyRefToDataType((*i).second);
@@ -548,14 +552,14 @@ CF::DataType ossie::convertPropertyToDataType(const StructSequencePropertyRef* p
     CF::DataType dataType;
     dataType.id = CORBA::string_dup(prop->getID());
     
-    const std::vector<std::map<std::string, ComponentProperty*> > propValues = prop->getValues();
+    const StructSequencePropertyRef::ValuesList propValues = prop->getValues();
     CORBA::AnySeq values;
     values.length(propValues.size());
     for (CORBA::ULong ii = 0; ii < values.length(); ++ii) {
         CF::DataType tmp_struct;
         tmp_struct.id = CORBA::string_dup("");
         CF::Properties structval_;
-        std::map<std::string, ComponentProperty*>::const_iterator i;
+        ossie::ComponentPropertyMap::const_iterator i;
         for (i = propValues[ii].begin(); i != propValues[ii].end(); ++i) {
             CF::DataType dt;
             dt = convertPropertyRefToDataType((*i).second);
@@ -630,13 +634,28 @@ CORBA::Any ossie::convertAnyToPropertyType(const CORBA::Any& value, const Struct
 
 
 
-void ossie::convertComponentProperties( const std::vector< ossie::ComponentProperty*>&cp_props,
+void ossie::convertComponentProperties( const ossie::ComponentPropertyList &cp_props,
                                  CF::Properties &cf_props ) 
 {
-  std::vector< ossie::ComponentProperty *>::const_iterator piter = cp_props.begin();
+  ossie::ComponentPropertyList::const_iterator piter = cp_props.begin();
   for ( ; piter != cp_props.end(); piter++ ) {
     cf_props.length(cf_props.length()+1);
     CF::DataType dt = ossie::convertPropertyRefToDataType( *piter );
     cf_props[cf_props.length()-1] = dt;
   }
 }
+    
+std::string ossie::retrieveParserErrorLineNumber(std::string message) {
+    size_t begin_n_line = message.find_first_of(':');
+    size_t end_n_line = std::string::npos;
+    if (begin_n_line != std::string::npos) {
+        end_n_line = message.find_first_of(':', begin_n_line+1);
+    }
+    std::string ret_message;
+    if (end_n_line != std::string::npos) {
+        ret_message = "Error occurred on or around line ";
+        ret_message += message.substr(begin_n_line+1,end_n_line-begin_n_line-1);
+        ret_message += ".";
+    }
+    return ret_message;
+};

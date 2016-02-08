@@ -42,6 +42,7 @@ public:
   PropertyChangeThread( PropertySet_impl &p): 
     parent(p)
  {};
+  virtual ~PropertyChangeThread() {};
   int serviceFunction() {
     return parent._propertyChangeServiceFunction();
   }
@@ -232,7 +233,7 @@ throw (CORBA::SystemException, CF::PropertySet::InvalidConfiguration,
                 property->getValue(after_value);
                 std::string comparator("eq");
                 if (ossie::compare_anys(before_value, after_value, comparator)) {
-                    LOG_DEBUG(PropertySet_impl, "Value has not changed on configure for property " << property->id << ". Not triggering callback");
+                    LOG_TRACE(PropertySet_impl, "Value has not changed on configure for property " << property->id << ". Not triggering callback");
                 }
                 executePropertyCallback(property->id);
                 if (sendEvent) {

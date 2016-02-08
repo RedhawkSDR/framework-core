@@ -92,7 +92,6 @@ class Valgrind(Debugger):
             elif value is False:
                 value = 'no'
             self.arguments.append(optname + '=' + str(value))
-        print self.arguments
 
     def modifiesCommand(self):
         return True

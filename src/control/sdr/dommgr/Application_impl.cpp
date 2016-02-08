@@ -20,6 +20,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <sstream>
 
 #include <ossie/debug.h>
 #include <ossie/CorbaUtils.h>
@@ -233,6 +234,30 @@ throw (CORBA::SystemException, CF::Resource::StartError)
 }
 
 
+bool Application_impl::stopComponent (CF::Resource_ptr component)
+{
+    std::string identifier;
+    try {
+        identifier = ossie::corba::returnString(component->identifier());
+    } catch (const CORBA::SystemException& ex) {
+        LOG_ERROR(Application_impl, "CORBA::" << ex._name() << " getting component identifier");
+        return false;
+    } catch (...) {
+        LOG_ERROR(Application_impl, "Unknown exception getting component identifier");
+        return false;
+    }
+    LOG_TRACE(Application_impl, "Calling stop for " << identifier);
+    const unsigned long timeout = 3; // seconds
+    omniORB::setClientCallTimeout(component, timeout * 1000);
+    try {
+        component->stop();
+        return true;
+    } catch (const CF::Resource::StopError& error) {
+        LOG_ERROR(Application_impl, "Failed to stop " << identifier << "; CF::Resource::StopError '" << error.msg << "'");
+    } CATCH_LOG_ERROR(Application_impl, "Failed to stop " << identifier);
+    return false;
+}
+
 void Application_impl::stop ()
 throw (CORBA::SystemException, CF::Resource::StopError)
 {
@@ -241,26 +266,25 @@ throw (CORBA::SystemException, CF::Resource::StopError)
         return;
     }
 
-    unsigned long timeout = 3; // seconds
-    try {
-        LOG_TRACE(Application_impl, "Calling stop on assembly controller");
-
-        // Stop the components in the reverse order they were started
-        for (int i = (int)(_appStartSeq.size()-1); i >= 0; i--){
-            std::string msg = "Calling stop for ";
-            msg = msg.append(ossie::corba::returnString(_appStartSeq[i]->identifier()));
-            LOG_TRACE(Application_impl, msg);
-
-            omniORB::setClientCallTimeout(_appStartSeq[i], timeout * 1000);
-            _appStartSeq[i]-> stop();
+    int failures = 0;
+    // Stop the components in the reverse order they were started
+    for (int i = (int)(_appStartSeq.size()-1); i >= 0; i--){
+        if (!stopComponent(_appStartSeq[i])) {
+            failures++;
         }
+    }
 
-        omniORB::setClientCallTimeout(assemblyController, timeout * 1000);
-        assemblyController->stop ();
-    } catch( CF::Resource::StopError& se ) {
-        LOG_ERROR(Application_impl, "Stop failed with CF::Resource::StopError")
-        throw;
-    } CATCH_THROW_LOG_ERROR(Application_impl, "Stop failed", CF::Resource::StopError(CF::CF_ESRCH, "Object might not exist"))
+    LOG_TRACE(Application_impl, "Calling stop on assembly controller");
+    if (!stopComponent(assemblyController)) {
+        failures++;
+    }
+    if (failures > 0) {
+        std::ostringstream oss;
+        oss << failures << " component(s) failed to stop";
+        const std::string message = oss.str();
+        LOG_ERROR(Application_impl, "Stopping " << _identifier << "; " << message);
+        throw CF::Resource::StopError(CF::CF_NOTSET, message.c_str());
+    }
     if (this->_started) {
         this->_started = false;
         if (_domainManager ) {
@@ -806,15 +830,21 @@ throw (CORBA::SystemException, CF::UnknownProperties, CF::TestableObject::Unknow
 void Application_impl::releaseObject ()
 throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
 {
-    TRACE_ENTER(Application_impl)
+  TRACE_ENTER(Application_impl);
+      
+  try {
+    // Make sure releaseObject hasn't already been called, but only hold the
+    // lock long enough to check to prevent a potential priority inversion with
+    // the domain's stateAccess mutex
+    {
+        boost::mutex::scoped_lock lock(releaseObjectLock);
 
-    // make sure releaseObject hasn't already been called
-    boost::mutex::scoped_lock lock(releaseObjectLock);
-    if (_releaseAlreadyCalled) {
-        LOG_DEBUG(Application_impl, "skipping release because release has already been called")
-        return;
-    } else {
-        _releaseAlreadyCalled = true;
+        if (_releaseAlreadyCalled) {
+            LOG_DEBUG(Application_impl, "skipping release because release has already been called");
+            return;
+        } else {
+            _releaseAlreadyCalled = true;
+        }
     }
     
     LOG_DEBUG(Application_impl, "Releasing application");
@@ -836,9 +866,11 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
     
     assemblyController = CF::Resource::_nil ();
     
-    // Break all connections in the application
-    ConnectionManager::disconnectAll(_connections, _domainManager);
-    LOG_DEBUG(Application_impl, "app->releaseObject finished disconnecting ports");
+    try {
+      // Break all connections in the application
+      ConnectionManager::disconnectAll(_connections, _domainManager);
+      LOG_DEBUG(Application_impl, "app->releaseObject finished disconnecting ports");
+    } CATCH_LOG_ERROR(Application_impl, "Failure during disconnect operation");
 
     // Release all resources
     // Before releasing the components, all executed processes should be terminated,
@@ -917,7 +949,7 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
         message.length(1);
         message[0] = CORBA::string_dup(error);
         throw CF::LifeCycle::ReleaseError(message);
-    }
+    } CATCH_LOG_ERROR(Application_impl, "Destory waveform context: " << _waveformContextName );
     _waveformContext = CosNaming::NamingContext::_nil();
 
     // send application removed event notification
@@ -932,7 +964,18 @@ throw (CORBA::SystemException, CF::LifeCycle::ReleaseError)
     // Deactivate this servant from the POA.
     this->_cleanupActivations();
 
-    TRACE_EXIT(Application_impl)
+  }
+  catch( boost::thread_resource_error &e)  {
+    std::stringstream errstr;
+    errstr << "Error acquiring lock (errno=" << e.native_error() << " msg=\"" << e.what() << "\")";
+    LOG_ERROR(Application_impl, errstr.str());
+    CF::StringSequence message;
+    message.length(1);
+    message[0] = CORBA::string_dup(errstr.str().c_str());
+    throw CF::LifeCycle::ReleaseError(message);
+  }
+
+  TRACE_EXIT(Application_impl);
 }
 
 void Application_impl::releaseComponents()

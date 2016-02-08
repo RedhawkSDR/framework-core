@@ -32,7 +32,6 @@ namespace ossie {
         ApplicationEndpoint(const std::string& identifier) :
             identifier_(identifier)
         {
-            identifier__ = std::string("");
         }
         
         ApplicationEndpoint(const ApplicationEndpoint& other):
@@ -41,7 +40,10 @@ namespace ossie {
         {
         }
 
-        virtual bool allowDeferral(void) { return true; }
+        // Application identifiers are generated at creation time, so it's not
+        // necessarily safe to try to predict one for a future application; as
+        // such, it does not make sense to allow deferred resolution.
+        virtual bool allowDeferral(void) { return false; }
 
         virtual bool checkDependency(DependencyType type, const std::string& identifier) const
         {
@@ -79,7 +81,6 @@ namespace ossie {
         ComponentEndpoint(const std::string& identifier) :
             identifier_(identifier)
         {
-            identifier__ = std::string("");
         }
 
         ComponentEndpoint(const ComponentEndpoint& other):
@@ -127,7 +128,6 @@ namespace ossie {
         DeviceLoadedEndpoint(const std::string& identifier) :
             identifier_(identifier)
         {
-            identifier__ = std::string("");
         }
 
         DeviceLoadedEndpoint(const DeviceLoadedEndpoint& other):
@@ -179,7 +179,6 @@ namespace ossie {
             componentIdentifier_(componentIdentifier),
             usesIdentifier_(usesIdentifier)
         {
-            identifier__ = std::string("");
         }
 
         DeviceUsedEndpoint(const DeviceUsedEndpoint& other):
@@ -232,7 +231,6 @@ namespace ossie {
         ApplicationUsesDeviceEndpoint(const std::string usesIdentifier) :
             usesIdentifier_(usesIdentifier)
         {
-            identifier__ = std::string("");
         }
 
         ApplicationUsesDeviceEndpoint(const ApplicationUsesDeviceEndpoint& other) :
@@ -282,7 +280,6 @@ namespace ossie {
         FindByNamingServiceEndpoint(const std::string& name) :
             name_(name)
         {
-            identifier__ = std::string("");
         }
 
         FindByNamingServiceEndpoint(const FindByNamingServiceEndpoint& other):
@@ -334,7 +331,6 @@ namespace ossie {
             type_(type),
             name_(name)
         {
-            identifier__ = std::string("");
         }
 
         FindByDomainFinderEndpoint(const FindByDomainFinderEndpoint& other):
@@ -394,7 +390,6 @@ namespace ossie {
         ServiceEndpoint(const std::string& name) :
             name_(name)
         {
-            identifier__ = std::string("");
         }
 
         ServiceEndpoint(const ServiceEndpoint& other):
@@ -447,7 +442,6 @@ namespace ossie {
         EventChannelEndpoint(const std::string& name) :
             name_(name)
         {
-            identifier__ = std::string("");
         }
 
         EventChannelEndpoint(const EventChannelEndpoint& other):
@@ -500,7 +494,6 @@ namespace ossie {
         ObjectrefEndpoint(CORBA::Object_ptr name) :
             objectref_(name)
         {
-            identifier__ = std::string("");
         }
 
         ObjectrefEndpoint(const ObjectrefEndpoint& other):
@@ -553,8 +546,8 @@ namespace ossie {
             name_(name),
             invalidPort_(false)
         {
-            identifier__ = supplier_->getIdentifier();
             assert(supplier != 0);
+            identifier__ = supplier_->getIdentifier();
         }
 
         PortEndpoint(const PortEndpoint& other) :

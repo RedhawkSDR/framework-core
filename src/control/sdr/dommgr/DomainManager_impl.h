@@ -242,9 +242,6 @@ protected:
     ossie::ServiceList::iterator _local_unregisterService (ossie::ServiceList::iterator service);
 
     void parseDMDProfile();
-    void validate (const char* _profile);
-    void validateSPD (const char* _spdProfile, int _cnt = 0) throw (CF::DomainManager::ApplicationInstallationError);
-    void removeSPD (const char* _spdProfile, int _cnt = 0);
     void storeDeviceInDomainMgr (CF::Device_ptr, CF::DeviceManager_ptr);
     void storeServiceInDomainMgr (CORBA::Object_ptr, CF::DeviceManager_ptr, const char*, const char*);
     bool deviceMgrIsRegistered (CF::DeviceManager_ptr);
@@ -280,8 +277,11 @@ protected:
     //
     void establishDomainManagementChannels();
     void disconnectDomainManagementChannels();
+    void handleIDMChannelMessages( const CORBA::Any &msg );
+    void idmTerminationMessages( const redhawk::events::ComponentTerminationEvent &msg );
     void destroyEventChannels (void);
 
+    bool applicationDependsOnDevice (Application_impl* application, const std::string& deviceId);
 
     Application_impl* findApplicationById (const std::string& identifier);
 
@@ -292,7 +292,6 @@ protected:
     ossie::PersistenceStore db;
 
     boost::recursive_mutex stateAccess;
-    boost::recursive_mutex appAccess;
 
     // The PersistenceStore is used to persist the state of the following members
     ossie::DomainManagerList _registeredDomainManagers;
@@ -315,7 +314,7 @@ protected:
     DOM_Subscriber_ptr                   subscriber( const std::string &cname );
 
     DOM_Publisher_ptr                    _odm_publisher;
-    DOM_Subscriber_ptr                   _idm_subscriber;
+    redhawk::events::DomainEventReader   _idm_reader;
 
 ///////////////////////
 // Private Domain State
