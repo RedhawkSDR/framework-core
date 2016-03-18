@@ -18,7 +18,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-import unittest, os, signal, time, sys, shutil
+import unittest, os, signal, time, sys, shutil, platform
 from subprocess import Popen
 from _unitTestHelpers import scatest
 from _unitTestHelpers import runtestHelpers
@@ -1222,6 +1222,48 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
                 props = dev.query([CF.DataType(id="number_connections",value=any.to_any(None))])
                 self.assertEqual(props[0].value._v, 0, "Device connection was not broken")
         self.assertEqual(foundProperty, True)
+
+
+    def test_usesDevicePassProperty(self):
+        # Test that a component with no deps can be loaded on a device with
+        # no properties
+        nodebooter, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_MultipleSimpleDevice_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(devMgr, None)
+        devUses = None
+        for dev in devMgr._get_registeredDevices():
+            if dev._get_identifier() == 'DCE:fe4fee1e-f305-454b-aa96-9f6e7d960cde':
+                devUses = dev
+        self.assertNotEqual(devUses, None)
+
+        self.assertEqual(len(domMgr._get_applicationFactories()), 0)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        domMgr.installApplication("/waveforms/CommandWrapperUsesDeviceProperty/CommandWrapper.sad.xml")
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+
+        appFact = domMgr._get_applicationFactories()[0]
+
+        app = None
+
+        try:
+            app = appFact.create(appFact._get_name(), [], [])
+        except:
+            pass
+
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 1)
+
+        app.stop()
+        app.releaseObject()
+
+        self.assertEqual(len(domMgr._get_applicationFactories()), 1)
+        self.assertEqual(len(domMgr._get_applications()), 0)
+        domMgr.uninstallApplication(appFact._get_identifier())
+
+
 
     def test_usesDeviceFail(self):
         # Test that a component with no deps can be loaded on a device with
@@ -2477,6 +2519,35 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         apps = domMgr._get_applications()
         self.assertEqual(len(apps),0)
 
+    def test_NoDefaultExecParam(self):
+        """
+        Tests that all child processes associated with a component get
+        terminated with that component.
+        """
+        nb, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+
+        nb, devMgr = self.launchDeviceManager('/nodes/test_GPP_node/DeviceManager.dcd.xml')
+        self.assertNotEqual(devMgr, None)
+
+        domMgr.installApplication('/waveforms/execcheck_w/execcheck_w.sad.xml')
+
+        appFact = domMgr._get_applicationFactories()[0]
+        self.assertEqual(appFact._get_name(), 'execcheck_w')
+
+        app = appFact.create(appFact._get_name(), [], [])
+        comp_pid = int(app._get_componentProcessIds()[0].processId)
+        fp=open('/proc/'+str(comp_pid)+'/cmdline','r')
+        comp_contents = fp.read()
+        fp.close()
+        items = comp_contents.split('\x00')
+        self.assertEqual('b' in items, False)
+        self.assertEqual('Kind: 0' in items, False)
+
+        app.releaseObject()
+        apps = domMgr._get_applications()
+        self.assertEqual(len(apps),0)
+
     def test_StopAllComponents(self):
         nb, domMgr = self.launchDomainManager(debug=self.debuglevel)
         self.assertNotEqual(domMgr, None)
@@ -2569,7 +2640,21 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         # location as an additional check
         altpath = os.path.join(scatest.getSdrPath(), 'valgrind')
         os.symlink(valgrind, altpath)
+
+        # patch for ubuntu valgrind script
+        ub_patch=False
+        try:
+           if 'UBUNTU' in platform.linux_distribution()[0].upper():
+               ub_patch=True
+               valgrind_bin = scatest.which('valgrind.bin')
+               os.symlink(valgrind_bin, altpath+'.bin')
+        except:
+             pass
+
         try:
             self._test_ValgrindCppDevice(appFact, altpath)
         finally:
             os.unlink(altpath)
+            if ub_patch:
+                os.unlink(altpath+'.bin')
+

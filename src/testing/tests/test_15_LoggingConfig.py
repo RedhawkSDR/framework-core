@@ -326,7 +326,6 @@ class PythonLoggingConfig(scatest.CorbaTestCase):
     def setUp(self):
         self.cname = "TestLoggingAPI"
         self.comp = sb.launch(self.cname, impl="python" )
-
         
     def tearDown(self):
         self.comp.releaseObject()
@@ -447,6 +446,45 @@ class PythonLoggingConfig(scatest.CorbaTestCase):
         c_cfg=self.comp.ref.stop()
 
 
+    def test_log_callback(self):
+        cfg = "log4j.rootLogger=ERROR,STDOUT,pse\n" + \
+            "# Direct log messages to STDOUT \n" + \
+            "log4j.appender.STDOUT=org.apache.log4j.ConsoleAppender\n" + \
+            "log4j.appender.STDOUT.layout=org.apache.log4j.PatternLayout\n" + \
+            "log4j.appender.STDOUT.layout.ConversionPattern=@@@COMPONENT.NAME@@@\n" + \
+            "# Direct log messages to event channel\n" + \
+            "log4j.appender.pse=org.ossie.logging.RH_LogEventAppender\n" + \
+            "log4j.appender.pse.name_context=TEST_APPENDER\n" + \
+            "log4j.appender.pse.event_channel=TEST_EVT_CH1\n" + \
+            "log4j.appender.pse.producer_id=PRODUCER1\n" + \
+            "log4j.appender.pse.producer_name=THE BIG CHEESE\n" + \
+            "log4j.appender.pse.layout=org.apache.log4j.PatternLayout\n" + \
+            "log4j.appender.pse.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c:%L - %m%n\n"
+
+        exp_cfg = "log4j.rootLogger=ERROR,STDOUT,pse\n" + \
+            "# Direct log messages to STDOUT \n" + \
+            "log4j.appender.STDOUT=org.apache.log4j.ConsoleAppender\n" + \
+            "log4j.appender.STDOUT.layout=org.apache.log4j.PatternLayout\n" + \
+            "log4j.appender.STDOUT.layout.ConversionPattern=TestLoggingAPI_1\n" + \
+            "# Direct log messages to event channel\n" + \
+            "log4j.appender.pse=org.ossie.logging.RH_LogEventAppender\n" + \
+            "log4j.appender.pse.name_context=TEST_APPENDER\n" + \
+            "log4j.appender.pse.event_channel=TEST_EVT_CH1\n" + \
+            "log4j.appender.pse.producer_id=PRODUCER1\n" + \
+            "log4j.appender.pse.producer_name=THE BIG CHEESE\n" + \
+            "log4j.appender.pse.layout=org.apache.log4j.PatternLayout\n" + \
+            "log4j.appender.pse.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c:%L - %m%n\n"
+
+        # change log level
+        self.comp.ref._set_log_level( CF.LogLevels.TRACE );
+        lvl = self.comp.ref._get_log_level();
+        self.assertEquals( lvl, CF.LogLevels.TRACE);
+        self.assertEquals( self.comp.new_log_level, CF.LogLevels.TRACE);
+
+        # change config
+        c_cfg=self.comp.ref.setLogConfig(cfg)
+        self.assertEquals( self.comp.new_log_cfg, exp_cfg);
+        
 
         
 if __name__ == "__main__":

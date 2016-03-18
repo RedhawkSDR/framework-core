@@ -24,6 +24,7 @@ import threading
 import Queue
 import copy
 import logging
+import atexit
 
 from omniORB import any, URI, CORBA
 from ossie.cf import CF, CF__POA
@@ -305,6 +306,14 @@ class ChannelManager:
         proxy_supplier.connect_push_consumer(consumer._this())
 
 
+# Track MessageConsumerPorts that have been started, to ensure that the thread
+# is terminated on exit and avoid exception messages
+_consumers = []
+def _cleanup_consumers():
+    for consumer in _consumers:
+        consumer.terminate()
+atexit.register(_cleanup_consumers)
+
 class MessageConsumerPort(ExtendedEvent__POA.MessageEvent, threading.Thread):
     class Consumer_i(CosEventChannelAdmin__POA.ProxyPushConsumer):
         def __init__(self, parent, instance_id):
@@ -425,8 +434,17 @@ class MessageConsumerPort(ExtendedEvent__POA.MessageEvent, threading.Thread):
            self.join(timeout)
         except:
             pass
-    
+
     def run(self):
+        # Start tracking this thread
+        _consumers.append(self)
+        try:
+            self._run()
+        finally:
+            # Stop tracking this thread
+            _consumers.remove(self)
+
+    def _run(self):
          while not self._terminateMe:
               if self._pauseMe:
                    try:

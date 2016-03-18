@@ -1516,6 +1516,20 @@ class BulkioTest(unittest.TestCase):
         self.assertEquals(len(data[0]),5)
         self.assertEquals(len(data[1]),5)
 
+    def test_SubsizeComplex(self):
+        # Test interleaved-to-complex
+        _subsize = 10
+        _frames = 4
+        inData = range(_subsize * _frames)
+        src=sb.DataSource(dataFormat='short',subsize=_subsize)
+        snk=sb.DataSink()
+        sb.start()
+        src.connect(snk)
+        src.push(inData,EOS=True,complexData=True)
+        recData = snk.getData(eos_block=True)
+        self.assertEqual(len(recData),_frames/2)
+        self.assertEqual(len(recData[0]),_subsize*2)
+
 #    def test_connections(self):
 #        a = sb.launch(self.test_comp)
 #        b = sb.launch("SandBoxTest2")

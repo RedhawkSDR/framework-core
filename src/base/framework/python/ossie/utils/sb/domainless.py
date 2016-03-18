@@ -122,7 +122,8 @@ __all__ = ('show', 'loadSADFile', 'IDELocation', 'connectedIDE', 'getIDE_REF',
            'start', 'getSDRROOT', 'setSDRROOT', 'Component', 'generateSADXML',
            'getDEBUG', 'setDEBUG', 'getComponent', 'IDE_REF', 'setIDE_REF',
            'stop', 'catalog', 'redirectSTDOUT', 'orb', 'reset', 'launch', 'api',
-           'createEventChannel', 'getEventChannel', 'getService', 'browse')
+           'createEventChannel', 'getEventChannel', 'getService', 'browse',
+           'release')
 
 # Set up logging
 log = logging.getLogger(__name__)
@@ -948,6 +949,13 @@ def start():
 
 def stop():
     _getSandbox().stop()
+
+def release():
+    """
+    Releases and cleans up all launched components, devices, services and
+    helpers.
+    """
+    _getSandbox().shutdown()
 
 def launch(descriptor, instanceName=None, refid=None, impl=None,
            debugger=None, window=None, execparams={}, configure={},

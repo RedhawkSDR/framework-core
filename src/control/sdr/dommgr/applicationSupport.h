@@ -271,6 +271,7 @@ namespace ossie
         CF::Properties getAffinityOptions();
         CF::Properties getAffinityOptionsWithAssignment();
         CF::Properties getExecParameters();
+        CF::Properties getPopulatedExecParameters();
 
         CF::Resource_ptr getResourcePtr();
 

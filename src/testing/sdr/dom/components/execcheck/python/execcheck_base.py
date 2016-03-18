@@ -1,27 +1,8 @@
 #!/usr/bin/env python
 #
-# This file is protected by Copyright. Please refer to the COPYRIGHT file
-# distributed with this source distribution.
-#
-# This file is part of REDHAWK core.
-#
-# REDHAWK core is free software: you can redistribute it and/or modify it under
-# the terms of the GNU Lesser General Public License as published by the Free
-# Software Foundation, either version 3 of the License, or (at your option) any
-# later version.
-#
-# REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
-# details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with this program.  If not, see http://www.gnu.org/licenses/.
-#
-#
 # AUTO-GENERATED CODE.  DO NOT MODIFY!
 #
-# Source: TestLoggingAPI.spd.xml
+# Source: execcheck.spd.xml
 from ossie.cf import CF
 from ossie.cf import CF__POA
 from ossie.utils import uuid
@@ -32,7 +13,7 @@ from ossie.properties import simple_property
 
 import Queue, copy, time, threading
 
-class TestLoggingAPI_base(CF__POA.Resource, Resource, ThreadedComponent):
+class execcheck_base(CF__POA.Resource, Resource, ThreadedComponent):
         # These values can be altered in the __init__ of your derived class
 
         PAUSE = 0.0125 # The amount of time to sleep if process return NOOP
@@ -77,17 +58,24 @@ class TestLoggingAPI_base(CF__POA.Resource, Resource, ThreadedComponent):
         # 
         # DO NOT ADD NEW PROPERTIES HERE.  You can add properties in your derived class, in the PRF xml file
         # or by using the IDE.
-
-        new_log_level = simple_property(id_="new_log_level",
-                                        name="new_log_level",
-                                        type_="long",
-                                        mode="readwrite",
-                                        action="external",
-                                        kinds=("property",))
+        a = simple_property(id_="a",
+                            type_="string",
+                            defvalue="1",
+                            mode="readwrite",
+                            action="external",
+                            kinds=("configure",))
         
-        new_log_cfg = simple_property(id_="new_log_cfg",
-                                      name="new_log_cfg",
-                                      type_="string",
-                                      mode="readwrite",
-                                      action="external",
-                                      kinds=("property",))
+        b = simple_property(id_="b",
+                            type_="string",
+                            mode="readwrite",
+                            action="external",
+                            kinds=("execparam",))
+        
+        c = simple_property(id_="c",
+                            type_="string",
+                            defvalue="2",
+                            mode="readwrite",
+                            action="external",
+                            kinds=("configure",))
+        
+

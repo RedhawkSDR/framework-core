@@ -36,6 +36,7 @@ PROPERTIES = (
   ("DCE:64303822-4c67-4c04-9a5c-bf670f27cf39", "RunsAs"),
   ("DCE:8cad8ca5-c155-4d1d-ae40-e194aa1d855f", "bandwidthCapacity"),
   ("number_connections", "number_connections"),
+  ("prop3", "prop3"),
 )
 
 _ID_MAP = dict([(prop[0], pos) for pos, prop in enumerate(PROPERTIES)])
@@ -134,6 +135,7 @@ class BasicUsesDevice(CF__POA.Device):
     # Initialize capacity properties
     self.props[getId("bandwidthCapacity")] = CF.DataType(id=getId("bandwidthCapacity"), value=any.to_any(100000000))
     self.props[getId("number_connections")] = CF.DataType(id=getId("number_connections"), value=any.to_any(0))
+    self.props[getId("prop3")] = CF.DataType(id=getId("prop3"), value=any.to_any("yes"))
     self.toOther = toOther_i(self, "resource_out")
 
   def releaseObject(self):
@@ -212,7 +214,7 @@ class BasicUsesDevice(CF__POA.Device):
     result = True
     # Validate
     for prop in properties:
-        if not prop.id in (getId("bandwidthCapacity")):
+        if not prop.id in (getId("bandwidthCapacity"), getId("prop3")):
             raise CF.Device.InvalidCapacity(CF.CFNOTSET, "Invalid capacity %s" % prop.id)
 
     # Consume
@@ -245,15 +247,17 @@ class BasicUsesDevice(CF__POA.Device):
     self._log.debug("BasicUsesDevice.deallocateCapacity(%s)", properties)
     # Validate
     for prop in properties:
-        if not prop.id in (getId("bandwidthCapacity")):
-            raise CF.Device.InvalidCapacity("Invalid capacity")
+        if not prop.id in (getId("bandwidthCapacity"), getId("prop3")):
+            raise CF.Device.InvalidCapacity(CF.CFNOTSET, "Invalid capacity %s" % prop.id)
 
     # Unconsume
     for prop in properties:
         if prop.id == getId("bandwidthCapacity"):
             self.props[prop.id].value._v = self.props[prop.id].value._v + prop.value._v
+        elif prop.id == getId("prop3"):
+            pass
         else:
-            raise CF.Device.InvalidCapacity("Invalid capacity")
+            raise CF.Device.InvalidCapacity(CF.CFNOTSET, "Invalid capacity %s" % prop.id)
 
     # Update usage state
     if self.props[getId("bandwidthCapacity")].value._v == 0 and self.props[getId("bandwidthCapacity")].value._v == 0:

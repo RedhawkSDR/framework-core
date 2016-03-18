@@ -75,6 +75,10 @@ with this program.  If not, see http://www.gnu.org/licenses/.
         <description>The value with no default used to test dynamic allocate capacity.</description> 
         <kind kindtype="configure"/>
     </simple>
+    <simple id="prop3" mode="readwrite" name="prop3" type="string">
+        <description>The value with no default used to test dynamic allocate capacity.</description> 
+        <kind kindtype="property"/>
+    </simple>
     <simple id="configure_prop_notset" mode="readwrite" type="double">
         <description>The value with no default used to test dynamic allocate capacity.</description> 
         <kind kindtype="property"/>

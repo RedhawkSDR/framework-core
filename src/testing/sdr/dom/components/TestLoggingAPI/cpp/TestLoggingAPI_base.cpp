@@ -72,6 +72,22 @@ void TestLoggingAPI_base::releaseObject() throw (CORBA::SystemException, CF::Lif
 
 void TestLoggingAPI_base::loadProperties()
 {
+    addProperty(new_log_level,
+                "new_log_level",
+                "new_log_level",
+                "readwrite",
+                "",
+                "external",
+                "property");
+
+    addProperty(new_log_cfg,
+                "new_log_cfg",
+                "new_log_cfg",
+                "readwrite",
+                "",
+                "external",
+                "property");
+
 }
 
 

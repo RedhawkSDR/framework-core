@@ -125,6 +125,12 @@ class CommandWrapper_i(CF__POA.Resource, Resource):
         mode="readonly",
         fget=get_commandAlive)
 
+    prop3 = simple_property(\
+        id_='prop3',
+        type_="string",
+        name="prop3",
+        kinds=("property"))
+
     someprop = simple_property(\
         id_='DCE:fa8c5924-845c-484a-81df-7941f2c5baa9',
         type_="long",

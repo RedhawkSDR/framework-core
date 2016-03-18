@@ -524,7 +524,7 @@ ComponentInfo* ComponentInfo::buildComponentInfoFromSPDFile(CF::FileManager_ptr 
         LOG_DEBUG(ComponentInfo, "Loading component properties from " << newComponent->spd.getPRFFile());
         try {
             File_stream _prf(fileMgr, newComponent->spd.getPRFFile());
-            LOG_DEBUG(ComponentInfo, "Parsing component properties");
+            LOG_TRACE(ComponentInfo, "Parsing component properties");
             newComponent->prf.load(_prf);
             LOG_TRACE(ComponentInfo, "Closing PRF file")
             _prf.close();
@@ -1053,6 +1053,28 @@ CF::Properties ComponentInfo::getOptions()
 CF::Properties ComponentInfo::getExecParameters()
 {
     return execParameters;
+}
+
+CF::Properties ComponentInfo::getPopulatedExecParameters()
+{
+    CF::Properties retval = execParameters;
+    while (true) {
+        unsigned int i;
+        for (i=0; i<retval.length(); i++) {
+            CORBA::TypeCode_var typecode = retval[i].value.type();
+            if (typecode->kind() == CORBA::tk_null) {
+                break;
+            }
+        }
+        if (i == retval.length()) {
+            break;
+        }
+        for (unsigned int j=i+1; j<retval.length(); j++) {
+            retval[j-1] = retval[j];
+        }
+        retval.length(retval.length()-1);
+    }
+    return retval;
 }
 
 CF::Resource_ptr ComponentInfo::getResourcePtr()

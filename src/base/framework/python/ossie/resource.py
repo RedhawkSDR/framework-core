@@ -584,7 +584,7 @@ class Resource(object):
         ossie.logger.SetEventChannelManager( self._ecm )
 
 
-    def setLogListenerCallback(self, loglistenerCB ):
+    def setLogListenerCallback(self, logListenerCB ):
         self.logListenerCallback=logListenerCB
         
     def addPropertyChangeListener(self, id, callback):
@@ -633,8 +633,10 @@ class Resource(object):
 
     def setLogConfig(self, new_log_config):
         if self.logListenerCallback and callable(self.logListenerCallback.logConfigChanged):
-            self.logConfig = new_log_config
-            self.logListenerCallback.logConfigChanged(new_log_config)
+            tcfg= ossie.logger.ExpandMacros( new_log_config, self.loggingMacros  )
+            if tcfg:
+               self.logConfig = tcfg
+               self.logListenerCallback.logConfigChanged(tcfg)
         elif new_log_config:
             tcfg= ossie.logger.ConfigureWithContext( new_log_config, self.loggingMacros  )
             if tcfg:

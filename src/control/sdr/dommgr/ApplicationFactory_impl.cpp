@@ -1592,7 +1592,13 @@ void createHelper::allocateComponent(ossie::ComponentInfo*  component,
     ossie::ImplementationInfo::List  implementations;
     component->getImplementations(implementations);
 
-    const CF::Properties& configureProperties = component->getConfigureProperties();
+    CF::Properties configureProperties = component->getConfigureProperties();
+    const CF::Properties &construct_props = component->getConstructProperties();
+    unsigned int configlen = configureProperties.length();
+    configureProperties.length(configureProperties.length()+construct_props.length());
+    for (unsigned int i=0; i<construct_props.length(); i++) {
+      configureProperties[i+configlen] = construct_props[i];
+    }
     
     // Find the devices that allocate the SPD's minimum required usesdevices properties
     const UsesDeviceInfo::List &usesDevVec = component->getUsesDevices();
@@ -1794,6 +1800,7 @@ void createHelper::_evaluateMATHinRequest(CF::Properties &request, const CF::Pro
                 mathStatement.erase(mathStatement.end() - 1, mathStatement.end());
                 std::vector<std::string> args;
                 while ((mathStatement.length() > 0) && (mathStatement.find(',') != std::string::npos)) {
+                    LOG_TRACE(ApplicationFactory_impl, "__MATH__ ARG: " << mathStatement.substr(0, mathStatement.find(',')) );
                     args.push_back(mathStatement.substr(0, mathStatement.find(',')));
                     mathStatement.erase(0, mathStatement.find(',') + 1);
                 }
@@ -1861,6 +1868,7 @@ void createHelper::_evaluateMATHinRequest(CF::Properties &request, const CF::Pro
                 CORBA::TypeCode_var matchingCompPropType = matchingCompProp->value.type();
                 request[math_prop].value = ossie::calculateDynamicProp(operand, compValue, math, matchingCompPropType->kind());
                 std::string retval = ossie::any_to_string(request[math_prop].value);
+                LOG_DEBUG(ApplicationFactory_impl, "__MATH__ RESULT: " << retval << " op1: " << operand << " op2:" << ossie::any_to_string(compValue) );
             } else {
                 std::ostringstream eout;
                 eout << " invalid __MATH__ statement; '" << mathStatement << "'";
@@ -2600,7 +2608,7 @@ void createHelper::attemptComponentExecution (
             LOG_TRACE(ApplicationFactory_impl, " RESOURCE OPTION: " << cop[i].id << " " << ossie::any_to_string(cop[i].value))
         }
 
-        tempPid = execdev->executeLinked(executeName.string().c_str(), cop, component->getExecParameters(), dep_seq);
+        tempPid = execdev->executeLinked(executeName.string().c_str(), cop, component->getPopulatedExecParameters(), dep_seq);
     } catch( CF::InvalidFileName& _ex ) {
         ostringstream eout;
         eout << "InvalidFileName when calling 'execute' on device with device id: '" << component->getAssignedDeviceId() << "' for component: '";

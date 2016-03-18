@@ -211,8 +211,9 @@ char *Logging_impl::getLogConfig () {
 void Logging_impl::setLogConfig( const char *config_contents ) {
 
   if ( logConfigCallback) {
-    (*logConfigCallback)( config_contents );
-    _logCfgContents = config_contents;
+    std::string lcfg =   ossie::logging::ExpandMacros( config_contents, _loggingMacros );
+    (*logConfigCallback)( lcfg.c_str() );
+    _logCfgContents = lcfg;
   }
   else {
     ossie::logging::Configure( config_contents, _loggingMacros, _logCfgContents );

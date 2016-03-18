@@ -32,6 +32,7 @@ import org.omg.PortableServer.POAPackage.WrongPolicy;
 import CF.InvalidObjectReference;
 
 import org.ossie.component.*;
+import org.ossie.properties.*;
 
 /**
  * This is the component code. This file contains all the access points
@@ -47,6 +48,39 @@ public abstract class TestLoggingAPI_base extends ThreadedResource {
      * @generated
      */
     public final static Logger logger = Logger.getLogger(TestLoggingAPI_base.class.getName());
+
+    /**
+     * The property new_log_level
+     * If the meaning of this property isn't clear, a description should be added.
+     *
+     * @generated
+     */
+    public final LongProperty new_log_level =
+        new LongProperty(
+            "new_log_level", //id
+            "new_log_level", //name
+            null, //default value
+            Mode.READWRITE, //mode
+            Action.EXTERNAL, //action
+            new Kind[] {Kind.PROPERTY}
+            );
+    
+    /**
+     * The property new_log_cfg
+     * If the meaning of this property isn't clear, a description should be added.
+     *
+     * @generated
+     */
+    public final StringProperty new_log_cfg =
+        new StringProperty(
+            "new_log_cfg", //id
+            "new_log_cfg", //name
+            null, //default value
+            Mode.READWRITE, //mode
+            Action.EXTERNAL, //action
+            new Kind[] {Kind.PROPERTY}
+            );
+
 
     /**
      * @generated

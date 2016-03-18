@@ -48,7 +48,7 @@ from ossie.utils import weakobj
 from channels import IDMListener, ODMListener
 from component import Component
 from device import Device, createDevice
-from service import Service
+from service import Service, RogueService
 from model import DomainObjectList
 from model import IteratorContainer
 from ossie.utils.model import QueryableBase
@@ -847,6 +847,8 @@ class DeviceManager(_CF__POA.DeviceManager, QueryableBase, PropertyEmitter, Port
 
     def __newService(self, service):
         try:
+            refid=''
+            profile=None
             serviceRef = service.serviceObject
             instanceName = service.serviceName
             for placement in self._dcd.partitioning.componentplacement:
@@ -859,8 +861,11 @@ class DeviceManager(_CF__POA.DeviceManager, QueryableBase, PropertyEmitter, Port
                             break
                     break
             implId = self.ref.getComponentImplementationId(refid)
-            spd, scd, prf = _readProfile(profile, self.fs)
-            return Service(profile, spd, scd, prf, serviceRef, instanceName, refid, implId)
+            if profile:
+                spd, scd, prf = _readProfile(profile, self.fs)
+                return Service(profile, spd, scd, prf, serviceRef, instanceName, refid, implId)
+            else:
+                return RogueService(serviceRef, instanceName )
         except _CORBA.Exception:
             log.warn('Ignoring inaccessible service')
 

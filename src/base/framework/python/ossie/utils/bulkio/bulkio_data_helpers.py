@@ -291,7 +291,8 @@ class ArraySink(object):
                 # No length specified; get all of the data.
                 length = len(self.data)
             if self.sri.subsize != 0:
-                if float(length)/self.sri.subsize != length/self.sri.subsize:
+                frameLength = self.sri.subsize if not self.sri.mode else 2*self.sri.subsize
+                if float(length)/frameLength != length/frameLength:
                     print 'The requested length divided by the subsize ('+str(length)+'/'+str(self.sri.subsize)+') is not a whole number. Cannot return framed data'
                     return (None,None)
 
@@ -318,8 +319,9 @@ class ArraySink(object):
                     retval = self.data[:length]
                 else:
                     retval = []
-                    for idx in range(length/self.sri.subsize):
-                        retval.append(self.data[idx*self.sri.subsize:(idx+1)*self.sri.subsize])
+                    frameLength = self.sri.subsize if not self.sri.mode else 2*self.sri.subsize
+                    for idx in range(length/frameLength):
+                        retval.append(self.data[idx*frameLength:(idx+1)*frameLength])
                 del self.data[:length]
                 return (retval, rettime)
 
@@ -329,8 +331,9 @@ class ArraySink(object):
                 (retval, rettime) = (self.data, self.timestamps)
             else:
                 retval = []
-                for idx in range(length/self.sri.subsize):
-                    retval.append(self.data[idx*self.sri.subsize:(idx+1)*self.sri.subsize])
+                frameLength = self.sri.subsize if not self.sri.mode else 2*self.sri.subsize
+                for idx in range(length/frameLength):
+                    retval.append(self.data[idx*frameLength:(idx+1)*frameLength])
                 rettime = self.timestamps
             self.data = []
             self.timestamps = []

@@ -562,6 +562,37 @@ class PropertyEmitter(PropertySet):
         if self.ref:
             self.ref.unregisterPropertyListener(reg_id )
 
+
+class RogueService(CorbaObject):
+    def __init__(self, ref, instanceName ):
+        CorbaObject.__init__(self, ref)
+        self._instanceName = instanceName
+
+    def _matchInterface(self, repid):
+        return repid == self._repid
+
+    def _getInterface(self):
+        return self._repid
+
+    def log_level(self, newLogLevel=None ):
+        if newLogLevel == None:
+            return self.ref._get_log_level( newLogLevel )
+        else:
+            self.ref._set_log_level( newLogLevel )
+
+    def setLogLevel(self, logid, newLogLevel ):
+        self.ref.setLogLevel( logid, newLogLevel )
+
+    def getLogConfig(self):
+        return self.ref.getLogConfig()
+
+    def setLogConfig(self, new_log_config):
+        self.ref.setLogConfig( new_log_config )
+
+    def setLogConfigURL(self, log_config_url):
+        self.ref.setLogConfigURL( log_config_url )
+
+
 class Service(CorbaObject):
     def __init__(self, ref, profile, spd, scd, prf, instanceName, refid, impl):
         CorbaObject.__init__(self, ref)

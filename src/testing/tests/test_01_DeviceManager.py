@@ -18,7 +18,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-import unittest, os, signal, time
+import unittest, os, signal, time, platform
 from _unitTestHelpers import scatest
 from _unitTestHelpers import runtestHelpers
 from omniORB import URI, any, CORBA
@@ -960,6 +960,43 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         # Makes sure all children are cleaned
         self.assertEquals(len(getChildren(devmgr_nb.pid)), 0)
 
+    def test_RogueService(self):
+        devmgr_nb, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
+        import ossie.utils.popen as _popen
+        from ossie.utils import redhawk
+        rhdom= redhawk.attach(scatest.getTestDomainName())
+
+        serviceName = "fake_1"
+        args = []
+        args.append("sdr/dev/services/fake/python/fake.py")
+        args.append("DEVICE_MGR_IOR")
+        args.append(self._orb.object_to_string(devMgr))
+        args.append("SERVICE_NAME")
+        args.append(serviceName)
+        exec_file = "sdr/dev/services/fake/python/fake.py"
+        external_process = _popen.Popen(args, executable=exec_file, cwd=os.getcwd(), preexec_fn=os.setpgrp)
+
+        time.sleep(2)
+
+        names=[serviceName]
+        for svc in devMgr._get_registeredServices():
+            self.assertNotEqual(svc, None)
+            self.assertEqual(svc.serviceName in names, True)
+
+        for svc in rhdom.services:
+            self.assertNotEqual(svc, None)
+            self.assertEqual(svc._instanceName in names, True)
+
+        # Kill the external services
+        os.kill(external_process.pid, signal.SIGINT)
+
+        time.sleep(1)
+
+        # check rogue service is removed
+        self.assertEquals(len(devMgr._get_registeredServices()), 0)
+        self.assertEquals(len(rhdom.services), 0)
+
+
     def test_ServiceShutdown_DomMgr(self):
         num_services = 5
         num_devices = 1
@@ -1133,7 +1170,21 @@ class DeviceManagerTest(scatest.CorbaTestCase):
         # location as an additional check
         altpath = os.path.join(scatest.getSdrPath(), 'valgrind')
         os.symlink(valgrind, altpath)
+
+        # patch for ubuntu valgrind script
+        ub_patch=False
+        try:
+           if 'UBUNTU' in platform.linux_distribution()[0].upper():
+               ub_patch=True
+               valgrind_bin = scatest.which('valgrind.bin')
+               os.symlink(valgrind_bin, altpath+'.bin')
+        except:
+             pass
+
         try:
             self._test_Valgrind(altpath)
         finally:
             os.unlink(altpath)
+            if ub_patch:
+                os.unlink(altpath+'.bin')
+

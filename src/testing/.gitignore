@@ -51,3 +51,4 @@ sdr/dom/components/nocommandline_prop/cpp/nocommandline_prop
 sdr/dom/components/cpp_with_deps/cpp/cpp_with_deps
 sdr/dom/deps/cpp_dep1/cpp/cpp_dep1.pc
 sdr/dom/deps/cpp_dep2/cpp/cpp_dep2.pc
+sdr/dom/deps/cpp_dep2/cpp_dep2.spd.xml

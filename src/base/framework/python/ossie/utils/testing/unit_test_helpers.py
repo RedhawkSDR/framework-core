@@ -48,6 +48,8 @@ from ossie.properties import mapComplexType
 from ossie.utils.prop_helpers import parseComplexString
 from omniORB import any, CORBA, tcInternal
 
+import rhunittest
+
 # These global methods are here to allow other modules to modify the global variables IMPL_ID and SOFT_PKG
 # TestCase setUp() method doesn't allow passing in arguments to the test case so global values are needed
 def setImplId(impl_id):
@@ -424,10 +426,12 @@ Examples:
                                                in MyTestCase
 """
     def __init__(self, spd_file, module='__main__', defaultTest=None,
-                argv=None, testRunner=None, testLoader=unittest.defaultTestLoader, impl=None):
+                argv=None, testRunner=None, testLoader=None, impl=None):
         self.spd_file = spd_file
         self.impl = impl
         self.results = []
+        if testLoader is None:
+            testLoader = rhunittest.RHTestLoader(impl)
         unittest.TestProgram.__init__(self, module, defaultTest, argv, testRunner, testLoader)
 
     def parseArgs(self, argv):
@@ -475,7 +479,9 @@ Examples:
                 self.results.append(result)
         #sys.exit(not result.wasSuccessful())
 
-class RHComponentTestProgram(ScaComponentTestProgram):
-    pass
-               
-main = RHComponentTestProgram
+def main(spd_file=None, module='__main__', defaultTest=None, argv=None, testRunner=None,
+         testLoader=unittest.defaultTestLoader, impl=None):
+    if spd_file is None:
+        return rhunittest.RHTestProgram(module, defaultTest, argv, testRunner, impl)
+    else:
+        return ScaComponentTestProgram(spd_file, module, defaultTest, argv, testRunner, testLoader, impl)

@@ -473,8 +473,9 @@ abstract public class Logging {
      */
     public void setLogConfig( String config_contents ) {
 	if ( this.logListener != null ) {
-	    this.logConfig = config_contents;
-	    this.logListener.logConfigChanged( config_contents );
+            String lcfg = logging.ExpandMacros( config_contents, loggingMacros );
+	    this.logListener.logConfigChanged( lcfg );
+	    this.logConfig = lcfg;
 	}
 	else {
 	    try {
