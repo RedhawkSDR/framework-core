@@ -76,6 +76,8 @@ class FileManagerTest(scatest.CorbaTestCase):
         self.assertEqual(fileMgr.exists(devfile+addon), False)
         self.assertEqual(fileMgr.exists(domfile+addon), False)
 
+        self.assertEqual(len(fileMgr.getMounts()), 1)
+
         #################
         # test open
         #################

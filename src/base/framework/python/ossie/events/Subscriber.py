@@ -35,9 +35,10 @@ import CosEventChannelAdmin, CosEventChannelAdmin__POA
 class Receiver(CosEventComm__POA.PushConsumer):
     def __init__(self):
         self._recv_disconnect = True
+        self.logger = logging.getLogger("ossie.events.Subscriber.Receiver")
         self._lock = threading.Lock()
         self._cond = threading.Condition(self._lock)
-        self.logger = logging.getLogger("ossie.events.Subscriber.Receiver")
+
 
     def __del__(self):
         self._cond.acquire()
@@ -62,7 +63,7 @@ class Receiver(CosEventComm__POA.PushConsumer):
         try:
             self._cond.acquire()
             tries = retries
-            while _recv_disconnect == False:
+            while self._recv_disconnect == False:
                 self.logger.debug("Subscriber.Reciever::wait_for_disconnect.... waiting for disconnect")
                 if wait_time and wait_time > -1.0:
                     self._cond.wait( wait_time/1000.0 )
@@ -82,6 +83,7 @@ class Receiver(CosEventComm__POA.PushConsumer):
 class DefaultConsumer(Receiver):
     def __init__(self,parent):
         self.parent = parent
+        Receiver.__init__(self)
 
     def push(self, data):
         if self.parent.dataArrivedCB != None:
@@ -96,11 +98,11 @@ class Subscriber:
     def __init__(self, channel, dataArrivedCB=None):
         self.channel = channel
         self.proxy = None
-        self.consumer = DefaultConsumer(self)
+        self.logger = logging.getLogger('ossie.events.Subscriber')
         self.dataArrivedCB=dataArrivedCB
         self.events = Queue.Queue()
         self.my_lock = threading.Lock()
-        self.logger = logging.getLogger('ossie.events.Subscriber')
+        self.consumer = DefaultConsumer(self)
         self.connect()
 
 
@@ -143,7 +145,7 @@ class Subscriber:
             self.logger.debug('getData: ' + str(tmp))
             retval = any.from_any(tmp)
         except:
-            print traceback.print_exc()
+            #print traceback.print_exc()
             retval=None
         
         return retval
@@ -168,7 +170,7 @@ class Subscriber:
 
             if self.consumer:
                self.logger.debug("Subscriber::disconnect  Waiting for disconnect")
-               self.wait_for_disconnect(.01,3)
+               self.consumer.wait_for_disconnect(.01,3)
                self.logger.debug("Subscriber::disconnect  recevied  disconnect")
            
         return retval
@@ -207,7 +209,7 @@ class Subscriber:
                 self.proxy.connect_push_consumer( self.consumer._this() )
                 self.consumer.reset()
                 break
-            except CORBA.BAD_PARM:
+            except CORBA.BAD_PARAM:
                 break
             except CORBA.COMM_FAILURE:
                 pass

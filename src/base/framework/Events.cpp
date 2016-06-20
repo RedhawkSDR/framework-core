@@ -500,7 +500,7 @@ namespace events {
   void  Manager::Terminate() {
 
     // release all Publishers and Subscribers
-    RH_NL_DEBUG("redhawk::events::Manager",  "Terminate all EventChannels");
+    RH_NL_TRACE("redhawk::events::Manager",  "Terminate all EventChannels");
     if ( Manager::_Manager ) _Manager->_terminate();
   }
 
@@ -595,6 +595,10 @@ namespace events {
       RH_NL_ERROR("EventChannelManager", "Unable to create Publisher for Channel:" << channel_name << ", REASON: Service unavailable.");
       throw RegistrationFailed();
     }
+    catch(...) { 
+      RH_NL_ERROR("EventChannelManager", "Unable to create Publisher for Channel:" << channel_name << ", REASON: Unknown exception occurred.");
+      throw RegistrationFailed();
+    }
 
     return pub;
 
@@ -646,6 +650,10 @@ namespace events {
     }
     catch( CF::EventChannelManager::ServiceUnavailable e) { 
       RH_NL_ERROR("EventChannelManager", "Unable to create Subscriber for Channel:" << channel_name << ", REASON: Service unavailable.");
+      throw RegistrationFailed();
+    } 
+    catch( ... ) { 
+      RH_NL_ERROR("EventChannelManager", "Unable to create Subscriber for Channel:" << channel_name << ", REASON: Unknown exception occurred.");
       throw RegistrationFailed();
     } 
 

@@ -567,9 +567,10 @@ class App(_CF__POA.Application, Resource):
         if usesPortName != None and usesName != None:
             log.warn('usesPortName and usesName provided; using only usesPortName')
         connections = _ConnectionManager.instance().getConnections()
+        name_mangling = '%s/%s' % (self._instanceName, uses_name)
         while True:
             connectionId = 'adhoc_connection_%d' % (self._connectioncount)
-            if not connectionId in connections:
+            if not name_mangling+connectionId in connections:
                 break
             self._connectioncount = self._connectioncount+1
         PortSupplier.connect(self, provides, usesPortName=uses_name, providesPortName=provides_name, connectionId=connectionId)

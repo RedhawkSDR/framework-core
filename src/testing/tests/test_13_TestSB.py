@@ -31,6 +31,7 @@ from ossie import properties as _properties
 import threading
 globalsdrRoot = os.environ['SDRROOT']
 import sys
+import cStringIO
 import time
 import copy
 import ossie.utils.bulkio.bulkio_helpers as _bulkio_helpers
@@ -58,7 +59,7 @@ def _initSourceAndSink(dataFormat):
 
 class SBTestTest(scatest.CorbaTestCase):
     def setUp(self):
-        sb.setDEBUG(True)
+        sb.setDEBUG(False)
         self.test_comp = "Sandbox"
         # Flagrant violation of sandbox API: if the sandbox singleton exists,
         # clean up previous state and dispose of it.
@@ -117,6 +118,18 @@ class SBTestTest(scatest.CorbaTestCase):
         c = sb.launch('ticket_490_double')
         self.assertNotEquals(c, None)
 
+    def test_doubleNamedConnection(self):
+        a = sb.launch('comp_src')
+        b = sb.launch('comp_snk')
+        c = sb.launch('comp_src')
+        d = sb.launch('comp_snk')
+        a.connect(b,connectionId='some_id')
+        c.connect(d,connectionId='some_id')
+        import ossie.utils.model
+        connection_mgr=ossie.utils.model.ConnectionManager.instance()
+        connection_ids = connection_mgr.getConnections().keys()
+        self.assertEquals(len(connection_ids), 2)
+
     def test_setSDRROOT(self):
         # None type
         self.assertRaises(TypeError, sb.setSDRROOT, None)
@@ -156,6 +169,35 @@ class SBTestTest(scatest.CorbaTestCase):
     def test_relativePath(self):
         comp = sb.launch('sdr/dom/components/Sandbox/Sandbox.spd.xml')
         self.assertComponentCount(1)
+
+    def test_LogServiceFunctionException(self):
+        file_loc = os.getcwd()
+        comp = sb.launch('sdr/dom/components/svc_fn_error/svc_fn_error.spd.xml', execparams={'LOGGING_CONFIG_URI':'file://'+os.getcwd()+'/logconfig.cfg'})
+        comp.start()
+        time.sleep(0.5)
+        fp = None
+        try:
+            fp = open('foo/bar/test.log','r')
+        except:
+            pass
+        if fp != None:
+            log_contents = fp.read()
+            fp.close()
+        
+        try:
+            os.remove('foo/bar/test.log')
+        except:
+            pass
+        try:
+            os.rmdir('foo/bar')
+        except:
+            pass
+        try:
+            os.rmdir('foo')
+        except:
+            pass
+            
+        self.assertTrue('ERROR:svc_fn_error' in log_contents)
 
     def test_propertyInitialization(self):
         """
@@ -445,6 +487,10 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.over_simple, "override")
         self.assertEquals(comp.over_struct_seq, [{'a_word': 'something', 'a_number': 1}])
 
+    def test_loadSADFileSpecialChar(self):
+        retval = sb.loadSADFile('sdr/dom/waveforms/comp_prop_special_char_w/comp_prop_special_char_w.sad.xml')
+        self.assertEquals(retval, True)
+
     def test_loadSADFileUses_p(self):
         retval = sb.loadSADFile('sdr/dom/waveforms/SADUsesDeviceWave/SADUsesDeviceWaveConnectionDevProvides.sad.xml')
         self.assertEquals(retval, True)
@@ -724,7 +770,7 @@ class SBTestTest(scatest.CorbaTestCase):
         self.assertEquals(comp.seq_longlong_name[0], -9223372036854775808)
         self.assertEquals(comp.seq_longlong_name[1], 9223372036854775807)
         self.assertEquals(comp.seq_ulonglong_name[0], 0)
-        #self.assertEauals(comp.seq_ulonglong_name[1], 18446744073709551615)
+        #self.assertEquals(comp.seq_ulonglong_name[1], 18446744073709551615)
 
         # Test one beyond upper bound
         self.assertRaises(type_helpers.OutOfRangeException, comp.seq_octet.configureValue, [0, 256])

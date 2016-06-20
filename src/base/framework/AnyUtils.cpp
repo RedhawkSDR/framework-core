@@ -79,6 +79,20 @@ namespace {
         }
     }
 
+    // Specialization for CORBA::Octet (unsigned char), always converting via
+    // double because lexical_cast throws a bad_lexical_cast exception with
+    // CORBA::Octet
+    template<>
+    inline CORBA::Octet stringToNumber (const std::string& str)
+    {
+        double temp = boost::lexical_cast<double>(str);
+        typedef boost::numeric::converter<CORBA::Octet,double> Converter;
+        if (Converter::out_of_range(temp)) {
+            throw std::range_error("value out of range");
+        }
+        return Converter::convert(temp);
+    }
+
     template <typename T>
     inline bool anyToNumber (const CORBA::Any& any, T& value)
     {

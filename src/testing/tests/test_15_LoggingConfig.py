@@ -26,6 +26,7 @@ import CosNaming
 import CosEventChannelAdmin
 from ossie.utils import sb
 from _unitTestHelpers import runtestHelpers
+import os
 
 java_support = runtestHelpers.haveJavaSupport('../Makefile')
 
@@ -321,6 +322,84 @@ if java_support:
         c_cfg=self.comp.ref.setLogConfig(cfg)
         c_cfg=self.comp.ref.start()
         c_cfg=self.comp.ref.stop()
+
+class FileLoggingConfig(scatest.CorbaTestCase):
+    def setUp(self):
+        self.cname = "TestLoggingAPI"
+        
+    def tearDown(self):
+        self.comp.releaseObject()
+
+        # Do all application shutdown before calling the base class tearDown,
+        # or failures will probably occur.
+        scatest.CorbaTestCase.tearDown(self)
+
+    def test_comp_macro_directories_config_python(self):
+        file_loc = os.getcwd()
+        self.comp = sb.launch(self.cname, impl="python", execparams={'LOGGING_CONFIG_URI':'file://'+os.getcwd()+'/logconfig.cfg'} )
+        fp = None
+        try:
+            fp = open('foo/bar/test.log','r')
+        except:
+            pass
+        try:
+            os.remove('foo/bar/test.log')
+        except:
+            pass
+        try:
+            os.rmdir('foo/bar')
+        except:
+            pass
+        try:
+            os.rmdir('foo')
+        except:
+            pass
+        self.assertNotEquals(fp, None)
+
+    def test_comp_macro_directories_config_cpp(self):
+        file_loc = os.getcwd()
+        self.comp = sb.launch(self.cname, impl="cpp", execparams={'LOGGING_CONFIG_URI':'file://'+os.getcwd()+'/logconfig.cfg'} )
+        fp = None
+        try:
+            fp = open('foo/bar/test.log','r')
+        except:
+            pass
+        try:
+            os.remove('foo/bar/test.log')
+        except:
+            pass
+        try:
+            os.rmdir('foo/bar')
+        except:
+            pass
+        try:
+            os.rmdir('foo')
+        except:
+            pass
+        self.assertNotEquals(fp, None)
+
+    def test_comp_macro_directories_config_java(self):
+        file_loc = os.getcwd()
+        self.comp = sb.launch(self.cname, impl="java", execparams={'LOGGING_CONFIG_URI':'file://'+os.getcwd()+'/logconfig.cfg'} )
+        fp = None
+        try:
+            fp = open('foo/bar/test.log','r')
+        except:
+            pass
+        try:
+            os.remove('foo/bar/test.log')
+        except:
+            pass
+        try:
+            os.rmdir('foo/bar')
+        except:
+            pass
+        try:
+            os.rmdir('foo')
+        except:
+            pass
+        self.assertNotEquals(fp, None)
+
 
 class PythonLoggingConfig(scatest.CorbaTestCase):
     def setUp(self):

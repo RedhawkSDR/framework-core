@@ -375,6 +375,7 @@ int old_main(int argc, char* argv[])
         DomainManager_servant = new DomainManager_impl(dmdFile.c_str(),
                                                        domRootPath.string().c_str(),
                                                        domainName.c_str(),
+                                                       (db_uri.empty()) ? NULL : db_uri.c_str(),
                                                        (logfile_uri.empty()) ? NULL : logfile_uri.c_str(),
                                                        useLogCfgResolver,
                                                        bindToDomain

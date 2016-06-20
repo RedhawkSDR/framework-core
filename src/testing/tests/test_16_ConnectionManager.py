@@ -207,7 +207,11 @@ class ConnectionManagerTestRedhawkUtils(scatest.CorbaTestCase):
         # The DCD has one connection, verify that it is listed
         self.cm = d.getConnectionMgr()
         self.assertNotEqual(self.cm, None )
-
+    
+    def tearDown(self):
+        for app in self._domMgr._get_applications():
+            app.releaseObject()
+        scatest.CorbaTestCase.tearDown(self)
 
     def _createApp(self, sadPath):
         self.assertNotEqual(self._domMgr, None)
@@ -278,6 +282,24 @@ class ConnectionManagerTestRedhawkUtils(scatest.CorbaTestCase):
         self.assertEqual(len(connections), 1)
 
 
+    def test_redhawkutils_ComponentConnections(self):
+        app_src = self._domMgr.createApplication('/waveforms/comp_src_w/comp_src_w.sad.xml', 'src_app', [], [])
+        app_snk = self._domMgr.createApplication('/waveforms/comp_snk_w/comp_snk_w.sad.xml', 'snk_app', [], [])
+        uses = self.cm.componentEndPoint( 'comp_src_1:'+app_src._get_identifier(), 'dataFloat_out')
+        provides = self.cm.componentEndPoint( 'comp_snk_1:'+app_snk._get_identifier(), 'dataFloat_in')
+        connectionReportId = self.cm.connect(uses, provides, 'test_environment', 'test_connection')
+        connections = self.cm.connections
+        self.assertEqual(len(connections), 2)
+        connection = self._findConnection(connections,'test_connection')
+        self.assertFalse(connection is None)
+        self.assertTrue(connection.connected)
+        self.assertEqual(connection.usesEndpoint.portName, 'dataFloat_out')
+        self.assertEqual(connection.providesEndpoint.portName, 'dataFloat_in')
+        connections = connection.usesEndpoint.endpointObject._narrow(ExtendedCF.QueryablePort)._get_connections()
+        self.assertTrue(len(connections) == 1)
+        self.assertEqual(connections[0].connectionId, 'test_connection')
+        
+    
     def test_redhawkutils_ApplicationConnections(self):
         app = self._createApp('/waveforms/PortConnectExternalPortRename/PortConnectExternalPortRename.sad.xml')
 

@@ -207,6 +207,7 @@ throw (CORBA::SystemException, CF::Resource::StartError)
     }
 
     try {
+        omniORB::setClientCallTimeout(assemblyController, 0);       
         LOG_TRACE(Application_impl, "Calling start on assembly controller")
         assemblyController->start ();
 
@@ -216,6 +217,7 @@ throw (CORBA::SystemException, CF::Resource::StartError)
             msg = msg.append(ossie::corba::returnString(_appStartSeq[i]->identifier()));
             LOG_TRACE(Application_impl, msg)
 
+            omniORB::setClientCallTimeout(_appStartSeq[i], 0);       
             _appStartSeq[i]-> start();
         }
     } catch( CF::Resource::StartError& se ) {

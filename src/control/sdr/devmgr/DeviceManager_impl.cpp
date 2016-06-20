@@ -392,18 +392,22 @@ void DeviceManager_impl::registerDeviceManagerWithDomainManager(
         CF::DeviceManager_var& my_object_var) {
 
     LOG_TRACE(DeviceManager_impl, "Registering with DomainManager");
+    int64_t cnt=0;
     while (true) {
         if (*_internalShutdown) {
             throw std::runtime_error("Interrupted waiting to register with DomainManager");
         }
         try {
+            cnt++;
             _dmnMgr->registerDeviceManager(my_object_var);
             break;
         } catch (const CORBA::TRANSIENT& ex) {
             // The DomainManager isn't currently reachable, but it may become accessible again.
+          if ( !(++cnt % 10) ) {LOG_WARN(DeviceManager_impl, "DomainManager not available,  TRANSIENT condition: retry cnt" << cnt); }
             usleep(100000);
         } catch (const CORBA::OBJECT_NOT_EXIST& ex) {
             // This error occurs while the DomainManager is still being constructed 
+          if ( !(++cnt % 10) ) {LOG_WARN(DeviceManager_impl, "DomainManager not available,  DOES NOT EXIST condition: retry cnt" << cnt); }
             usleep(100000);
         } catch (const CF::DomainManager::RegisterError& e) {
             LOG_ERROR(DeviceManager_impl, "Failed to register with domain manager due to: " << e.msg);

@@ -145,7 +145,9 @@ public class RH_LogEventAppender extends AppenderSkeleton  {
                 
                 }
                 else {
-                    errorHandler.error("No Publisher available for channel:" + channelName );
+                    if( _ecm != null ) {
+                        errorHandler.error("No Publisher available for channel:" + channelName );
+                    }
                 }
             }
             else {

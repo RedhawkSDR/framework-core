@@ -59,7 +59,7 @@ class DomainManager_impl: public virtual POA_CF::DomainManager, public PropertyS
 ///////////////////////////
 public:
 
-  DomainManager_impl (const char*, const char*, const char*, const char*, bool, bool );
+      DomainManager_impl (const char*, const char*, const char*, const char *, const char*, bool, bool );
     ~DomainManager_impl ();
 
     friend class ODM_Channel_Supplier_i;
@@ -152,6 +152,7 @@ public:
     void shutdown(int signal);
 
     void restoreState(const std::string& _db_uri);
+    void restoreEventChannels(const std::string& _db_uri);
 
     void addApplication(Application_impl* new_app);
     
@@ -275,7 +276,7 @@ protected:
     //
     // Events/Event Channel Management 
     //
-    void establishDomainManagementChannels();
+    void establishDomainManagementChannels( const std::string &db_uri );
     void disconnectDomainManagementChannels();
     void handleIDMChannelMessages( const CORBA::Any &msg );
     void idmTerminationMessages( const redhawk::events::ComponentTerminationEvent &msg );

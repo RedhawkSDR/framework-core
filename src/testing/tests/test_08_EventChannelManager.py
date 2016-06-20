@@ -59,6 +59,17 @@ class EventChannelManager(scatest.CorbaTestCase):
         # class tearDown, or failures will occur.
         scatest.CorbaTestCase.tearDown(self)
 
+    def test_ECM_RegId(self):
+        self.localEvent = threading.Event()
+        self.eventFlag = False
+        reg = CF.EventChannelManager.EventRegistration( channel_name = 'prop_Channel', reg_id = 'my_reg_id')
+        ret_reg = self._domMgr._get_eventChannelMgr().registerResource( reg )
+        self.assertEquals(reg.reg_id, ret_reg.reg.reg_id)
+        reg_2 = CF.EventChannelManager.EventRegistration( channel_name = 'prop_Channel', reg_id = '')
+        ret_reg_2 = self._domMgr._get_eventChannelMgr().registerResource( reg_2 )
+        self.assertNotEquals(reg_2.reg_id, ret_reg_2.reg.reg_id)
+
+
     def test_ECM_CppComponent(self):
         self.localEvent = threading.Event()
         self.eventFlag = False

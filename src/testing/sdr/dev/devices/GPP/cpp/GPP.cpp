@@ -103,6 +103,8 @@ GPP_i::~GPP_i()
 
 void GPP_i::_init() {
 
+  sig_fd = -1;
+
   //
   // add our local set affinity method that performs numa library calls
   //
@@ -134,19 +136,6 @@ void GPP_i::_init() {
   catch(...){
   }
 
-  //
-  // Install signal handler for processing SIGCHLD through
-  // signal file descriptor to avoid whitelist/blacklist function calls
-  //
-  int err;
-  sigset_t  sigset;
-  err=sigemptyset(&sigset);
-  err = sigaddset(&sigset, SIGCHLD);
-  err = sigprocmask(SIG_BLOCK, &sigset, NULL);
-  if ( err < 0 ) throw std::runtime_error( "unable configure signal handler");
-  sig_fd = signalfd(-1, &sigset,0);
-  if ( sig_fd < 0 ) throw std::runtime_error("unable configure signal handler");
-
   // default cycle time setting for updating data model, metrics and state
   threshold_cycle_time = 500;
 
@@ -174,6 +163,26 @@ void GPP_i::_init() {
   //setAllocationImpl("diskCapacity", this, &GPP_i::allocate_diskCapacity, &GPP_i::deallocate_diskCapacity);
 
 }
+
+void GPP_i::postConstruction (std::string &profile, 
+                                     std::string &registrar_ior, 
+                                     const std::string &idm_channel_ior,
+                                     const std::string &nic,
+                                     const int sigfd )
+{
+
+  Device_impl::postConstruction(profile,registrar_ior,idm_channel_ior,nic,sigfd );
+  // if sigfd > 0 then signalfd method was establish via command line USESIGFD
+  if ( sigfd > 0 ) {
+    sig_fd = sigfd;
+  }
+  else {
+    // require signalfd to be configured before orb init call.... 
+    throw std::runtime_error("unable configure signal handler");
+  }
+
+}
+
 
 void GPP_i::process_ODM(const CORBA::Any &data) {
     boost::mutex::scoped_lock lock(pidLock);

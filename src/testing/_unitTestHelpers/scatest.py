@@ -41,7 +41,7 @@ import CosNaming
 import re
 import tempfile
 import buildconfig
-
+import runtestHelpers
 import commands
 
 _DCEUUID_RE = re.compile("DCE:[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}")
@@ -64,6 +64,8 @@ def getSdrCache():
 def getDatPath():
    return os.path.join(os.getcwd(), "dat")
 
+def hasJavaSupport():
+    return runtestHelpers.haveJavaSupport('../Makefile')
 
 def persistenceEnabled():
     for backend in ( "BDB", "GDBM", "SQLITE" ):
@@ -85,6 +87,13 @@ def getDomainMgrURI():
     domainName = getTestDomainName()
     return URI.stringToName("%s/%s" % (domainName, domainName))
 
+def getExecDeviceNode():
+    return "/nodes/test_GPP_node/DeviceManager.dcd.xml"
+
+def getExecDevice():
+    return "GPP_node"
+
+
 def getLogConfig():
     return os.environ['OSSIEUNITTESTSLOGCONFIG']
 
@@ -104,6 +113,7 @@ def updateLink(source, target):
     if not os.path.exists(target):
         # Do not replace existing files.
         os.symlink(source, target)
+
 
 def setupDeviceAndDomainMgrPackage():
     # Point to the SDR source directory for the DomainManager and

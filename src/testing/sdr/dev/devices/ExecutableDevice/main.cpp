@@ -20,6 +20,8 @@
 
 #include <string>
 #include <cstdlib>
+#include <signal.h>
+#include <sys/wait.h>
 
 #include <ossie/ExecutableDevice_impl.h>
 
@@ -120,6 +122,14 @@ CREATE_LOGGER(ExecutableTestDevice)
 
 TestDevice *testDevice;
 
+void sigchld_catcher( int sig ) {
+    int status;
+    pid_t child_pid;
+
+    while( (child_pid = waitpid(-1, &status, WNOHANG)) > 0 ) {
+    }
+}
+
 void signal_catcher( int sig )
 {
     // IMPORTANT Don't call exit(...) in this function
@@ -136,8 +146,15 @@ void signal_catcher( int sig )
 int main(int argc, char *argv[])
 {
     struct sigaction sa;
-    sa.sa_handler = signal_catcher;
+    sa.sa_handler = sigchld_catcher;
     sa.sa_flags = 0;
 
+    // We need to catch sigchld 
+    if( sigaction( SIGCHLD, &sa, NULL ) == -1 ) {
+        exit(EXIT_FAILURE);
+    }
+
+    sa.sa_handler = signal_catcher;
+    sa.sa_flags = 0;
     Device_impl::start_device(&testDevice, sa, argc, argv);
 }

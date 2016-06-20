@@ -277,7 +277,6 @@ def SetLogLevel( logid, newLevel ):
 
 
 def SetEventChannelManager( ECM ):
-    #print "ossie.logger.SetEvenChannelManager " + str(ECM)
     RedhawkLogger.SetEventChannelManager(ECM)
 
 

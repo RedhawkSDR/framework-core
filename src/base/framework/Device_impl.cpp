@@ -86,6 +86,7 @@ void Device_impl::initResources (char* devMgr_ior, char* _id,
     _operationalState = CF::Device::ENABLED;
     _adminState = CF::Device::UNLOCKED;
     initialConfiguration = true;
+    sig_fd=-1;
 
     useNewAllocation = false;
     this->_devMgr = NULL;
@@ -1021,6 +1022,7 @@ void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa,
     std::string log_id("");
     std::string log_label("");
     bool skip_run = false;
+    bool enablesigfd=false;
         
     std::map<std::string, char*> execparams;
                 
@@ -1046,6 +1048,8 @@ void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa,
             debug_level = atoi(argv[++i]);
         } else if (strcmp("DOM_PATH", argv[i]) == 0) {
             log_dpath = argv[++i];
+        } else if (strcmp("USESIGFD", argv[i]) == 0){
+            enablesigfd = true;
         } else if (strcmp("SKIP_RUN", argv[i]) == 0){
             skip_run = true;
             i++;             // skip flag has bogus argument need to skip over so execparams is processed correctly
@@ -1057,21 +1061,23 @@ void Device_impl::start_device(Device_impl::ctor_type ctor, struct sigaction sa,
 
     // signal assist with processing SIGCHLD events for executable devices..
     int sig_fd=-1;
-    int err;
-    sigset_t  sigset;
-    err=sigemptyset(&sigset);
-    err=sigaddset(&sigset, SIGCHLD);
-    /* We must block the signals in order for signalfd to receive them */
-    err = sigprocmask(SIG_BLOCK, &sigset, NULL);
-    if ( err != 0 ) {
-      LOG_FATAL(Device_impl, "Failed to create signalfd for SIGCHLD");
-      exit(EXIT_FAILURE);
-    }
-    /* Create the signalfd */
-    sig_fd = signalfd(-1, &sigset,0);
-    if ( sig_fd == -1 ) {
-      LOG_FATAL(Device_impl, "Failed to create signalfd for SIGCHLD");
-      exit(EXIT_FAILURE);
+    if ( enablesigfd  ){
+      int err;
+      sigset_t  sigset;
+      err=sigemptyset(&sigset);
+      err=sigaddset(&sigset, SIGCHLD);
+      /* We must block the signals in order for signalfd to receive them */
+      err = sigprocmask(SIG_BLOCK, &sigset, NULL);
+      if ( err != 0 ) {
+        LOG_FATAL(Device_impl, "Failed to create signalfd for SIGCHLD");
+        exit(EXIT_FAILURE);
+      }
+      /* Create the signalfd */
+      sig_fd = signalfd(-1, &sigset,0);
+      if ( sig_fd == -1 ) {
+        LOG_FATAL(Device_impl, "Failed to create signalfd for SIGCHLD");
+        exit(EXIT_FAILURE);
+      }
     }
 
     // The ORB must be initialized before configuring logging, which may use

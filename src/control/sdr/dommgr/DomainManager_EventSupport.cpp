@@ -190,10 +190,15 @@ void DomainManager_impl::idmTerminationMessages( const redhawk::events::Componen
 }
 
 
-void DomainManager_impl::establishDomainManagementChannels() {
+void DomainManager_impl::establishDomainManagementChannels( const std::string &dburi ) {
 
     // Create Outgoing Domain Management (ODM) event channel
     if ( _eventChannelMgr ){
+
+      if ( !dburi.empty() ) {
+	LOG_INFO(DomainManager_impl, "Restoring event channels file:" << dburi);
+	restoreEventChannels(dburi);
+      }
 
       LOG_TRACE(DomainManager_impl, "Establishing Domain Event Channels");
 
@@ -425,6 +430,7 @@ void DomainManager_impl::destroyEventChannels()
         for (;_iter != _eventChannels.end(); _iter++) {
              try {
                (*_iter).channel = CosEventChannelAdmin::EventChannel::_nil();
+               ossie::corba::Unbind( (*_iter).name, rootContext );
              } catch ( ... ) {
              }
         }

@@ -163,11 +163,10 @@ class _EC_PropertyChangeListener(object):
             channel = ec._narrow(CosEventChannelAdmin.EventChannel)
             if channel:
                 self.ec = channel
-                self.pub = ossie.events.Publisher(ec)
+                self.pub = ossie.events.Publisher(self.ec)
             else:
                 raise _PCL_Except("Cannot narrow to EventChannel")
         except:
-            print traceback.format_exc()
             raise _PCL_Except("Cannot narrow to EventChannel")
 
     def notify( self, prec, props ):
@@ -867,6 +866,7 @@ class Resource(object):
                 self._log.debug("registerPropertyListener, Trying PropertyChangeListener interface...")
                 pcl = _INF_PropertyChangeListener(listener)
             except:
+                #print traceback.format_exc()
                 pcl = None
                 self._log.warning("registerPropertyListener, Caller provided invalid registrant.")
                 self.propertySetAccess.release()

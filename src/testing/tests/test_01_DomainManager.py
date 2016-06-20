@@ -88,6 +88,24 @@ class DomainManagerTest(scatest.CorbaTestCase):
     def eventReceived(self, data):
             self.gotData = True
 
+    def test_NSCleanup(self):
+        domain_name = self._domMgr._get_name()
+        ns_domMgr = URI.stringToName("%s/%s" % (domain_name, domain_name))
+        ns_domMgrCtx = URI.stringToName("%s" % (domain_name))
+        ns_ODM = URI.stringToName("%s/%s" % (domain_name, "ODM_Channel"))
+        ns_IDM = URI.stringToName("%s/%s" % (domain_name, "IDM_Channel"))
+        domCtx_ref = self._root.resolve(ns_domMgrCtx)
+        domMgr_ref = self._root.resolve(ns_domMgr)
+        ODM_ref = self._root.resolve(ns_ODM)
+        IDM_ref = self._root.resolve(ns_IDM)
+        self.assertNotEqual(domCtx_ref, None)
+        self.assertNotEqual(domMgr_ref, None)
+        self.assertNotEqual(ODM_ref, None)
+        self.assertNotEqual(IDM_ref, None)
+        os.kill(self._domainBooter.pid, signal.SIGINT)
+        self.waitTermination(self._domainBooter)
+        self.assertRaises(CosNaming.NamingContext.NotFound, self._root.resolve, ns_domMgrCtx)
+
     def test_DeviceFailure(self):
         self.assertNotEqual(self._domMgr, None)
         self.assertEqual(len(self._domMgr._get_applicationFactories()), 0)

@@ -46,7 +46,8 @@ typedef  ossie::corba::Iterator< CF::EventChannelManager::EventRegistrant,
     _event_channel_factory(),
     _use_naming_service( enableNS ),
     _use_fqn(use_fqn),
-    _allow_es_resolve(allow_es)
+    _allow_es_resolve(allow_es),
+    _default_poll_period(20000000)
   {
     ECM_DEBUG("CTOR", "Creating EventChannel Manager ");
 
@@ -69,7 +70,8 @@ typedef  ossie::corba::Iterator< CF::EventChannelManager::EventRegistrant,
     _event_channel_factory(),
     _use_naming_service( enableNS ),
     _use_fqn(use_fqn),
-    _allow_es_resolve(allow_es)
+    _allow_es_resolve(allow_es),
+    _default_poll_period(20000000)
   {
     ECM_TRACE("CTOR", "Creating EventChannel Manager ");
 
@@ -174,6 +176,11 @@ const ossie::events::EventChannel_ptr EventChannelManager::findChannel( const st
   std::string EventChannelManager::getFQN( const std::string &cname, const std::string &nc_name  ) {
     SCOPED_LOCK(_mgrlock);
     return _getFQN( cname, nc_name );
+  }
+
+  void EventChannelManager::setPollingPeriod( const int64_t  period ) {
+     SCOPED_LOCK(_mgrlock);
+    _default_poll_period = period;
   }
 
   void EventChannelManager::markForRegistrations( const char *channel_name) 
@@ -450,29 +457,6 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
       fqn = fqn_name;
     }
     bool          require_ns = false;           // if channel exists and use_naming_service is enabled
-    
-    // try to resolve with event service
-    event_channel = _resolve_es( cname, fqn );
-
-    // if we found a matching channel
-    if ( !CORBA::is_nil(event_channel) ) {
-
-      // if naming service disabled then throw
-      if ( _use_naming_service == false && _allow_es_resolve == false ) {
-        ECM_WARN("EventChannelManager", "Event Channel: "<< channel_name << " exists in EventService!");
-        throw (CF::EventChannelManager::ChannelAlreadyExists());
-      }
-      else {
-        if ( _allow_es_resolve == false ) {
-          // set next search method to require use of NS
-          require_ns=true;
-          ECM_DEBUG("EventChannelManager", "Event Channel: "<< channel_name << " exists,  requiring NamingService resolution.");
-        }
-        else {
-          ECM_DEBUG("EventChannelManager", "Event Channel: "<< channel_name << " exists,  using EventService resolution.");
-        }
-      }
-    }
 
     //
     // try and resolve with naming service (if enabled)
@@ -536,11 +520,14 @@ void EventChannelManager::restore( ossie::events::EventChannel_ptr savedChannel,
     //
     std::string regid(request.reg_id.in());
     std::string channel_name(request.channel_name.in());
+    if (regid.empty()) {
+      regid = _generateRegId();
+      while (_regIdExists( channel_name, regid ) == true) {
+        regid = _generateRegId();
+      }
+    }
     if (  _regIdExists( channel_name, regid ) == true ) {
       throw ( CF::EventChannelManager::RegistrationAlreadyExists());
-    }
-    else {
-      regid = _generateRegId();
     }
 
     //
@@ -832,7 +819,7 @@ void EventChannelManager::_getEventChannelFactory ()
     criteria[0].name = CORBA::string_dup("InsName");
     criteria[0].value <<=insName.c_str();
     criteria[1].name = CORBA::string_dup("CyclePeriod_ns");
-    criteria[1].value <<= (CORBA::ULong)1000000;
+    criteria[1].value <<= (CORBA::ULong)_default_poll_period;
 
     //
     // Create Event Channel Object.

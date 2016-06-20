@@ -117,11 +117,11 @@ class helperBase(object):
     def releaseObject(self):
         # Break any connections involving this component.
         manager = ConnectionManager.instance()
-        for identifier, (uses, provides) in manager.getConnections().items():
+        for _identifier, (identifier, uses, provides) in manager.getConnections().items():
             if uses.hasComponent(self) or provides.hasComponent(self):
                 usesRef = uses.getReference()
                 usesRef.disconnectPort(identifier)
-                manager.unregisterConnection(identifier)
+                manager.unregisterConnection(identifier, uses)
         self._sandbox._unregisterComponent(self)
 
     def reset(self):

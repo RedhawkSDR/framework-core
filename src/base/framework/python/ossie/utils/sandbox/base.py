@@ -60,24 +60,48 @@ class SdrRoot(object):
 
         return spd, scd, prf
 
+    def _getObjectType(self, scd):
+        if scd is not None:
+            componentType = scd.get_componenttype()
+            if componentType in ('device', 'loadabledevice', 'executabledevice'):
+                return 'devices'
+            elif componentType == 'resource':
+                return 'components'
+            elif componentType == 'service':
+                return 'services'
+
+        return None
+
+    def _getSearchPaths(self, objTypes):
+        raise NotImplementedError('Sandbox._getSearchPaths')
+
+    def _getAvailableProfiles(self, searchPath):
+        raise NotImplementedError('Sandbox._getAvailableProfiles')
+
+    def _getObjectTypes(self, objType):
+        ALL_TYPES = ('components', 'devices', 'services')
+        if objType in ALL_TYPES:
+            return set((objType,))
+        elif objType in (None, 'all'):
+            return set(ALL_TYPES)
+        else:
+            raise ValueError, "'%s' is not a valid object type" % objType
+
     def findProfile(self, descriptor, objType=None):
-        objMatches = []
-        if self._fileExists(descriptor):
+        # Try the descriptor as a path to an SPD first
+        sdrPath = self._sdrPath(descriptor)
+        if self._fileExists(sdrPath):
             try:
-                spd = parsers.spd.parseString(self._readFile(descriptor))
+                spd = parsers.spd.parseString(self._readFile(sdrPath))
                 log.trace("Descriptor '%s' is file name", descriptor)
-                return self._sdrPath(descriptor)
+                return sdrPath
             except:
                 pass
-        for profile in self.getProfiles(objType):
-            try:
-                spd = parsers.spd.parseString(self._readFile(profile))
-                if spd.get_name() == descriptor:
-                    log.trace("Softpkg name '%s' found in '%s'", descriptor, profile)
-                    objMatches.append(profile)
-            except:
-                log.warning('Could not parse %s', profile)
-                continue
+
+        objMatches = []
+        for profile in self.readProfiles(objType):
+            if descriptor == profile['name']:
+                objMatches.append(profile['profile'])
         if len(objMatches) == 1:
             return objMatches[0]
         elif len(objMatches) > 1:
@@ -88,6 +112,39 @@ class SdrRoot(object):
             print 'Try sb.launch("<descriptor>", objType="<objectType>")'
             return None
         raise ValueError, "'%s' is not a valid softpkg name or SPD file" % descriptor
+
+    def readProfiles(self, objType=None, searchPath=None):
+        # Remap the object type string to a set of object type names
+        objTypes = self._getObjectTypes(objType)
+
+        if searchPath is None:
+            paths = self._getSearchPaths(objTypes)
+        else:
+            paths = [searchPath]
+
+        profiles = []
+        for path in paths:
+            for filename in self._getAvailableProfiles(path):
+                # Read and parse the complete profile
+                try:
+                    spd, scd, prf = self.readProfile(filename)
+                except:
+                    # Invalid profile, ignore it
+                    continue
+
+                # Filter based on the object type in the SCD
+                profileType = self._getObjectType(scd)
+                if profileType not in objTypes:
+                    continue
+
+                profile = { 'name': str(spd.get_name()), 'profile': filename }
+                profiles.append(profile)
+                    
+        return profiles
+
+    def getProfiles(self, objType=None, searchPath=None):
+        # Use readProfiles() to handle all of the search and parsing
+        return [p['profile'] for p in self.readProfiles(objType, searchPath)]
 
 
 class Sandbox(object):
@@ -198,6 +255,12 @@ class Sandbox(object):
         for channel in self._eventChannels.values():
             channel.destroy()
         self._eventChannels = {}
+
+    def catalog(self, searchPath=None, objType="components"):
+        files = {}
+        for profile in self.getSdrRoot().readProfiles(objType, searchPath):
+            files[profile['name']] = profile['profile']
+        return files
 
     def _sortOverrides(self, prf, execparams, configure):
         if not prf:
@@ -330,10 +393,10 @@ class SandboxComponent(ComponentBase):
     def releaseObject(self):
         # Break any connections involving this component.
         manager = ConnectionManager.instance()
-        for identifier, (uses, provides) in manager.getConnections().items():
+        for _identifier, (identifier, uses, provides) in manager.getConnections().items():
             if uses.hasComponent(self) or provides.hasComponent(self):
-                manager.breakConnection(identifier)
-                manager.unregisterConnection(identifier)
+                manager.breakConnection(identifier, uses)
+                manager.unregisterConnection(identifier, uses)
         self._sandbox._unregisterComponent(self)
         super(SandboxComponent,self).releaseObject()
 
@@ -356,9 +419,9 @@ class SandboxEventChannel(EventChannel, CorbaObject):
     def destroy(self):
         # Break any connections involving this event channel.
         manager = ConnectionManager.instance()
-        for identifier, (uses, provides) in manager.getConnections().items():
+        for _identifier, (identifier, uses, provides) in manager.getConnections().items():
             if provides.hasComponent(self):
-                manager.breakConnection(identifier)
-                manager.unregisterConnection(identifier)
+                manager.breakConnection(identifier, uses)
+                manager.unregisterConnection(identifier, uses)
         self._sandbox._removeEventChannel(self._instanceName)
         EventChannel.destroy(self)

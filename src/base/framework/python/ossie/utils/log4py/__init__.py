@@ -62,6 +62,7 @@ class RedhawkLogger(LoggerBase):
   def SetEventChannelManager(ECM):
     from ossie.utils.log4py.appenders import RH_LogEventAppender
     RedhawkLogger._ECM = ECM
+    RH_LogEventAppender.ECM = ECM
     for app in logging._handlerList:
       if isinstance(app, RH_LogEventAppender ):
         #print "RedhawkLogger....setEventChannelManager, " + str(ECM)

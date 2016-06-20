@@ -318,6 +318,18 @@ class ApplicationFactoryTest(scatest.CorbaTestCase):
         app.releaseObject()
         self.assertEqual(len(domMgr._get_applications()), 0)
 
+    def test_NoTimeout(self):
+        nodebooter, domMgr = self.launchDomainManager()
+        self.assertNotEqual(domMgr, None)
+        nodebooter, devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml")
+        self.assertNotEqual(devMgr, None)
+        app = domMgr.createApplication("/waveforms/start_timeout_w/start_timeout_w.sad.xml", 'my_application', [], [])
+        begin_time = time.time()
+        app.start()
+        end_time = time.time()
+        self.assertTrue(end_time-begin_time >= 9.5)
+        app.releaseObject()
+
     def test_NonScaCompliant(self):
         nodebooter, domMgr = self.launchDomainManager()
         self.assertNotEqual(domMgr, None)

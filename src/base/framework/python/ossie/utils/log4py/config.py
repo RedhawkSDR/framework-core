@@ -25,6 +25,8 @@ import codecs
 import sys
 import os
 import string
+import pprint
+import re
 from appenders import *
 from layouts import *
 
@@ -131,122 +133,180 @@ def fileConfig(f, category=None):
   return _config(props,category)
 
 
-def _config(props, category=None):
+def _config(props, category=None, disable_existing_loggers=1):
   logging.shutdown()
-  logging.root = logging.RootLogger(logging.WARNING)
-  logging.Logger.root = logging.root
-  logging.Logger.manager = logging.Manager(logging.Logger.root)
+
+  # critical section
+  # patterned after from logging.config... 
+  logging._acquireLock()
   try:
-    repoWideThresh = props["log4j.threshold"].strip()
-    logging.getLogger().setLevel(_LEVEL_TRANS[repoWideThresh.strip().upper()])
+     logging._handlers.clear()
+     del logging._handlerList[:]
+     # Handlers add themselves to logging._handlers
+     handlers = _install_handlers(props)
+     _install_loggers(props, handlers, category, disable_existing_loggers)
+  finally:
+    logging._releaseLock()
+
+def _install_handlers(props):
+  
+  # First load up all handlers...
+  handlers = {}
+
+  hlist=[]
+  tlist = filter(lambda x: x.startswith("log4j.appender."), props.keys())
+  if not len(tlist) : return handlers
+
+  # filter out just the appender names
+  for h in tlist:
+    # skip over layout options
+    if re.search(r'log4j\.appender\.(.*?)\.', h): continue
+    m=re.search(r'log4j\.appender\.(.*?)$', h)
+    if m:
+      hlist.append(m.group(1))
+
+  for hname in hlist:
+     # aka python logging formatter
+     layout = None
+     appenderKey = "log4j.appender."+str(hname.strip())
+     appenderClass = props[appenderKey]
+     klass = _import_handler(appenderClass)
+     handler = klass()
+     # Deal with appender options
+     appenderOptions = filter(lambda x: x.startswith(appenderKey+"."), props.keys())
+     for appenderOption in appenderOptions:
+       opt = appenderOption[len(appenderKey+"."):]
+       value = props[appenderOption].strip()
+       if "RH_LogEventAppender" in handler.__class__.__name__:
+         handler.setOption(opt,value)
+       if opt.lower().endswith("layout"):
+         layoutClass = value
+         klass = _import_layout(layoutClass)
+         layout = klass()
+         layoutOptions = filter(lambda x: x.startswith(appenderKey+".layout."), props.keys())
+         for layoutOption in layoutOptions:
+           opt = layoutOption[len(appenderKey+".layout."):]
+           value = props[layoutOption].strip()
+           setattr(layout, opt, value)
+       elif opt.lower().endswith("filter"):
+         pass
+       elif opt.lower().endswith("errorhandler"):
+         pass
+       elif opt.lower().endswith("threshold"):
+         setattr(handler, opt.lower(), _LEVEL_TRANS[value])
+       else:
+         setattr(handler, opt, value)
+     handler.activateOptions()
+     if layout:
+        handler.setFormatter(layout)
+
+     handlers[hname]=handler
+  return handlers
+
+def _encoded(s):
+    return s if isinstance(s, str) else s.encode('utf-8')
+
+def _install_loggers(props, handlers, filterCategory, disable_existing_loggers ):
+  llist=[]
+
+  # process root logger first
+  log_cfg = props["log4j.rootLogger"].split(",")
+  root = logging.root
+  log = root
+  
+  try:
+     repoWideThresh = props["log4j.threshold"].strip()
+     log.setLevel(_LEVEL_TRANS[repoWideThresh.strip().upper()])
   except KeyError:
-    logging.getLogger().setLevel(logging.NOTSET)
+    pass
 
-  # First load up all loggers and set their levels
-  loggers = {}
-  rootLoggerCfg = props["log4j.rootLogger"].split(",")
-  if rootLoggerCfg[0].strip().upper() in _LEVEL_TRANS.keys():
-    logging.getLogger().setLevel(_LEVEL_TRANS[rootLoggerCfg[0].strip().upper()])
-    del rootLoggerCfg[0]
-  else:
-    logging.getLogger().setLevel(logging.NOTSET)
+  if log_cfg[0].strip().upper() in _LEVEL_TRANS.keys():
+    log.setLevel(_LEVEL_TRANS[log_cfg[0].strip().upper()])
+    del log_cfg[0]
 
-  loggers[logging.getLogger()] = [x.strip() for x in rootLoggerCfg]
+  for h in root.handlers[:]:
+    root.removeHandler(h)
+  
+  hlist = [x.strip() for x in log_cfg]
+  for h in hlist:
+    root.addHandler(handlers[h])
 
-  configuredLoggers = filter(lambda x: x.startswith("log4j.logger."), props.keys())
-  for logger in configuredLoggers:
-    loggerCfg = props[logger].split(",")
-    pyname = logger[len("log4j.logger."):]
-    if loggerCfg[0].strip() in _LEVEL_TRANS.keys():
-      logging.getLogger(pyname).setLevel(_LEVEL_TRANS[loggerCfg[0].strip().upper()])
-    else:
-      logging.getLogger(pyname).setLevel(logging.NOTSET)
-    loggers[logging.getLogger(pyname)] = [x.strip() for x in loggerCfg[1:]]
+  tmp = filter(lambda x: x.startswith("log4j.category."), props.keys() )
+  clist = [ x[len("log4j.category."):] for x in tmp ]
+  tmp = filter(lambda x: x.startswith("log4j.logger."), props.keys())
+  llist = [ x[len("log4j.logger."):] for x in tmp ]
 
-  # Process category tags for selected appending
-  if (category != None):
-    categories = filter(lambda x: x.startswith("log4j.category."), props.keys())
-    for cat in categories:
-      pyname = cat[len("log4j.category."):]
-      if (pyname == category):
-        categoryCfg = props[cat].split(",")
-        for i in range(1,len(categoryCfg)):
-          layout = None
-          appenderKey = "log4j.appender."+str(categoryCfg[i].strip())
-          appenderClass = props[appenderKey]
-          klass = _import_handler(appenderClass)
-          handler = klass()
-          setattr(handler, "threshold", _LEVEL_TRANS[categoryCfg[0].strip()])
-          logging.getLogger(str(pyname)).setLevel( _LEVEL_TRANS[categoryCfg[0].strip()] ) 
-          # Deal with appender options
-          appenderOptions = filter(lambda x: x.startswith(appenderKey+"."), props.keys())
-          for appenderOption in appenderOptions:
-            opt = appenderOption[len(appenderKey+"."):]
-            value = props[appenderOption].strip()
-            if opt.lower().endswith("layout"):
-              layoutClass = value
-              klass = _import_layout(layoutClass)
-              layout = klass()
-              layoutOptions = filter(lambda x: x.startswith(appenderKey+".layout."), props.keys())
-              for layoutOption in layoutOptions:
-                opt = layoutOption[len(appenderKey+".layout."):]
-                value = props[layoutOption].strip()
-                setattr(layout, opt, value)
-            elif opt.lower().endswith("filter"):
-              pass
-            elif opt.lower().endswith("errorhandler"):
-              pass
-            elif opt.lower().endswith("threshold"):
-              setattr(handler, opt.lower(), _LEVEL_TRANS[value])
-            else:
-              setattr(handler, opt, value)
-          handler.activateOptions()
-          logging.getLogger(str(pyname)).addHandler(handler)
-          if layout:
-            handler.setFormatter(layout)
+  # existing loggers
+  existing = root.manager.loggerDict.keys()
+  existing.sort(key=_encoded)
+  child_loggers = []
+  #now set up the new ones...
 
   # check additive tags to avoid additive logging to the root loggers
   additivities = filter(lambda x: x.startswith("log4j.additivity."), props.keys())
-  for additive in additivities:
-    pyname = additive[len("log4j.additivity."):]  
-    if ( (str(props[additive]).strip().upper()) == "FALSE" ):
-      logging.getLogger(str(pyname)).propagate = False
-    if ( (str(props[additive]).strip().upper()) == "TRUE" ):
-      logging.getLogger(str(pyname)).propagate = True
 
-  # Now deal with root logging appenders
-  for logger, appenders in loggers.items():
-    for appender in appenders:
-      layout = None
-      appenderKey = "log4j.appender."+str(appender)
-      appenderClass = props[appenderKey]
-      klass = _import_handler(appenderClass)
-      handler = klass()
-      # Deal with appender options
-      appenderOptions = filter(lambda x: x.startswith(appenderKey+"."), props.keys())
-      for appenderOption in appenderOptions:
-        opt = appenderOption[len(appenderKey+"."):]
-        value = props[appenderOption].strip()
-        if "RH_LogEventAppender" in handler.__class__.__name__:
-          handler.setOption(opt,value)
-        if opt.endswith("layout"):
-          layoutClass = value
-          klass = _import_layout(layoutClass)
-          layout = klass()
-          layoutOptions = filter(lambda x: x.startswith(appenderKey+".layout."), props.keys())
-          for layoutOption in layoutOptions:
-            opt = layoutOption[len(appenderKey+".layout."):]
-            value = props[layoutOption].strip()
-            setattr(layout, opt, value)
-        elif opt.lower().endswith("filter"):
-          pass
-        elif opt.lower().endswith("errorhandler"):
-          pass
-        elif opt.lower().endswith("threshold"):
-          setattr(handler, opt.lower(), _LEVEL_TRANS[value])
-        else:
-          setattr(handler, opt, value)
-      handler.activateOptions()
-      logger.addHandler(handler)
-      if layout:
-        handler.setFormatter(layout)
+  _install_from_list( clist, props, filterCategory, additivities )
+  _install_from_list( llist, props, filterCategory, additivities )
+
+  #fixup existing loggers...
+  for log in existing:
+    logger = root.manager.loggerDict[log]
+    if isinstance(logger, logging.PlaceHolder): continue
+    root.manager._fixupParents(logger)
+
+def _install_from_list( llist, props, filterCategory, additivities):
+
+  for log in llist:
+
+    # filter out any loggers that are not listed, old behavior...
+    if filterCategory:
+      if type(filterCategory) == list:
+        if log not in filterCategory: continue
+      if type(filterCategory) == str:
+        if log != filterCategory: continue
+
+    # get a logger
+    logger = logging.getLogger(log)
+
+    aname = 'log4j.additivity.'+log
+    propagate=1
+    if aname in additivities:
+      if ( (str(props[additive]).strip().upper()) == "TRUE" ):
+          propagate=1
+      else:
+          propagate=0
+
+    # get logging level and appenders
+    hlist=[]
+    has_level=False
+    for x in [ "log4j.category."+log, "log4j.logger."+log ]:
+      if x in props.keys():
+        log_cfg = props[x].split(',')
+        if log_cfg[0].strip().upper() in _LEVEL_TRANS.keys():
+            level = _LEVEL_TRANS[log_cfg[0].strip().upper()]
+            has_level = True
+            del log_cfg[0]
+
+        hlist = hlist + [x.strip() for x in log_cfg]
+
+    if log in existing:
+      i = existing.index(log)
+      prefixed = log + "."
+      pflen = len(prefixed)
+      num_existing = len(existing)
+      i = i + 1
+      while (i < num_existing) and ( existing[i][:pflen] == prefixed ):
+        child_loggers.append(existing[i])
+        i = i + 1
+      existing.remove(log)
+
+    if has_level:
+      logger.setLevel(level)
+    for h in logger.handlers[:]:
+      logger.removeHandler(h)
+    logger.propagate = propagate
+    logger.disabled = 0
+    if len(hlist):
+      for hand in hlist:
+        logger.addHandler(handlers[hand])
+

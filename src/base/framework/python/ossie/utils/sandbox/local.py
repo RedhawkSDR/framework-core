@@ -23,6 +23,7 @@ import logging
 import fnmatch
 import time
 import copy
+import warnings
 
 from ossie import parsers
 from ossie.utils.model import Service, Resource, Device
@@ -39,45 +40,47 @@ class LocalSdrRoot(SdrRoot):
         self.__sdrroot = sdrroot
 
     def _sdrPath(self, filename):
+        # Give precedence to filenames that are valid as-is
+        if os.path.isfile(filename):
+            return filename
+        # Assume the filename points to somewhere in SDRROOT
         return os.path.join(self.__sdrroot, filename)
 
     def _fileExists(self, filename):
-        path = os.path.isfile(self._sdrPath(filename))
-        # Try relative path if sdrPath fails
-        if not path:
-            path = os.path.isfile(filename)
-        
-        return path
+        return os.path.isfile(filename)
 
     def _readFile(self, filename):
-        try:
-            path = open(self._sdrPath(filename), 'r')
-        except:
-            # Try relative path if sdrPath fails
-            path = open(filename, 'r')
+        path = open(self._sdrPath(filename), 'r')
         return path.read()
 
+    def _getSearchPaths(self, objTypes):
+        paths = []
+        if 'components' in objTypes:
+            paths.append('dom/components')
+        if 'devices' in objTypes:
+            paths.append('dev/devices')
+        if 'services' in objTypes:
+            paths.append('dev/services')
+        return [self._sdrPath(p) for p in paths]
 
-    def getProfiles(self, objType=None):
+    def _getAvailableProfiles(self, path):
         files = []
-        searchPath = []
-        if objType == "component":
-            searchPath.append(os.path.join(self.__sdrroot, 'dom', 'components'))
-        elif objType == "device":
-            searchPath.append(os.path.join(self.__sdrroot, 'dev', 'devices'))
-        elif objType == "service":
-            searchPath.append(os.path.join(self.__sdrroot, 'dev', 'services'))
-        elif objType == None:
-            searchPath.append(os.path.join(self.__sdrroot, 'dom', 'components'))
-            searchPath.append(os.path.join(self.__sdrroot, 'dev', 'devices'))
-            searchPath.append(os.path.join(self.__sdrroot, 'dev', 'services'))
-        else:
-            raise ValueError, "'%s' is not a valid object Type" % objType
-        for path in searchPath:
-            for root, dirs, fnames in os.walk(path):
-                for filename in fnmatch.filter(fnames, '*.spd.xml'):
-                    files.append(os.path.join(root, filename))
+        for root, dirs, fnames in os.walk(path):
+            for filename in fnmatch.filter(fnames, '*.spd.xml'):
+                files.append(os.path.join(root, filename))
         return files
+
+    def _getObjectTypes(self, objType):
+        if objType == 'component':
+            warnings.warn("objType='component' is deprecated; use 'components'", DeprecationWarning)
+            objType = 'components'
+        elif objType == 'device':
+            warnings.warn("objType='device' is deprecated; use 'devices'", DeprecationWarning)
+            objType = 'devices'
+        elif objType == 'service':
+            warnings.warn("objType='service' is deprecated; use 'services'", DeprecationWarning)
+            objType = 'services'
+        return super(LocalSdrRoot,self)._getObjectTypes(objType)
 
     def getLocation(self):
         return self.__sdrroot
@@ -88,15 +91,6 @@ class LocalSdrRoot(SdrRoot):
         # Handle user home directory paths
         if descriptor.startswith('~'):
             descriptor = os.path.expanduser(descriptor)
-        # Override base class behavior if descriptor points to a file regardless
-        # of SDRROOT setting.
-        if os.path.isfile(descriptor):
-            try:
-                spd = parsers.spd.parseString(self._readFile(descriptor))
-                log.trace("Descriptor '%s' is file name", descriptor)
-                return os.path.abspath(descriptor)
-            except:
-                pass
         return super(LocalSdrRoot,self).findProfile(descriptor, objType=objType)
 
 
@@ -393,36 +387,6 @@ class LocalSandbox(Sandbox):
         self.__components = {}
         self.__services = {}
         super(LocalSandbox,self).shutdown()
-
-    def catalog(self, searchPath=None, objType="components"):
-        files = {}
-        if not searchPath:
-            if objType == "all":
-                pathsToSearch = [os.path.join(self.getSdrRoot().getLocation(), 'dom', 'components'), \
-                               os.path.join(self.getSdrRoot().getLocation(), 'dev', 'devices'), \
-                               os.path.join(self.getSdrRoot().getLocation(), 'dev', 'services')]
-            elif objType == "components":
-                pathsToSearch = [os.path.join(self.getSdrRoot().getLocation(), 'dom', 'components')]
-            elif objType == "devices":
-                pathsToSearch = [os.path.join(self.getSdrRoot().getLocation(), 'dev', 'devices')]
-            elif objType == "services":
-                pathsToSearch = [os.path.join(self.getSdrRoot().getLocation(), 'dev', 'services')]
-            else:
-                raise ValueError, "'%s' is not a valid object type" % objType
-        else:
-            pathsToSearch = [searchPath]
-
-        for path in pathsToSearch:
-            for root, dirs, fnames in os.walk(path):
-                for filename in fnmatch.filter(fnames, "*spd.xml"):
-                    filename = os.path.join(root, filename)
-                    try:
-                        spd = parsers.spd.parse(filename)
-                        files[str(spd.get_name())] = filename
-                    except:
-                        log.exception('Could not parse %s', filename)
-
-        return files
 
     def browse(self, searchPath=None, objType=None,withDescription=False):
         if not searchPath:

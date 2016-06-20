@@ -448,32 +448,40 @@ ExecutableDevice_impl::terminate (CF::ExecutableDevice::ProcessID_Type processId
                ("Cannot terminate. System is either LOCKED or DISABLED."));
     }
 
-// go ahead and terminate the process
-    pid_t pgroup = getpgid(processId);
-    bool processes_dead = false;
-    for (std::vector< std::pair< int, float > >::iterator _signal=_signals.begin();_signal!=_signals.end();_signal++) {
-        killpg(pgroup, _signal->first);
-        int retval = 0;
-        bool timeout = false;
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        double begin_time = tv.tv_sec + (((float)tv.tv_usec)/1e6);
-        while ((retval != -1) and (not(timeout))) {
-            retval = killpg(pgroup, 0);
-            if (retval == -1) {
-                if (errno == ESRCH) {
-                    processes_dead = true;
-                }
-            } else {
-                usleep(100000);
-            }
-            gettimeofday(&tv, NULL);
-            double now = tv.tv_sec + (((double)tv.tv_usec)/1e6);
-            if (now > (begin_time+_signal->second)) {
-                timeout = true;
-            }
-        }
+  // go ahead and terminate the process
+  pid_t pgroup = getpgid(processId);
+  bool processes_dead = false;
+  for (std::vector< std::pair< int, float > >::iterator _signal=_signals.begin();!processes_dead &&_signal!=_signals.end();_signal++) {
+    int retval = killpg(pgroup, _signal->first);
+    LOG_TRACE(ExecutableDevice_impl,"Intitial Process Termination pid/group " << processId << "/" << pgroup << "   RET= " << retval);
+    if ( retval == -1 && errno == EPERM ) {
+      LOG_ERROR(ExecutableDevice_impl,"Error sending pid/group " << processId << "/" <<  pgroup);
+      continue;
     }
+    if ( retval == -1 && errno == ESRCH )  { 
+      LOG_TRACE(ExecutableDevice_impl,"Process group is dead " << processId << "/" <<  pgroup);
+     processes_dead = true; 
+      continue;
+    }
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    double now = tv.tv_sec + (((float)tv.tv_usec)/1e6) ;
+    double end_time = now + _signal->second;
+    int cnt=0;
+    while (!processes_dead && (retval != -1) and ( now < end_time )) {
+      retval = killpg(pgroup, 0);
+      LOG_TRACE(ExecutableDevice_impl,"Terminating Process.... (loop:" << cnt++ << " signal:" << _signal->first << ") pid/group " << processId << "/" << pgroup << "   RET= " << retval);
+      if (retval == -1 and (errno == ESRCH)) {
+        LOG_TRACE(ExecutableDevice_impl,"Process group terminated  " << processId << "/" <<  pgroup);
+        processes_dead = true;
+        continue;
+      }
+
+      usleep(100000);
+      gettimeofday(&tv, NULL);
+      now = tv.tv_sec + (((double)tv.tv_usec)/1e6);
+    }
+  }
 }
 
 void  ExecutableDevice_impl::configure (const CF::Properties& capacities)

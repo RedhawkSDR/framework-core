@@ -24,6 +24,7 @@ import Queue
 import copy
 import logging
 import traceback
+import threading
 
 from omniORB import any, URI, CORBA
 import CosEventComm__POA
@@ -33,9 +34,10 @@ import CosEventChannelAdmin, CosEventChannelAdmin__POA
 class Receiver(CosEventComm__POA.PushSupplier):
     def __init__(self):
         self._recv_disconnect = True
+        self.logger = logging.getLogger("ossie.events.Publisher.Receiver")
         self._lock = threading.Lock()
         self._cond = threading.Condition(self._lock)
-        self.logger = logging.getLogger("ossie.events.Publisher.Receiver")
+
 
     def __del__(self):
         self._cond.acquire()
@@ -60,7 +62,7 @@ class Receiver(CosEventComm__POA.PushSupplier):
         try:
             self._cond.acquire()
             tries = retries
-            while _recv_disconnect == False:
+            while self._recv_disconnect == False:
                 self.logger.debug("Publisher.Reciever .... waiting for disconnect")
                 if wait_time > -1.0:
                     self._cond.wait( wait_time/1000.0 )
@@ -78,13 +80,15 @@ class Receiver(CosEventComm__POA.PushSupplier):
 class DefaultReceiver(Receiver):
     def __init__(self,parent):
         self.parent = parent
+        Receiver.__init__(self)
 
 class Publisher:
     def __init__(self, channel ):
         self.channel = channel
         self.proxy = None
-        self.disconnectReceiver = DefaultReceiver(self)
         self.logger = logging.getLogger("ossie.events.Publisher")
+        self.disconnectReceiver = DefaultReceiver(self)
+
             
         self.connect()
 
@@ -95,7 +99,7 @@ class Publisher:
             self.disconnect()
         
         self.logger.debug("Publisher::DTOR  DEACTIVATE")
-        self.disconnectReciever=None
+        self.disconnectReceiver=None
         self.proxy=None
         self.channel=None
         self.logger.debug("Publisher  DTOR END")
@@ -108,7 +112,7 @@ class Publisher:
             self.disconnect()
         
         self.logger.debug("Publisher::terminate  DEACTIVATE")
-        self.disconnectReciever=None
+        self.disconnectReceiver=None
         self.proxy=None
         self.channel=None
         self.logger.debug("Publisher::terminate END")
@@ -137,7 +141,7 @@ class Publisher:
             if self.proxy != None:
                 self.proxy.push(edata)
         except:
-            traceback.print_exc()
+            #traceback.print_exc()
             retval=-1
         
         return retval
@@ -162,7 +166,7 @@ class Publisher:
 
             if self.disconnectReceiver:
                 self.logger.debug("Publisher ::disconnect, Waiting for disconnect.......")
-                self.disconnectRecevier.wait_for_disconnect( .01, 3)
+                self.disconnectReceiver.wait_for_disconnect( .01, 3)
                 self.logger.debug("Publisher ::disconnect, received disconnect.......")
 
         return retval
@@ -178,6 +182,7 @@ class Publisher:
             self.logger.debug("Getting supplier object")
             for x in range(retries):
                 try: 
+                    self.logger.debug("Getting supplier object" + str(self.channel) )
                     supplier_admin = self.channel.for_suppliers()
                     break
                 except CORBA.COMM_FAILURE:
@@ -201,7 +206,7 @@ class Publisher:
                     self.disconnectReceiver.reset()
                     retval=0
                     break
-                except CORBA.BAD_PARM:
+                except CORBA.BAD_PARAM:
                     break
                 except CORBA.COMM_FAILURE:
                     pass

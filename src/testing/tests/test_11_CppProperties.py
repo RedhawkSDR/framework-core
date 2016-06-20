@@ -747,6 +747,31 @@ class CppPropertiesRangeTest(scatest.CorbaTestCase):
         props = self._app.query([seq_long])
         self.assertEqual(len(props[0].value.value()), 0)
 
+    def _queryValue(self, propid):
+        prop = self._app.query([CF.DataType(propid, any.to_any(None))])
+        return prop[0].value.value()
+
+    def _tryStringConversion(self, propid):
+        value = self._queryValue(propid) + 1
+        try:
+            self._app.configure([CF.DataType(propid, any.to_any(str(value)))])
+        except:
+            self.fail("Configure of '"+propid+"' from string value raised an exception")
+
+        new_value = self._queryValue(propid)
+        self.assertEqual(value, new_value)
+
+    def test_SimpleStringConversion(self):
+        self.preconditions()
+
+        self._tryStringConversion('my_octet')
+        self._tryStringConversion('my_short')
+        self._tryStringConversion('my_ushort')
+        self._tryStringConversion('my_long')
+        self._tryStringConversion('my_ulong')
+        self._tryStringConversion('my_longlong')
+        self._tryStringConversion('my_ulonglong')
+        
 
 class CppCallbacksTest(scatest.CorbaTestCase):
     def test_Callbacks(self):

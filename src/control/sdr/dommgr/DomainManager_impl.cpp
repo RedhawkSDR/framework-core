@@ -68,7 +68,9 @@ static const ComponentInstantiation* findComponentInstantiation (const std::vect
 PREPARE_LOGGING(DomainManager_impl)
 
 // If _overrideDomainName == NULL read the domain name from the DMD file
-DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpath, const char* domainName, const char* _logconfig_uri, bool useLogCfgResolver, bool bindToDomain ) :
+DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpath, const char* domainName, 
+					const char *db_uri,
+					const char* _logconfig_uri, bool useLogCfgResolver, bool bindToDomain ) :
   _eventChannelMgr(NULL),
   _domainName(domainName),
   _domainManagerProfile(dmdFile),
@@ -153,7 +155,8 @@ DomainManager_impl::DomainManager_impl (const char* dmdFile, const char* _rootpa
       _eventChannelMgr->_remove_ref();
       LOG_DEBUG(DomainManager_impl, "Started EventChannelManager for the domain.");
       // setup IDM and ODM Channels for this domain
-      establishDomainManagementChannels();
+      std::string dburi = (db_uri) ? db_uri : "";
+      establishDomainManagementChannels( dburi );
 
     } catch ( ... ) {
         LOG_FATAL(DomainManager_impl, "Stopping domain manager; EventChannelManager - EventChannelFactory unavailable" )
@@ -206,7 +209,8 @@ void DomainManager_impl::parseDMDProfile()
     _identifier = configuration.getID();
 }
 
-void DomainManager_impl::restoreState(const std::string& _db_uri) {
+
+void DomainManager_impl::restoreEventChannels(const std::string& _db_uri) {
     boost::recursive_mutex::scoped_lock lock(stateAccess);
 
     LOG_INFO(DomainManager_impl, "Restoring state from URL " << _db_uri);
@@ -277,6 +281,24 @@ void DomainManager_impl::restoreState(const std::string& _db_uri) {
                 LOG_WARN(DomainManager_impl, "Failed to recover Event Channel: " << i->boundName);
             }
         } CATCH_LOG_WARN(DomainManager_impl, "Unable to restore connection to Event Channel: " << i->boundName);
+    }
+
+    try {
+        db.store("EVENT_CHANNELS", _restoredEventChannels);
+    } catch (const ossie::PersistenceException& e) {
+        LOG_ERROR(DomainManager_impl, "Error restoring event channels from persistent state: " << e.what());
+    }
+}
+
+void DomainManager_impl::restoreState(const std::string& _db_uri) {
+    boost::recursive_mutex::scoped_lock lock(stateAccess);
+
+    LOG_INFO(DomainManager_impl, "Restoring state from URL " << _db_uri);
+    try {
+        db.open(_db_uri);
+    } catch (const ossie::PersistenceException& e) {
+        LOG_ERROR(DomainManager_impl, "Error loading persistent state: " << e.what());
+        return;
     }
 
     LOG_DEBUG(DomainManager_impl, "Recovering device manager connections");
@@ -2137,6 +2159,22 @@ CF::Resource_ptr DomainManager_impl::lookupComponentByInstantiationId(const std:
     DeviceList::iterator deviceNode = findDeviceById(identifier);
     if (deviceNode != _registeredDevices.end()) {
         return CF::Resource::_duplicate((*deviceNode)->device);
+    }
+    // Search for a Component matching this id
+    //  This needs to reconcile the fact that the application id is <softwareassembly id>:<app name>, the component id is <componentinstantiation id>:<app name>
+    //   and the unambiguous endpoint for a component is <componentinstantiation id>:<softwareassembly id>:<app name>
+    std::size_t pos = identifier.find(":");
+    if (pos != std::string::npos) {
+        std::string appid = identifier.substr(pos+1);
+        if (_applications.find(appid) == _applications.end()) {
+            return CF::Resource::_nil();
+        }
+        std::string normalized_comp_id = identifier.substr(0,pos)+std::string(":")+appid.substr(appid.rfind(":")+1);
+        for (ossie::ComponentList::iterator _comp=_applications[appid]->_components.begin(); _comp!=_applications[appid]->_components.end(); _comp++) {\
+            if (normalized_comp_id == _comp->identifier) {
+                return CF::Resource::_duplicate(CF::Resource::_narrow(_comp->componentObject));
+            }
+        }
     }
 
     return CF::Resource::_nil();

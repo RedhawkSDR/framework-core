@@ -45,7 +45,12 @@ class ProcessThread(threading.Thread):
 
     def run(self):
         while not self.stop_signal.isSet():
-            state = self.target()
+            try:
+                state = self.target()
+            except Exception, e:
+                if hasattr(self.target.__self__,'_log'):
+                    self.target.__self__._log.error("Exception detected in process function: "+str(e))
+                raise
             if state == FINISH:
                 return
             elif state == NOOP:

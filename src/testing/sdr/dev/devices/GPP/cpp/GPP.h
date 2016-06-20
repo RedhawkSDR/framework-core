@@ -77,6 +77,12 @@ class GPP_i : public GPP_base
         void deallocateCapacity (const CF::Properties& capacities) throw (CF::Device::InvalidState, CF::Device::InvalidCapacity, CORBA::SystemException);
         CORBA::Boolean allocateCapacity (const CF::Properties& capacities) throw (CF::Device::InvalidState, CF::Device::InvalidCapacity, CF::Device::InsufficientCapacity, CORBA::SystemException);
         void releaseObject() throw (CORBA::SystemException, CF::LifeCycle::ReleaseError);
+        void postConstruction( std::string &softwareProfile,
+                          std::string &registrar_ior,
+                          const std::string &idm_channel_ior="",
+                          const std::string &nic="",
+                          const int  sigfd=-1 );
+
 
     protected:
 	struct component_description {

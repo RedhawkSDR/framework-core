@@ -382,7 +382,7 @@ class PortSupplier(object):
 
     def disconnect(self, providesComponent):
         manager = ConnectionManager.instance()
-        for connectionId, (uses, provides) in manager.getConnectionsBetween(self, providesComponent).items():
+        for _connectionId, (connectionId, uses, provides) in manager.getConnectionsBetween(self, providesComponent).items():
             usesPortRef = uses.getReference()
             try:
                 usesPortRef.disconnectPort(connectionId)
@@ -390,7 +390,7 @@ class PortSupplier(object):
                 pass
             if isinstance(providesComponent, PortSupplier):
                 providesComponent._disconnected(connectionId)
-            manager.unregisterConnection(connectionId)
+            manager.unregisterConnection(connectionId, uses)
 
 
 class PortSet(PortSupplier):

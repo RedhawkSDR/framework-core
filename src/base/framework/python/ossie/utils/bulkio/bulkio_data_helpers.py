@@ -290,7 +290,12 @@ class ArraySink(object):
             if length is None:
                 # No length specified; get all of the data.
                 length = len(self.data)
-            if self.sri.subsize != 0:
+                
+            # have not received any data yet (and I need a minimum amount)
+            if self.sri == None and len(self.data) == 0 and length != 0:
+                self.port_cond.wait()
+            
+            if self.sri != None and self.sri.subsize != 0:
                 frameLength = self.sri.subsize if not self.sri.mode else 2*self.sri.subsize
                 if float(length)/frameLength != length/frameLength:
                     print 'The requested length divided by the subsize ('+str(length)+'/'+str(self.sri.subsize)+') is not a whole number. Cannot return framed data'
@@ -327,7 +332,9 @@ class ArraySink(object):
 
             # No length was provided, or length is equal to the length of data.
             # Return all data and timestamps.
-            if self.sri.subsize == 0:
+            if self.sri == None:
+                (retval, rettime) = (self.data, self.timestamps)
+            elif self.sri.subsize == 0:
                 (retval, rettime) = (self.data, self.timestamps)
             else:
                 retval = []

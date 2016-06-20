@@ -98,6 +98,18 @@ class FileAppender(logging.FileHandler,object):
 
   def setFile(self, filename):
     self.filename = filename
+    if self.filename.count('/') > 0:
+        aggregate = os.getcwd()+'/'
+        dirs = self.filename.split('/')
+        for _dir in dirs[:-1]:
+            if _dir == '':
+                continue
+            aggregate += '/'+_dir
+            try:
+                os.mkdir(aggregate)
+            except:
+                pass
+            
     self.baseFilename = os.path.abspath(filename)
     self.log4pyProps['filename'] = filename
 
@@ -227,9 +239,10 @@ else:
       logging.handlers.TimedRotatingFileHandler.__init__(self, **self.log4pyProps)
       self.setLevel(self.threshold)
 
-class RH_LogEventAppender(NullHandler):
+class RH_LogEventAppender(logging.Handler):
+  ECM=None
   def __init__(self, *args, **kwds):
-    NullHandler.__init__(self, *args, **kwds )
+    logging.Handler.__init__(self, *args, **kwds )
     self.log4pyProps = {}
     self.channelName = None
     self.nameContext = None
@@ -259,12 +272,16 @@ class RH_LogEventAppender(NullHandler):
   def activateOptions(self):
     self.setLevel(self.threshold)
     if self.channelName != self._channelName and self.channelName != "":
-        if self._ecm:
-            self.connect()
+        if self._ecm or self.ECM:
+            if self.ECM:
+                self.connect( self.ECM )
+            else:
+                self.connect()
 
             
   def setEventChannelManager(self, ECM):
       if ECM:
+          self.ECM = ECM
           self.connect(ECM)
       else:
           # if no event channel manager is provided then we need to disable the handling of log messages

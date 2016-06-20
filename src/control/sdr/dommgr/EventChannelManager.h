@@ -159,6 +159,7 @@ class EventChannelManager: public virtual EventChannelManagerBase {
   // find channel via channel name or search FQN name.........
   const ossie::events::EventChannel_ptr findChannel( const std::string &channel_name );
   bool             isChannel( const std::string &channel_name );
+  void             setPollingPeriod( const int64_t period );
 
  private:
 
@@ -322,6 +323,8 @@ class EventChannelManager: public virtual EventChannelManagerBase {
   // allow event service to resolve channels
   bool                                           _allow_es_resolve;
 
+  // default polling period to assign to a channel
+  int64_t                                        _default_poll_period;
 
   // synchronize access to member variables
   redhawk::Mutex                                   _mgrlock;

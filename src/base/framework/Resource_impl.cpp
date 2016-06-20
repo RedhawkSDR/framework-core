@@ -71,16 +71,16 @@ void Resource_impl::setAdditionalParameters(std::string &softwareProfile, std::s
     }
     CF::ApplicationRegistrar_ptr applicationRegistrar = ossie::corba::_narrowSafe<CF::ApplicationRegistrar>(applicationRegistrarObject);
     if (!CORBA::is_nil(applicationRegistrar)) {
-      RH_NL_DEBUG("Resource", "Get DomainManager from Registrar object:" << application_registrar_ior );
+      RH_NL_TRACE("Resource", "Get DomainManager from Registrar object:" << application_registrar_ior );
       CF::DomainManager_var dm=applicationRegistrar->domMgr();
       this->_domMgr = new redhawk::DomainManagerContainer(dm);
       return;
     }
 
-    RH_NL_DEBUG("Resource", "Resolve DeviceManager...");
+    RH_NL_TRACE("Resource", "Resolve DeviceManager...");
     CF::DeviceManager_var devMgr = ossie::corba::_narrowSafe<CF::DeviceManager>(applicationRegistrarObject);
     if (!CORBA::is_nil(devMgr)) {
-      RH_NL_DEBUG("Resource", "Resolving DomainManager from DeviceManager...");
+      RH_NL_TRACE("Resource", "Resolving DomainManager from DeviceManager...");
         CF::DomainManager_var dm=devMgr->domMgr();
         this->_domMgr = new redhawk::DomainManagerContainer(dm);
         return;

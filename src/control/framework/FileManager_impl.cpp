@@ -690,7 +690,8 @@ CF::FileManager::MountSequence* FileManager_impl::getMounts ()
     // but prevent changes to the mount table itself.
     boost::shared_lock<boost::shared_mutex> lock(mountsLock);
 
-    CF::FileManager::MountSequence_var result = new CF::FileManager::MountSequence(mountedFileSystems.size());
+    CF::FileManager::MountSequence_var result = new CF::FileManager::MountSequence();
+    result->length(mountedFileSystems.size());
     CORBA::ULong index = 0;
     for (MountList::iterator ii = mountedFileSystems.begin(); ii != mountedFileSystems.end(); ++ii, ++index) {
         result[index].mountPoint = ii->path.c_str();

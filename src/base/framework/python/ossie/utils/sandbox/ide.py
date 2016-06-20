@@ -44,7 +44,10 @@ class IDESdrRoot(SdrRoot):
         self.__fileSystem = self.__ide._get_fileManager()
 
     def _fileExists(self, filename):
-        return self.__fileSystem.exists(filename)
+        try:
+            return self.__fileSystem.exists(filename)
+        except CF.InvalidFileName:
+            return False
 
     def _readFile(self, filename):
         fileObj = self.__fileSystem.open(filename, True)
@@ -53,15 +56,25 @@ class IDESdrRoot(SdrRoot):
         finally:
             fileObj.close()
 
-    def getProfiles(self, objType=None):
+    def _sdrPath(self, filename):
+        # Assume the correct path was given by the IDE
+        return filename
+
+    def _getSearchPaths(self, objTypes):
+        # Search everything
+        return ['']
+
+    def _getAvailableProfiles(self, searchPath):
         profiles = self.__ide._get_availableProfiles()
-        if objType is None or objType == "all":
-            return profiles
+        if searchPath:
+            # Treat the search path as a prefix, and filter out any profiles
+            # that are not in a subdirectory thereof
+            if not searchPath.endswith('/'):
+                # Avoid partial matches (e.g., '/dev' matching '/devices/')
+                searchPath += '/'
+            return [p for p in profiles if p.startswith(searchPath)]
         else:
-            if not objType in ('components', 'devices', 'services'):
-                raise ValueError, "'%s' is not a valid object type" % objType
-            prefix = '/' + objType + '/'
-            return [p for p in profiles if p.startswith(prefix)]
+            return profiles
 
     def getLocation(self):
         return 'REDHAWK IDE virtual SDR'
@@ -286,16 +299,7 @@ class IDESandbox(Sandbox):
         if searchPath:
             log.warn("IDE sandbox does not support alternate paths")
 
-        sdrroot = self.getSdrRoot()
-
-        files = {}
-        for profile in sdrroot.getProfiles(objType):
-            try:
-                spd, scd, prf = sdrroot.readProfile(profile)
-                files[str(spd.get_name())] = profile
-            except:
-                pass
-        return files
+        return super(IDESandbox,self).catalog(searchPath, objType)
 
     def browse(self, searchPath=None, objType=None, withDescription=False):
         if searchPath:
