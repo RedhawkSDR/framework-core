@@ -239,6 +239,12 @@ class Device(resource.Resource):
         # resolves Domain and Device Manger relationships
         # resolveDomainAwareness( registrar_ior ) -- done during CTOR 
 
+        try:
+            if self._domMgr:
+                self._ecm = ossie.events.Manager.GetManager(self)
+        except:
+            pass
+
         # establish IDM Channel connectivity
         self.connectIDMChannel( idm_ior );
 
@@ -260,19 +266,23 @@ class Device(resource.Resource):
                     self._idm_publisher = Publisher( idm_channel )
                     self._log.info("Connected to IDM CHANNEL, (command line IOR).... DEV-ID:" + self._id )
                 except Exception, err:
-                    print traceback.format_exc()
+                    #traceback.print_exc()
                     self._log.warn("Unable to connect to IDM channel (command line IOR).... DEV-ID:" + self._id )
             else:
                 try:
                     # make sure we have access to get to the EventChanneManager for the domain
                     if self._domMgr:
-                        self._log.debug("Setting up EventManager .... DEV-ID:" + self._id )
-                        evt_mgr= Manager.GetManager(self)
+                        if self._ecm == None:
+                            self._log.debug("Setting up EventManager .... DEV-ID:" + self._id )
+                            evt_mgr= Manager.GetManager(self)
+                            self._ecm = evt_mgr
+                        else:
+                            evt_mgr = self._ecm
                         self._log.debug("Requesting registration with IDM Channel .... DEV-ID:" + self._id )
                         self._idm_publisher = evt_mgr.Publisher( ossie.events.IDM_Channel_Spec )
                         self._log.info("Registered with IDM CHANNEL (Domain::EventChannelManager).... DEV-ID:" + self._id )
                 except:
-                    print traceback.format_exc()
+                    #traceback.print_exc()
                     self._log.warn("Unable to connect to IDM channel (Domain::EventChannelManager).... DEV-ID:" + self._id )
 
 
@@ -1367,12 +1377,12 @@ def start_device(deviceclass, interactive_callback=None, thread_policy=None,logg
                                         execparams)
             devicePOA.activate_object(component_Obj)
 
-            # set logging context for resource to supoprt CF::Logging
-            component_Obj.saveLoggingContext( log_config_uri, debug_level, ctx )
-
             idm_channel_ior=execparams.get("IDM_CHANNEL_IOR",None)
             registrar_ior=execparams.get("DEVICE_MGR_IOR",None)
             component_Obj.postConstruction( registrar_ior, idm_channel_ior )
+
+            # set logging context for resource to supoprt CF::Logging
+            component_Obj.saveLoggingContext( log_config_uri, debug_level, ctx )
 
             if not interactive:
                 logging.debug("Starting ORB event loop")

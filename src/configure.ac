@@ -334,6 +334,7 @@ AC_CONFIG_FILES(Makefile \
                 testing/sdr/dom/deps/cpp_dep2/cpp/Makefile \
                 testing/sdr/dom/deps/cpp_dep2/cpp/cpp_dep2.pc \
                 testing/sdr/dom/components/CppCallbacks/cpp/Makefile \
+                testing/sdr/dom/components/prop_trigger_timing/cpp/Makefile \
                 testing/sdr/dom/components/TestCppProps/Makefile \
                 testing/sdr/dom/components/TestJavaProps/Makefile \
                 testing/sdr/dom/components/TestLegacyJavaProps/Makefile \

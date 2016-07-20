@@ -54,6 +54,7 @@ SUBDIRS = sdr/dev/devices/ExecutableDevice \
           sdr/dom/components/TestComplexProps/cpp \
           sdr/dom/components/TestAllPropTypes/cpp \
           sdr/dom/components/CppCallbacks/cpp \
+          sdr/dom/components/prop_trigger_timing/cpp \
           sdr/dom/components/cpp_comp/cpp \
           sdr/dom/components/java_comp/java \
           sdr/dom/components/TestLoggingAPI/cpp \

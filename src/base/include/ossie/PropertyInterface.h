@@ -505,7 +505,7 @@ public:
             // Nil values should clear the sequence
             super::value_.clear();
         } else {
-            super::setValue(newValue);
+            super::setValue(newValue, callbacks);
         }
     }
 

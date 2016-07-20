@@ -838,6 +838,16 @@ class CPPPropertyTest(scatest.CorbaTestCase):
         # class tearDown, or failures will occur.
         scatest.CorbaTestCase.tearDown(self)
 
+    def test_triggerTiming(self):
+        self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", self._domMgr)
+        self.assertNotEqual(self._devBooter, None)
+        dom=redhawk.attach(self._domMgr._get_name())
+        app = self._domMgr.createApplication("/waveforms/prop_trigger_timing_w/prop_trigger_timing_w.sad.xml", "prop_trigger_timing_w", [], [])
+        self.assertEquals(dom.apps[0].comps[0].prop_1_trigger, False)
+        self.assertEquals(dom.apps[0].comps[0].prop_2_trigger, False)
+        self.assertEquals(dom.apps[0].comps[0].prop_3_trigger, False)
+        self.assertEquals(dom.apps[0].comps[0].prop_4_trigger, False)
+
     def test_Property_CPP(self):
         self._devBooter, self._devMgr = self.launchDeviceManager("/nodes/test_BasicTestDevice_node/DeviceManager.dcd.xml", self._domMgr)
         self.assertNotEqual(self._devBooter, None)
