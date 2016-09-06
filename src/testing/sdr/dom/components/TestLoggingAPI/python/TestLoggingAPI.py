@@ -44,7 +44,12 @@ class TestLoggingAPI_i(TestLoggingAPI_base):
     """<DESCRIPTION GOES HERE>"""
     def __init__(self, identifier, execparams):
         TestLoggingAPI_base.__init__(self, identifier, execparams )
-        self.setLogListenerCallback( TestLoggingAPI_i.MyLogListenerCB(self) )
+        if execparams.has_key('DISABLE_CB'):
+            if execparams['DISABLE_CB'].upper() != 'TRUE':
+                self.setLogListenerCallback( TestLoggingAPI_i.MyLogListenerCB(self) )
+        else:
+          self.setLogListenerCallback( TestLoggingAPI_i.MyLogListenerCB(self) )
+
 
     def initialize(self):
         """

@@ -381,7 +381,15 @@ abstract public class Logging {
      * @return int value of a CF::LogLevels enumeration
      */
     public int log_level() {
-	return logLevel;
+        if ( _logger != null ) {
+            Level logger_level = _logger.getLevel();
+            Level cur_loglevel= logging.ConvertToLog4Level(logLevel);
+            if ( logger_level != null && logger_level != cur_loglevel ) {
+                logLevel = logging.ConvertLog4ToCFLevel(logger_level);
+            }
+        }
+        return logLevel;
+
     }
 
     /**
@@ -429,7 +437,6 @@ abstract public class Logging {
 	    this.logListener.logLevelChanged( logger_id, newLogLevel );
 	}
 	else {
-	    logLevel = newLogLevel;
 	    Level tlevel=Level.INFO;
 	    tlevel = logging.ConvertToLog4Level(newLogLevel);	       
 	    
@@ -437,6 +444,9 @@ abstract public class Logging {
 		Logger logger = Logger.getLogger( logger_id );
 		if ( logger != null ) {
 		    logger.setLevel( tlevel );
+                    if ( logger_id == logName ) {
+                        logLevel=newLogLevel;
+                    }
 		}
 	    }
 	    else {

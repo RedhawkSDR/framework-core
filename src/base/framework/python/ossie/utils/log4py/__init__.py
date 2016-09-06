@@ -43,6 +43,8 @@ import logging
 # Define a TRACE logging level.
 logging.TRACE = 5
 logging.addLevelName(logging.TRACE, "TRACE")
+logging.OFF = logging.FATAL+1
+logging.addLevelName(logging.OFF, "OFF")
 
 # Add a free-standing trace method.
 def _trace(msg, *args, **kw):

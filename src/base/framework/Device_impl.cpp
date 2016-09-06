@@ -28,7 +28,7 @@
 #include "ossie/Events.h"
 
 
-PREPARE_LOGGING(Device_impl)
+PREPARE_CF_LOGGING(Device_impl)
 
 //
 // Helper class for performing cleanup when an allocation partially succeeds

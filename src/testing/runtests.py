@@ -28,6 +28,7 @@ import os
 import re
 import shutil
 import sys
+import time
 
 if os.path.abspath(os.path.dirname(__file__)) != os.getcwd():
     print "runtests.py *must* be run from within the testing folder"
@@ -218,6 +219,9 @@ if __name__ == "__main__":
     else:
         os.environ['OSSIEUNITTESTSLOGCONFIG'] = os.path.abspath(options.logconfig)
 
+    from datetime import datetime
+    test_start_time = datetime.now()
+
     print ""
     print "Creating the Test Domain"
     print ""
@@ -225,7 +229,7 @@ if __name__ == "__main__":
 
     print ""
     print "R U N N I N G  T E S T S"
-    print "SDRROOT: ", scatest.getSdrPath()
+    print "SDRROOT: ", scatest.getSdrPath(), " Start:", test_start_time.strftime("%m/%d/%Y %H:%M:%S")
     print ""
 
     suite = TestCollector(files, testMethodPrefix=options.prefix, prompt=options.prompt)
@@ -240,3 +244,9 @@ if __name__ == "__main__":
         pdb.run("runner.run(suite)")
     else:
         runner.run(suite)
+
+    test_end_time = datetime.now()
+    dur=    test_end_time - test_start_time
+    print "Completed Execution: End:", test_end_time.strftime("%m/%d/%Y %H:%M:%S"), " Duration: ", str(dur)
+
+    

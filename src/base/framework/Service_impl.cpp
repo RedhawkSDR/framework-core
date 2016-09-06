@@ -24,7 +24,7 @@
 #include "ossie/Service_impl.h"
 #include "ossie/CorbaUtils.h"
 
-PREPARE_LOGGING(Service_impl)
+PREPARE_CF_LOGGING(Service_impl)
 
 void Service_impl::initResources (char* devMgr_ior, char* name)
 {

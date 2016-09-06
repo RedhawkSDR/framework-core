@@ -20,7 +20,7 @@
 
 #include <ossie/PortSupplier_impl.h>
 
-PREPARE_LOGGING(PortSupplier_impl);
+PREPARE_CF_LOGGING(PortSupplier_impl);
 
 PortSupplier_impl::PortSupplier_impl ()
 {

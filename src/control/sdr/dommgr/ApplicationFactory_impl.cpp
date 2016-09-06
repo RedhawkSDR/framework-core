@@ -244,6 +244,7 @@ void ApplicationFactory_impl::ValidateSPD(CF::FileManager_ptr fileMgr,
         const ossie::SPD::Implementations& impls = spdParser.getImplementations();
         ossie::SPD::Implementations::const_iterator impl = impls.begin();
         for( ; impl != impls.end(); impl++ ) {
+
           
           // validate code file exists
           try {

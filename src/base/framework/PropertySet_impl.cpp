@@ -88,7 +88,7 @@ private:
 
 std::string PropertySet_impl::PropertyChangeRec::RSC_ID("UNK_RSC_ID");
 
-PREPARE_LOGGING(PropertySet_impl);
+PREPARE_CF_LOGGING(PropertySet_impl);
 
 PropertySet_impl::PropertySet_impl ():
   propertyChangePort(0),

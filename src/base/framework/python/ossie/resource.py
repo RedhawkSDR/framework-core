@@ -316,8 +316,8 @@ class Resource(object):
         ##
         ## logging context for the resource
         ##
-        self.logLevel = logging.INFO
-        self._logLevel = CF.LogLevels.INFO
+        self.logLevel = None
+        self._logLevel = None
         self.logConfig = ""
         self.loggingMacros = ossie.logger.GetDefaultMacros()
         ossie.logger.ResolveHostInfo( self.loggingMacros )
@@ -331,7 +331,12 @@ class Resource(object):
             self._logid = loggerName
         self._logid = self._logid.replace(":","_")
         self._log = logging.getLogger(self._logid)
-        self._log.setLevel(self.logLevel)
+        loglevel = self._log.getEffectiveLevel()
+        if loglevel == logging.NOTSET:
+            self.logLevel = logging.INFO
+        else:
+            self.logLevel = loglevel
+        self._logLevel = ossie.logger.ConvertLog4ToCFLevel( self.logLevel )
         self.logListenerCallback=None
         self._name = execparams.get("NAME_BINDING", "")
         # The base resource class manages properties ...
@@ -547,9 +552,7 @@ class Resource(object):
 
         # apply logging level if explicitly stated
         if oldstyle_loglevel != None and oldstyle_loglevel > -1 :
-            self.setLogLevel( self._logid, ossie.logger.ConvertLogLevel(oldstyle_loglevel) )
-        else:
-            self._logLevel = ossie.logger.ConvertLog4ToCFLevel( logging.getLogger(None).getEffectiveLevel() )
+            self.setLogLevel( "", ossie.logger.ConvertLogLevel(oldstyle_loglevel) )
 
 
     def saveLoggingContext(self, logcfg_url, oldstyle_loglevel, rscCtx ):
@@ -574,10 +577,14 @@ class Resource(object):
 
         # apply logging level if explicitly stated
         if oldstyle_loglevel != None and oldstyle_loglevel > -1 :
-            self._logLevel = ossie.logger.ConvertLogLevel(oldstyle_loglevel)
-            self.setLogLevel( self._logid, ossie.logger.ConvertLogLevel(oldstyle_loglevel) )
+            loglevel = ossie.logger.ConvertLogLevel(oldstyle_loglevel)
+            self.setLogLevel( "", loglevel )
+            if self._log and self._log.getEffectiveLevel() == logging.NOTSET:
+                self.setLevel( self._logid, loglevel )
         else:
-            self._logLevel = ossie.logger.ConvertLog4ToCFLevel( logging.getLogger(None).getEffectiveLevel() )
+            if self._log and self._log.getEffectiveLevel() == logging.NOTSET:
+                loglevel = ossie.logger.ConvertLog4ToCFLevel( logging.getLogger(None).getEffectiveLevel() )
+                self.setLogLevel( self._logid, loglevel )
 
         # assign an event channel manager to the logging library
         ossie.logger.SetEventChannelManager( self._ecm )
@@ -592,6 +599,12 @@ class Resource(object):
     #########################################
     # CF::LogConfiguration
     def _get_log_level(self):
+        if self._log:
+            lvl = ossie.logger.ConvertLog4ToCFLevel( self._log.getEffectiveLevel())
+            if lvl != self._logLevel:
+                self.logLevel = self._log.getEffectiveLevel()
+                self._logLevel = lvl
+
         return self._logLevel
 
     def _set_log_level(self, newLogLevel ):
@@ -605,8 +618,6 @@ class Resource(object):
            return
 
         if self.logListenerCallback and callable(self.logListenerCallback.logLevelChanged):
-            self._logLevel = newLogLevel
-            self.logLevel = ossie.logger.ConvertToLog4Level( newLogLevel )
             self.logListenerCallback.logLevelChanged(self._logid, newLogLevel)
         else:
             ossie.logger.SetLogLevel( self._logid, newLogLevel )
@@ -619,13 +630,14 @@ class Resource(object):
             return
 
         if self.logListenerCallback and callable(self.logListenerCallback.logLevelChanged):
-            self._logLevel = newLogLevel
-            self.logLevel = ossie.logger.ConvertToLog4Level( newLogLevel )
+            #self._logLevel = newLogLevel
+            #self.logLevel = ossie.logger.ConvertToLog4Level( newLogLevel )
             self.logListenerCallback.logLevelChanged(logid, newLogLevel)
         else:
             ossie.logger.SetLogLevel( logid, newLogLevel )
-            self._logLevel = newLogLevel
-            self.logLevel = ossie.logger.ConvertToLog4Level( newLogLevel )
+            if logid == self._logid:
+                self._logLevel = newLogLevel
+                self.logLevel = ossie.logger.ConvertToLog4Level( newLogLevel )
 
     def getLogConfig(self):
         return self.logConfig
@@ -640,6 +652,7 @@ class Resource(object):
             tcfg= ossie.logger.ConfigureWithContext( new_log_config, self.loggingMacros  )
             if tcfg:
                 self.logConfig = tcfg
+                lvl=self._get_log_level()
         else:
             pass
 

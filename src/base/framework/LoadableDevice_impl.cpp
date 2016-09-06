@@ -113,7 +113,7 @@ std::string EnvironmentPathParser::to_string() const
 }
 
 
-PREPARE_LOGGING(LoadableDevice_impl)
+PREPARE_CF_LOGGING(LoadableDevice_impl)
 
 
 /* LoadableDevice_impl ****************************************************************************

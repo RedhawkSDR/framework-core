@@ -38,7 +38,8 @@ class python_dev_i(python_dev_base):
 
         """
         # TODO add customization here.
-        self.setLogListenerCallback( python_dev_i.MyLogListenerCB(self) )
+        if self.disable_cb == False:
+            self.setLogListenerCallback( python_dev_i.MyLogListenerCB(self) )
         
     def updateUsageState(self):
         """

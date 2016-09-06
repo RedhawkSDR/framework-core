@@ -28,4 +28,9 @@ with this program.  If not, see http://www.gnu.org/licenses/.
     <kind kindtype="property"/>
     <action type="external"/>
   </simple>
+  <simple id="DISABLE_CB" mode="readwrite" name="disable_cb" type="boolean" commandline="true">
+    <value>false</value>
+    <kind kindtype="property"/>
+    <action type="external"/>
+  </simple>
 </properties>

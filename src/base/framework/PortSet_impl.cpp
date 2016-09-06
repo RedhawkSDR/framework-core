@@ -21,7 +21,7 @@
 #include <ossie/PortSet_impl.h>
 #include <ossie/CorbaUtils.h>
 
-PREPARE_LOGGING(PortSet_impl);
+PREPARE_CF_LOGGING(PortSet_impl);
 
 PortSet_impl::PortSet_impl ()
 {

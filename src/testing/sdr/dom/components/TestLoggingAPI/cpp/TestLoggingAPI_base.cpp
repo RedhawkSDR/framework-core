@@ -88,6 +88,15 @@ void TestLoggingAPI_base::loadProperties()
                 "external",
                 "property");
 
+    addProperty(disable_cb,
+                false,
+                "DISABLE_CB",
+                "disable_cb",
+                "readwrite",
+                "",
+                "external",
+                "property");
+
 }
 
 

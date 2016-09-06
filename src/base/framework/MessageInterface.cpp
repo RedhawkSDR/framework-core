@@ -21,7 +21,7 @@
 #include "ossie/MessageInterface.h"
 #include <iostream>
 
-PREPARE_LOGGING(MessageConsumerPort)
+PREPARE_CF_LOGGING(MessageConsumerPort)
 
 Consumer_i::Consumer_i(MessageConsumerPort *_parent) {
     parent = _parent;

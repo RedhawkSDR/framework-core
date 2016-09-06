@@ -339,6 +339,11 @@ namespace rh_logger {
   //
   LoggerPtr Logger::_rootLogger;
 
+  //
+  // save off the resource logger name when the resource gets it's initial logger
+  //
+  std::string _rsc_logger_name;
+
 
   //
   //  Return the root logger object as a shared pointer
@@ -354,6 +359,16 @@ namespace rh_logger {
     }
     STDOUT_DEBUG( "RH_LOGGER getRootLogger  END ");
     return _rootLogger;
+  }
+
+
+  LoggerPtr Logger::getResourceLogger( const std::string &name ) {
+      _rsc_logger_name = name;
+      return getLogger( name );
+  }
+
+  const std::string &Logger::getResourceLoggerName() {
+      return _rsc_logger_name;
   }
 
   LoggerPtr Logger::getLogger( const std::string &name ) {

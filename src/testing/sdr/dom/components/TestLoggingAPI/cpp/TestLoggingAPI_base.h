@@ -45,6 +45,8 @@ class TestLoggingAPI_base : public Resource_impl, protected ThreadedComponent
         CORBA::Long new_log_level;
         /// Property: new_log_cfg
         std::string new_log_cfg;
+        /// Property: disable_cb
+        bool disable_cb;
 
     private:
 };

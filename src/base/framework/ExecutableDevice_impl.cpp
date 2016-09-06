@@ -53,7 +53,7 @@
 #include "ossie/affinity.h"
 #include "logging/rh_logger_stdout.h"
 
-PREPARE_LOGGING(ExecutableDevice_impl)
+PREPARE_CF_LOGGING(ExecutableDevice_impl)
 
 /* ExecutableDevice_impl ****************************************
     - constructor 1: no capacities defined

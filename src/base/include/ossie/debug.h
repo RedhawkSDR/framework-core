@@ -52,6 +52,10 @@
     static rh_logger::LoggerPtr __logger;
 
 #define PREPARE_LOGGING(classname) \
+    rh_logger::LoggerPtr classname::__logger(rh_logger::Logger::getResourceLogger(#classname));
+
+
+#define PREPARE_CF_LOGGING(classname) \
     rh_logger::LoggerPtr classname::__logger(rh_logger::Logger::getLogger(#classname));
 
 

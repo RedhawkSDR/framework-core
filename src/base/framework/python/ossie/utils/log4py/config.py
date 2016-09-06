@@ -245,8 +245,8 @@ def _install_loggers(props, handlers, filterCategory, disable_existing_loggers )
   # check additive tags to avoid additive logging to the root loggers
   additivities = filter(lambda x: x.startswith("log4j.additivity."), props.keys())
 
-  _install_from_list( clist, props, filterCategory, additivities )
-  _install_from_list( llist, props, filterCategory, additivities )
+  _install_from_list( clist, props, filterCategory, additivities, handlers, existing, child_loggers )
+  _install_from_list( llist, props, filterCategory, additivities, handlers, existing, child_loggers )
 
   #fixup existing loggers...
   for log in existing:
@@ -254,7 +254,15 @@ def _install_loggers(props, handlers, filterCategory, disable_existing_loggers )
     if isinstance(logger, logging.PlaceHolder): continue
     root.manager._fixupParents(logger)
 
-def _install_from_list( llist, props, filterCategory, additivities):
+    if log in child_loggers:
+      logger.level = logging.NOTSET
+      logger.handlers = []
+      logger.propagate = 1
+    elif disable_existing_loggers:
+      logger.disabled = 1
+
+
+def _install_from_list( llist, props, filterCategory, additivities, handlers, existing, child_loggers):
 
   for log in llist:
 
@@ -271,7 +279,7 @@ def _install_from_list( llist, props, filterCategory, additivities):
     aname = 'log4j.additivity.'+log
     propagate=1
     if aname in additivities:
-      if ( (str(props[additive]).strip().upper()) == "TRUE" ):
+      if ( (str(props[aname]).strip().upper()) == "TRUE" ):
           propagate=1
       else:
           propagate=0

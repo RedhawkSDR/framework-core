@@ -63,7 +63,7 @@ class Logging_impl
 
   // Get a new logger object and if assign to resource if param is true
   LOGGER       getLogger( const std::string &logger_name, const bool assignToResource=false);
-  
+
 
   /*
    * LogEventConsumer

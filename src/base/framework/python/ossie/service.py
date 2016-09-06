@@ -50,7 +50,8 @@ def patchService(target):
         ##
         ## logging context for the resource
         ##
-        self.logLevel = logging.DEBUG
+        self.logLevel = None
+        self._logLevel = None
         self.logConfig = ""
         self.loggingMacros = ossie.logger.GetDefaultMacros()
         ossie.logger.ResolveHostInfo( self.loggingMacros )
@@ -64,7 +65,12 @@ def patchService(target):
             self._logid = loggerName
         self._logid = self._logid.replace(":","_")
         self._log = logging.getLogger(self._logid)
-        self._log.setLevel(self.logLevel)
+        loglevel = self._log.getEffectiveLevel()
+        if loglevel == logging.NOTSET:
+            self.logLevel = logging.INFO
+        else:
+            self.logLevel = loglevel
+        self._logLevel = ossie.logger.ConvertLog4ToCFLevel( self.logLevel )
         self.logListenerCallback=None
 
     # logging context 
@@ -98,9 +104,14 @@ def patchService(target):
 
         # apply logging level if explicitly stated
         if oldstyle_loglevel != None and oldstyle_loglevel > -1 :
-            _logLevel = ossie.logger.ConvertLogLevel(oldstyle_loglevel)
+            log4level = ossie.logger.ConvertToLog4Level( ossie.logger.ConvertLogLevel(oldstyle_loglevel))
+            logging.getLogger("").setLevel( log4level )
+            if self._log and self._log.getEffectiveLevel() == logging.NOTSET:
+                self._log.setLevel( self._logid, log4level )
         else:
-            _logLevel = ossie.logger.ConvertLog4ToCFLevel( logging.getLogger(None).getEffectiveLevel() )
+            if self._log and self._log.getEffectiveLevel() == logging.NOTSET:
+                self._log.setLevel( self._logid, logging.getLogger(None).getEffectiveLevel() )
+                self._logLevel = ossie.logger.ConvertLog4ToCFLevel( logging.getLogger(None).getEffectiveLevel() )
 
         self._ecm = None
         try:

@@ -91,3 +91,11 @@ class TestLoggingAPI_base(CF__POA.Resource, Resource, ThreadedComponent):
                                       mode="readwrite",
                                       action="external",
                                       kinds=("property",))
+
+        disable_cb = simple_property(id_="DISABLE_CB",
+                                     name="disable_cb",
+                                     type_="boolean",
+                                     defvalue=False,
+                                     mode="readwrite",
+                                     action="external",
+                                     kinds=("property",))

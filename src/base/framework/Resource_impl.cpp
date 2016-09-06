@@ -23,7 +23,7 @@
 #include "ossie/Resource_impl.h"
 #include "ossie/Events.h"
 
-PREPARE_LOGGING(Resource_impl)
+PREPARE_CF_LOGGING(Resource_impl)
 
 Resource_impl::Resource_impl (const char* _uuid) :
     _identifier(_uuid),

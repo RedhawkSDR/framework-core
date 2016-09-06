@@ -255,6 +255,9 @@ namespace rh_logger {
     static LoggerPtr getLogger( const std::string &name );
     static LoggerPtr getLogger( const char *name );
 
+    static LoggerPtr getResourceLogger( const std::string &name );
+    static const std::string &getResourceLoggerName();
+
     //
     // Set the logging level for this logger
     //

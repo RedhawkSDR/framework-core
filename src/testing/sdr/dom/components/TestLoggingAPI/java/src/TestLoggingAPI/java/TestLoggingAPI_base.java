@@ -43,7 +43,7 @@ import org.ossie.properties.*;
  *
  * @generated
  */
-public abstract class TestLoggingAPI_base extends ThreadedResource {
+public abstract class TestLoggingAPI_base extends Component {
     /**
      * @generated
      */
@@ -81,6 +81,21 @@ public abstract class TestLoggingAPI_base extends ThreadedResource {
             new Kind[] {Kind.PROPERTY}
             );
 
+    /**
+     * The property DISABLE_CB
+     * If the meaning of this property isn't clear, a description should be added.
+     *
+     * @generated
+     */
+    public final BooleanProperty disable_cb =
+        new BooleanProperty(
+            "DISABLE_CB", //id
+            "disable_cb", //name
+            false, //default value
+            Mode.READWRITE, //mode
+            Action.EXTERNAL, //action
+            new Kind[] {Kind.PROPERTY}
+            );
 
     /**
      * @generated
@@ -88,6 +103,9 @@ public abstract class TestLoggingAPI_base extends ThreadedResource {
     public TestLoggingAPI_base()
     {
         super();
+
+        setLogger( logger, TestLoggingAPI_base.class.getName() );
+
     }
 
     public void start() throws CF.ResourcePackage.StartError

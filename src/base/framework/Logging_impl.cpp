@@ -175,6 +175,17 @@ void Logging_impl::saveLoggingContext( const std::string &logcfg_url, int logLev
     }
   }
 
+  // resource loggers are private to the component/device implementation class, we need to grab the resource logger's logger by
+  // name and assign it to our logging interface, so external configuration can affect the correct logger and not just the logging interface class
+  std::string lname = rh_logger::Logger::getResourceLoggerName();
+  if ( lname != "" ) {
+      std::string _lname = _logger->getName();
+      if ( lname != _lname )  {
+          LOGGER _l = getLogger( lname, true );
+          _logName = lname;
+      }
+  }
+
   STDOUT_DEBUG("Logging_impl setLoggingContext END" );
 }
 
@@ -196,8 +207,6 @@ LOGGER Logging_impl::getLogger (const std::string &logger_name, bool assignToRes
   if ( assignToResource ) {
     _logName = logger_name;
     _logger = retval;
-    // assign level to new logger
-    // RESOLVE, this log_level( _logLevel ) will override resource startup
   }
   
   return retval;
@@ -217,6 +226,8 @@ void Logging_impl::setLogConfig( const char *config_contents ) {
   }
   else {
     ossie::logging::Configure( config_contents, _loggingMacros, _logCfgContents );
+    // check if my level has changed for the logger
+    log_level();    
   }
   
 }
@@ -259,11 +270,20 @@ void Logging_impl::setLogLevel( const char *logger_id, const CF::LogLevel newLev
     std::string logid("");
     if ( logger_id )  logid=logger_id;
     ossie::logging::SetLogLevel( logid, newLevel );
+    if ( _logger && logid == _logger->getName() ) {
+        _logLevel = newLevel;
+    }
   }
 }
 
 CF::LogLevel Logging_impl::log_level() {
-  return _logLevel;
+    if ( _logger ) {
+        CF::LogLevel level = ossie::logging::ConvertRHLevelToCFLevel( _logger->getLevel() );
+        if ( level != _logLevel ) {
+            _logLevel = level;
+        }
+    }
+    return _logLevel;
 }
 
 
@@ -282,7 +302,6 @@ void Logging_impl::log_level( const CF::LogLevel newLevel ) {
     }
   }   
 }
-
 
 
 CF::LogEventSequence *Logging_impl::retrieve_records( CORBA::ULong &howMany,
