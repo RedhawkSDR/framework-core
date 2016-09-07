@@ -31,6 +31,7 @@ from ossie import properties as _properties
 import threading
 globalsdrRoot = os.environ['SDRROOT']
 import sys
+import commands
 import cStringIO
 import time
 import copy
@@ -117,6 +118,16 @@ class SBTestTest(scatest.CorbaTestCase):
     def test_softpkgDepDouble(self):
         c = sb.launch('ticket_490_double')
         self.assertNotEquals(c, None)
+
+    def test_pid(self):
+        a = sb.launch('comp_src')
+        status,output = commands.getstatusoutput('ps -ww -f | grep comp_src')
+        lines = output.split('\n')
+        for line in lines:
+          if 'IOR' in line:
+            break
+        _pid = line.split(' ')[2]
+        self.assertEquals(int(_pid), a._pid)
 
     def test_doubleNamedConnection(self):
         a = sb.launch('comp_src')
