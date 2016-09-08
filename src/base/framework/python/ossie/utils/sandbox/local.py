@@ -108,6 +108,7 @@ class LocalMixin(object):
         execparams.update(self._execparams)
         proc, ref = launchFactory.execute(self._spd, self._impl, execparams, self._debugger, self._window, self._timeout)
         self._process = proc
+        self._pid = self._process.pid()
         return ref
     
     def _requestTermination(self):
